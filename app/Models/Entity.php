@@ -6,29 +6,30 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class EntityType extends Model
+class Entity extends Model
 {
     use HasFactory;
     use SoftDeletes;
 
     protected $fillable = [
         'user_id',
+        'entity_type_id',
         'code',
         'name',
+        'slug',
         'description',
-        'icon',
-        'color',
+        'image',
         'status',
-        'sort_order',
+        'visibility',
+        'metadata',
     ];
 
     protected function casts(): array
     {
         return [
-            'sort_order' => 'integer',
+            'metadata' => 'array',
         ];
     }
 
@@ -37,14 +38,9 @@ class EntityType extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function entities(): HasMany
+    public function entityType(): BelongsTo
     {
-        return $this->hasMany(Entity::class);
-    }
-
-    public function scopeActive(Builder $query): Builder
-    {
-        return $query->where('status', 'ACTIVE');
+        return $this->belongsTo(EntityType::class);
     }
 
     public function scopeOwnedBy(
@@ -54,8 +50,22 @@ class EntityType extends Model
         return $query->where('user_id', $user->id);
     }
 
-    public function isActive(): bool
+    public function scopeActive(Builder $query): Builder
     {
-        return $this->status === 'ACTIVE';
+        return $query->where('status', 'ACTIVE');
+    }
+
+    public function isPublic(): bool
+    {
+        return $this->visibility === 'PUBLIC';
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image) {
+            return null;
+        }
+
+        return asset('storage/'.$this->image);
     }
 }

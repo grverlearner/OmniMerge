@@ -52,4 +52,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(EntityType::class);
     }
+
+    public function entities(): HasMany
+    {
+        return $this->hasMany(Entity::class);
+    }
 }
