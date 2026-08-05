@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Entity extends Model
 {
@@ -74,5 +75,18 @@ class Entity extends Model
     {
         return $this->hasMany(EntityAttribute::class)
             ->orderBy('sort_order');
+    }
+
+    public function collections(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Collection::class,
+            'collection_entity'
+        )
+            ->withPivot([
+                'sort_order',
+                'notes',
+                'added_at',
+            ]);
     }
 }

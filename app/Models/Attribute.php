@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class Attribute extends Model
 {
@@ -20,6 +21,9 @@ class Attribute extends Model
         'source_attribute_id',
         'code',
         'name',
+        'image',
+        'icon',
+        'color',
         'slug',
         'description',
         'help_text',
@@ -124,5 +128,37 @@ class Attribute extends Model
             ['CATALOG', 'MIXED'],
             true
         );
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image) {
+            return null;
+        }
+
+        if (! Storage::disk('public')->exists($this->image)) {
+            return null;
+        }
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+
+        return $disk->url($this->image);
+    }
+
+    public function isSelectable(): bool
+    {
+        return $this->data_type === 'OPTION'
+            || in_array(
+                $this->value_source,
+                ['CATALOG', 'MIXED'],
+                true
+            );
+    }
+
+    public function isMultiSelectable(): bool
+    {
+        return $this->isSelectable()
+            && $this->allows_multiple;
     }
 }

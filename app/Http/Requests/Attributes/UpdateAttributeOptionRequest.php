@@ -3,18 +3,22 @@
 namespace App\Http\Requests\Attributes;
 
 use App\Models\Attribute;
+use App\Models\AttributeOption;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
 
-class StoreAttributeOptionRequest extends FormRequest
+class UpdateAttributeOptionRequest extends FormRequest
 {
     public function authorize(): bool
     {
         $attribute = $this->route('attribute');
+        $option = $this->route('option');
 
         return $attribute instanceof Attribute
+            && $option instanceof AttributeOption
+            && $option->attribute_id === $attribute->id
             && $this->user()?->can(
                 'update',
                 $attribute
@@ -34,6 +38,9 @@ class StoreAttributeOptionRequest extends FormRequest
                     '_'
                 )
             ),
+
+            'remove_image' =>
+                $this->boolean('remove_image'),
         ]);
     }
 
@@ -41,6 +48,9 @@ class StoreAttributeOptionRequest extends FormRequest
     {
         /** @var Attribute $attribute */
         $attribute = $this->route('attribute');
+
+        /** @var AttributeOption $option */
+        $option = $this->route('option');
 
         return [
             'name' => [
@@ -58,12 +68,14 @@ class StoreAttributeOptionRequest extends FormRequest
                 Rule::unique(
                     'attribute_options',
                     'code'
-                )->where(
-                    fn ($query) => $query->where(
-                        'attribute_id',
-                        $attribute->id
+                )
+                    ->where(
+                        fn ($query) => $query->where(
+                            'attribute_id',
+                            $attribute->id
+                        )
                     )
-                ),
+                    ->ignore($option->id),
             ],
 
             'description' => [
@@ -84,6 +96,7 @@ class StoreAttributeOptionRequest extends FormRequest
                             'attribute_id',
                             $attribute->id
                         )
+                        ->where('id', '<>', $option->id)
                         ->whereNull('deleted_at')
                 ),
             ],
@@ -98,6 +111,10 @@ class StoreAttributeOptionRequest extends FormRequest
                         'webp',
                     ])
                     ->max('3mb'),
+            ],
+
+            'remove_image' => [
+                'boolean',
             ],
 
             'icon' => [

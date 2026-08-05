@@ -15,34 +15,27 @@
             </p>
         </div>
 
-        <a
-            href="{{ route('entities.show', $entity) }}"
-            class="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700"
-        >
+        <a href="{{ route('entities.show', $entity) }}"
+            class="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700">
             Volver a la entidad
         </a>
     </div>
 
-    <form
-        method="POST"
-        action="{{ route('entities.attributes.update', $entity) }}"
-    >
+    <form method="POST" action="{{ route('entities.attributes.update', $entity) }}">
         @csrf
         @method('PUT')
 
         <div class="space-y-6">
             @forelse ($attributes as $attribute)
                 @php
-                    $assignment = $existingValues->get(
-                        $attribute->id
-                    );
+                    $assignment = $existingValues->get($attribute->id);
 
                     $values = $assignment?->values ?? collect();
 
                     $selectedOptionIds = $values
                         ->pluck('attribute_option_id')
                         ->filter()
-                        ->map(fn ($id) => (string) $id)
+                        ->map(fn($id) => (string) $id)
                         ->all();
 
                     $firstValue = $values->first();
@@ -62,7 +55,8 @@
                             @endif
 
                             @if ($attribute->allows_multiple)
-                                <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                                <span
+                                    class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
                                     Múltiple
                                 </span>
                             @endif
@@ -77,152 +71,119 @@
 
                     @if ($attribute->data_type === 'OPTION')
                         @if ($attribute->allows_multiple)
-                            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                 @foreach ($attribute->options as $option)
-                                    <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:bg-indigo-50">
-                                        <input
-                                            type="checkbox"
-                                            name="attributes[{{ $attribute->id }}][]"
-                                            value="{{ $option->id }}"
-                                            @checked(
-                                                in_array(
-                                                    (string) $option->id,
-                                                    old(
-                                                        "attributes.{$attribute->id}",
-                                                        $selectedOptionIds
-                                                    )
-                                                )
-                                            )
-                                            class="rounded border-slate-300 text-indigo-600"
-                                        >
+                                    @php
+                                        $checked = in_array(
+                                            (string) $option->id,
+                                            old("attributes.{$attribute->id}", $selectedOptionIds),
+                                        );
+                                    @endphp
 
-                                        <span>
-                                            {{ $option->icon }}
-                                            {{ $option->name }}
-                                        </span>
+                                    <label
+                                        class="group relative cursor-pointer overflow-hidden rounded-2xl border-2 transition
+                {{ $checked ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300' }}">
+                                        <input type="checkbox" name="attributes[{{ $attribute->id }}][]"
+                                            value="{{ $option->id }}" @checked($checked)
+                                            class="peer absolute right-3 top-3 z-10 rounded border-slate-300 text-indigo-600">
+
+                                        <div class="aspect-[16/10] bg-slate-100">
+                                            @if ($option->image_url)
+                                                <img src="{{ $option->image_url }}" alt="{{ $option->name }}"
+                                                    class="h-full w-full object-cover">
+                                            @else
+                                                <div class="flex h-full items-center justify-center text-4xl"
+                                                    style="
+                                background-color:
+                                {{ $option->color ?? '#6366F1' }}20;
+                            ">
+                                                    {{ $option->icon ?: '◆' }}
+                                                </div>
+                                            @endif
+                                        </div>
+
+                                        <div class="p-4">
+                                            <p class="font-bold text-slate-900">
+                                                {{ $option->name }}
+                                            </p>
+
+                                            <p class="mt-1 line-clamp-2 text-xs text-slate-500">
+                                                {{ $option->description }}
+                                            </p>
+                                        </div>
                                     </label>
                                 @endforeach
                             </div>
                         @else
-                            <select
-                                name="attributes[{{ $attribute->id }}]"
-                                class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
-                            >
-                                <option value="">
-                                    Seleccionar
-                                </option>
-
+                            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                 @foreach ($attribute->options as $option)
-                                    <option
-                                        value="{{ $option->id }}"
-                                        @selected(
-                                            old(
-                                                "attributes.{$attribute->id}",
-                                                $firstValue?->attribute_option_id
-                                            ) == $option->id
-                                        )
-                                    >
-                                        {{ $option->icon }}
-                                        {{ $option->name }}
-                                    </option>
+                                    <label
+                                        class="cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-indigo-300">
+                                        <input type="radio" name="attributes[{{ $attribute->id }}]"
+                                            value="{{ $option->id }}" @checked(old("attributes.{$attribute->id}", $firstValue?->attribute_option_id) == $option->id)
+                                            class="sr-only peer">
+
+                                        <div
+                                            class="aspect-[16/9] bg-slate-100 peer-checked:ring-4 peer-checked:ring-indigo-500">
+                                            @if ($option->image_url)
+                                                <img src="{{ $option->image_url }}" class="h-full w-full object-cover"
+                                                    alt="{{ $option->name }}">
+                                            @else
+                                                <div class="flex h-full items-center justify-center text-4xl">
+                                                    {{ $option->icon ?: '◆' }}
+                                                </div>
+                                            @endif
+                                        </div>
+
+                                        <div class="p-4 peer-checked:bg-indigo-50">
+                                            <p class="font-bold">
+                                                {{ $option->name }}
+                                            </p>
+                                        </div>
+                                    </label>
                                 @endforeach
-                            </select>
+                            </div>
                         @endif
-
                     @elseif ($attribute->data_type === 'LONG_TEXT')
-                        <textarea
-                            name="attributes[{{ $attribute->id }}]"
-                            rows="5"
+                        <textarea name="attributes[{{ $attribute->id }}]" rows="5"
                             class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
-                            placeholder="{{ $attribute->placeholder }}"
-                        >{{ old(
-                            "attributes.{$attribute->id}",
-                            $firstValue?->text_value
-                        ) }}</textarea>
-
+                            placeholder="{{ $attribute->placeholder }}">{{ old("attributes.{$attribute->id}", $firstValue?->text_value) }}</textarea>
                     @elseif ($attribute->data_type === 'BOOLEAN')
-                        <select
-                            name="attributes[{{ $attribute->id }}]"
-                            class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
-                        >
+                        <select name="attributes[{{ $attribute->id }}]"
+                            class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
                             <option value="">Sin definir</option>
-                            <option
-                                value="1"
-                                @selected(
-                                    old(
-                                        "attributes.{$attribute->id}",
-                                        $firstValue?->boolean_value
-                                    ) === true
-                                    || old(
-                                        "attributes.{$attribute->id}"
-                                    ) === '1'
-                                )
-                            >
+                            <option value="1" @selected(old("attributes.{$attribute->id}", $firstValue?->boolean_value) === true || old("attributes.{$attribute->id}") === '1')>
                                 Sí
                             </option>
-                            <option
-                                value="0"
-                                @selected(
-                                    old(
-                                        "attributes.{$attribute->id}"
-                                    ) === '0'
-                                    || (
-                                        $firstValue
-                                        && $firstValue->boolean_value === false
-                                    )
-                                )
-                            >
+                            <option value="0" @selected(old("attributes.{$attribute->id}") === '0' || ($firstValue && $firstValue->boolean_value === false))>
                                 No
                             </option>
                         </select>
-
                     @else
                         @php
-                            $inputType = match (
-                                $attribute->data_type
-                            ) {
-                                'INTEGER',
-                                'DECIMAL' => 'number',
+                            $inputType = match ($attribute->data_type) {
+                                'INTEGER', 'DECIMAL' => 'number',
                                 'DATE' => 'date',
                                 'COLOR' => 'color',
                                 default => 'text',
                             };
 
-                            $currentValue = match (
-                                $attribute->data_type
-                            ) {
-                                'INTEGER' =>
-                                    $firstValue?->integer_value,
-                                'DECIMAL' =>
-                                    $firstValue?->decimal_value,
-                                'DATE' =>
-                                    $firstValue?->date_value?->format('Y-m-d'),
-                                'COLOR' =>
-                                    $firstValue?->color_value,
-                                default =>
-                                    $firstValue?->text_value,
+                            $currentValue = match ($attribute->data_type) {
+                                'INTEGER' => $firstValue?->integer_value,
+                                'DECIMAL' => $firstValue?->decimal_value,
+                                'DATE' => $firstValue?->date_value?->format('Y-m-d'),
+                                'COLOR' => $firstValue?->color_value,
+                                default => $firstValue?->text_value,
                             };
                         @endphp
 
-                        <input
-                            type="{{ $inputType }}"
-                            name="attributes[{{ $attribute->id }}]"
-                            value="{{ old(
-                                "attributes.{$attribute->id}",
-                                $currentValue
-                            ) }}"
+                        <input type="{{ $inputType }}" name="attributes[{{ $attribute->id }}]"
+                            value="{{ old("attributes.{$attribute->id}", $currentValue) }}"
                             placeholder="{{ $attribute->placeholder }}"
-                            @if ($attribute->data_type === 'DECIMAL')
-                                step="any"
-                            @endif
-                            @if ($attribute->min_numeric_value !== null)
-                                min="{{ $attribute->min_numeric_value }}"
-                            @endif
-                            @if ($attribute->max_numeric_value !== null)
-                                max="{{ $attribute->max_numeric_value }}"
-                            @endif
-                            class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
-                        >
+                            @if ($attribute->data_type === 'DECIMAL') step="any" @endif
+                            @if ($attribute->min_numeric_value !== null) min="{{ $attribute->min_numeric_value }}" @endif
+                            @if ($attribute->max_numeric_value !== null) max="{{ $attribute->max_numeric_value }}" @endif
+                            class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
                     @endif
 
                     @error("attributes.{$attribute->id}")
@@ -237,10 +198,8 @@
                         Todavía no existen atributos
                     </p>
 
-                    <a
-                        href="{{ route('attributes.create') }}"
-                        class="mt-4 inline-block text-sm font-bold text-indigo-600"
-                    >
+                    <a href="{{ route('attributes.create') }}"
+                        class="mt-4 inline-block text-sm font-bold text-indigo-600">
                         Crear el primer atributo
                     </a>
                 </div>
@@ -249,10 +208,8 @@
 
         @if ($attributes->isNotEmpty())
             <div class="sticky bottom-4 mt-8 flex justify-end">
-                <button
-                    type="submit"
-                    class="rounded-xl bg-indigo-600 px-6 py-3 font-bold text-white shadow-xl shadow-indigo-600/30 hover:bg-indigo-700"
-                >
+                <button type="submit"
+                    class="rounded-xl bg-indigo-600 px-6 py-3 font-bold text-white shadow-xl shadow-indigo-600/30 hover:bg-indigo-700">
                     Guardar atributos
                 </button>
             </div>
