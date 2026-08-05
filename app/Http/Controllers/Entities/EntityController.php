@@ -27,8 +27,8 @@ class EntityController extends Controller
             ->with('entityType')
             ->when(
                 $search,
-                fn ($query) => $query->where(
-                    fn ($subquery) => $subquery
+                fn($query) => $query->where(
+                    fn($subquery) => $subquery
                         ->where('name', 'like', "%{$search}%")
                         ->orWhere('code', 'like', "%{$search}%")
                         ->orWhere(
@@ -40,14 +40,14 @@ class EntityController extends Controller
             )
             ->when(
                 $status,
-                fn ($query) => $query->where(
+                fn($query) => $query->where(
                     'status',
                     $status
                 )
             )
             ->when(
                 $type,
-                fn ($query) => $query->where(
+                fn($query) => $query->where(
                     'entity_type_id',
                     $type
                 )
@@ -120,7 +120,11 @@ class EntityController extends Controller
     {
         $this->authorize('view', $entity);
 
-        $entity->load('entityType');
+        $entity->load([
+            'entityType',
+            'entityAttributes.attribute.groups',
+            'entityAttributes.values.option',
+        ]);
 
         return view(
             'entities.show',

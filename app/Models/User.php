@@ -57,4 +57,13 @@ class User extends Authenticatable
     {
         return $this->hasMany(Entity::class);
     }
+    public function attributes(): HasMany
+    {
+        return $this->hasMany(Attribute::class);
+    }
+
+    public function attributeGroups(): HasMany
+    {
+        return $this->hasMany(AttributeGroup::class);
+    }
 }
