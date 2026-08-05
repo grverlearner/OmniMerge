@@ -11,6 +11,7 @@ use App\Http\Controllers\Attributes\AttributeOptionController;
 use App\Http\Controllers\Entities\EntityAttributeController;
 
 use App\Http\Controllers\Collections\CollectionController;
+use App\Http\Controllers\Community\ExploreController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -117,6 +118,45 @@ Route::middleware('auth')->group(function () {
         'attribute-options/{attributeOption}',
         [AttributeOptionController::class, 'destroy']
     )->name('attribute-options.destroy');
+
+    Route::prefix('explore')
+        ->name('community.')
+        ->group(function () {
+            Route::get(
+                '/',
+                [ExploreController::class, 'index']
+            )->name('index');
+
+            Route::get(
+                '/entities/{entity}',
+                [ExploreController::class, 'entity']
+            )->name('entities.show');
+
+            Route::get(
+                '/collections/{collection}',
+                [ExploreController::class, 'collection']
+            )->name('collections.show');
+
+            Route::get(
+                '/attributes/{attribute}',
+                [ExploreController::class, 'attribute']
+            )->name('attributes.show');
+
+            Route::post(
+                '/entities/{entity}/clone',
+                [ExploreController::class, 'cloneEntity']
+            )->name('entities.clone');
+
+            Route::post(
+                '/collections/{collection}/clone',
+                [ExploreController::class, 'cloneCollection']
+            )->name('collections.clone');
+
+            Route::post(
+                '/attributes/{attribute}/clone',
+                [ExploreController::class, 'cloneAttribute']
+            )->name('attributes.clone');
+        });
 });
 
 require __DIR__ . '/auth.php';

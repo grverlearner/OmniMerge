@@ -28,15 +28,15 @@ class AttributeController extends Controller
             ])
             ->when(
                 $search,
-                fn ($query) => $query->where(
-                    fn ($subquery) => $subquery
+                fn($query) => $query->where(
+                    fn($subquery) => $subquery
                         ->where('name', 'like', "%{$search}%")
                         ->orWhere('code', 'like', "%{$search}%")
                 )
             )
             ->when(
                 $dataType,
-                fn ($query) => $query->where(
+                fn($query) => $query->where(
                     'data_type',
                     $dataType
                 )
@@ -71,6 +71,9 @@ class AttributeController extends Controller
     public function store(
         StoreAttributeRequest $request
     ): RedirectResponse {
+        if (($data['scope'] ?? null) === 'PUBLIC') {
+            $data['published_at'] = now();
+        }
         $data = $request->validated();
         $groupIds = $data['group_ids'] ?? [];
 
@@ -129,6 +132,16 @@ class AttributeController extends Controller
         UpdateAttributeRequest $request,
         Attribute $attribute
     ): RedirectResponse {
+        if (
+            ($data['scope'] ?? null) === 'PUBLIC'
+            && ! $attribute->published_at
+        ) {
+            $data['published_at'] = now();
+        }
+
+        if (($data['scope'] ?? null) !== 'PUBLIC') {
+            $data['published_at'] = null;
+        }
         $data = $request->validated();
         $groupIds = $data['group_ids'] ?? [];
 

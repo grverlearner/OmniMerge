@@ -30,8 +30,8 @@ class CollectionController extends Controller
             ->withCount('entities')
             ->when(
                 $search,
-                fn ($query) => $query->where(
-                    fn ($subquery) => $subquery
+                fn($query) => $query->where(
+                    fn($subquery) => $subquery
                         ->where(
                             'name',
                             'like',
@@ -80,6 +80,10 @@ class CollectionController extends Controller
     public function store(
         StoreCollectionRequest $request
     ): RedirectResponse {
+        if (($data['visibility'] ?? null) === 'PUBLIC') {
+            $data['published_at'] = now();
+        }
+
         $data = $request->validated();
         $entityIds = $data['entity_ids'] ?? [];
 
@@ -204,6 +208,16 @@ class CollectionController extends Controller
 
         unset($data['remove_image']);
 
+        if (
+            ($data['visibility'] ?? null) === 'PUBLIC'
+            && ! $collection->published_at
+        ) {
+            $data['published_at'] = now();
+        }
+
+        if (($data['visibility'] ?? null) !== 'PUBLIC') {
+            $data['published_at'] = null;
+        }
         $collection->update($data);
 
         $syncData = [];

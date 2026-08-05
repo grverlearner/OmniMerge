@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Collection extends Model
 {
@@ -28,6 +29,11 @@ class Collection extends Model
         'status',
         'sort_order',
         'metadata',
+        'source_collection_id',
+        'allow_cloning',
+        'views_count',
+        'clones_count',
+        'published_at',
     ];
 
     protected function casts(): array
@@ -35,6 +41,10 @@ class Collection extends Model
         return [
             'metadata' => 'array',
             'sort_order' => 'integer',
+            'allow_cloning' => 'boolean',
+            'views_count' => 'integer',
+            'clones_count' => 'integer',
+            'published_at' => 'datetime',
         ];
     }
 
@@ -83,5 +93,42 @@ class Collection extends Model
         $disk = Storage::disk('public');
 
         return $disk->url($this->image);
+    }
+
+    public function sourceCollection(): BelongsTo
+    {
+        return $this->belongsTo(
+            self::class,
+            'source_collection_id'
+        );
+    }
+
+    public function clones(): HasMany
+    {
+        return $this->hasMany(
+            self::class,
+            'source_collection_id'
+        );
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'user_id'
+        );
+    }
+
+    public function isPublished(): bool
+    {
+        return $this->visibility === 'PUBLIC'
+            && $this->status === 'ACTIVE'
+            && $this->published_at !== null;
+    }
+
+    public function canBeCloned(): bool
+    {
+        return $this->isPublished()
+            && $this->allow_cloning;
     }
 }

@@ -103,15 +103,19 @@
                     Colecciones
                 </a>
 
-                <span
-                    class="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-600">
+                <a href="{{ route('community.index') }}"
+                    class="{{ request()->routeIs('community.*')
+                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40'
+                        : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
+                        flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition">
                     <span class="text-lg">◉</span>
+
                     Explorar comunidad
 
-                    <span class="ml-auto rounded-full bg-slate-800 px-2 py-0.5 text-[10px]">
-                        Próximo
+                    <span class="ml-auto rounded-full bg-indigo-400/20 px-2 py-0.5 text-[10px] text-indigo-200">
+                        Público
                     </span>
-                </span>
+                </a>
             </div>
         </div>
 

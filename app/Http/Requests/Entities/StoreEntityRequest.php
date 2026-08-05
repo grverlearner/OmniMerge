@@ -30,6 +30,9 @@ class StoreEntityRequest extends FormRequest
             'slug' => Str::slug(
                 $this->input('slug') ?: $name
             ),
+
+            'allow_cloning' =>
+            $this->boolean('allow_cloning'),
         ]);
     }
 
@@ -40,7 +43,7 @@ class StoreEntityRequest extends FormRequest
                 'nullable',
                 Rule::exists('entity_types', 'id')
                     ->where(
-                        fn ($query) => $query
+                        fn($query) => $query
                             ->where('user_id', $this->user()->id)
                             ->whereNull('deleted_at')
                     ),
@@ -59,7 +62,7 @@ class StoreEntityRequest extends FormRequest
                 'regex:/^[A-Z0-9_]+$/',
                 Rule::unique('entities', 'code')
                     ->where(
-                        fn ($query) => $query->where(
+                        fn($query) => $query->where(
                             'user_id',
                             $this->user()->id
                         )
@@ -72,7 +75,7 @@ class StoreEntityRequest extends FormRequest
                 'max:180',
                 Rule::unique('entities', 'slug')
                     ->where(
-                        fn ($query) => $query->where(
+                        fn($query) => $query->where(
                             'user_id',
                             $this->user()->id
                         )
@@ -109,6 +112,9 @@ class StoreEntityRequest extends FormRequest
                     'UNLISTED',
                 ]),
             ],
+            'allow_cloning' => [
+                'boolean',
+            ],
         ];
     }
 
@@ -116,25 +122,25 @@ class StoreEntityRequest extends FormRequest
     {
         return [
             'name.required' =>
-                'El nombre de la entidad es obligatorio.',
+            'El nombre de la entidad es obligatorio.',
 
             'entity_type_id.exists' =>
-                'El tipo seleccionado no es válido.',
+            'El tipo seleccionado no es válido.',
 
             'code.unique' =>
-                'Ya tienes una entidad con este código.',
+            'Ya tienes una entidad con este código.',
 
             'slug.unique' =>
-                'Ya tienes una entidad con este identificador.',
+            'Ya tienes una entidad con este identificador.',
 
             'image.image' =>
-                'El archivo seleccionado debe ser una imagen.',
+            'El archivo seleccionado debe ser una imagen.',
 
             'image.mimes' =>
-                'La imagen debe ser JPG, PNG o WEBP.',
+            'La imagen debe ser JPG, PNG o WEBP.',
 
             'image.max' =>
-                'La imagen no puede superar los 2 MB.',
+            'La imagen no puede superar los 2 MB.',
         ];
     }
 }

@@ -34,6 +34,9 @@ class UpdateEntityRequest extends FormRequest
             'slug' => Str::slug(
                 $this->input('slug') ?: $name
             ),
+
+            'allow_cloning' =>
+            $this->boolean('allow_cloning'),
         ]);
     }
 
@@ -47,7 +50,7 @@ class UpdateEntityRequest extends FormRequest
                 'nullable',
                 Rule::exists('entity_types', 'id')
                     ->where(
-                        fn ($query) => $query
+                        fn($query) => $query
                             ->where('user_id', $this->user()->id)
                             ->whereNull('deleted_at')
                     ),
@@ -66,7 +69,7 @@ class UpdateEntityRequest extends FormRequest
                 'regex:/^[A-Z0-9_]+$/',
                 Rule::unique('entities', 'code')
                     ->where(
-                        fn ($query) => $query->where(
+                        fn($query) => $query->where(
                             'user_id',
                             $this->user()->id
                         )
@@ -80,7 +83,7 @@ class UpdateEntityRequest extends FormRequest
                 'max:180',
                 Rule::unique('entities', 'slug')
                     ->where(
-                        fn ($query) => $query->where(
+                        fn($query) => $query->where(
                             'user_id',
                             $this->user()->id
                         )
@@ -122,6 +125,9 @@ class UpdateEntityRequest extends FormRequest
                     'PUBLIC',
                     'UNLISTED',
                 ]),
+            ],
+            'allow_cloning' => [
+                'boolean',
             ],
         ];
     }

@@ -51,6 +51,10 @@ class Attribute extends Model
         'validation_rules',
         'configuration',
         'status',
+        'allow_cloning',
+        'views_count',
+        'clones_count',
+        'published_at',
     ];
 
     protected function casts(): array
@@ -69,6 +73,10 @@ class Attribute extends Model
             'default_value' => 'array',
             'validation_rules' => 'array',
             'configuration' => 'array',
+            'allow_cloning' => 'boolean',
+            'views_count' => 'integer',
+            'clones_count' => 'integer',
+            'published_at' => 'datetime',
         ];
     }
 
@@ -160,5 +168,34 @@ class Attribute extends Model
     {
         return $this->isSelectable()
             && $this->allows_multiple;
+    }
+
+    public function clones(): HasMany
+    {
+        return $this->hasMany(
+            self::class,
+            'source_attribute_id'
+        );
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'user_id'
+        );
+    }
+
+    public function isPublished(): bool
+    {
+        return $this->scope === 'PUBLIC'
+            && $this->status === 'ACTIVE'
+            && $this->published_at !== null;
+    }
+
+    public function canBeCloned(): bool
+    {
+        return $this->isPublished()
+            && $this->allow_cloning;
     }
 }

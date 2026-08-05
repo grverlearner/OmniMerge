@@ -22,6 +22,9 @@ class SaveEntityAttributesRequest extends FormRequest
                 'nullable',
                 'array',
             ],
+            'allow_cloning' => [
+                'boolean',
+            ],
         ];
     }
 }

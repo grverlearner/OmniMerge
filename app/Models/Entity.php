@@ -26,12 +26,21 @@ class Entity extends Model
         'status',
         'visibility',
         'metadata',
+        'source_entity_id',
+        'allow_cloning',
+        'views_count',
+        'clones_count',
+        'published_at',
     ];
 
     protected function casts(): array
     {
         return [
             'metadata' => 'array',
+            'allow_cloning' => 'boolean',
+            'views_count' => 'integer',
+            'clones_count' => 'integer',
+            'published_at' => 'datetime',
         ];
     }
 
@@ -88,5 +97,42 @@ class Entity extends Model
                 'notes',
                 'added_at',
             ]);
+    }
+
+    public function sourceEntity(): BelongsTo
+    {
+        return $this->belongsTo(
+            self::class,
+            'source_entity_id'
+        );
+    }
+
+    public function clones(): HasMany
+    {
+        return $this->hasMany(
+            self::class,
+            'source_entity_id'
+        );
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class,
+            'user_id'
+        );
+    }
+
+    public function isPublished(): bool
+    {
+        return $this->visibility === 'PUBLIC'
+            && $this->status === 'ACTIVE'
+            && $this->published_at !== null;
+    }
+
+    public function canBeCloned(): bool
+    {
+        return $this->isPublished()
+            && $this->allow_cloning;
     }
 }

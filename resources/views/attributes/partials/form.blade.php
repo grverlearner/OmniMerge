@@ -138,6 +138,41 @@
         @endforeach
     </div>
 
+    <div>
+        <label class="mb-2 block text-sm font-semibold text-slate-700">
+            Visibilidad
+        </label>
+
+        <select name="scope" class="w-full rounded-xl border-slate-300">
+            @foreach ([
+        'PRIVATE' => 'Privado',
+        'PUBLIC' => 'Público',
+        'UNLISTED' => 'No listado',
+    ] as $value => $label)
+                <option value="{{ $value }}" @selected(old('scope', $attribute->scope ?? 'PRIVATE') === $value)>
+                    {{ $label }}
+                </option>
+            @endforeach
+        </select>
+    </div>
+
+    <div class="lg:col-span-2">
+        <label class="flex items-start gap-3 rounded-2xl border border-slate-200 p-4">
+            <input type="checkbox" name="allow_cloning" value="1" @checked(old('allow_cloning', $attribute->allow_cloning ?? true))
+                class="mt-1 rounded border-slate-300 text-indigo-600">
+
+            <span>
+                <span class="block font-semibold text-slate-800">
+                    Permitir que otros usuarios copien este atributo
+                </span>
+
+                <span class="mt-1 block text-sm text-slate-500">
+                    Se copiarán también sus opciones, imágenes y jerarquías.
+                </span>
+            </span>
+        </label>
+    </div>
+
     <div class="grid gap-6 lg:grid-cols-2">
         <div>
             <label class="mb-2 block text-sm font-semibold">

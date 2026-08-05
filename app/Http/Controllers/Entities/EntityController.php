@@ -94,6 +94,10 @@ class EntityController extends Controller
     public function store(
         StoreEntityRequest $request
     ): RedirectResponse {
+
+        if (($data['visibility'] ?? null) === 'PUBLIC') {
+            $data['published_at'] = now();
+        }
         $data = $request->validated();
 
         if ($request->hasFile('image')) {
@@ -178,6 +182,17 @@ class EntityController extends Controller
         }
 
         unset($data['remove_image']);
+
+        if (
+            ($data['visibility'] ?? null) === 'PUBLIC'
+            && ! $entity->published_at
+        ) {
+            $data['published_at'] = now();
+        }
+
+        if (($data['visibility'] ?? null) !== 'PUBLIC') {
+            $data['published_at'] = null;
+        }
 
         $entity->update($data);
 

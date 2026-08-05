@@ -44,6 +44,9 @@ class StoreAttributeRequest extends FormRequest
             $this->boolean('is_visible'),
             'is_featured' =>
             $this->boolean('is_featured'),
+
+            'allow_cloning' =>
+            $this->boolean('allow_cloning'),
         ]);
     }
 
@@ -203,6 +206,19 @@ class StoreAttributeRequest extends FormRequest
                             $this->user()->id
                         )
                     ),
+            ],
+
+            'scope' => [
+                'required',
+                Rule::in([
+                    'PRIVATE',
+                    'PUBLIC',
+                    'UNLISTED',
+                ]),
+            ],
+
+            'allow_cloning' => [
+                'boolean',
             ],
         ];
     }
