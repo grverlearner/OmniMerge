@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\Hub\HubController;
+
 use App\Http\Controllers\Entities\EntityController;
 use App\Http\Controllers\EntityTypes\EntityTypeController;
 use App\Http\Controllers\ProfileController;
@@ -19,6 +21,11 @@ Route::view('/', 'welcome')
     ->name('home');
 
 Route::middleware('auth')->group(function () {
+    Route::get(
+        '/hub',
+        HubController::class
+    )->name('hub');
+    
     Route::get(
         '/dashboard',
         DashboardController::class

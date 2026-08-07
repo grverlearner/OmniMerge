@@ -1,12 +1,12 @@
 <x-app-layout>
     <x-slot name="header">
-        Dashboard
+        Biblioteca
     </x-slot>
 
     <section class="rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 p-8 text-white shadow-xl">
         <div class="max-w-3xl">
             <p class="text-sm font-semibold uppercase tracking-widest text-indigo-100">
-                Bienvenido a OmniMerge
+                Biblioteca OmniMerge
             </p>
 
             <h2 class="mt-3 text-3xl font-black sm:text-4xl">

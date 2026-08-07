@@ -81,7 +81,10 @@ class RegisteredUserController extends Controller
         Auth::login($user);
 
         return redirect()
-            ->route('dashboard')
-            ->with('success', 'Tu cuenta fue creada correctamente.');
+            ->route('hub')
+            ->with(
+                'success',
+                'Tu cuenta fue creada correctamente. Bienvenido a OmniMerge.'
+            );
     }
 }

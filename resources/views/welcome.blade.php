@@ -235,7 +235,7 @@
                             Explorar
                         </a>
 
-                        <a href="{{ route('dashboard') }}"
+                        <a href="{{ route('hub') }}"
                             class="
                             rounded-xl
                             bg-white
@@ -247,7 +247,7 @@
                             transition
                             hover:bg-indigo-50
                         ">
-                            Ir al panel
+                            Ir a OmniMerge
                         </a>
                     @else
                         <a href="{{ route('login') }}"
@@ -364,7 +364,7 @@
 
                     @auth
 
-                        <a href="{{ route('dashboard') }}"
+                        <a href="{{ route('hub') }}"
                             class="
                             mt-3
                             block
@@ -377,7 +377,7 @@
                             font-black
                             text-white
                         ">
-                            Ir al panel
+                            Ir a OmniMerge
                         </a>
                     @else
                         <div
@@ -535,7 +535,7 @@
                     ">
                         @auth
 
-                            <a href="{{ route('dashboard') }}"
+                            <a href="{{ route('hub') }}"
                                 class="
                                 inline-flex
                                 items-center
@@ -2076,7 +2076,7 @@
 
                         @auth
 
-                            <a href="{{ route('dashboard') }}"
+                            <a href="{{ route('hub') }}"
                                 class="
                                 mt-8
                                 inline-flex
