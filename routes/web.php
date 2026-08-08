@@ -67,16 +67,6 @@ Route::middleware('auth')->group(function () {
         AttributeGroupController::class
     );
 
-    Route::post(
-        'attributes/{attribute}/options',
-        [AttributeOptionController::class, 'store']
-    )->name('attributes.options.store');
-
-    Route::delete(
-        'attributes/{attribute}/options/{option}',
-        [AttributeOptionController::class, 'destroy']
-    )->name('attributes.options.destroy');
-
     Route::get(
         'entities/{entity}/attributes',
         [EntityAttributeController::class, 'edit']

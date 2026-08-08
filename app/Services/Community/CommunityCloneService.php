@@ -21,7 +21,7 @@ class CommunityCloneService
         if (! $source->canBeCloned()) {
             throw ValidationException::withMessages([
                 'entity' =>
-                    'Esta entidad no está disponible para clonación.',
+                'Esta entidad no está disponible para clonación.',
             ]);
         }
 
@@ -43,21 +43,21 @@ class CommunityCloneService
                     ->firstOrCreate(
                         [
                             'code' =>
-                                $source->entityType->code,
+                            $source->entityType->code,
                         ],
                         [
                             'name' =>
-                                $source->entityType->name,
+                            $source->entityType->name,
                             'description' =>
-                                $source->entityType->description,
+                            $source->entityType->description,
                             'icon' =>
-                                $source->entityType->icon,
+                            $source->entityType->icon,
                             'color' =>
-                                $source->entityType->color,
+                            $source->entityType->color,
                             'status' =>
-                                'ACTIVE',
+                            'ACTIVE',
                             'sort_order' =>
-                                $source->entityType->sort_order,
+                            $source->entityType->sort_order,
                         ]
                     );
 
@@ -83,48 +83,48 @@ class CommunityCloneService
 
             $entity = $user->entities()->create([
                 'source_entity_id' =>
-                    $source->id,
+                $source->id,
 
                 'entity_type_id' =>
-                    $entityTypeId,
+                $entityTypeId,
 
                 'code' =>
-                    $code,
+                $code,
 
                 'name' =>
-                    $name,
+                $name,
 
                 'slug' =>
-                    $slug,
+                $slug,
 
                 'description' =>
-                    $source->description,
+                $source->description,
 
                 'image' =>
-                    $this->copyPublicFile(
-                        $source->image,
-                        'entities'
-                    ),
+                $this->copyPublicFile(
+                    $source->image,
+                    'entities'
+                ),
 
                 'status' =>
-                    'ACTIVE',
+                'ACTIVE',
 
                 'visibility' =>
-                    'PRIVATE',
+                'PRIVATE',
 
                 'allow_cloning' =>
-                    true,
+                true,
 
                 'metadata' =>
-                    array_merge(
-                        $source->metadata ?? [],
-                        [
-                            'cloned_from_user_id' =>
-                                $source->user_id,
-                            'cloned_at' =>
-                                now()->toISOString(),
-                        ]
-                    ),
+                array_merge(
+                    $source->metadata ?? [],
+                    [
+                        'cloned_from_user_id' =>
+                        $source->user_id,
+                        'cloned_at' =>
+                        now()->toISOString(),
+                    ]
+                ),
             ]);
 
             foreach (
@@ -141,25 +141,25 @@ class CommunityCloneService
 
                 $assignment = EntityAttribute::create([
                     'entity_id' =>
-                        $entity->id,
+                    $entity->id,
 
                     'attribute_id' =>
-                        $attribute->id,
+                    $attribute->id,
 
                     'custom_label' =>
-                        $sourceAssignment->custom_label,
+                    $sourceAssignment->custom_label,
 
                     'is_visible' =>
-                        $sourceAssignment->is_visible,
+                    $sourceAssignment->is_visible,
 
                     'is_featured' =>
-                        $sourceAssignment->is_featured,
+                    $sourceAssignment->is_featured,
 
                     'sort_order' =>
-                        $sourceAssignment->sort_order,
+                    $sourceAssignment->sort_order,
 
                     'notes' =>
-                        $sourceAssignment->notes,
+                    $sourceAssignment->notes,
                 ]);
 
                 foreach (
@@ -182,34 +182,34 @@ class CommunityCloneService
 
                     $assignment->values()->create([
                         'attribute_option_id' =>
-                            $optionId,
+                        $optionId,
 
                         'text_value' =>
-                            $sourceValue->text_value,
+                        $sourceValue->text_value,
 
                         'integer_value' =>
-                            $sourceValue->integer_value,
+                        $sourceValue->integer_value,
 
                         'decimal_value' =>
-                            $sourceValue->decimal_value,
+                        $sourceValue->decimal_value,
 
                         'boolean_value' =>
-                            $sourceValue->boolean_value,
+                        $sourceValue->boolean_value,
 
                         'date_value' =>
-                            $sourceValue->date_value,
+                        $sourceValue->date_value,
 
                         'color_value' =>
-                            $sourceValue->color_value,
+                        $sourceValue->color_value,
 
                         'custom_value' =>
-                            $sourceValue->custom_value,
+                        $sourceValue->custom_value,
 
                         'json_value' =>
-                            $sourceValue->json_value,
+                        $sourceValue->json_value,
 
                         'sort_order' =>
-                            $sourceValue->sort_order,
+                        $sourceValue->sort_order,
                     ]);
                 }
             }
@@ -234,7 +234,7 @@ class CommunityCloneService
         if (! $source->canBeCloned()) {
             throw ValidationException::withMessages([
                 'collection' =>
-                    'Esta colección no está disponible para clonación.',
+                'Esta colección no está disponible para clonación.',
             ]);
         }
 
@@ -265,49 +265,49 @@ class CommunityCloneService
                 ->collections()
                 ->create([
                     'source_collection_id' =>
-                        $source->id,
+                    $source->id,
 
                     'code' =>
-                        $code,
+                    $code,
 
                     'name' =>
-                        $name,
+                    $name,
 
                     'slug' =>
-                        $slug,
+                    $slug,
 
                     'description' =>
-                        $source->description,
+                    $source->description,
 
                     'image' =>
-                        $this->copyPublicFile(
-                            $source->image,
-                            'collections'
-                        ),
+                    $this->copyPublicFile(
+                        $source->image,
+                        'collections'
+                    ),
 
                     'icon' =>
-                        $source->icon,
+                    $source->icon,
 
                     'color' =>
-                        $source->color,
+                    $source->color,
 
                     'visibility' =>
-                        'PRIVATE',
+                    'PRIVATE',
 
                     'allow_cloning' =>
-                        true,
+                    true,
 
                     'status' =>
-                        'ACTIVE',
+                    'ACTIVE',
 
                     'sort_order' =>
-                        $source->sort_order,
+                    $source->sort_order,
 
                     'metadata' => [
                         'cloned_from_user_id' =>
-                            $source->user_id,
+                        $source->user_id,
                         'cloned_at' =>
-                            now()->toISOString(),
+                        now()->toISOString(),
                     ],
                 ]);
 
@@ -326,10 +326,10 @@ class CommunityCloneService
                         $newEntity->id,
                         [
                             'sort_order' =>
-                                $index,
+                            $index,
 
                             'added_at' =>
-                                now(),
+                            now(),
                         ]
                     );
             }
@@ -354,12 +354,12 @@ class CommunityCloneService
         if (! $source->canBeCloned()) {
             throw ValidationException::withMessages([
                 'attribute' =>
-                    'Este atributo no está disponible para clonación.',
+                'Este atributo no está disponible para clonación.',
             ]);
         }
 
         $attribute = DB::transaction(
-            fn () => $this->cloneOrReuseAttribute(
+            fn() => $this->cloneOrReuseAttribute(
                 $source,
                 $user
             )
@@ -381,7 +381,15 @@ class CommunityCloneService
         Attribute $source,
         User $user
     ): Attribute {
-        $existing = $user
+
+        /*
+    |--------------------------------------------------------------------------
+    | Reutilizar una copia previa
+    |--------------------------------------------------------------------------
+    */
+
+        $existing =
+            $user
             ->attributes()
             ->where(
                 'source_attribute_id',
@@ -389,194 +397,363 @@ class CommunityCloneService
             )
             ->first();
 
+
         if ($existing) {
             return $existing;
         }
 
-        $source->load('options');
 
-        $attribute = $user->attributes()->create([
-            'source_attribute_id' =>
+        $source->load(
+            'options'
+        );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Bloquear usuario para generar código secuencial
+    |--------------------------------------------------------------------------
+    */
+
+        /** @var User $lockedUser */
+        $lockedUser =
+            User::query()
+            ->whereKey(
+                $user->id
+            )
+            ->lockForUpdate()
+            ->firstOrFail();
+
+
+        $lastSequence =
+            (int) Attribute
+                ::withTrashed()
+                ->where(
+                    'user_id',
+                    $lockedUser->id
+                )
+                ->max(
+                    'sequence_number'
+                );
+
+
+        $sequence =
+            $lastSequence + 1;
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Slug único
+    |--------------------------------------------------------------------------
+    */
+
+        $slug =
+            $this->uniqueSlug(
+                'attributes',
+                $source->slug
+                    ?: $source->name,
+                $lockedUser->id
+            );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Orden
+    |--------------------------------------------------------------------------
+    */
+
+        $lastSortOrder =
+            (int) Attribute
+                ::withTrashed()
+                ->where(
+                    'user_id',
+                    $lockedUser->id
+                )
+                ->max(
+                    'sort_order'
+                );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Crear copia
+    |--------------------------------------------------------------------------
+    */
+
+        $attribute =
+            $lockedUser
+            ->attributes()
+            ->create([
+
+                'source_attribute_id' =>
                 $source->id,
 
-            'code' =>
-                $this->uniqueCode(
-                    'attributes',
-                    $source->code,
-                    $user->id
+
+                /*
+                |--------------------------------------------------------------------------
+                | Identidad propia del nuevo usuario
+                |--------------------------------------------------------------------------
+                */
+
+                'sequence_number' =>
+                $sequence,
+
+                'code' =>
+                Attribute::formatCode(
+                    $sequence
                 ),
 
-            'name' =>
+                'name' =>
                 $source->name,
 
-            'slug' =>
-                $this->uniqueSlug(
-                    'attributes',
-                    $source->slug,
-                    $user->id
-                ),
+                'slug' =>
+                $slug,
 
-            'description' =>
+
+                /*
+                |--------------------------------------------------------------------------
+                | Información
+                |--------------------------------------------------------------------------
+                */
+
+                'description' =>
                 $source->description,
 
-            'help_text' =>
+                'help_text' =>
                 $source->help_text,
 
-            'placeholder' =>
+                'placeholder' =>
                 $source->placeholder,
 
-            'image' =>
+
+                /*
+                |--------------------------------------------------------------------------
+                | Apariencia
+                |--------------------------------------------------------------------------
+                */
+
+                'image' =>
                 $this->copyPublicFile(
                     $source->image,
                     'attributes'
                 ),
 
-            'icon' =>
+                'icon' =>
                 $source->icon,
 
-            'color' =>
+                'color' =>
                 $source->color,
 
-            'data_type' =>
+
+                /*
+                |--------------------------------------------------------------------------
+                | Tipo
+                |--------------------------------------------------------------------------
+                */
+
+                'data_type' =>
                 $source->data_type,
 
-            'value_source' =>
+                'value_source' =>
                 $source->value_source,
 
-            'display_style' =>
+                'display_style' =>
                 $source->display_style,
 
-            'allows_multiple' =>
+                'allows_multiple' =>
                 $source->allows_multiple,
 
-            'allows_custom_values' =>
+                'allows_custom_values' =>
                 $source->allows_custom_values,
 
-            'is_required' =>
+
+                /*
+                |--------------------------------------------------------------------------
+                | Comportamiento
+                |--------------------------------------------------------------------------
+                */
+
+                'is_required' =>
                 $source->is_required,
 
-            'is_filterable' =>
+                'is_filterable' =>
                 $source->is_filterable,
 
-            'is_comparable' =>
+                'is_comparable' =>
                 $source->is_comparable,
 
-            'is_searchable' =>
+                'is_searchable' =>
                 $source->is_searchable,
 
-            'is_visible' =>
+                'is_visible' =>
                 $source->is_visible,
 
-            'is_featured' =>
+                'is_featured' =>
                 $source->is_featured,
 
-            'min_numeric_value' =>
+
+                /*
+                |--------------------------------------------------------------------------
+                | Restricciones
+                |--------------------------------------------------------------------------
+                */
+
+                'min_numeric_value' =>
                 $source->min_numeric_value,
 
-            'max_numeric_value' =>
+                'max_numeric_value' =>
                 $source->max_numeric_value,
 
-            'min_length' =>
+                'min_length' =>
                 $source->min_length,
 
-            'max_length' =>
+                'max_length' =>
                 $source->max_length,
 
-            'unit' =>
+                'unit' =>
                 $source->unit,
 
-            'sort_order' =>
-                $source->sort_order,
 
-            'hierarchy_level' =>
+                /*
+                |--------------------------------------------------------------------------
+                | Organización
+                |--------------------------------------------------------------------------
+                */
+
+                'sort_order' =>
+                $lastSortOrder + 10,
+
+                'hierarchy_level' =>
                 $source->hierarchy_level,
 
-            'scope' =>
+
+                /*
+                |--------------------------------------------------------------------------
+                | Copia comunitaria privada
+                |--------------------------------------------------------------------------
+                */
+
+                'scope' =>
                 'PRIVATE',
 
-            'allow_cloning' =>
+                'allow_cloning' =>
                 true,
 
-            'default_value' =>
+                'status' =>
+                'ACTIVE',
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Configuración
+                |--------------------------------------------------------------------------
+                */
+
+                'default_value' =>
                 $source->default_value,
 
-            'validation_rules' =>
+                'validation_rules' =>
                 $source->validation_rules,
 
-            'configuration' =>
+                'configuration' =>
                 $source->configuration,
+            ]);
 
-            'status' =>
-                'ACTIVE',
-        ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | Copiar Catálogo
+    |--------------------------------------------------------------------------
+    */
 
         $optionMap = [];
 
-        foreach ($source->options as $sourceOption) {
-            $newOption = $attribute
+
+        foreach (
+            $source->options
+            as $sourceOption
+        ) {
+
+            $newOption =
+                $attribute
                 ->options()
                 ->create([
+
                     'parent_option_id' =>
-                        null,
+                    null,
 
                     'code' =>
-                        $sourceOption->code,
+                    $sourceOption->code,
 
                     'name' =>
-                        $sourceOption->name,
+                    $sourceOption->name,
 
                     'description' =>
-                        $sourceOption->description,
+                    $sourceOption->description,
 
                     'image' =>
-                        $this->copyPublicFile(
-                            $sourceOption->image,
-                            'attribute-options'
-                        ),
+                    $this->copyPublicFile(
+                        $sourceOption->image,
+                        'attribute-options'
+                    ),
 
                     'icon' =>
-                        $sourceOption->icon,
+                    $sourceOption->icon,
 
                     'color' =>
-                        $sourceOption->color,
+                    $sourceOption->color,
 
                     'numeric_value' =>
-                        $sourceOption->numeric_value,
+                    $sourceOption->numeric_value,
 
                     'sort_order' =>
-                        $sourceOption->sort_order,
+                    $sourceOption->sort_order,
 
                     'metadata' =>
-                        $sourceOption->metadata,
+                    $sourceOption->metadata,
 
                     'status' =>
-                        $sourceOption->status,
+                    $sourceOption->status,
                 ]);
+
 
             $optionMap[$sourceOption->id] =
                 $newOption->id;
         }
 
-        foreach ($source->options as $sourceOption) {
+
+        /*
+    |--------------------------------------------------------------------------
+    | Reconstruir jerarquías
+    |--------------------------------------------------------------------------
+    */
+
+        foreach (
+            $source->options
+            as $sourceOption
+        ) {
+
             if (
-                $sourceOption->parent_option_id
-                && isset(
-                    $optionMap[
-                        $sourceOption->parent_option_id
-                    ]
+                $sourceOption
+                ->parent_option_id
+
+                &&
+
+                isset(
+                    $optionMap[$sourceOption
+                        ->parent_option_id]
                 )
             ) {
+
                 $attribute
                     ->options()
                     ->whereKey(
                         $optionMap[$sourceOption->id]
                     )
                     ->update([
+
                         'parent_option_id' =>
-                            $optionMap[
-                                $sourceOption
-                                    ->parent_option_id
-                            ],
+                        $optionMap[$sourceOption
+                            ->parent_option_id],
                     ]);
             }
         }
@@ -606,9 +783,9 @@ class CommunityCloneService
 
         $targetPath =
             $targetDirectory
-            .'/'
-            .Str::uuid()
-            .($extension ? '.'.$extension : '');
+            . '/'
+            . Str::uuid()
+            . ($extension ? '.' . $extension : '');
 
         $disk->copy(
             $sourcePath,
@@ -632,11 +809,11 @@ class CommunityCloneService
 
         while (
             DB::table($table)
-                ->where('user_id', $userId)
-                ->where('code', $code)
-                ->exists()
+            ->where('user_id', $userId)
+            ->where('code', $code)
+            ->exists()
         ) {
-            $code = $baseCode.'_'.$counter;
+            $code = $baseCode . '_' . $counter;
             $counter++;
         }
 
@@ -654,11 +831,11 @@ class CommunityCloneService
 
         while (
             DB::table($table)
-                ->where('user_id', $userId)
-                ->where('slug', $slug)
-                ->exists()
+            ->where('user_id', $userId)
+            ->where('slug', $slug)
+            ->exists()
         ) {
-            $slug = $baseSlug.'-'.$counter;
+            $slug = $baseSlug . '-' . $counter;
             $counter++;
         }
 
@@ -677,7 +854,7 @@ class CommunityCloneService
             return $name;
         }
 
-        return $name.' (copia)';
+        return $name . ' (copia)';
     }
 
     private function uniqueCollectionName(
@@ -692,7 +869,7 @@ class CommunityCloneService
             return $name;
         }
 
-        return $name.' (copia)';
+        return $name . ' (copia)';
     }
 
     private function recordInteraction(
@@ -705,25 +882,25 @@ class CommunityCloneService
             'community_interactions'
         )->insert([
             'user_id' =>
-                $user->id,
+            $user->id,
 
             'content_type' =>
-                $contentType,
+            $contentType,
 
             'content_id' =>
-                $contentId,
+            $contentId,
 
             'interaction_type' =>
-                $interactionType,
+            $interactionType,
 
             'metadata' =>
-                null,
+            null,
 
             'created_at' =>
-                now(),
+            now(),
 
             'updated_at' =>
-                now(),
+            now(),
         ]);
     }
 }

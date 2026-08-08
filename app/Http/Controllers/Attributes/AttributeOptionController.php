@@ -31,8 +31,8 @@ class AttributeOptionController extends Controller
             ->withCount('children')
             ->when(
                 $search,
-                fn ($query) => $query->where(
-                    fn ($subquery) => $subquery
+                fn($query) => $query->where(
+                    fn($subquery) => $subquery
                         ->where(
                             'name',
                             'like',
@@ -47,7 +47,7 @@ class AttributeOptionController extends Controller
             )
             ->when(
                 $attributeId,
-                fn ($query) => $query->where(
+                fn($query) => $query->where(
                     'attribute_id',
                     $attributeId
                 )
@@ -62,7 +62,7 @@ class AttributeOptionController extends Controller
             ->ownedBy($request->user())
             ->active()
             ->where(
-                fn ($query) => $query
+                fn($query) => $query
                     ->where('data_type', 'OPTION')
                     ->orWhereIn(
                         'value_source',
@@ -89,7 +89,7 @@ class AttributeOptionController extends Controller
             ->ownedBy($request->user())
             ->active()
             ->where(
-                fn ($query) => $query
+                fn($query) => $query
                     ->where('data_type', 'OPTION')
                     ->orWhereIn(
                         'value_source',
@@ -111,11 +111,11 @@ class AttributeOptionController extends Controller
 
         $parentOptions = $selectedAttribute
             ? $selectedAttribute
-                ->options()
-                ->where('status', 'ACTIVE')
-                ->get()
+            ->options()
+            ->where('status', 'ACTIVE')
+            ->get()
             : collect();
-        
+
         $selectedParentId = $request->integer('parent');
 
         return view(
@@ -133,16 +133,22 @@ class AttributeOptionController extends Controller
         StoreAttributeOptionRequest $request,
         Attribute $attribute
     ): RedirectResponse {
+
         abort_unless(
             $attribute->isSelectable(),
             422,
-            'Este atributo no admite opciones.'
+            'Este atributo no admite elementos de catálogo.'
         );
 
-        $data = $request->validated();
+
+        $data =
+            $request->validated();
+
 
         if ($request->hasFile('image')) {
-            $data['image'] = $request
+
+            $data['image'] =
+                $request
                 ->file('image')
                 ->store(
                     'attribute-options',
@@ -150,9 +156,48 @@ class AttributeOptionController extends Controller
                 );
         }
 
-        $option = $attribute
+
+        $option =
+            $attribute
             ->options()
-            ->create($data);
+            ->create(
+                $data
+            );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Creación rápida dentro de Attribute Show
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $request->input(
+                'context'
+            )
+            === 'attribute_show'
+        ) {
+
+            return redirect()
+                ->to(
+                    route(
+                        'attributes.show',
+                        $attribute
+                    )
+                        . '#catalog'
+                )
+                ->with(
+                    'success',
+                    "{$option->name} fue agregado al Catálogo."
+                );
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Creación desde el panel completo
+    |--------------------------------------------------------------------------
+    */
 
         return redirect()
             ->route(
@@ -161,7 +206,7 @@ class AttributeOptionController extends Controller
             )
             ->with(
                 'success',
-                'Opción creada correctamente.'
+                'Elemento creado correctamente.'
             );
     }
 

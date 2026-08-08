@@ -59,7 +59,7 @@ class StoreAttributeOptionRequest extends FormRequest
                     'attribute_options',
                     'code'
                 )->where(
-                    fn ($query) => $query->where(
+                    fn($query) => $query->where(
                         'attribute_id',
                         $attribute->id
                     )
@@ -79,7 +79,7 @@ class StoreAttributeOptionRequest extends FormRequest
                     'attribute_options',
                     'id'
                 )->where(
-                    fn ($query) => $query
+                    fn($query) => $query
                         ->where(
                             'attribute_id',
                             $attribute->id
@@ -130,5 +130,39 @@ class StoreAttributeOptionRequest extends FormRequest
                 ]),
             ],
         ];
+    }
+    /*
+    |--------------------------------------------------------------------------
+    | Redirección especial desde Attribute Show
+    |--------------------------------------------------------------------------
+    */
+
+    protected function getRedirectUrl(): string
+    {
+        $attribute =
+            $this->route(
+                'attribute'
+            );
+
+
+        if (
+            $this->input(
+                'context'
+            ) === 'attribute_show'
+
+            &&
+
+            $attribute
+            instanceof Attribute
+        ) {
+
+            return route(
+                'attributes.show',
+                $attribute
+            )
+                . '#catalog';
+        }
+
+        return parent::getRedirectUrl();
     }
 }

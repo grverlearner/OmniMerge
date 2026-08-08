@@ -1,12 +1,12 @@
 <x-app-layout>
     <x-slot name="header">
-        Valores y opciones
+        Catálogos
     </x-slot>
 
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
             <h2 class="text-2xl font-black text-slate-900">
-                Valores y opciones
+                Catálogos
             </h2>
 
             <p class="mt-2 max-w-2xl text-slate-500">
@@ -19,7 +19,7 @@
             href="{{ route('attribute-options.create') }}"
             class="rounded-xl bg-indigo-600 px-5 py-3 text-center text-sm font-bold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-700"
         >
-            + Nueva opción
+            + Nuevo elemento
         </a>
     </div>
 
@@ -137,7 +137,7 @@
         @empty
             <div class="sm:col-span-2 xl:col-span-3 rounded-2xl border border-dashed border-slate-300 bg-white py-20 text-center">
                 <p class="font-bold text-slate-700">
-                    Todavía no existen opciones
+                    Todavía no existen elementos de catálogo
                 </p>
 
                 <p class="mt-2 text-sm text-slate-500">
