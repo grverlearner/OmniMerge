@@ -249,22 +249,7 @@
                         hover:bg-white/10
                     ">
 
-                        <div
-                            class="
-                            flex
-                            h-9
-                            w-9
-                            items-center
-                            justify-center
-                            rounded-xl
-                            bg-indigo-500
-                            text-sm
-                            font-black
-                            text-white
-                        ">
-                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-                        </div>
-
+                        <x-user-avatar :user="auth()->user()" size="sm" square />
 
                         <div class="text-left">
 

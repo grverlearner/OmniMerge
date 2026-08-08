@@ -27,22 +27,43 @@
     </a>
 
     <div class="p-5">
-        <div class="flex items-center gap-3">
-            <div
-                class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-sm font-black text-indigo-700">
-                {{ strtoupper(substr($entity->creator->name, 0, 1)) }}
-            </div>
+        <a href="{{ route('community.creators.show', $entity->creator->username) }}"
+            class="
+        flex
+        items-center
+        gap-3
+        rounded-xl
+        transition
+        hover:opacity-80
+    ">
+
+            <x-user-avatar :user="$entity->creator" size="sm" />
+
 
             <div class="min-w-0">
-                <p class="truncate text-sm font-bold text-slate-800">
+
+                <p
+                    class="
+                truncate
+                text-sm
+                font-bold
+                text-slate-800
+            ">
                     {{ $entity->creator->name }}
                 </p>
 
-                <p class="truncate text-xs text-slate-500">
+                <p
+                    class="
+                truncate
+                text-xs
+                text-slate-500
+            ">
                     {{ '@' . $entity->creator->username }}
                 </p>
+
             </div>
-        </div>
+
+        </a>
 
         <p class="mt-4 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-slate-500">
             {{ $entity->description ?: 'Sin descripción.' }}

@@ -14,6 +14,7 @@ use App\Http\Controllers\Entities\EntityAttributeController;
 
 use App\Http\Controllers\Collections\CollectionController;
 use App\Http\Controllers\Community\ExploreController;
+use App\Http\Controllers\Community\CreatorController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -25,7 +26,7 @@ Route::middleware('auth')->group(function () {
         '/hub',
         HubController::class
     )->name('hub');
-    
+
     Route::get(
         '/dashboard',
         DashboardController::class
@@ -133,6 +134,14 @@ Route::middleware('auth')->group(function () {
                 '/',
                 [ExploreController::class, 'index']
             )->name('index');
+
+            Route::get(
+                '/creators/{user:username}',
+                [
+                    CreatorController::class,
+                    'show',
+                ]
+            )->name('creators.show');
 
             Route::get(
                 '/entities/{entity}',

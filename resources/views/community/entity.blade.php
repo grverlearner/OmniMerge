@@ -39,11 +39,23 @@
                     {{ $entity->name }}
                 </h2>
 
-                <p class="mt-2 text-sm text-white/70">
+                <p class="
+        mt-2
+        text-sm
+        text-white/70
+    ">
                     Creado por
-                    {{ $entity->creator->name }}
-                    ·
-                    {{ '@' . $entity->creator->username }}
+
+                    <a href="{{ route('community.creators.show', $entity->creator->username) }}"
+                        class="
+                            font-bold
+                            text-white
+                            hover:underline
+                        ">
+                        {{ $entity->creator->name }}
+                        ·
+                        {{ '@' . $entity->creator->username }}
+                    </a>
                 </p>
             </div>
         </div>
@@ -113,22 +125,55 @@
                             Creador
                         </p>
 
-                        <div class="mt-4 flex items-center gap-3">
-                            <div
-                                class="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 font-black text-indigo-700">
-                                {{ strtoupper(substr($entity->creator->name, 0, 1)) }}
-                            </div>
+                        <a href="{{ route('community.creators.show', $entity->creator->username) }}"
+                            class="
+                                mt-4
+                                flex
+                                items-center
+                                gap-3
+                                rounded-xl
+                                transition
+                                hover:opacity-80
+                            ">
 
-                            <div>
-                                <p class="font-bold text-slate-900">
+                            <x-user-avatar :user="$entity->creator" size="lg" />
+
+
+                            <div class="min-w-0">
+
+                                <p
+                                    class="
+                                        truncate
+                                        font-bold
+                                        text-slate-900
+                                    ">
                                     {{ $entity->creator->name }}
                                 </p>
 
-                                <p class="text-sm text-slate-500">
+                                <p
+                                    class="
+                                        truncate
+                                        text-sm
+                                        text-slate-500
+                                    ">
                                     {{ '@' . $entity->creator->username }}
                                 </p>
+
+                                @if ($entity->creator->headline)
+                                    <p
+                                        class="
+                                            mt-1
+                                            line-clamp-1
+                                            text-xs
+                                            text-slate-400
+                                        ">
+                                        {{ $entity->creator->headline }}
+                                    </p>
+                                @endif
+
                             </div>
-                        </div>
+
+                        </a>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
@@ -154,8 +199,7 @@
                     </div>
 
                     @if ($entity->allow_cloning && $entity->user_id !== auth()->id())
-                        <form method="POST"
-                            action="{{ route('community.entities.clone', $entity) }}"
+                        <form method="POST" action="{{ route('community.entities.clone', $entity) }}"
                             onsubmit="return confirm(
                                 'Se creará una copia privada e independiente en tu biblioteca. ¿Continuar?'
                             )">

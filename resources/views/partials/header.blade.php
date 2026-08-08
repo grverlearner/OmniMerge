@@ -22,10 +22,7 @@
             <button type="button"
                 class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 transition hover:bg-slate-50"
                 @click="open = !open">
-                <div
-                    class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 font-bold text-indigo-700">
-                    {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-                </div>
+                <x-user-avatar :user="auth()->user()" size="sm" />
 
                 <div class="hidden text-left sm:block">
                     <p class="text-sm font-semibold text-slate-800">

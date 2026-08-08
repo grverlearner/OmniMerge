@@ -483,21 +483,7 @@
                 hover:bg-slate-900
             ">
 
-            <div
-                class="
-                    flex
-                    h-10
-                    w-10
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-full
-                    bg-indigo-100
-                    font-bold
-                    text-indigo-700
-                ">
-                {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-            </div>
+            <x-user-avatar :user="auth()->user()" size="md" />
 
 
             <div class="

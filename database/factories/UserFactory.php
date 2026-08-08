@@ -34,6 +34,7 @@ class UserFactory extends Factory
             'remember_token' => Str::random(10),
             'role' => 'USER',
             'status' => 'ACTIVE',
+            'profile_visibility' => 'PUBLIC',
         ];
     }
 

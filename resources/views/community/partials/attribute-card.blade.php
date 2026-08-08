@@ -30,11 +30,43 @@
             {{ $attribute->name }}
         </h3>
 
-        <p class="mt-1 text-xs font-semibold text-slate-400">
-            {{ $attribute->creator->name }}
-            ·
-            {{ '@' . $attribute->creator->username }}
-        </p>
+        <a href="{{ route('community.creators.show', $attribute->creator->username) }}"
+            class="
+        mt-3
+        flex
+        items-center
+        gap-2
+        transition
+        hover:opacity-80
+    ">
+
+            <x-user-avatar :user="$attribute->creator" size="xs" />
+
+
+            <div class="min-w-0">
+
+                <p
+                    class="
+                truncate
+                text-xs
+                font-bold
+                text-slate-600
+            ">
+                    {{ $attribute->creator->name }}
+                </p>
+
+                <p
+                    class="
+                    truncate
+                    text-[10px]
+                    text-slate-400
+                ">
+                    {{ '@' . $attribute->creator->username }}
+                </p>
+
+            </div>
+
+        </a>
 
         <p class="mt-4 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-slate-500">
             {{ $attribute->description ?: 'Sin descripción.' }}

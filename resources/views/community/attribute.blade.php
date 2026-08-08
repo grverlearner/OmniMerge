@@ -4,8 +4,7 @@
     </x-slot>
 
     <div class="mb-5">
-        <a href="{{ route('community.index', ['tab' => 'attributes']) }}"
-            class="text-sm font-bold text-indigo-600">
+        <a href="{{ route('community.index', ['tab' => 'attributes']) }}" class="text-sm font-bold text-indigo-600">
             ← Volver al explorador
         </a>
     </div>
@@ -40,12 +39,40 @@
                     {{ $attribute->name }}
                 </h2>
 
-                <p class="mt-2 text-sm text-white/70">
-                    Por
-                    {{ $attribute->creator->name }}
-                    ·
-                    {{ '@' . $attribute->creator->username }}
-                </p>
+                <div class="
+                    mt-3
+                    flex
+                    items-center
+                    gap-3
+                ">
+
+                    <x-user-avatar :user="$attribute->creator" size="sm" />
+
+
+                    <div>
+
+                        <p class="
+                            text-xs
+                            text-white/60
+                        ">
+                            Creado por
+                        </p>
+
+                        <a href="{{ route('community.creators.show', $attribute->creator->username) }}"
+                            class="
+                                text-sm
+                                font-bold
+                                text-white
+                                hover:underline
+                            ">
+                            {{ $attribute->creator->name }}
+                            ·
+                            {{ '@' . $attribute->creator->username }}
+                        </a>
+
+                    </div>
+
+                </div>
             </div>
         </div>
 
@@ -150,8 +177,7 @@
                         </p>
 
                         @if ($attribute->allow_cloning && $attribute->user_id !== auth()->id())
-                            <form method="POST"
-                                action="{{ route('community.attributes.clone', $attribute) }}"
+                            <form method="POST" action="{{ route('community.attributes.clone', $attribute) }}"
                                 class="mt-5">
                                 @csrf
 

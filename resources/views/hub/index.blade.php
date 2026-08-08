@@ -675,20 +675,7 @@
                         justify-between
                     ">
 
-                    <div
-                        class="
-                            flex
-                            h-14
-                            w-14
-                            items-center
-                            justify-center
-                            rounded-2xl
-                            bg-cyan-500/10
-                            text-2xl
-                        ">
-                        👤
-                    </div>
-
+                    <x-user-avatar :user="auth()->user()" size="lg" square />
 
                     <span
                         class="
