@@ -223,50 +223,20 @@
 
 
             <div class="space-y-1">
-
-                <a href="{{ route('entity-types.index') }}"
-                    class="
-                        {{ request()->routeIs('entity-types.*')
-                            ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40'
-                            : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
-                        flex
-                        items-center
-                        gap-3
-                        rounded-xl
-                        px-3
-                        py-3
-                        text-sm
-                        font-medium
-                        transition
-                    ">
-                    <span class="text-lg">
-                        ◇
-                    </span>
-
-                    Tipos de entidad
-                </a>
-
-
                 <a href="{{ route('entities.index') }}"
-                    class="
-                        {{ request()->routeIs('entities.*')
-                            ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40'
-                            : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
-                        flex
-                        items-center
-                        gap-3
-                        rounded-xl
-                        px-3
-                        py-3
-                        text-sm
-                        font-medium
-                        transition
-                    ">
+                    class="{{ request()->routeIs('entities.*') || request()->routeIs('entity-types.*')
+                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40'
+                        : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
+                        flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition">
+
                     <span class="text-lg">
                         ✦
                     </span>
 
-                    Entidades
+                    <span>
+                        Entidades
+                    </span>
+
                 </a>
 
             </div>

@@ -14,20 +14,76 @@
     </div>
 
     <div>
-        <label class="mb-2 block text-sm font-semibold text-slate-700">
-            Tipo de entidad
-        </label>
+
+        <div
+            class="
+            mb-2
+            flex
+            items-center
+            justify-between
+            gap-3
+        ">
+
+            <label
+                class="
+                block
+                text-sm
+                font-semibold
+                text-slate-700
+            ">
+                Tipo de entidad
+            </label>
+
+
+            <a href="{{ route('entity-types.index') }}"
+                class="
+                text-xs
+                font-bold
+                text-indigo-600
+                hover:text-indigo-800
+            ">
+                Administrar tipos →
+            </a>
+
+        </div>
+
 
         <select name="entity_type_id"
-            class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
-            <option value="">Sin tipo</option>
+            class="
+            w-full
+            rounded-xl
+            border-slate-300
+            bg-white
+            text-slate-900
+            focus:border-indigo-500
+            focus:ring-indigo-500
+        ">
+
+            <option value="">
+                Sin tipo
+            </option>
+
 
             @foreach ($entityTypes as $type)
                 <option value="{{ $type->id }}" @selected(old('entity_type_id', $entity->entity_type_id ?? request('type')) == $type->id)>
+                    {{ $type->code }}
+                    —
                     {{ $type->name }}
                 </option>
             @endforeach
+
         </select>
+
+
+        <p class="
+            mt-2
+            text-xs
+            text-slate-500
+        ">
+            Los tipos permiten organizar tus entidades.
+            Solo aparecen aquí los tipos activos.
+        </p>
+
     </div>
 
     <div>

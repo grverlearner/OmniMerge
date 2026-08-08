@@ -2,54 +2,49 @@
 
 namespace App\Http\Requests\EntityTypes;
 
+use App\Models\EntityType;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class StoreEntityTypeRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return $this->user()?->can(
+            'create',
+            EntityType::class
+        ) ?? false;
     }
+
 
     protected function prepareForValidation(): void
     {
-        $name = trim((string) $this->input('name'));
-
         $this->merge([
-            'name' => $name,
-            'code' => Str::upper(
-                Str::slug(
-                    $this->input('code') ?: $name,
-                    '_'
-                )
+            'name' => trim(
+                (string) $this->input('name')
+            ),
+
+            'description' => trim(
+                (string) $this->input('description')
+            ),
+
+            'icon' => trim(
+                (string) $this->input('icon')
             ),
         ]);
     }
 
+
     public function rules(): array
     {
         return [
+
             'name' => [
                 'required',
                 'string',
                 'max:100',
             ],
 
-            'code' => [
-                'required',
-                'string',
-                'max:30',
-                'regex:/^[A-Z0-9_]+$/',
-                Rule::unique('entity_types', 'code')
-                    ->where(
-                        fn ($query) => $query->where(
-                            'user_id',
-                            $this->user()->id
-                        )
-                    ),
-            ],
 
             'description' => [
                 'nullable',
@@ -57,52 +52,68 @@ class StoreEntityTypeRequest extends FormRequest
                 'max:2000',
             ],
 
+
+            'image' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:4096',
+            ],
+
+
             'icon' => [
                 'nullable',
                 'string',
                 'max:100',
             ],
 
+
             'color' => [
                 'nullable',
                 'regex:/^#[0-9A-Fa-f]{6}$/',
             ],
 
+
             'status' => [
                 'required',
+
                 Rule::in([
                     'ACTIVE',
                     'INACTIVE',
                     'ARCHIVED',
                 ]),
             ],
-
-            'sort_order' => [
-                'nullable',
-                'integer',
-                'min:0',
-                'max:9999',
-            ],
         ];
     }
+
 
     public function messages(): array
     {
         return [
+
             'name.required' =>
                 'El nombre del tipo es obligatorio.',
 
-            'code.required' =>
-                'El código es obligatorio.',
 
-            'code.regex' =>
-                'El código solo admite letras mayúsculas, números y guiones bajos.',
+            'description.max' =>
+                'La descripción no puede superar los 2000 caracteres.',
 
-            'code.unique' =>
-                'Ya tienes un tipo de entidad con este código.',
+
+            'image.image' =>
+                'El archivo seleccionado debe ser una imagen.',
+
+
+            'image.mimes' =>
+                'La imagen debe ser JPG, JPEG, PNG o WEBP.',
+
+
+            'image.max' =>
+                'La imagen no puede superar los 4 MB.',
+
 
             'color.regex' =>
                 'Selecciona un color válido.',
+
 
             'status.required' =>
                 'Selecciona un estado.',
