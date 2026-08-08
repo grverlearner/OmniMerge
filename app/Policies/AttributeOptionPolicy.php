@@ -7,40 +7,60 @@ use App\Models\User;
 
 class AttributeOptionPolicy
 {
-    public function viewAny(User $user): bool
-    {
+    public function viewAny(
+        User $user
+    ): bool {
+
         return $user->isActive();
     }
+
 
     public function view(
         User $user,
         AttributeOption $attributeOption
     ): bool {
-        return $attributeOption
-            ->attribute
-            ->user_id === $user->id;
+
+        return $user->isActive()
+
+            &&
+
+            $attributeOption->user_id
+            === $user->id;
     }
 
-    public function create(User $user): bool
-    {
+
+    public function create(
+        User $user
+    ): bool {
+
         return $user->isActive();
     }
+
 
     public function update(
         User $user,
         AttributeOption $attributeOption
     ): bool {
-        return $attributeOption
-            ->attribute
-            ->user_id === $user->id;
+
+        return $user->isActive()
+
+            &&
+
+            $attributeOption->user_id
+            === $user->id;
     }
+
 
     public function delete(
         User $user,
         AttributeOption $attributeOption
     ): bool {
-        return $attributeOption
-            ->attribute
-            ->user_id === $user->id;
+
+        return $user->isActive()
+
+            &&
+
+            $attributeOption->user_id
+            === $user->id;
     }
 }

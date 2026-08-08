@@ -4,7 +4,6 @@ namespace App\Http\Requests\Attributes;
 
 use App\Models\Attribute;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
 
@@ -12,65 +11,107 @@ class StoreAttributeOptionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $attribute = $this->route('attribute');
+        $attribute =
+            $this->route(
+                'attribute'
+            );
 
-        return $attribute instanceof Attribute
-            && $this->user()?->can(
+
+        return $attribute
+            instanceof Attribute
+
+            &&
+
+            $attribute->isSelectable()
+
+            &&
+
+            $this
+            ->user()
+            ?->can(
                 'update',
                 $attribute
             );
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Preparar
+    |--------------------------------------------------------------------------
+    */
+
     protected function prepareForValidation(): void
     {
-        $name = trim((string) $this->input('name'));
-
         $this->merge([
-            'name' => $name,
 
-            'code' => Str::upper(
-                Str::slug(
-                    $this->input('code') ?: $name,
-                    '_'
+            'name' =>
+            trim(
+                (string) $this->input(
+                    'name'
+                )
+            ),
+
+
+            'description' =>
+            $this->nullableText(
+                'description'
+            ),
+
+
+            'icon' =>
+            $this->nullableText(
+                'icon'
+            ),
+
+
+            'status' =>
+            strtoupper(
+                (string) $this->input(
+                    'status',
+                    'ACTIVE'
                 )
             ),
         ]);
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reglas
+    |--------------------------------------------------------------------------
+    */
+
     public function rules(): array
     {
         /** @var Attribute $attribute */
-        $attribute = $this->route('attribute');
+        $attribute =
+            $this->route(
+                'attribute'
+            );
+
 
         return [
+
             'name' => [
                 'required',
                 'string',
                 'max:150',
             ],
 
-            'code' => [
-                'required',
-                'string',
-                'max:50',
-                'regex:/^[A-Z0-9_]+$/',
-
-                Rule::unique(
-                    'attribute_options',
-                    'code'
-                )->where(
-                    fn($query) => $query->where(
-                        'attribute_id',
-                        $attribute->id
-                    )
-                ),
-            ],
 
             'description' => [
                 'nullable',
                 'string',
                 'max:3000',
             ],
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Jerarquía
+            |--------------------------------------------------------------------------
+            */
 
             'parent_option_id' => [
                 'nullable',
@@ -79,17 +120,36 @@ class StoreAttributeOptionRequest extends FormRequest
                     'attribute_options',
                     'id'
                 )->where(
-                    fn($query) => $query
+                    fn($query) =>
+                    $query
                         ->where(
                             'attribute_id',
                             $attribute->id
                         )
-                        ->whereNull('deleted_at')
+                        ->where(
+                            'user_id',
+                            $this->user()->id
+                        )
+                        ->where(
+                            'status',
+                            'ACTIVE'
+                        )
+                        ->whereNull(
+                            'deleted_at'
+                        )
                 ),
             ],
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | Imagen
+            |--------------------------------------------------------------------------
+            */
+
             'image' => [
                 'nullable',
+
                 File::image()
                     ->types([
                         'jpg',
@@ -97,8 +157,9 @@ class StoreAttributeOptionRequest extends FormRequest
                         'png',
                         'webp',
                     ])
-                    ->max('3mb'),
+                    ->max('4mb'),
             ],
+
 
             'icon' => [
                 'nullable',
@@ -106,34 +167,77 @@ class StoreAttributeOptionRequest extends FormRequest
                 'max:100',
             ],
 
+
             'color' => [
                 'nullable',
                 'regex:/^#[0-9A-Fa-f]{6}$/',
             ],
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Valor numérico opcional
+            |--------------------------------------------------------------------------
+            */
 
             'numeric_value' => [
                 'nullable',
                 'numeric',
             ],
 
-            'sort_order' => [
-                'nullable',
-                'integer',
-                'min:0',
-            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Estado
+            |--------------------------------------------------------------------------
+            */
 
             'status' => [
                 'required',
+
                 Rule::in([
                     'ACTIVE',
                     'INACTIVE',
+                    'ARCHIVED',
                 ]),
             ],
         ];
     }
+
+
+    public function messages(): array
+    {
+        return [
+
+            'name.required' =>
+            'El nombre del elemento es obligatorio.',
+
+
+            'parent_option_id.exists' =>
+            'El elemento superior seleccionado no pertenece a este Catálogo.',
+
+
+            'image.image' =>
+            'El archivo seleccionado debe ser una imagen.',
+
+
+            'image.max' =>
+            'La imagen no puede superar los 4 MB.',
+
+
+            'color.regex' =>
+            'Selecciona un color válido.',
+
+
+            'numeric_value.numeric' =>
+            'El valor de referencia debe ser numérico.',
+        ];
+    }
+
+
     /*
     |--------------------------------------------------------------------------
-    | Redirección especial desde Attribute Show
+    | Redirección al Catálogo del atributo
     |--------------------------------------------------------------------------
     */
 
@@ -163,6 +267,25 @@ class StoreAttributeOptionRequest extends FormRequest
                 . '#catalog';
         }
 
+
         return parent::getRedirectUrl();
+    }
+
+
+    private function nullableText(
+        string $field
+    ): ?string {
+
+        $value =
+            trim(
+                (string) $this->input(
+                    $field
+                )
+            );
+
+
+        return $value !== ''
+            ? $value
+            : null;
     }
 }

@@ -7,6 +7,7 @@ use App\Models\Collection;
 use App\Models\Entity;
 use App\Models\EntityAttribute;
 use App\Models\User;
+use App\Models\AttributeOption;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -169,15 +170,44 @@ class CommunityCloneService
                     $optionId = null;
 
                     if ($sourceValue->option) {
-                        $option = $attribute
+
+                        /*
+                        * Primero buscamos por procedencia.
+                        *
+                        * Esta es la forma nueva y correcta.
+                        */
+
+                        $option =
+                            $attribute
                             ->options()
                             ->where(
-                                'code',
-                                $sourceValue->option->code
+                                'source_attribute_option_id',
+                                $sourceValue->option->id
                             )
                             ->first();
 
-                        $optionId = $option?->id;
+
+                        /*
+                        * Compatibilidad con copias antiguas.
+                        */
+
+                        if (! $option) {
+
+                            $option =
+                                $attribute
+                                ->options()
+                                ->where(
+                                    'code',
+                                    $sourceValue
+                                        ->option
+                                        ->code
+                                )
+                                ->first();
+                        }
+
+
+                        $optionId =
+                            $option?->id;
                     }
 
                     $assignment->values()->create([
@@ -660,10 +690,29 @@ class CommunityCloneService
 
 
         /*
-    |--------------------------------------------------------------------------
-    | Copiar Catálogo
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | Copiar Catálogo
+        |--------------------------------------------------------------------------
+        */
+        /*
+        |--------------------------------------------------------------------------
+        | Siguiente código de Catálogo del usuario
+        |--------------------------------------------------------------------------
+        */
+
+        $nextCatalogSequence =
+            (int) AttributeOption
+                ::withTrashed()
+                ->where(
+                    'user_id',
+                    $user->id
+                )
+                ->max(
+                    'sequence_number'
+                );
+
+
+        $nextCatalogSequence++;
 
         $optionMap = [];
 
@@ -678,11 +727,22 @@ class CommunityCloneService
                 ->options()
                 ->create([
 
+                    'user_id' =>
+                    $user->id,
+
+                    'source_attribute_option_id' =>
+                    $sourceOption->id,
+
                     'parent_option_id' =>
                     null,
 
+                    'sequence_number' =>
+                    $nextCatalogSequence,
+
                     'code' =>
-                    $sourceOption->code,
+                    AttributeOption::formatCode(
+                        $nextCatalogSequence
+                    ),
 
                     'name' =>
                     $sourceOption->name,
@@ -714,7 +774,7 @@ class CommunityCloneService
                     'status' =>
                     $sourceOption->status,
                 ]);
-
+            $nextCatalogSequence++;
 
             $optionMap[$sourceOption->id] =
                 $newOption->id;

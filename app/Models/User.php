@@ -173,6 +173,13 @@ class User extends Authenticatable
         );
     }
 
+    public function attributeOptions(): HasMany
+    {
+        return $this->hasMany(
+            AttributeOption::class
+        );
+    }
+
 
     public function attributeGroups(): HasMany
     {

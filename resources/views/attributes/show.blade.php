@@ -1033,34 +1033,6 @@
                                             font-bold
                                             text-slate-600
                                         ">
-                                        Código
-                                    </label>
-
-
-                                    <input name="code" value="{{ old('code') }}"
-                                        placeholder="Automático si lo dejas vacío"
-                                        class="
-                                            w-full
-                                            rounded-xl
-                                            border-slate-300
-                                            bg-white
-                                            text-slate-900
-                                            placeholder:text-slate-400
-                                        ">
-
-                                </div>
-
-
-                                <div>
-
-                                    <label
-                                        class="
-                                            mb-2
-                                            block
-                                            text-xs
-                                            font-bold
-                                            text-slate-600
-                                        ">
                                         Descripción
                                     </label>
 
