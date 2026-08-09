@@ -70,11 +70,25 @@ class CommunityCloneService
                 $user
             );
 
-            $code = $this->uniqueCode(
-                'entities',
-                $source->code,
-                $user->id
-            );
+            $lastEntitySequence =
+                (int) Entity::withTrashed()
+                    ->where(
+                        'user_id',
+                        $user->id
+                    )
+                    ->max(
+                        'sequence_number'
+                    );
+
+
+            $entitySequence =
+                $lastEntitySequence + 1;
+
+
+            $code =
+                Entity::formatCode(
+                    $entitySequence
+                );
 
             $slug = $this->uniqueSlug(
                 'entities',
@@ -85,6 +99,9 @@ class CommunityCloneService
             $entity = $user->entities()->create([
                 'source_entity_id' =>
                 $source->id,
+
+                'sequence_number' =>
+                $entitySequence,
 
                 'entity_type_id' =>
                 $entityTypeId,
@@ -279,11 +296,25 @@ class CommunityCloneService
                 $user
             );
 
-            $code = $this->uniqueCode(
-                'collections',
-                $source->code,
-                $user->id
-            );
+            $lastCollectionSequence =
+                (int) Collection::withTrashed()
+                    ->where(
+                        'user_id',
+                        $user->id
+                    )
+                    ->max(
+                        'sequence_number'
+                    );
+
+
+            $collectionSequence =
+                $lastCollectionSequence + 1;
+
+
+            $code =
+                Collection::formatCode(
+                    $collectionSequence
+                );
 
             $slug = $this->uniqueSlug(
                 'collections',
@@ -296,6 +327,9 @@ class CommunityCloneService
                 ->create([
                     'source_collection_id' =>
                     $source->id,
+
+                    'sequence_number' =>
+                    $collectionSequence,
 
                     'code' =>
                     $code,

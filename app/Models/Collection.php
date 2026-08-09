@@ -30,6 +30,7 @@ class Collection extends Model
         'sort_order',
         'metadata',
         'source_collection_id',
+        'sequence_number',
         'allow_cloning',
         'views_count',
         'clones_count',
@@ -45,6 +46,7 @@ class Collection extends Model
             'views_count' => 'integer',
             'clones_count' => 'integer',
             'published_at' => 'datetime',
+            'sequence_number' => 'integer',
         ];
     }
 
@@ -130,5 +132,24 @@ class Collection extends Model
     {
         return $this->isPublished()
             && $this->allow_cloning;
+    }
+
+    public static function formatCode(
+        int $sequence
+    ): string {
+        return sprintf(
+            'COL%06d',
+            $sequence
+        );
+    }
+
+    public function getVisibilityLabelAttribute(): string
+    {
+        return match ($this->visibility) {
+            'PUBLIC' => 'Público',
+            'PRIVATE' => 'Privado',
+            'UNLISTED' => 'No listado',
+            default => $this->visibility,
+        };
     }
 }

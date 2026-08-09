@@ -1,47 +1,133 @@
 <x-app-layout>
+
     <x-slot name="header">
-        Crear entidad
+        Entidades
     </x-slot>
 
-    <div class="mb-6">
-        <h2 class="text-2xl font-black text-slate-900">
-            Nueva entidad
-        </h2>
 
-        <p class="mt-2 text-slate-500">
-            Crea un personaje, país, animal, objeto, concepto
-            o cualquier elemento que imagines.
-        </p>
+    @include('entities.partials.section-navigation')
+
+
+    <div
+        class="
+            mb-7
+            flex
+            flex-col
+            justify-between
+            gap-4
+            sm:flex-row
+            sm:items-start
+        ">
+
+        <div>
+
+            <a href="{{ route('entities.index') }}"
+                class="
+                    text-sm
+                    font-bold
+                    text-slate-400
+                    hover:text-indigo-600
+                ">
+                ← Entidades
+            </a>
+
+
+            <p
+                class="
+                    mt-4
+                    text-xs
+                    font-black
+                    uppercase
+                    tracking-[0.16em]
+                    text-indigo-600
+                ">
+                Biblioteca · Creaciones
+            </p>
+
+
+            <h2
+                class="
+                    mt-2
+                    text-3xl
+                    font-black
+                    tracking-tight
+                    text-slate-900
+                ">
+                Nueva entidad
+            </h2>
+
+
+            <p
+                class="
+                    mt-2
+                    max-w-3xl
+                    text-slate-500
+                ">
+                Construye una entidad completa: identidad,
+                tipo, características, Catálogos,
+                Colecciones y publicación.
+            </p>
+
+        </div>
+
+
+        <div
+            class="
+                rounded-2xl
+                border
+                border-indigo-100
+                bg-indigo-50
+                px-5
+                py-3
+            ">
+
+            <p
+                class="
+                    text-[10px]
+                    font-black
+                    uppercase
+                    text-indigo-400
+                ">
+                Próximo código
+            </p>
+
+
+            <p
+                class="
+                    mt-1
+                    font-mono
+                    text-lg
+                    font-black
+                    text-indigo-700
+                ">
+                {{ $previewCode }}
+            </p>
+
+        </div>
+
     </div>
 
-    @if ($entityTypes->isEmpty())
-        <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
-            <p class="font-semibold">
-                Todavía no tienes tipos de entidad
-            </p>
 
-            <p class="mt-1 text-sm">
-                Puedes crear la entidad sin tipo o configurar uno primero.
-            </p>
+    <div
+        class="
+            rounded-3xl
+            border
+            border-slate-200
+            bg-white
+            p-6
+            shadow-sm
+            sm:p-8
+        ">
 
-            <a
-                href="{{ route('entity-types.create') }}"
-                class="mt-3 inline-block text-sm font-bold underline"
-            >
-                Crear un tipo
-            </a>
-        </div>
-    @endif
+        <form method="POST" action="{{ route('entities.store') }}" enctype="multipart/form-data">
 
-    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <form
-            method="POST"
-            action="{{ route('entities.store') }}"
-            enctype="multipart/form-data"
-        >
             @csrf
 
+
             @include('entities.partials.form')
+
         </form>
+
     </div>
+
 </x-app-layout>

@@ -1,218 +1,157 @@
 <x-app-layout>
+
     <x-slot name="header">
-        Atributos de {{ $entity->name }}
+        Características
     </x-slot>
 
-    <div class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+
+    @include('entities.partials.section-navigation')
+
+
+    <div
+        class="
+            mb-6
+            flex
+            flex-col
+            justify-between
+            gap-4
+            sm:flex-row
+            sm:items-start
+        ">
+
         <div>
-            <h2 class="text-2xl font-black text-slate-900">
-                Personalizar entidad
+
+            <a href="{{ route('entities.show', $entity) }}"
+                class="
+                    text-sm
+                    font-bold
+                    text-slate-400
+                    hover:text-indigo-600
+                ">
+                ← {{ $entity->name }}
+            </a>
+
+
+            <p
+                class="
+                    mt-4
+                    text-xs
+                    font-black
+                    uppercase
+                    tracking-wider
+                    text-indigo-600
+                ">
+                Editor avanzado
+            </p>
+
+
+            <h2
+                class="
+                    mt-2
+                    text-3xl
+                    font-black
+                    text-slate-900
+                ">
+                Características de {{ $entity->name }}
             </h2>
 
-            <p class="mt-2 text-slate-500">
-                Asigna valores personalizados a
-                {{ $entity->name }}.
+
+            <p
+                class="
+                    mt-2
+                    max-w-3xl
+                    text-slate-500
+                ">
+                Añade únicamente las características
+                que correspondan a esta entidad y configura
+                sus valores.
             </p>
+
         </div>
 
-        <a href="{{ route('entities.show', $entity) }}"
-            class="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700">
-            Volver a la entidad
+
+        <a href="{{ route('entities.edit', $entity) }}"
+            class="
+                rounded-xl
+                border
+                border-slate-300
+                bg-white
+                px-4
+                py-2.5
+                text-sm
+                font-bold
+                text-slate-700
+            ">
+            Editar entidad completa
         </a>
+
     </div>
 
-    <form method="POST" action="{{ route('entities.attributes.update', $entity) }}">
+
+    <form method="POST"
+        action="{{ route('entities.attributes.update', $entity) }}">
+
         @csrf
         @method('PUT')
 
-        <div class="space-y-6">
-            @forelse ($attributes as $attribute)
-                @php
-                    $assignment = $existingValues->get($attribute->id);
 
-                    $values = $assignment?->values ?? collect();
+        <div
+            class="
+                rounded-3xl
+                border
+                border-slate-200
+                bg-white
+                p-6
+                shadow-sm
+                sm:p-8
+            ">
 
-                    $selectedOptionIds = $values
-                        ->pluck('attribute_option_id')
-                        ->filter()
-                        ->map(fn($id) => (string) $id)
-                        ->all();
+            @include('entities.partials.characteristics-builder')
 
-                    $firstValue = $values->first();
-                @endphp
 
-                <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <div class="mb-4">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <h3 class="font-bold text-slate-900">
-                                {{ $attribute->name }}
-                            </h3>
+            <div
+                class="
+                    mt-8
+                    flex
+                    justify-end
+                    gap-3
+                    border-t
+                    border-slate-200
+                    pt-6
+                ">
 
-                            @if ($attribute->is_required)
-                                <span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                                    Obligatorio
-                                </span>
-                            @endif
+                <a href="{{ route('entities.show', $entity) }}"
+                    class="
+                        rounded-xl
+                        border
+                        border-slate-300
+                        px-5
+                        py-3
+                        text-sm
+                        font-bold
+                        text-slate-700
+                    ">
+                    Cancelar
+                </a>
 
-                            @if ($attribute->allows_multiple)
-                                <span
-                                    class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
-                                    Múltiple
-                                </span>
-                            @endif
-                        </div>
 
-                        @if ($attribute->help_text)
-                            <p class="mt-2 text-sm text-slate-500">
-                                {{ $attribute->help_text }}
-                            </p>
-                        @endif
-                    </div>
+                <button
+                    class="
+                        rounded-xl
+                        bg-indigo-600
+                        px-6
+                        py-3
+                        text-sm
+                        font-black
+                        text-white
+                    ">
+                    Guardar características
+                </button>
 
-                    @if ($attribute->data_type === 'OPTION')
-                        @if ($attribute->allows_multiple)
-                            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                @foreach ($attribute->options as $option)
-                                    @php
-                                        $checked = in_array(
-                                            (string) $option->id,
-                                            old("attributes.{$attribute->id}", $selectedOptionIds),
-                                        );
-                                    @endphp
+            </div>
 
-                                    <label
-                                        class="group relative cursor-pointer overflow-hidden rounded-2xl border-2 transition
-                {{ $checked ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300' }}">
-                                        <input type="checkbox" name="attributes[{{ $attribute->id }}][]"
-                                            value="{{ $option->id }}" @checked($checked)
-                                            class="peer absolute right-3 top-3 z-10 rounded border-slate-300 text-indigo-600">
-
-                                        <div class="aspect-[16/10] bg-slate-100">
-                                            @if ($option->image_url)
-                                                <img src="{{ $option->image_url }}" alt="{{ $option->name }}"
-                                                    class="h-full w-full object-cover">
-                                            @else
-                                                <div class="flex h-full items-center justify-center text-4xl"
-                                                    style="
-                                background-color:
-                                {{ $option->color ?? '#6366F1' }}20;
-                            ">
-                                                    {{ $option->icon ?: '◆' }}
-                                                </div>
-                                            @endif
-                                        </div>
-
-                                        <div class="p-4">
-                                            <p class="font-bold text-slate-900">
-                                                {{ $option->name }}
-                                            </p>
-
-                                            <p class="mt-1 line-clamp-2 text-xs text-slate-500">
-                                                {{ $option->description }}
-                                            </p>
-                                        </div>
-                                    </label>
-                                @endforeach
-                            </div>
-                        @else
-                            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                @foreach ($attribute->options as $option)
-                                    <label
-                                        class="cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-indigo-300">
-                                        <input type="radio" name="attributes[{{ $attribute->id }}]"
-                                            value="{{ $option->id }}" @checked(old("attributes.{$attribute->id}", $firstValue?->attribute_option_id) == $option->id)
-                                            class="sr-only peer">
-
-                                        <div
-                                            class="aspect-[16/9] bg-slate-100 peer-checked:ring-4 peer-checked:ring-indigo-500">
-                                            @if ($option->image_url)
-                                                <img src="{{ $option->image_url }}" class="h-full w-full object-cover"
-                                                    alt="{{ $option->name }}">
-                                            @else
-                                                <div class="flex h-full items-center justify-center text-4xl">
-                                                    {{ $option->icon ?: '◆' }}
-                                                </div>
-                                            @endif
-                                        </div>
-
-                                        <div class="p-4 peer-checked:bg-indigo-50">
-                                            <p class="font-bold">
-                                                {{ $option->name }}
-                                            </p>
-                                        </div>
-                                    </label>
-                                @endforeach
-                            </div>
-                        @endif
-                    @elseif ($attribute->data_type === 'LONG_TEXT')
-                        <textarea name="attributes[{{ $attribute->id }}]" rows="5"
-                            class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
-                            placeholder="{{ $attribute->placeholder }}">{{ old("attributes.{$attribute->id}", $firstValue?->text_value) }}</textarea>
-                    @elseif ($attribute->data_type === 'BOOLEAN')
-                        <select name="attributes[{{ $attribute->id }}]"
-                            class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">Sin definir</option>
-                            <option value="1" @selected(old("attributes.{$attribute->id}", $firstValue?->boolean_value) === true || old("attributes.{$attribute->id}") === '1')>
-                                Sí
-                            </option>
-                            <option value="0" @selected(old("attributes.{$attribute->id}") === '0' || ($firstValue && $firstValue->boolean_value === false))>
-                                No
-                            </option>
-                        </select>
-                    @else
-                        @php
-                            $inputType = match ($attribute->data_type) {
-                                'INTEGER', 'DECIMAL' => 'number',
-                                'DATE' => 'date',
-                                'COLOR' => 'color',
-                                default => 'text',
-                            };
-
-                            $currentValue = match ($attribute->data_type) {
-                                'INTEGER' => $firstValue?->integer_value,
-                                'DECIMAL' => $firstValue?->decimal_value,
-                                'DATE' => $firstValue?->date_value?->format('Y-m-d'),
-                                'COLOR' => $firstValue?->color_value,
-                                default => $firstValue?->text_value,
-                            };
-                        @endphp
-
-                        <input type="{{ $inputType }}" name="attributes[{{ $attribute->id }}]"
-                            value="{{ old("attributes.{$attribute->id}", $currentValue) }}"
-                            placeholder="{{ $attribute->placeholder }}"
-                            @if ($attribute->data_type === 'DECIMAL') step="any" @endif
-                            @if ($attribute->min_numeric_value !== null) min="{{ $attribute->min_numeric_value }}" @endif
-                            @if ($attribute->max_numeric_value !== null) max="{{ $attribute->max_numeric_value }}" @endif
-                            class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
-                    @endif
-
-                    @error("attributes.{$attribute->id}")
-                        <p class="mt-2 text-sm text-red-600">
-                            {{ $message }}
-                        </p>
-                    @enderror
-                </section>
-            @empty
-                <div class="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
-                    <p class="font-semibold text-slate-700">
-                        Todavía no existen atributos
-                    </p>
-
-                    <a href="{{ route('attributes.create') }}"
-                        class="mt-4 inline-block text-sm font-bold text-indigo-600">
-                        Crear el primer atributo
-                    </a>
-                </div>
-            @endforelse
         </div>
 
-        @if ($attributes->isNotEmpty())
-            <div class="sticky bottom-4 mt-8 flex justify-end">
-                <button type="submit"
-                    class="rounded-xl bg-indigo-600 px-6 py-3 font-bold text-white shadow-xl shadow-indigo-600/30 hover:bg-indigo-700">
-                    Guardar atributos
-                </button>
-            </div>
-        @endif
     </form>
+
 </x-app-layout>

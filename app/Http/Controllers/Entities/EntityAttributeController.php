@@ -18,28 +18,42 @@ class EntityAttributeController extends Controller
         Request $request,
         Entity $entity
     ): View {
-        $this->authorize('update', $entity);
+        $this->authorize(
+            'update',
+            $entity
+        );
 
         $attributes = Attribute::query()
-            ->ownedBy($request->user())
+            ->ownedBy(
+                $request->user()
+            )
             ->active()
             ->with([
-                'options' => fn ($query) =>
-                    $query->where('status', 'ACTIVE'),
                 'groups',
+
+                'options' => fn ($query) =>
+                    $query
+                        ->where(
+                            'status',
+                            'ACTIVE'
+                        )
+                        ->orderBy('sort_order')
+                        ->orderBy('name'),
             ])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
         $groups = AttributeGroup::query()
-            ->ownedBy($request->user())
-            ->where('status', 'ACTIVE')
-            ->with([
-                'attributes' => fn ($query) =>
-                    $query->where('attributes.status', 'ACTIVE'),
-            ])
+            ->ownedBy(
+                $request->user()
+            )
+            ->where(
+                'status',
+                'ACTIVE'
+            )
             ->orderBy('sort_order')
+            ->orderBy('name')
             ->get();
 
         $entity->load([
@@ -47,17 +61,12 @@ class EntityAttributeController extends Controller
             'entityAttributes.values.option',
         ]);
 
-        $existingValues = $entity
-            ->entityAttributes
-            ->keyBy('attribute_id');
-
         return view(
             'entities.attributes',
             compact(
                 'entity',
                 'attributes',
-                'groups',
-                'existingValues'
+                'groups'
             )
         );
     }
@@ -67,29 +76,27 @@ class EntityAttributeController extends Controller
         Entity $entity,
         EntityAttributeValueService $service
     ): RedirectResponse {
-        $inputs = $request->input(
-            'attributes',
-            []
+        $service->sync(
+            $entity,
+            $request->user(),
+            $request->input(
+                'selected_attribute_ids',
+                []
+            ),
+            $request->input(
+                'attributes',
+                []
+            )
         );
 
-        $attributes = Attribute::query()
-            ->ownedBy($request->user())
-            ->active()
-            ->get();
-
-        foreach ($attributes as $attribute) {
-            $service->save(
-                $entity,
-                $attribute,
-                $inputs[$attribute->id] ?? null
-            );
-        }
-
         return redirect()
-            ->route('entities.show', $entity)
+            ->route(
+                'entities.show',
+                $entity
+            )
             ->with(
                 'success',
-                'Atributos guardados correctamente.'
+                'Características actualizadas correctamente.'
             );
     }
 }

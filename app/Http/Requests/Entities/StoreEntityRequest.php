@@ -2,84 +2,81 @@
 
 namespace App\Http\Requests\Entities;
 
+use App\Models\Entity;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\File;
 
 class StoreEntityRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return $this->user()?->can(
+            'create',
+            Entity::class
+        ) ?? false;
     }
 
     protected function prepareForValidation(): void
     {
-        $name = trim((string) $this->input('name'));
-
         $this->merge([
-            'name' => $name,
+            'name' => trim(
+                (string) $this->input('name')
+            ),
 
-            'code' => Str::upper(
-                Str::slug(
-                    $this->input('code') ?: $name,
-                    '_'
+            'description' => $this->nullableText(
+                'description'
+            ),
+
+            'visibility' => strtoupper(
+                (string) $this->input(
+                    'visibility',
+                    'PUBLIC'
                 )
             ),
 
-            'slug' => Str::slug(
-                $this->input('slug') ?: $name
+            'status' => strtoupper(
+                (string) $this->input(
+                    'status',
+                    'ACTIVE'
+                )
             ),
 
-            'allow_cloning' =>
-            $this->boolean('allow_cloning'),
+            'allow_cloning' => $this->has('allow_cloning')
+                ? $this->boolean('allow_cloning')
+                : true,
         ]);
     }
 
     public function rules(): array
     {
         return [
+            /*
+            |--------------------------------------------------------------------------
+            | Información
+            |--------------------------------------------------------------------------
+            */
+
             'entity_type_id' => [
                 'nullable',
-                Rule::exists('entity_types', 'id')
-                    ->where(
-                        fn($query) => $query
-                            ->where('user_id', $this->user()->id)
-                            ->whereNull('deleted_at')
-                    ),
+
+                Rule::exists(
+                    'entity_types',
+                    'id'
+                )->where(
+                    fn($query) => $query
+                        ->where(
+                            'user_id',
+                            $this->user()->id
+                        )
+                        ->whereNull('deleted_at')
+                ),
             ],
 
             'name' => [
                 'required',
                 'string',
                 'max:150',
-            ],
-
-            'code' => [
-                'required',
-                'string',
-                'max:30',
-                'regex:/^[A-Z0-9_]+$/',
-                Rule::unique('entities', 'code')
-                    ->where(
-                        fn($query) => $query->where(
-                            'user_id',
-                            $this->user()->id
-                        )
-                    ),
-            ],
-
-            'slug' => [
-                'required',
-                'string',
-                'max:180',
-                Rule::unique('entities', 'slug')
-                    ->where(
-                        fn($query) => $query->where(
-                            'user_id',
-                            $this->user()->id
-                        )
-                    ),
             ],
 
             'description' => [
@@ -90,13 +87,36 @@ class StoreEntityRequest extends FormRequest
 
             'image' => [
                 'nullable',
-                'image',
-                'mimes:jpg,jpeg,png,webp',
-                'max:2048',
+
+                File::image()
+                    ->types([
+                        'jpg',
+                        'jpeg',
+                        'png',
+                        'webp',
+                    ])
+                    ->max('4mb'),
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Publicación
+            |--------------------------------------------------------------------------
+            */
+
+            'visibility' => [
+                'required',
+
+                Rule::in([
+                    'PUBLIC',
+                    'PRIVATE',
+                    'UNLISTED',
+                ]),
             ],
 
             'status' => [
                 'required',
+
                 Rule::in([
                     'ACTIVE',
                     'INACTIVE',
@@ -104,16 +124,75 @@ class StoreEntityRequest extends FormRequest
                 ]),
             ],
 
-            'visibility' => [
-                'required',
-                Rule::in([
-                    'PRIVATE',
-                    'PUBLIC',
-                    'UNLISTED',
-                ]),
-            ],
             'allow_cloning' => [
                 'boolean',
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Características seleccionadas
+            |--------------------------------------------------------------------------
+            */
+
+            'selected_attribute_ids' => [
+                'nullable',
+                'array',
+            ],
+
+            'selected_attribute_ids.*' => [
+                'integer',
+
+                Rule::exists(
+                    'attributes',
+                    'id'
+                )->where(
+                    fn($query) => $query
+                        ->where(
+                            'user_id',
+                            $this->user()->id
+                        )
+                        ->where(
+                            'status',
+                            'ACTIVE'
+                        )
+                        ->whereNull(
+                            'deleted_at'
+                        )
+                ),
+            ],
+
+            'attributes' => [
+                'nullable',
+                'array',
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Colecciones
+            |--------------------------------------------------------------------------
+            */
+
+            'collection_ids' => [
+                'nullable',
+                'array',
+            ],
+
+            'collection_ids.*' => [
+                'integer',
+
+                Rule::exists(
+                    'collections',
+                    'id'
+                )->where(
+                    fn($query) => $query
+                        ->where(
+                            'user_id',
+                            $this->user()->id
+                        )
+                        ->whereNull(
+                            'deleted_at'
+                        )
+                ),
             ],
         ];
     }
@@ -127,20 +206,29 @@ class StoreEntityRequest extends FormRequest
             'entity_type_id.exists' =>
             'El tipo seleccionado no es válido.',
 
-            'code.unique' =>
-            'Ya tienes una entidad con este código.',
-
-            'slug.unique' =>
-            'Ya tienes una entidad con este identificador.',
-
             'image.image' =>
             'El archivo seleccionado debe ser una imagen.',
 
-            'image.mimes' =>
-            'La imagen debe ser JPG, PNG o WEBP.',
-
             'image.max' =>
-            'La imagen no puede superar los 2 MB.',
+            'La imagen no puede superar los 4 MB.',
+
+            'selected_attribute_ids.*.exists' =>
+            'Uno de los atributos seleccionados no es válido.',
+
+            'collection_ids.*.exists' =>
+            'Una de las colecciones seleccionadas no es válida.',
         ];
+    }
+
+    private function nullableText(
+        string $field
+    ): ?string {
+        $value = trim(
+            (string) $this->input($field)
+        );
+
+        return $value !== ''
+            ? $value
+            : null;
     }
 }

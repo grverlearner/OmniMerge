@@ -224,7 +224,9 @@
 
             <div class="space-y-1">
                 <a href="{{ route('entities.index') }}"
-                    class="{{ request()->routeIs('entities.*') || request()->routeIs('entity-types.*')
+                    class="{{ request()->routeIs('entities.*') ||
+                    request()->routeIs('entity-types.*') ||
+                    request()->routeIs('collections.*')
                         ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40'
                         : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
                         flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition">
@@ -332,52 +334,6 @@
 
             </div>
         </div>
-
-
-        {{-- ORGANIZACIÓN --}}
-        <div>
-
-            <p
-                class="
-                    mb-2
-                    px-3
-                    text-xs
-                    font-semibold
-                    uppercase
-                    tracking-wider
-                    text-slate-500
-                ">
-                Organización
-            </p>
-
-
-            <div class="space-y-1">
-
-                <a href="{{ route('collections.index') }}"
-                    class="
-                        {{ request()->routeIs('collections.*')
-                            ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40'
-                            : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
-                        flex
-                        items-center
-                        gap-3
-                        rounded-xl
-                        px-3
-                        py-3
-                        text-sm
-                        font-medium
-                        transition
-                    ">
-                    <span class="text-lg">
-                        ▤
-                    </span>
-
-                    Colecciones
-                </a>
-
-            </div>
-        </div>
-
 
         {{-- INFORMACIÓN --}}
         <div>

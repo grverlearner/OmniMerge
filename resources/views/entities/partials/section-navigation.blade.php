@@ -10,9 +10,9 @@
         bg-white
         p-3
         shadow-sm
-        sm:flex-row
-        sm:items-center
-        sm:justify-between
+        lg:flex-row
+        lg:items-center
+        lg:justify-between
     ">
 
     <div
@@ -25,12 +25,13 @@
             sm:w-auto
         ">
 
-        {{-- MIS ENTIDADES --}}
+        {{-- ENTIDADES --}}
         <a href="{{ route('entities.index') }}"
             class="
                 {{ request()->routeIs('entities.*')
                     ? 'bg-white text-indigo-700 shadow-sm'
                     : 'text-slate-500 hover:text-slate-900' }}
+
                 flex-1
                 rounded-lg
                 px-4
@@ -41,7 +42,7 @@
                 transition
                 sm:flex-none
             ">
-            ✦ Mis entidades
+            ✦ Entidades
         </a>
 
 
@@ -51,6 +52,7 @@
                 {{ request()->routeIs('entity-types.*')
                     ? 'bg-white text-indigo-700 shadow-sm'
                     : 'text-slate-500 hover:text-slate-900' }}
+
                 flex-1
                 rounded-lg
                 px-4
@@ -61,7 +63,28 @@
                 transition
                 sm:flex-none
             ">
-            ◇ Tipos de entidad
+            ◇ Tipos
+        </a>
+
+
+        {{-- COLECCIONES --}}
+        <a href="{{ route('collections.index') }}"
+            class="
+                {{ request()->routeIs('collections.*')
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900' }}
+
+                flex-1
+                rounded-lg
+                px-4
+                py-2.5
+                text-center
+                text-sm
+                font-bold
+                transition
+                sm:flex-none
+            ">
+            ▤ Colecciones
         </a>
 
     </div>
@@ -71,10 +94,9 @@
             hidden
             text-xs
             text-slate-400
-            lg:block
+            xl:block
         ">
-        Las entidades son tus creaciones.
-        Los tipos sirven para organizarlas.
+        Entidades crean · Tipos clasifican · Colecciones organizan
     </p>
 
 </div>

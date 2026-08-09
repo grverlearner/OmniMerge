@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Collections;
 
+use App\Models\Collection;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
 
@@ -11,26 +11,36 @@ class StoreCollectionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return $this->user()?->can(
+            'create',
+            Collection::class
+        ) ?? false;
     }
 
     protected function prepareForValidation(): void
     {
-        $name = trim((string) $this->input('name'));
-
         $this->merge([
-            'name' => $name,
+            'name' => trim(
+                (string) $this->input('name')
+            ),
 
-            'code' => Str::upper(
-                Str::slug(
-                    $this->input('code') ?: $name,
-                    '_'
+            'visibility' => strtoupper(
+                (string) $this->input(
+                    'visibility',
+                    'PUBLIC'
                 )
             ),
 
-            'slug' => Str::slug(
-                $this->input('slug') ?: $name
+            'status' => strtoupper(
+                (string) $this->input(
+                    'status',
+                    'ACTIVE'
+                )
             ),
+
+            'allow_cloning' => $this->has('allow_cloning')
+                ? $this->boolean('allow_cloning')
+                : true,
         ]);
     }
 
@@ -43,35 +53,6 @@ class StoreCollectionRequest extends FormRequest
                 'max:150',
             ],
 
-            'code' => [
-                'required',
-                'string',
-                'max:50',
-                'regex:/^[A-Z0-9_]+$/',
-
-                Rule::unique('collections', 'code')
-                    ->where(
-                        fn ($query) => $query->where(
-                            'user_id',
-                            $this->user()->id
-                        )
-                    ),
-            ],
-
-            'slug' => [
-                'required',
-                'string',
-                'max:180',
-
-                Rule::unique('collections', 'slug')
-                    ->where(
-                        fn ($query) => $query->where(
-                            'user_id',
-                            $this->user()->id
-                        )
-                    ),
-            ],
-
             'description' => [
                 'nullable',
                 'string',
@@ -80,6 +61,7 @@ class StoreCollectionRequest extends FormRequest
 
             'image' => [
                 'nullable',
+
                 File::image()
                     ->types([
                         'jpg',
@@ -103,15 +85,17 @@ class StoreCollectionRequest extends FormRequest
 
             'visibility' => [
                 'required',
+
                 Rule::in([
-                    'PRIVATE',
                     'PUBLIC',
+                    'PRIVATE',
                     'UNLISTED',
                 ]),
             ],
 
             'status' => [
                 'required',
+
                 Rule::in([
                     'ACTIVE',
                     'INACTIVE',
@@ -119,10 +103,8 @@ class StoreCollectionRequest extends FormRequest
                 ]),
             ],
 
-            'sort_order' => [
-                'nullable',
-                'integer',
-                'min:0',
+            'allow_cloning' => [
+                'boolean',
             ],
 
             'entity_ids' => [
@@ -131,15 +113,21 @@ class StoreCollectionRequest extends FormRequest
             ],
 
             'entity_ids.*' => [
-                Rule::exists('entities', 'id')
-                    ->where(
-                        fn ($query) => $query
-                            ->where(
-                                'user_id',
-                                $this->user()->id
-                            )
-                            ->whereNull('deleted_at')
-                    ),
+                'integer',
+
+                Rule::exists(
+                    'entities',
+                    'id'
+                )->where(
+                    fn($query) => $query
+                        ->where(
+                            'user_id',
+                            $this->user()->id
+                        )
+                        ->whereNull(
+                            'deleted_at'
+                        )
+                ),
             ],
         ];
     }
