@@ -1,26 +1,105 @@
 <form method="GET" action="{{ route('community.index') }}"
-    class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    class="
+        mt-5
+        min-w-0
+        rounded-2xl
+        border
+        border-slate-200
+        bg-white
+        p-4
+        shadow-sm
+    ">
+
     <input type="hidden" name="tab" value="{{ $tab }}">
 
-    <div class="grid gap-3 lg:grid-cols-[1fr_220px_220px_auto]">
-        <div>
-            <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+
+    <div
+        class="
+            grid
+            min-w-0
+            grid-cols-1
+            gap-3
+            sm:grid-cols-2
+            xl:grid-cols-4
+        ">
+
+        {{-- ===================================================== --}}
+        {{-- BÚSQUEDA --}}
+        {{-- ===================================================== --}}
+
+        <div class="
+                min-w-0
+                sm:col-span-2
+            ">
+
+            <label
+                class="
+                    mb-1.5
+                    block
+                    text-[10px]
+                    font-black
+                    uppercase
+                    tracking-wider
+                    text-slate-400
+                ">
                 Búsqueda
             </label>
 
+
             <input type="search" name="search" value="{{ $search }}"
                 placeholder="Nombre, descripción o creador..."
-                class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                class="
+                    w-full
+                    min-w-0
+                    rounded-xl
+                    border-slate-300
+                    bg-white
+                    py-2.5
+                    text-sm
+                    text-slate-900
+                    placeholder:text-slate-400
+                    focus:border-indigo-500
+                    focus:ring-indigo-500
+                ">
+
         </div>
 
+
+        {{-- ===================================================== --}}
+        {{-- FILTRO SEGÚN PESTAÑA --}}
+        {{-- ===================================================== --}}
+
         @if ($tab === 'entities')
-            <div>
-                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+
+            <div class="min-w-0">
+
+                <label
+                    class="
+                        mb-1.5
+                        block
+                        text-[10px]
+                        font-black
+                        uppercase
+                        tracking-wider
+                        text-slate-400
+                    ">
                     Tipo de entidad
                 </label>
 
+
                 <select name="entity_type"
-                    class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                    class="
+                        w-full
+                        min-w-0
+                        rounded-xl
+                        border-slate-300
+                        bg-white
+                        py-2.5
+                        text-sm
+                        text-slate-900
+                        focus:border-indigo-500
+                        focus:ring-indigo-500
+                    ">
                     <option value="">
                         Todos los tipos
                     </option>
@@ -31,15 +110,38 @@
                         </option>
                     @endforeach
                 </select>
+
             </div>
         @elseif ($tab === 'attributes')
-            <div>
-                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+            <div class="min-w-0">
+
+                <label
+                    class="
+                        mb-1.5
+                        block
+                        text-[10px]
+                        font-black
+                        uppercase
+                        tracking-wider
+                        text-slate-400
+                    ">
                     Tipo de dato
                 </label>
 
+
                 <select name="data_type"
-                    class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                    class="
+                        w-full
+                        min-w-0
+                        rounded-xl
+                        border-slate-300
+                        bg-white
+                        py-2.5
+                        text-sm
+                        text-slate-900
+                        focus:border-indigo-500
+                        focus:ring-indigo-500
+                    ">
                     <option value="">
                         Todos los tipos
                     </option>
@@ -59,18 +161,47 @@
                         </option>
                     @endforeach
                 </select>
+
             </div>
         @else
-            <div class="hidden lg:block"></div>
+            <div class="hidden xl:block"></div>
+
         @endif
 
-        <div>
-            <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+
+        {{-- ===================================================== --}}
+        {{-- ORDEN --}}
+        {{-- ===================================================== --}}
+
+        <div class="min-w-0">
+
+            <label
+                class="
+                    mb-1.5
+                    block
+                    text-[10px]
+                    font-black
+                    uppercase
+                    tracking-wider
+                    text-slate-400
+                ">
                 Ordenar
             </label>
 
+
             <select name="sort"
-                class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                class="
+                    w-full
+                    min-w-0
+                    rounded-xl
+                    border-slate-300
+                    bg-white
+                    py-2.5
+                    text-sm
+                    text-slate-900
+                    focus:border-indigo-500
+                    focus:ring-indigo-500
+                ">
                 @foreach ([
         'popular' => 'Más populares',
         'newest' => 'Más recientes',
@@ -84,19 +215,64 @@
                     </option>
                 @endforeach
             </select>
+
         </div>
 
-        <div class="flex items-end gap-2">
-            <button type="submit"
-                class="flex-1 rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800">
-                Aplicar
-            </button>
-
-            <a href="{{ route('community.index', ['tab' => $tab]) }}"
-                class="rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
-                title="Limpiar filtros">
-                ×
-            </a>
-        </div>
     </div>
+
+
+    {{-- ========================================================= --}}
+    {{-- ACCIONES --}}
+    {{-- ========================================================= --}}
+
+    <div
+        class="
+            mt-3
+            flex
+            justify-end
+            gap-2
+            border-t
+            border-slate-100
+            pt-3
+        ">
+
+        <a href="{{ route('community.index', [
+            'tab' => $tab,
+        ]) }}"
+            title="Limpiar filtros"
+            class="
+                flex
+                h-10
+                w-10
+                shrink-0
+                items-center
+                justify-center
+                rounded-xl
+                border
+                border-slate-300
+                text-sm
+                font-bold
+                text-slate-600
+                hover:bg-slate-50
+            ">
+            ×
+        </a>
+
+
+        <button type="submit"
+            class="
+                rounded-xl
+                bg-slate-900
+                px-5
+                py-2.5
+                text-sm
+                font-black
+                text-white
+                hover:bg-slate-800
+            ">
+            Aplicar filtros
+        </button>
+
+    </div>
+
 </form>

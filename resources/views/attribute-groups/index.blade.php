@@ -166,51 +166,61 @@
 
         </div>
 
-
         {{-- ===================================================== --}}
-        {{-- FILTROS --}}
+        {{-- FILTROS RESPONSIVE --}}
         {{-- ===================================================== --}}
 
         <form method="GET" action="{{ route('attribute-groups.index') }}"
             class="
-                mt-6
-                rounded-2xl
-                border
-                border-slate-200
-                bg-white
-                p-4
-                shadow-sm
-            ">
+        mt-6
+        min-w-0
+        rounded-2xl
+        border
+        border-slate-200
+        bg-white
+        p-4
+        shadow-sm
+    ">
 
             <div
                 class="
-                    grid
-                    gap-3
-                    md:grid-cols-2
-                    xl:grid-cols-4
-                ">
+            grid
+            min-w-0
+            grid-cols-1
+            gap-3
+            sm:grid-cols-2
+            xl:grid-cols-4
+        ">
 
                 <input type="text" name="search" value="{{ $search }}"
                     placeholder="Nombre, código o descripción..."
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                        placeholder:text-slate-400
-                        focus:border-indigo-500
-                        focus:ring-indigo-500
-                    ">
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+                placeholder:text-slate-400
+                focus:border-indigo-500
+                focus:ring-indigo-500
+                sm:col-span-2
+            ">
 
 
                 <select name="status"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     <option value="">
                         Todos los estados
                     </option>
@@ -226,18 +236,20 @@
                     <option value="ARCHIVED" @selected($status === 'ARCHIVED')>
                         Archivado
                     </option>
-
                 </select>
 
 
                 <select name="layout"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     <option value="">
                         Toda presentación
                     </option>
@@ -253,18 +265,20 @@
                             {{ $labelText }}
                         </option>
                     @endforeach
-
                 </select>
 
 
                 <select name="content"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     <option value="">
                         Cualquier contenido
                     </option>
@@ -276,18 +290,20 @@
                     <option value="empty" @selected($content === 'empty')>
                         Vacíos
                     </option>
-
                 </select>
 
 
                 <select name="collapsible"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     <option value="">
                         Cualquier comportamiento
                     </option>
@@ -299,18 +315,20 @@
                     <option value="no" @selected($collapsible === 'no')>
                         Siempre visibles
                     </option>
-
                 </select>
 
 
                 <select name="sort"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     @foreach ([
         'manual' => 'Orden personalizado',
         'newest' => 'Más recientes',
@@ -326,68 +344,77 @@
                             {{ $labelText }}
                         </option>
                     @endforeach
-
                 </select>
 
+            </div>
 
-                <select name="per_page"
+
+            <div
+                class="
+            mt-3
+            flex
+            flex-col
+            gap-3
+            border-t
+            border-slate-100
+            pt-3
+            sm:flex-row
+            sm:items-center
+            sm:justify-between
+        ">
+
+                <a href="{{ route('attribute-groups.index') }}"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
-                    @foreach ([12, 24, 48] as $number)
-                        <option value="{{ $number }}" @selected($perPage === $number)>
-                            {{ $number }} / página
-                        </option>
-                    @endforeach
-
-                </select>
+                text-xs
+                font-bold
+                text-slate-500
+                hover:text-indigo-600
+            ">
+                    × Limpiar filtros
+                </a>
 
 
-                <div class="flex gap-2">
+                <div class="flex w-full gap-2 sm:w-auto">
+
+                    <select name="per_page"
+                        class="
+                    min-w-0
+                    flex-1
+                    rounded-xl
+                    border-slate-300
+                    bg-white
+                    py-2.5
+                    text-sm
+                    text-slate-900
+                    sm:w-32
+                ">
+                        @foreach ([12, 24, 48] as $number)
+                            <option value="{{ $number }}" @selected($perPage === $number)>
+                                {{ $number }}/pág.
+                            </option>
+                        @endforeach
+                    </select>
+
 
                     <button type="submit"
                         class="
-                            flex-1
-                            rounded-xl
-                            bg-slate-900
-                            px-5
-                            py-3
-                            text-sm
-                            font-black
-                            text-white
-                        ">
+                    shrink-0
+                    rounded-xl
+                    bg-slate-900
+                    px-5
+                    py-2.5
+                    text-sm
+                    font-black
+                    text-white
+                ">
                         Aplicar
                     </button>
-
-
-                    <a href="{{ route('attribute-groups.index') }}"
-                        class="
-                            flex
-                            items-center
-                            justify-center
-                            rounded-xl
-                            border
-                            border-slate-200
-                            px-4
-                            text-sm
-                            font-bold
-                            text-slate-500
-                            hover:bg-slate-50
-                        ">
-                        ×
-                    </a>
 
                 </div>
 
             </div>
 
         </form>
-
-
         {{-- ===================================================== --}}
         {{-- MODOS DE VISTA --}}
         {{-- ===================================================== --}}
@@ -417,10 +444,11 @@
                 ">
 
                 @foreach ([
-        'grid' => '▦ Cuadrícula',
-        'list' => '☰ Lista',
-        'table' => '≡ Tabla',
-    ] as $value => $labelText)
+                    'gallery' => '▦ Galería',
+                    'grid' => '▦ Cuadrícula',
+                    'list' => '☰ Lista',
+                    'table' => '≡ Tabla',
+                ] as $value => $labelText)
                     <button type="button"
                         @click="
                             setView(

@@ -1,4 +1,4 @@
-<a href="{{ route('entities.show', $entity) }}"
+<a href="{{ route('entity-types.show', $type) }}"
     class="
         group
         min-w-0
@@ -14,18 +14,14 @@
         hover:shadow-md
     ">
 
-    {{-- ========================================================= --}}
-    {{-- IMAGEN --}}
-    {{-- ========================================================= --}}
-
     <div class="
             aspect-square
             overflow-hidden
             bg-slate-100
         ">
 
-        @if ($entity->image_url)
-            <img src="{{ $entity->image_url }}" alt="{{ $entity->name }}"
+        @if ($type->image_url)
+            <img src="{{ $type->image_url }}" alt="{{ $type->name }}"
                 class="
                     h-full
                     w-full
@@ -35,30 +31,28 @@
                     group-hover:scale-105
                 ">
         @else
-            <div
-                class="
+            <div class="
                     flex
                     h-full
                     w-full
                     items-center
                     justify-center
-                    bg-gradient-to-br
-                    from-indigo-50
-                    to-violet-100
                     text-3xl
                     font-black
-                    text-indigo-300
+                "
+                style="
+                    background-color:
+                        {{ $type->color ?? '#6366F1' }}18;
+
+                    color:
+                        {{ $type->color ?? '#6366F1' }};
                 ">
-                {{ $entity->entityType?->icon ?: mb_strtoupper(mb_substr($entity->name, 0, 1)) }}
+                {{ $type->icon ?: mb_strtoupper(mb_substr($type->name, 0, 1)) }}
             </div>
         @endif
 
     </div>
 
-
-    {{-- ========================================================= --}}
-    {{-- SOLO NOMBRE --}}
-    {{-- ========================================================= --}}
 
     <div class="px-2 py-2.5">
 
@@ -71,8 +65,8 @@
                 transition
                 group-hover:text-indigo-700
             "
-            title="{{ $entity->name }}">
-            {{ $entity->name }}
+            title="{{ $type->name }}">
+            {{ $type->name }}
         </p>
 
     </div>

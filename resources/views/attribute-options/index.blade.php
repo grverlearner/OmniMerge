@@ -360,74 +360,86 @@
             </section>
 
         @endif
-
-
         {{-- ===================================================== --}}
-        {{-- FILTROS --}}
+        {{-- FILTROS RESPONSIVE --}}
         {{-- ===================================================== --}}
 
         <form method="GET" action="{{ route('attribute-options.index') }}"
             class="
-                mt-5
-                rounded-2xl
-                border
-                border-slate-200
-                bg-white
-                p-4
-                shadow-sm
-            ">
+        mt-5
+        min-w-0
+        rounded-2xl
+        border
+        border-slate-200
+        bg-white
+        p-4
+        shadow-sm
+    ">
 
             <div
                 class="
-                    grid
-                    gap-3
-                    md:grid-cols-2
-                    xl:grid-cols-[minmax(200px,1fr)_180px_150px_150px_170px_170px_220px_110px_auto]
-                ">
+            grid
+            min-w-0
+            grid-cols-1
+            gap-3
+            sm:grid-cols-2
+            xl:grid-cols-4
+        ">
 
                 {{-- SEARCH --}}
                 <input name="search" value="{{ $search }}" placeholder="Nombre, código o descripción..."
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                        placeholder:text-slate-400
-                    ">
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+                placeholder:text-slate-400
+                focus:border-violet-500
+                focus:ring-violet-500
+                sm:col-span-2
+            ">
 
 
                 {{-- CATÁLOGO --}}
                 <select name="attribute"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     <option value="">
                         Todos los Catálogos
                     </option>
-
 
                     @foreach ($attributes as $attribute)
                         <option value="{{ $attribute->id }}" @selected($attributeId == $attribute->id)>
                             {{ $attribute->name }}
                         </option>
                     @endforeach
-
                 </select>
 
 
-                {{-- STATUS --}}
+                {{-- ESTADO --}}
                 <select name="status"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     <option value="">
                         Todo estado
                     </option>
@@ -443,19 +455,21 @@
                     <option value="ARCHIVED" @selected($status === 'ARCHIVED')>
                         Archivado
                     </option>
-
                 </select>
 
 
-                {{-- IMAGE --}}
+                {{-- IMAGEN --}}
                 <select name="image"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     <option value="">
                         Cualquier imagen
                     </option>
@@ -467,19 +481,21 @@
                     <option value="no" @selected($image === 'no')>
                         Sin imagen
                     </option>
-
                 </select>
 
 
-                {{-- HIERARCHY --}}
+                {{-- JERARQUÍA --}}
                 <select name="hierarchy"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     <option value="">
                         Toda jerarquía
                     </option>
@@ -495,19 +511,21 @@
                     <option value="has_children" @selected($hierarchy === 'has_children')>
                         Tiene subelementos
                     </option>
-
                 </select>
 
 
-                {{-- USAGE --}}
+                {{-- USO --}}
                 <select name="usage"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     <option value="">
                         Cualquier uso
                     </option>
@@ -519,19 +537,21 @@
                     <option value="unused" @selected($usage === 'unused')>
                         Sin utilizar
                     </option>
-
                 </select>
 
 
-                {{-- SORT --}}
+                {{-- ORDEN --}}
                 <select name="sort"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     @foreach ([
         'manual' => 'Orden personalizado',
         'newest' => 'Más recientes',
@@ -549,59 +569,82 @@
                             {{ $label }}
                         </option>
                     @endforeach
-
                 </select>
-
-
-                {{-- PER PAGE --}}
-                <select name="per_page"
-                    class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
-                    @foreach ([12, 24, 48, 96] as $number)
-                        <option value="{{ $number }}" @selected($perPage === $number)>
-                            {{ $number }}/pág.
-                        </option>
-                    @endforeach
-
-                </select>
-
-
-                <button
-                    class="
-                        rounded-xl
-                        bg-slate-900
-                        px-4
-                        py-3
-                        text-xs
-                        font-black
-                        text-white
-                    ">
-                    Aplicar
-                </button>
 
             </div>
 
 
-            @if ($search || $attributeId || $status || $image || $hierarchy || $usage || $sort !== 'manual' || $perPage !== 24)
-                <div class="mt-3">
+            {{-- ACCIONES --}}
+            <div
+                class="
+            mt-3
+            flex
+            flex-col
+            gap-3
+            border-t
+            border-slate-100
+            pt-3
+            sm:flex-row
+            sm:items-center
+            sm:justify-between
+        ">
 
-                    <a href="{{ route('attribute-options.index') }}"
-                        class="
-                            text-xs
-                            font-bold
-                            text-slate-500
-                            hover:text-violet-600
-                        ">
-                        × Limpiar filtros
-                    </a>
+                <div>
+
+                    @if ($search || $attributeId || $status || $image || $hierarchy || $usage || $sort !== 'manual' || $perPage !== 24)
+                        <a href="{{ route('attribute-options.index') }}"
+                            class="
+                        text-xs
+                        font-bold
+                        text-slate-500
+                        hover:text-violet-600
+                    ">
+                            × Limpiar filtros
+                        </a>
+                    @endif
 
                 </div>
-            @endif
+
+
+                <div class="flex w-full gap-2 sm:w-auto">
+
+                    <select name="per_page"
+                        class="
+                    min-w-0
+                    flex-1
+                    rounded-xl
+                    border-slate-300
+                    bg-white
+                    py-2.5
+                    text-sm
+                    text-slate-900
+                    sm:w-32
+                ">
+                        @foreach ([12, 24, 48, 96] as $number)
+                            <option value="{{ $number }}" @selected($perPage === $number)>
+                                {{ $number }}/pág.
+                            </option>
+                        @endforeach
+                    </select>
+
+
+                    <button type="submit"
+                        class="
+                    shrink-0
+                    rounded-xl
+                    bg-slate-900
+                    px-5
+                    py-2.5
+                    text-sm
+                    font-black
+                    text-white
+                ">
+                        Aplicar
+                    </button>
+
+                </div>
+
+            </div>
 
         </form>
 
@@ -649,6 +692,7 @@
 
 
                 @foreach ([
+        'gallery' => '▦ Galería',
         'grid' => '▦ Cuadrícula',
         'list' => '☰ Lista',
         'table' => '≡ Tabla',
@@ -818,6 +862,153 @@
 
             </div>
         @else
+            {{-- ===================================================== --}}
+            {{-- GALERÍA NORMAL --}}
+            {{-- ===================================================== --}}
+
+            <div x-cloak x-show="
+        view === 'gallery'
+        &&
+        ! grouped
+    "
+                class="
+        mt-6
+        grid
+        grid-cols-3
+        gap-3
+        sm:grid-cols-4
+        md:grid-cols-5
+        lg:grid-cols-7
+        xl:grid-cols-8
+        2xl:grid-cols-10
+    ">
+
+                @foreach ($options as $option)
+                    @include('attribute-options.partials.index-gallery-card', [
+                        'option' => $option,
+                    ])
+                @endforeach
+
+            </div>
+
+
+            {{-- ===================================================== --}}
+            {{-- GALERÍA AGRUPADA POR CATÁLOGO --}}
+            {{-- ===================================================== --}}
+
+            <div x-cloak x-show="
+        view === 'gallery'
+        &&
+        grouped
+    "
+                class="
+        mt-8
+        space-y-10
+    ">
+
+                @foreach ($groupedOptions as $group)
+                    @php
+
+                        $groupAttribute = $group->first()->attribute;
+
+                    @endphp
+
+
+                    <section>
+
+                        <div
+                            class="
+                    flex
+                    min-w-0
+                    items-center
+                    gap-3
+                ">
+
+                            <div
+                                class="
+                        h-10
+                        w-10
+                        shrink-0
+                        overflow-hidden
+                        rounded-xl
+                        bg-slate-100
+                    ">
+
+                                @if ($groupAttribute->image_url)
+                                    <img src="{{ $groupAttribute->image_url }}" alt="{{ $groupAttribute->name }}"
+                                        class="
+                                h-full
+                                w-full
+                                object-cover
+                            ">
+                                @else
+                                    <div
+                                        class="
+                                flex
+                                h-full
+                                items-center
+                                justify-center
+                                font-black
+                            ">
+                                        {{ $groupAttribute->icon ?: '◆' }}
+                                    </div>
+                                @endif
+
+                            </div>
+
+
+                            <div class="min-w-0">
+
+                                <h3
+                                    class="
+                            truncate
+                            font-black
+                            text-slate-900
+                        ">
+                                    {{ $groupAttribute->name }}
+                                </h3>
+
+
+                                <p
+                                    class="
+                            mt-0.5
+                            text-xs
+                            text-slate-400
+                        ">
+                                    {{ $group->count() }}
+                                    en esta página
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div
+                            class="
+                    mt-4
+                    grid
+                    grid-cols-3
+                    gap-3
+                    sm:grid-cols-4
+                    md:grid-cols-5
+                    lg:grid-cols-7
+                    xl:grid-cols-8
+                    2xl:grid-cols-10
+                ">
+
+                            @foreach ($group as $option)
+                                @include('attribute-options.partials.index-gallery-card', [
+                                    'option' => $option,
+                                ])
+                            @endforeach
+
+                        </div>
+
+                    </section>
+                @endforeach
+
+            </div>
             {{-- ================================================= --}}
             {{-- GRID NORMAL --}}
             {{-- ================================================= --}}

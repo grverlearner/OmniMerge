@@ -297,56 +297,61 @@
             </div>
 
         </div>
-
-
         {{-- ===================================================== --}}
-        {{-- FILTROS --}}
+        {{-- FILTROS RESPONSIVE --}}
         {{-- ===================================================== --}}
 
         <form method="GET"
             class="
-                mt-6
-                rounded-2xl
-                border
-                border-slate-200
-                bg-white
-                p-4
-                shadow-sm
-            ">
+        mt-6
+        min-w-0
+        rounded-2xl
+        border
+        border-slate-200
+        bg-white
+        p-4
+        shadow-sm
+    ">
 
             <div
                 class="
-                    grid
-                    gap-3
-                    lg:grid-cols-[minmax(240px,1fr)_170px_210px_130px_auto]
-                ">
+            grid
+            min-w-0
+            grid-cols-1
+            gap-3
+            sm:grid-cols-2
+            xl:grid-cols-4
+        ">
 
-                {{-- BUSCAR --}}
                 <input name="search" value="{{ $search }}"
                     placeholder="Buscar por nombre, código o descripción..."
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                        placeholder:text-slate-400
-                        focus:border-indigo-500
-                        focus:text-slate-900
-                        focus:ring-indigo-500
-                    ">
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+                placeholder:text-slate-400
+                focus:border-indigo-500
+                focus:ring-indigo-500
+                sm:col-span-2
+            ">
 
 
-                {{-- ESTADO --}}
                 <select name="status"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                        focus:border-indigo-500
-                        focus:ring-indigo-500
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     <option value="">
                         Todos los estados
                     </option>
@@ -362,101 +367,110 @@
                     <option value="ARCHIVED" @selected($status === 'ARCHIVED')>
                         Archivados
                     </option>
-
                 </select>
 
 
-                {{-- ORDEN --}}
                 <select name="sort"
                     class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                        focus:border-indigo-500
-                        focus:ring-indigo-500
-                    ">
-
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
                     @foreach ([
         'manual' => 'Orden personalizado',
-
         'newest' => 'Más recientes',
-
         'oldest' => 'Más antiguos',
-
         'name_asc' => 'Nombre A → Z',
-
         'name_desc' => 'Nombre Z → A',
-
         'code_asc' => 'Código ascendente',
-
         'code_desc' => 'Código descendente',
-
         'entities_desc' => 'Más entidades',
-
         'entities_asc' => 'Menos entidades',
     ] as $value => $label)
                         <option value="{{ $value }}" @selected($sort === $value)>
                             {{ $label }}
                         </option>
                     @endforeach
-
                 </select>
-
-
-                {{-- CANTIDAD --}}
-                <select name="per_page"
-                    class="
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                        focus:border-indigo-500
-                        focus:ring-indigo-500
-                    ">
-
-                    @foreach ([12, 24, 48] as $number)
-                        <option value="{{ $number }}" @selected($perPage === $number)>
-                            {{ $number }} / pág.
-                        </option>
-                    @endforeach
-
-                </select>
-
-
-                {{-- BUSCAR --}}
-                <button type="submit"
-                    class="
-                        rounded-xl
-                        bg-slate-900
-                        px-5
-                        py-3
-                        text-sm
-                        font-bold
-                        text-white
-                        hover:bg-slate-800
-                    ">
-                    Aplicar
-                </button>
 
             </div>
 
 
-            @if ($search || $status || $sort !== 'manual' || $perPage !== 24)
-                <div class="mt-3">
+            <div
+                class="
+            mt-3
+            flex
+            flex-col
+            gap-3
+            border-t
+            border-slate-100
+            pt-3
+            sm:flex-row
+            sm:items-center
+            sm:justify-between
+        ">
 
-                    <a href="{{ route('entity-types.index') }}"
-                        class="
-                            text-xs
-                            font-bold
-                            text-slate-500
-                            hover:text-indigo-600
-                        ">
-                        × Limpiar filtros
-                    </a>
+                <div>
+
+                    @if ($search || $status || $sort !== 'manual' || $perPage !== 24)
+                        <a href="{{ route('entity-types.index') }}"
+                            class="
+                        text-xs
+                        font-bold
+                        text-slate-500
+                        hover:text-indigo-600
+                    ">
+                            × Limpiar filtros
+                        </a>
+                    @endif
 
                 </div>
-            @endif
+
+
+                <div class="flex w-full gap-2 sm:w-auto">
+
+                    <select name="per_page"
+                        class="
+                    min-w-0
+                    flex-1
+                    rounded-xl
+                    border-slate-300
+                    bg-white
+                    py-2.5
+                    text-sm
+                    text-slate-900
+                    sm:w-32
+                ">
+                        @foreach ([12, 24, 48] as $number)
+                            <option value="{{ $number }}" @selected($perPage === $number)>
+                                {{ $number }}/pág.
+                            </option>
+                        @endforeach
+                    </select>
+
+
+                    <button type="submit"
+                        class="
+                    shrink-0
+                    rounded-xl
+                    bg-slate-900
+                    px-5
+                    py-2.5
+                    text-sm
+                    font-black
+                    text-white
+                ">
+                        Aplicar
+                    </button>
+
+                </div>
+
+            </div>
 
         </form>
 
@@ -504,70 +518,33 @@
                 </span>
 
 
-                <button type="button" @click="
-                        setView('grid')
-                    "
-                    :class="view === 'grid'
-                    
-                        ?
-                        'bg-indigo-600 text-white'
-                    
-                        :
-                        'bg-slate-100 text-slate-500 hover:text-slate-900'"
-                    class="
-                        rounded-lg
-                        px-3
-                        py-2
-                        text-xs
-                        font-bold
-                        transition
-                    ">
-                    ▦ Cuadrícula
-                </button>
-
-
-                <button type="button" @click="
-                        setView('list')
-                    "
-                    :class="view === 'list'
-                    
-                        ?
-                        'bg-indigo-600 text-white'
-                    
-                        :
-                        'bg-slate-100 text-slate-500 hover:text-slate-900'"
-                    class="
-                        rounded-lg
-                        px-3
-                        py-2
-                        text-xs
-                        font-bold
-                        transition
-                    ">
-                    ☰ Lista
-                </button>
-
-
-                <button type="button" @click="
-                        setView('table')
-                    "
-                    :class="view === 'table'
-                    
-                        ?
-                        'bg-indigo-600 text-white'
-                    
-                        :
-                        'bg-slate-100 text-slate-500 hover:text-slate-900'"
-                    class="
-                        rounded-lg
-                        px-3
-                        py-2
-                        text-xs
-                        font-bold
-                        transition
-                    ">
-                    ≡ Tabla
-                </button>
+                @foreach ([
+        'gallery' => '▦ Galería',
+        'grid' => '▦ Cuadrícula',
+        'list' => '☰ Lista',
+        'table' => '≡ Tabla',
+    ] as $value => $label)
+                    <button type="button"
+                        @click="
+                            setView(
+                                '{{ $value }}'
+                            )
+                        "
+                        :class="view === '{{ $value }}'
+                            ?
+                            'bg-indigo-600 text-white' :
+                            'bg-slate-100 text-slate-500 hover:text-slate-900'"
+                        class="
+                            rounded-lg
+                            px-3
+                            py-2
+                            text-xs
+                            font-bold
+                            transition
+                        ">
+                        {{ $label }}
+                    </button>
+                @endforeach
 
             </div>
 
@@ -711,6 +688,32 @@
 
             </div>
         @else
+            {{-- ===================================================== --}}
+            {{-- GALERÍA --}}
+            {{-- ===================================================== --}}
+
+            <div x-cloak x-show="
+        view === 'gallery'
+    "
+                class="
+        mt-6
+        grid
+        grid-cols-3
+        gap-3
+        sm:grid-cols-4
+        md:grid-cols-5
+        lg:grid-cols-7
+        xl:grid-cols-8
+        2xl:grid-cols-10
+    ">
+
+                @foreach ($entityTypes as $type)
+                    @include('entity-types.partials.index-gallery-card', [
+                        'type' => $type,
+                    ])
+                @endforeach
+
+            </div>
             {{-- ================================================= --}}
             {{-- CUADRÍCULA --}}
             {{-- ================================================= --}}
@@ -924,8 +927,7 @@
                                     </a>
 
 
-                                    <a href="{{ route('entity-types.edit', $type) }}"
-                                        title="Editar"
+                                    <a href="{{ route('entity-types.edit', $type) }}" title="Editar"
                                         class="
                                             rounded-lg
                                             bg-slate-100

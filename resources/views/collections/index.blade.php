@@ -154,113 +154,144 @@
 
         </div>
 
+        {{-- ===================================================== --}}
+        {{-- FILTROS RESPONSIVE --}}
+        {{-- ===================================================== --}}
 
-        {{-- FILTERS --}}
         <form method="GET"
             class="
-                mt-6
-                grid
-                gap-3
-                rounded-2xl
-                border
-                border-slate-200
+        mt-6
+        min-w-0
+        rounded-2xl
+        border
+        border-slate-200
+        bg-white
+        p-4
+        shadow-sm
+    ">
+
+            <div
+                class="
+            grid
+            min-w-0
+            grid-cols-1
+            gap-3
+            sm:grid-cols-2
+            xl:grid-cols-4
+        ">
+
+                <input name="search" value="{{ $search }}" placeholder="Buscar colección..."
+                    class="
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
                 bg-white
-                p-4
-                md:grid-cols-2
-                xl:grid-cols-6
+                py-2.5
+                text-sm
+                text-slate-900
+                placeholder:text-slate-400
+                focus:border-indigo-500
+                focus:ring-indigo-500
+                sm:col-span-2
             ">
 
-            <input name="search" value="{{ $search }}" placeholder="Buscar colección..."
-                class="
-                    rounded-xl
-                    border-slate-300
-                    text-slate-900
-                    placeholder:text-slate-400
-                ">
+
+                <select name="visibility"
+                    class="
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
+                    <option value="">
+                        Toda visibilidad
+                    </option>
+
+                    <option value="PUBLIC" @selected($visibility === 'PUBLIC')>
+                        Público
+                    </option>
+
+                    <option value="PRIVATE" @selected($visibility === 'PRIVATE')>
+                        Privado
+                    </option>
+
+                    <option value="UNLISTED" @selected($visibility === 'UNLISTED')>
+                        No listado
+                    </option>
+                </select>
 
 
-            <select name="visibility"
-                class="
-                    rounded-xl
-                    border-slate-300
-                    bg-white
-                    text-slate-900
-                ">
+                <select name="status"
+                    class="
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
+                    <option value="">
+                        Todo estado
+                    </option>
 
-                <option value="">
-                    Toda visibilidad
-                </option>
+                    <option value="ACTIVE" @selected($status === 'ACTIVE')>
+                        Activo
+                    </option>
 
-                <option value="PUBLIC" @selected($visibility === 'PUBLIC')>
-                    Público
-                </option>
+                    <option value="INACTIVE" @selected($status === 'INACTIVE')>
+                        Inactivo
+                    </option>
 
-                <option value="PRIVATE" @selected($visibility === 'PRIVATE')>
-                    Privado
-                </option>
-
-                <option value="UNLISTED" @selected($visibility === 'UNLISTED')>
-                    No listado
-                </option>
-
-            </select>
-
-
-            <select name="status"
-                class="
-                    rounded-xl
-                    border-slate-300
-                    bg-white
-                    text-slate-900
-                ">
-
-                <option value="">
-                    Todo estado
-                </option>
-
-                <option value="ACTIVE">
-                    Activo
-                </option>
-
-                <option value="INACTIVE">
-                    Inactivo
-                </option>
-
-                <option value="ARCHIVED">
-                    Archivado
-                </option>
-
-            </select>
+                    <option value="ARCHIVED" @selected($status === 'ARCHIVED')>
+                        Archivado
+                    </option>
+                </select>
 
 
-            <select name="image"
-                class="
-                    rounded-xl
-                    border-slate-300
-                    bg-white
-                    text-slate-900
-                ">
-                <option value="">
-                    Cualquier imagen
-                </option>
-                <option value="yes">
-                    Con imagen
-                </option>
-                <option value="no">
-                    Sin imagen
-                </option>
-            </select>
+                <select name="image"
+                    class="
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
+                    <option value="">
+                        Cualquier imagen
+                    </option>
+
+                    <option value="yes" @selected($image === 'yes')>
+                        Con imagen
+                    </option>
+
+                    <option value="no" @selected($image === 'no')>
+                        Sin imagen
+                    </option>
+                </select>
 
 
-            <select name="sort"
-                class="
-                    rounded-xl
-                    border-slate-300
-                    bg-white
-                    text-slate-900
-                ">
-
-                @foreach ([
+                <select name="sort"
+                    class="
+                w-full
+                min-w-0
+                rounded-xl
+                border-slate-300
+                bg-white
+                py-2.5
+                text-sm
+                text-slate-900
+            ">
+                    @foreach ([
         'newest' => 'Más recientes',
         'oldest' => 'Más antiguas',
         'name_asc' => 'Nombre A → Z',
@@ -270,26 +301,83 @@
         'views_desc' => 'Más vistas',
         'clones_desc' => 'Más clonadas',
     ] as $value => $label)
-                    <option value="{{ $value }}" @selected($sort === $value)>
-                        {{ $label }}
-                    </option>
-                @endforeach
+                        <option value="{{ $value }}" @selected($sort === $value)>
+                            {{ $label }}
+                        </option>
+                    @endforeach
+                </select>
 
-            </select>
+            </div>
 
 
-            <button
+            <div
                 class="
+            mt-3
+            flex
+            flex-col
+            gap-3
+            border-t
+            border-slate-100
+            pt-3
+            sm:flex-row
+            sm:items-center
+            sm:justify-between
+        ">
+
+                @if ($search || $visibility || $status || $image || $sort !== 'newest' || $perPage !== 24)
+                    <a href="{{ route('collections.index') }}"
+                        class="
+                    text-xs
+                    font-bold
+                    text-slate-500
+                    hover:text-indigo-600
+                ">
+                        × Limpiar filtros
+                    </a>
+                @else
+                    <span></span>
+                @endif
+
+
+                <div class="flex w-full gap-2 sm:w-auto">
+
+                    <select name="per_page"
+                        class="
+                    min-w-0
+                    flex-1
+                    rounded-xl
+                    border-slate-300
+                    bg-white
+                    py-2.5
+                    text-sm
+                    text-slate-900
+                    sm:w-32
+                ">
+                        @foreach ([12, 24, 48, 96] as $number)
+                            <option value="{{ $number }}" @selected($perPage === $number)>
+                                {{ $number }}/pág.
+                            </option>
+                        @endforeach
+                    </select>
+
+
+                    <button type="submit"
+                        class="
+                    shrink-0
                     rounded-xl
                     bg-slate-900
-                    px-4
-                    py-3
+                    px-5
+                    py-2.5
                     text-sm
                     font-black
                     text-white
                 ">
-                Aplicar
-            </button>
+                        Aplicar
+                    </button>
+
+                </div>
+
+            </div>
 
         </form>
 
@@ -476,8 +564,7 @@
                         bg-white
                     ">
 
-                    <a href="{{ route('collections.show', $collection) }}"
-                        class="block bg-slate-100"
+                    <a href="{{ route('collections.show', $collection) }}" class="block bg-slate-100"
                         :class="{
                             'h-32': density === 'compact',
                             'h-44': density === 'medium',
