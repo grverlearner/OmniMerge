@@ -28,9 +28,18 @@ Route::middleware('auth')->group(function () {
     )->name('hub');
 
     Route::get(
+        '/dashboard/search',
+        [
+            DashboardController::class,
+            'search',
+        ]
+    )->name('dashboard.search');
+
+
+    Route::get(
         '/dashboard',
         DashboardController::class
-    )->name('dashboard');
+    )->name('dashboard');;
 
     Route::resource(
         'entity-types',
