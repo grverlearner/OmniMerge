@@ -99,8 +99,46 @@
             </div>
 
 
-            <a href="{{ route('entities.create') }}"
-                class="
+            <div class="
+                flex
+                flex-col
+                gap-2
+                sm:flex-row
+            ">
+
+                <a href="{{ route('entities.bulk.create') }}"
+                    class="
+                        flex
+                        items-center
+                        justify-center
+                        gap-2
+                        rounded-xl
+                        border
+                        border-indigo-200
+                        bg-indigo-50
+                        px-5
+                        py-3
+                        text-sm
+                        font-black
+                        text-indigo-700
+                        transition
+                        hover:border-indigo-300
+                        hover:bg-indigo-100
+                    ">
+                    <span>
+                        ✦
+                    </span>
+
+                    Creación masiva
+                </a>
+
+
+                <a href="{{ route('entities.create') }}"
+                    class="
+                    flex
+                    items-center
+                    justify-center
+                    gap-2
                     rounded-xl
                     bg-indigo-600
                     px-5
@@ -110,10 +148,17 @@
                     text-white
                     shadow-lg
                     shadow-indigo-600/20
+                    transition
                     hover:bg-indigo-700
                 ">
-                + Nueva entidad
-            </a>
+                    <span>
+                        +
+                    </span>
+
+                    Nueva entidad
+                </a>
+
+            </div>
 
         </div>
 

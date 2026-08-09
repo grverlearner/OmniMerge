@@ -11,6 +11,7 @@ use App\Http\Controllers\Attributes\AttributeController;
 use App\Http\Controllers\Attributes\AttributeGroupController;
 use App\Http\Controllers\Attributes\AttributeOptionController;
 use App\Http\Controllers\Entities\EntityAttributeController;
+use App\Http\Controllers\Entities\BulkEntityController;
 
 use App\Http\Controllers\Collections\CollectionController;
 use App\Http\Controllers\Community\ExploreController;
@@ -44,6 +45,27 @@ Route::middleware('auth')->group(function () {
     Route::resource(
         'entity-types',
         EntityTypeController::class
+    );
+
+    Route::get(
+        'entities/bulk/create',
+        [
+            BulkEntityController::class,
+            'create',
+        ]
+    )->name(
+        'entities.bulk.create'
+    );
+
+
+    Route::post(
+        'entities/bulk',
+        [
+            BulkEntityController::class,
+            'store',
+        ]
+    )->name(
+        'entities.bulk.store'
     );
 
     Route::resource(
