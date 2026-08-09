@@ -129,10 +129,36 @@ Route::middleware('auth')->group(function () {
     Route::prefix('explore')
         ->name('community.')
         ->group(function () {
+
+            /*
+        |--------------------------------------------------------------------------
+        | Explorador
+        |--------------------------------------------------------------------------
+        */
+
             Route::get(
                 '/',
-                [ExploreController::class, 'index']
+                [
+                    ExploreController::class,
+                    'index',
+                ]
             )->name('index');
+
+
+            Route::get(
+                '/search',
+                [
+                    ExploreController::class,
+                    'search',
+                ]
+            )->name('search');
+
+
+            /*
+        |--------------------------------------------------------------------------
+        | Creadores
+        |--------------------------------------------------------------------------
+        */
 
             Route::get(
                 '/creators/{user:username}',
@@ -142,35 +168,89 @@ Route::middleware('auth')->group(function () {
                 ]
             )->name('creators.show');
 
+
+            /*
+        |--------------------------------------------------------------------------
+        | Recursos públicos
+        |--------------------------------------------------------------------------
+        */
+
             Route::get(
                 '/entities/{entity}',
-                [ExploreController::class, 'entity']
+                [
+                    ExploreController::class,
+                    'entity',
+                ]
             )->name('entities.show');
+
 
             Route::get(
                 '/collections/{collection}',
-                [ExploreController::class, 'collection']
+                [
+                    ExploreController::class,
+                    'collection',
+                ]
             )->name('collections.show');
+
 
             Route::get(
                 '/attributes/{attribute}',
-                [ExploreController::class, 'attribute']
+                [
+                    ExploreController::class,
+                    'attribute',
+                ]
             )->name('attributes.show');
+
+
+            Route::get(
+                '/catalogs/{attributeOption}',
+                [
+                    ExploreController::class,
+                    'catalog',
+                ]
+            )->name('catalogs.show');
+
+
+            /*
+        |--------------------------------------------------------------------------
+        | Copiar
+        |--------------------------------------------------------------------------
+        */
 
             Route::post(
                 '/entities/{entity}/clone',
-                [ExploreController::class, 'cloneEntity']
+                [
+                    ExploreController::class,
+                    'cloneEntity',
+                ]
             )->name('entities.clone');
+
 
             Route::post(
                 '/collections/{collection}/clone',
-                [ExploreController::class, 'cloneCollection']
+                [
+                    ExploreController::class,
+                    'cloneCollection',
+                ]
             )->name('collections.clone');
+
 
             Route::post(
                 '/attributes/{attribute}/clone',
-                [ExploreController::class, 'cloneAttribute']
+                [
+                    ExploreController::class,
+                    'cloneAttribute',
+                ]
             )->name('attributes.clone');
+
+
+            Route::post(
+                '/catalogs/{attributeOption}/clone',
+                [
+                    ExploreController::class,
+                    'cloneCatalog',
+                ]
+            )->name('catalogs.clone');
         });
 });
 

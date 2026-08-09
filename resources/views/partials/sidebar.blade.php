@@ -266,8 +266,7 @@
 
                 <a href="{{ route('attributes.index') }}"
                     class="
-                    {{ request()->routeIs('attributes.*') ||
-                    request()->routeIs('attribute-groups.*')
+                    {{ request()->routeIs('attributes.*') || request()->routeIs('attribute-groups.*')
                         ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40'
                         : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
 
@@ -312,6 +311,57 @@
                 </a>
 
             </div>
+        </div>
+
+        {{-- ========================================================= --}}
+        {{-- DESCUBRIR --}}
+        {{-- ========================================================= --}}
+
+        <div>
+
+            <p
+                class="
+            mb-2
+            px-3
+            text-xs
+            font-semibold
+            uppercase
+            tracking-wider
+            text-slate-500
+        ">
+                Descubrir
+            </p>
+
+
+            <div class="space-y-1">
+
+                <a href="{{ route('community.index') }}"
+                    class="
+                {{ request()->routeIs('community.*')
+                    ? 'bg-violet-500 text-white shadow-lg shadow-violet-950/40'
+                    : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
+
+                flex
+                items-center
+                gap-3
+                rounded-xl
+                px-3
+                py-3
+                text-sm
+                font-medium
+                transition
+            ">
+                    <span class="text-lg">
+                        🌐
+                    </span>
+
+                    <span>
+                        Comunidad
+                    </span>
+                </a>
+
+            </div>
+
         </div>
 
     </nav>

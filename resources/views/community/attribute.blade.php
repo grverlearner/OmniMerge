@@ -32,14 +32,15 @@
 
             <div class="absolute bottom-0 left-0 right-0 p-7 text-white">
                 <span class="rounded-full bg-white/20 px-3 py-1 text-xs font-bold backdrop-blur">
-                    {{ $attribute->data_type }}
+                    {{ $attribute->data_type_label }}
                 </span>
 
                 <h2 class="mt-4 text-4xl font-black">
                     {{ $attribute->name }}
                 </h2>
 
-                <div class="
+                <div
+                    class="
                     mt-3
                     flex
                     items-center
@@ -51,7 +52,8 @@
 
                     <div>
 
-                        <p class="
+                        <p
+                            class="
                             text-xs
                             text-white/60
                         ">
@@ -90,7 +92,7 @@
                             </p>
 
                             <p class="mt-2 font-black">
-                                {{ $attribute->value_source }}
+                                {{ $attribute->usesCatalog() ? 'Catálogo' : 'Valor libre' }}
                             </p>
                         </div>
 

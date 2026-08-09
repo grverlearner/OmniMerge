@@ -111,13 +111,15 @@
                 </div>
 
                 <div class="rounded-2xl bg-slate-50 p-5">
+
                     <p class="text-sm text-slate-500">
-                        Orden
+                        Copias
                     </p>
 
                     <p class="mt-2 text-2xl font-black text-slate-900">
-                        {{ $collection->sort_order }}
+                        {{ number_format($collection->clones_count) }}
                     </p>
+
                 </div>
             </div>
         </div>
@@ -135,10 +137,12 @@
                 </p>
             </div>
 
-            <a href="{{ route('collections.edit', $collection) }}"
-                class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700">
-                Administrar entidades
-            </a>
+            @if ($collection->user_id === auth()->id())
+                <a href="{{ route('collections.edit', $collection) }}"
+                    class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700">
+                    Administrar entidades
+                </a>
+            @endif
         </div>
 
         <div class="mt-5 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">

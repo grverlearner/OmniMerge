@@ -8,6 +8,7 @@ use App\Models\Entity;
 use App\Models\EntityAttribute;
 use App\Models\User;
 use App\Models\AttributeOption;
+use App\Models\EntityType;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -39,30 +40,15 @@ class CommunityCloneService
             $entityTypeId = null;
 
             if ($source->entityType) {
-                $entityType = $user
-                    ->entityTypes()
-                    ->firstOrCreate(
-                        [
-                            'code' =>
-                            $source->entityType->code,
-                        ],
-                        [
-                            'name' =>
-                            $source->entityType->name,
-                            'description' =>
-                            $source->entityType->description,
-                            'icon' =>
-                            $source->entityType->icon,
-                            'color' =>
-                            $source->entityType->color,
-                            'status' =>
-                            'ACTIVE',
-                            'sort_order' =>
-                            $source->entityType->sort_order,
-                        ]
+
+                $entityType =
+                    $this->cloneOrReuseEntityType(
+                        $source->entityType,
+                        $user
                     );
 
-                $entityTypeId = $entityType->id;
+                $entityTypeId =
+                    $entityType->id;
             }
 
             $name = $this->uniqueEntityName(
@@ -439,6 +425,353 @@ class CommunityCloneService
         );
 
         return $attribute;
+    }
+
+    private function cloneOrReuseEntityType(
+        EntityType $source,
+        User $user
+    ): EntityType {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Reutilizar una copia correcta
+        |--------------------------------------------------------------------------
+        */
+
+        $existing =
+            $user
+            ->entityTypes()
+            ->where(
+                'source_entity_type_id',
+                $source->id
+            )
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Bloquear usuario
+        |--------------------------------------------------------------------------
+        */
+
+        /** @var User $lockedUser */
+        $lockedUser =
+            User::query()
+            ->whereKey(
+                $user->id
+            )
+            ->lockForUpdate()
+            ->firstOrFail();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Secuencia local
+        |--------------------------------------------------------------------------
+        */
+
+        $sequence =
+            (
+                (int) EntityType::withTrashed()
+                    ->where(
+                        'user_id',
+                        $lockedUser->id
+                    )
+                    ->max(
+                        'sequence_number'
+                    )
+            )
+            + 1;
+
+
+        $sortOrder =
+            (
+                (int) EntityType::withTrashed()
+                    ->where(
+                        'user_id',
+                        $lockedUser->id
+                    )
+                    ->max(
+                        'sort_order'
+                    )
+            )
+            + 10;
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Crear Tipo independiente
+        |--------------------------------------------------------------------------
+        */
+
+        return $lockedUser
+            ->entityTypes()
+            ->create([
+                'source_entity_type_id' =>
+                $source->id,
+
+                'sequence_number' =>
+                $sequence,
+
+                'code' =>
+                EntityType::formatCode(
+                    $sequence
+                ),
+
+                'name' =>
+                $source->name,
+
+                'description' =>
+                $source->description,
+
+                'image' =>
+                $this->copyPublicFile(
+                    $source->image,
+                    'entity-types'
+                ),
+
+                'icon' =>
+                $source->icon,
+
+                'color' =>
+                $source->color,
+
+                'status' =>
+                'ACTIVE',
+
+                'sort_order' =>
+                $sortOrder,
+            ]);
+    }
+
+    public function cloneOption(
+        AttributeOption $source,
+        User $user
+    ): AttributeOption {
+
+        $source->load([
+            'attribute',
+            'parent',
+        ]);
+
+        $sourceAttribute =
+            $source->attribute;
+
+        if (
+            ! $sourceAttribute
+            ||
+            ! $sourceAttribute->canBeCloned()
+        ) {
+            throw ValidationException::withMessages([
+                'catalog' =>
+                'Este elemento no está disponible para clonación.',
+            ]);
+        }
+
+
+        return DB::transaction(
+            function () use (
+                $source,
+                $sourceAttribute,
+                $user
+            ) {
+
+                /*
+            |--------------------------------------------------------------------------
+            | Buscar Atributo que ya copiamos
+            |--------------------------------------------------------------------------
+            */
+
+                $attribute =
+                    $user
+                    ->attributes()
+                    ->where(
+                        'source_attribute_id',
+                        $sourceAttribute->id
+                    )
+                    ->first();
+
+
+                /*
+            |--------------------------------------------------------------------------
+            | Si no existe, copiar Catálogo completo
+            |--------------------------------------------------------------------------
+            |
+            | Así conservamos correctamente contexto y jerarquías.
+            |
+            */
+
+                if (! $attribute) {
+
+                    $attribute =
+                        $this->cloneOrReuseAttribute(
+                            $sourceAttribute,
+                            $user
+                        );
+
+                    $option =
+                        $attribute
+                        ->options()
+                        ->where(
+                            'source_attribute_option_id',
+                            $source->id
+                        )
+                        ->firstOrFail();
+
+                    $this->recordInteraction(
+                        $user,
+                        'CATALOG_OPTION',
+                        $source->id,
+                        'CLONE'
+                    );
+
+                    return $option;
+                }
+
+
+                /*
+            |--------------------------------------------------------------------------
+            | Ya fue copiado
+            |--------------------------------------------------------------------------
+            */
+
+                $existing =
+                    $attribute
+                    ->options()
+                    ->where(
+                        'source_attribute_option_id',
+                        $source->id
+                    )
+                    ->first();
+
+                if ($existing) {
+                    return $existing;
+                }
+
+
+                /*
+            |--------------------------------------------------------------------------
+            | Bloqueo para código CAT
+            |--------------------------------------------------------------------------
+            */
+
+                User::query()
+                    ->whereKey(
+                        $user->id
+                    )
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+
+                /*
+            |--------------------------------------------------------------------------
+            | Copiar padre si corresponde
+            |--------------------------------------------------------------------------
+            */
+
+                $parentId = null;
+
+                if ($source->parent) {
+
+                    $parentClone =
+                        $this->cloneOption(
+                            $source->parent,
+                            $user
+                        );
+
+                    $parentId =
+                        $parentClone->id;
+                }
+
+
+                /*
+            |--------------------------------------------------------------------------
+            | Secuencia
+            |--------------------------------------------------------------------------
+            */
+
+                $sequence =
+                    (
+                        (int) AttributeOption::withTrashed()
+                            ->where(
+                                'user_id',
+                                $user->id
+                            )
+                            ->max(
+                                'sequence_number'
+                            )
+                    )
+                    + 1;
+
+
+                $newOption =
+                    $attribute
+                    ->options()
+                    ->create([
+                        'user_id' =>
+                        $user->id,
+
+                        'source_attribute_option_id' =>
+                        $source->id,
+
+                        'parent_option_id' =>
+                        $parentId,
+
+                        'sequence_number' =>
+                        $sequence,
+
+                        'code' =>
+                        AttributeOption::formatCode(
+                            $sequence
+                        ),
+
+                        'name' =>
+                        $source->name,
+
+                        'description' =>
+                        $source->description,
+
+                        'image' =>
+                        $this->copyPublicFile(
+                            $source->image,
+                            'attribute-options'
+                        ),
+
+                        'icon' =>
+                        $source->icon,
+
+                        'color' =>
+                        $source->color,
+
+                        'numeric_value' =>
+                        $source->numeric_value,
+
+                        'sort_order' =>
+                        $source->sort_order,
+
+                        'metadata' =>
+                        $source->metadata,
+
+                        'status' =>
+                        'ACTIVE',
+                    ]);
+
+
+                $this->recordInteraction(
+                    $user,
+                    'CATALOG_OPTION',
+                    $source->id,
+                    'CLONE'
+                );
+
+
+                return $newOption;
+            }
+        );
     }
 
     private function cloneOrReuseAttribute(

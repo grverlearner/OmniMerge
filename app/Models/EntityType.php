@@ -17,7 +17,7 @@ class EntityType extends Model
 
     protected $fillable = [
         'user_id',
-
+        'source_entity_type_id',
         /*
         |--------------------------------------------------------------------------
         | Identificación
@@ -78,7 +78,22 @@ class EntityType extends Model
             User::class
         );
     }
+    
+    public function sourceEntityType(): BelongsTo
+    {
+        return $this->belongsTo(
+            self::class,
+            'source_entity_type_id'
+        );
+    }
 
+    public function clones(): HasMany
+    {
+        return $this->hasMany(
+            self::class,
+            'source_entity_type_id'
+        );
+    }
 
     public function entities(): HasMany
     {
@@ -141,7 +156,7 @@ class EntityType extends Model
         }
 
         return asset(
-            'storage/'.$this->image
+            'storage/' . $this->image
         );
     }
 
