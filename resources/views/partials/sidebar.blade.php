@@ -266,19 +266,21 @@
 
                 <a href="{{ route('attributes.index') }}"
                     class="
-                        {{ request()->routeIs('attributes.*')
-                            ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40'
-                            : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
-                        flex
-                        items-center
-                        gap-3
-                        rounded-xl
-                        px-3
-                        py-3
-                        text-sm
-                        font-medium
-                        transition
-                    ">
+                    {{ request()->routeIs('attributes.*') ||
+                    request()->routeIs('attribute-groups.*')
+                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40'
+                        : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
+
+                            flex
+                            items-center
+                            gap-3
+                            rounded-xl
+                            px-3
+                            py-3
+                            text-sm
+                            font-medium
+                            transition
+                        ">
                     <span class="text-lg">
                         ☷
                     </span>
@@ -308,79 +310,6 @@
 
                     Catálogos
                 </a>
-
-
-                <a href="{{ route('attribute-groups.index') }}"
-                    class="
-                        {{ request()->routeIs('attribute-groups.*')
-                            ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40'
-                            : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
-                        flex
-                        items-center
-                        gap-3
-                        rounded-xl
-                        px-3
-                        py-3
-                        text-sm
-                        font-medium
-                        transition
-                    ">
-                    <span class="text-lg">
-                        ▥
-                    </span>
-
-                    Grupos de atributos
-                </a>
-
-            </div>
-        </div>
-
-        {{-- INFORMACIÓN --}}
-        <div>
-
-            <div
-                class="
-                    rounded-2xl
-                    border
-                    border-indigo-500/10
-                    bg-indigo-500/5
-                    p-4
-                ">
-
-                <div
-                    class="
-                        flex
-                        items-center
-                        gap-2
-                    ">
-                    <span>
-                        📚
-                    </span>
-
-                    <p
-                        class="
-                            text-xs
-                            font-black
-                            uppercase
-                            tracking-wider
-                            text-indigo-300
-                        ">
-                        Biblioteca
-                    </p>
-                </div>
-
-
-                <p
-                    class="
-                        mt-2
-                        text-xs
-                        leading-5
-                        text-slate-500
-                    ">
-                    Aquí construyes las piezas que luego
-                    podrán utilizarse en universos,
-                    torneos y otros módulos.
-                </p>
 
             </div>
         </div>

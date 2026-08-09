@@ -3,6 +3,7 @@
     <x-slot name="header">
         Atributos
     </x-slot>
+    @include('attributes.partials.section-navigation')
 
 
     <div
@@ -82,9 +83,7 @@
             sm:p-8
         ">
 
-        <form method="POST"
-            action="{{ route('attributes.update', $attribute) }}"
-            enctype="multipart/form-data">
+        <form method="POST" action="{{ route('attributes.update', $attribute) }}" enctype="multipart/form-data">
 
             @csrf
             @method('PUT')

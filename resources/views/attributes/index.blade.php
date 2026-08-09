@@ -3,7 +3,7 @@
     <x-slot name="header">
         Atributos
     </x-slot>
-
+    @include('attributes.partials.section-navigation')
 
     <div x-data="{
     

@@ -4,6 +4,8 @@
         Atributos
     </x-slot>
 
+    @include('attributes.partials.section-navigation')
+
 
     <div
         class="

@@ -2,67 +2,95 @@
 
 namespace App\Http\Requests\Attributes;
 
+use App\Models\AttributeGroup;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class StoreAttributeGroupRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return $this->user()?->can(
+            'create',
+            AttributeGroup::class
+        ) ?? false;
     }
 
     protected function prepareForValidation(): void
     {
-        $name = trim((string) $this->input('name'));
+        $collapsible = $this->boolean(
+            'collapsible'
+        );
 
         $this->merge([
-            'name' => $name,
+            'name' => trim(
+                (string) $this->input(
+                    'name'
+                )
+            ),
 
-            'code' => Str::upper(
-                Str::slug(
-                    $this->input('code') ?: $name,
-                    '_'
+            'description' =>
+            $this->nullableText(
+                'description'
+            ),
+
+            'icon' =>
+            $this->nullableText(
+                'icon'
+            ),
+
+            'layout_type' =>
+            strtoupper(
+                (string) $this->input(
+                    'layout_type',
+                    'LIST'
                 )
             ),
 
             'collapsible' =>
-                $this->boolean('collapsible'),
+            $collapsible,
+
+            /*
+             * Si NO puede contraerse,
+             * siempre estará visualmente abierto.
+             */
 
             'default_expanded' =>
-                $this->boolean('default_expanded'),
+            $collapsible
+                ? $this->boolean(
+                    'default_expanded'
+                )
+                : true,
+
+            'status' =>
+            strtoupper(
+                (string) $this->input(
+                    'status',
+                    'ACTIVE'
+                )
+            ),
         ]);
     }
 
     public function rules(): array
     {
         return [
+            /*
+            |--------------------------------------------------------------------------
+            | Grupo
+            |--------------------------------------------------------------------------
+            */
+
             'name' => [
                 'required',
                 'string',
                 'max:150',
             ],
 
-            'code' => [
-                'required',
-                'string',
-                'max:50',
-                'regex:/^[A-Z0-9_]+$/',
-
-                Rule::unique('attribute_groups', 'code')
-                    ->where(
-                        fn ($query) => $query->where(
-                            'user_id',
-                            $this->user()->id
-                        )
-                    ),
-            ],
-
             'description' => [
                 'nullable',
                 'string',
-                'max:2000',
+                'max:3000',
             ],
 
             'icon' => [
@@ -78,6 +106,7 @@ class StoreAttributeGroupRequest extends FormRequest
 
             'layout_type' => [
                 'required',
+
                 Rule::in([
                     'LIST',
                     'GRID',
@@ -95,14 +124,9 @@ class StoreAttributeGroupRequest extends FormRequest
                 'boolean',
             ],
 
-            'sort_order' => [
-                'nullable',
-                'integer',
-                'min:0',
-            ],
-
             'status' => [
                 'required',
+
                 Rule::in([
                     'ACTIVE',
                     'INACTIVE',
@@ -110,22 +134,105 @@ class StoreAttributeGroupRequest extends FormRequest
                 ]),
             ],
 
+            /*
+            |--------------------------------------------------------------------------
+            | Atributos seleccionados
+            |--------------------------------------------------------------------------
+            */
+
             'attribute_ids' => [
                 'nullable',
                 'array',
             ],
 
             'attribute_ids.*' => [
-                Rule::exists('attributes', 'id')
-                    ->where(
-                        fn ($query) => $query
-                            ->where(
-                                'user_id',
-                                $this->user()->id
-                            )
-                            ->whereNull('deleted_at')
-                    ),
+                'integer',
+
+                Rule::exists(
+                    'attributes',
+                    'id'
+                )->where(
+                    fn($query) => $query
+                        ->where(
+                            'user_id',
+                            $this->user()->id
+                        )
+                        ->whereNull(
+                            'deleted_at'
+                        )
+                ),
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Configuración en el grupo
+            |--------------------------------------------------------------------------
+            |
+            | Ejemplo:
+            |
+            | attribute_settings[5][custom_label]
+            | attribute_settings[5][sort_order]
+            | attribute_settings[5][is_featured]
+            |
+            */
+
+            'attribute_settings' => [
+                'nullable',
+                'array',
+            ],
+
+            'attribute_settings.*' => [
+                'nullable',
+                'array',
+            ],
+
+            'attribute_settings.*.custom_label' => [
+                'nullable',
+                'string',
+                'max:150',
+            ],
+
+            'attribute_settings.*.sort_order' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+
+            'attribute_settings.*.is_featured' => [
+                'nullable',
+                'boolean',
             ],
         ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'name.required' =>
+            'El nombre del grupo es obligatorio.',
+
+            'color.regex' =>
+            'Selecciona un color válido.',
+
+            'layout_type.in' =>
+            'La presentación seleccionada no es válida.',
+
+            'attribute_ids.*.exists' =>
+            'Uno de los atributos seleccionados no es válido.',
+        ];
+    }
+
+    private function nullableText(
+        string $field
+    ): ?string {
+        $value = trim(
+            (string) $this->input(
+                $field
+            )
+        );
+
+        return $value !== ''
+            ? $value
+            : null;
     }
 }

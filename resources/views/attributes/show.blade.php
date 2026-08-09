@@ -19,6 +19,7 @@
     <x-slot name="header">
         Atributos
     </x-slot>
+    @include('attributes.partials.section-navigation')
 
 
     <div x-data="{
@@ -321,8 +322,7 @@
 
 
                         @if ($attribute->options_count === 0 && $attribute->entity_attributes_count === 0)
-                            <form method="POST"
-                                action="{{ route('attributes.destroy', $attribute) }}"
+                            <form method="POST" action="{{ route('attributes.destroy', $attribute) }}"
                                 onsubmit="
                                     return confirm(
                                         '¿Eliminar este atributo definitivamente?'
@@ -861,8 +861,7 @@
                         </p>
 
 
-                        <form method="POST"
-                            action="{{ route('attributes.options.store', $attribute) }}"
+                        <form method="POST" action="{{ route('attributes.options.store', $attribute) }}"
                             enctype="multipart/form-data"
                             class="
                                 mt-6
@@ -1095,8 +1094,7 @@
                                         </label>
 
 
-                                        <input type="color" name="color"
-                                            value="{{ old('color', '#6366F1') }}"
+                                        <input type="color" name="color" value="{{ old('color', '#6366F1') }}"
                                             class="
                                                 h-11
                                                 w-full
@@ -1141,8 +1139,7 @@
                     <div>
 
                         {{-- FILTROS --}}
-                        <form method="GET"
-                            action="{{ route('attributes.show', $attribute) }}#catalog"
+                        <form method="GET" action="{{ route('attributes.show', $attribute) }}#catalog"
                             class="
                                 rounded-2xl
                                 border
