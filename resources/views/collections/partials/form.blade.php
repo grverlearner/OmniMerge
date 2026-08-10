@@ -118,9 +118,7 @@
                         </label>
 
 
-                        <input name="name" x-model="name"
-                            value="{{ old('name', $collection->name ?? '') }}"
-                            required
+                        <input name="name" x-model="name" value="{{ old('name', $collection->name ?? '') }}" required
                             class="
                                 w-full
                                 rounded-xl
@@ -224,53 +222,44 @@
 
             </section>
 
-
             {{-- IMAGE --}}
-            <section>
+            <section
+                @omni-image-selected="
+        imagePreview =
+            $event.detail.url;
 
-                <label class="mb-2 block text-sm font-bold">
+        removeImage =
+            false;
+    "
+                @omni-image-cleared="
+        imagePreview =
+            null;
+
+        removeImage =
+            true;
+    "
+                @omni-image-restored="
+        imagePreview =
+            $event.detail.url;
+
+        removeImage =
+            false;
+    ">
+
+                <label
+                    class="
+            mb-2
+            block
+            text-sm
+            font-bold
+            text-slate-700
+        ">
                     Portada
                 </label>
 
 
-                <input type="file" name="image"
-                    @change="
-                        previewImage(
-                            $event
-                        )
-                    "
-                    class="
-                        w-full
-                        rounded-xl
-                        border
-                        border-slate-300
-                        bg-white
-                        text-sm
-                    ">
-
-
-                @if ($editing)
-                    <input type="hidden" name="remove_image"
-                        :value="removeImage
-                            ?
-                            1 :
-                            0">
-
-
-                    <button type="button" x-show="imagePreview"
-                        @click="
-                            imagePreview = null;
-                            removeImage = true;
-                        "
-                        class="
-                            mt-2
-                            text-xs
-                            font-bold
-                            text-red-600
-                        ">
-                        Quitar portada
-                    </button>
-                @endif
+                <x-omni-image-upload name="image" label="Portada de la Colección" :current-url="$editing ? $collection->image_url : null" :max-mb="4"
+                    :remove-name="$editing ? 'remove_image' : null" />
 
             </section>
 
@@ -288,8 +277,7 @@
                         Icono
                     </label>
 
-                    <input name="icon"
-                        value="{{ old('icon', $collection->icon ?? '▤') }}"
+                    <input name="icon" value="{{ old('icon', $collection->icon ?? '▤') }}"
                         class="
                             w-full
                             rounded-xl
@@ -306,8 +294,7 @@
                         Color
                     </label>
 
-                    <input type="color" name="color"
-                        value="{{ old('color', $collection->color ?? '#6366F1') }}"
+                    <input type="color" name="color" value="{{ old('color', $collection->color ?? '#6366F1') }}"
                         class="
                             h-11
                             w-full

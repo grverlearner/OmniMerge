@@ -240,6 +240,38 @@
                             Características
                         </a>
 
+                        <a href="{{ route('entities.presentation.edit', $entity) }}"
+                            class="
+                                rounded-xl
+                                border
+                                border-fuchsia-200
+                                bg-fuchsia-50
+                                px-4
+                                py-3
+                                text-xs
+                                font-black
+                                text-fuchsia-700
+                                transition
+                                hover:bg-fuchsia-100
+                            ">
+                            ◎ Presentación pública
+                        </a>
+
+                        @if ($entity->presentation && $entity->presentation->mode !== 'BASE')
+                            <span
+                                class="
+                                    rounded-full
+                                    bg-fuchsia-100
+                                    px-4
+                                    py-3
+                                    text-xs
+                                    font-black
+                                    text-orange-700
+                                ">
+                                ◎ Presentación:
+                                {{ $entity->presentation->entityVersion?->name }}
+                            </span>
+                        @endif
 
                         <form method="POST" action="{{ route('entities.destroy', $entity) }}"
                             onsubmit="

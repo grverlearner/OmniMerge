@@ -12,6 +12,7 @@ use App\Models\Entity;
 use App\Models\EntityType;
 use App\Models\User;
 use App\Services\Entities\EntityBuilderService;
+use App\Services\Attributes\AttributeContextService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -527,16 +528,16 @@ class EntityController extends Controller
 
     public function create(
         Request $request,
-        EntityBuilderService $builder
+        EntityBuilderService $builder,
+        AttributeContextService $contextService
     ): View {
         $this->authorize(
             'create',
             Entity::class
         );
 
-        $resources = $this->builderResources(
-            $request->user()
-        );
+        $resources =
+            $this->builderResources($request->user(), $contextService);
 
         $previewCode = $builder->nextCode(
             $request->user()
@@ -649,14 +650,12 @@ class EntityController extends Controller
 
         $entity->load([
             'entityType',
-
             'collections',
-
             'entityAttributes.attribute.groups',
-
             'entityAttributes.values.option',
-
             'entityVersions.version',
+            'presentation.entityVersion.version',
+            'presentation.mediaImage',
         ]);
 
         $entity->loadCount([
@@ -755,7 +754,8 @@ class EntityController extends Controller
 
     public function edit(
         Request $request,
-        Entity $entity
+        Entity $entity,
+        AttributeContextService $contextService
     ): View {
         $this->authorize(
             'update',
@@ -770,9 +770,11 @@ class EntityController extends Controller
             'entityAttributes.values.option',
         ]);
 
-        $resources = $this->builderResources(
-            $request->user()
-        );
+        $resources =
+            $this->builderResources(
+                $request->user(),
+                $contextService
+            );
 
         $previewCode =
             $entity->code;
@@ -947,7 +949,8 @@ class EntityController extends Controller
     */
 
     private function builderResources(
-        User $user
+        User $user,
+        AttributeContextService $contextService
     ): array {
         $entityTypes = EntityType::query()
             ->ownedBy($user)
@@ -997,10 +1000,17 @@ class EntityController extends Controller
             ->orderBy('name')
             ->get();
 
+        $contextPayload =
+            $contextService
+            ->frontendPayload(
+                $user
+            );
+
         return compact(
             'entityTypes',
             'attributes',
             'groups',
+            'contextPayload',
             'collections'
         );
     }

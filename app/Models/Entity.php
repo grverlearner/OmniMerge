@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 
@@ -114,6 +115,187 @@ class Entity extends Model
             ->orderBy(
                 'name'
             );
+    }
+
+    /*
+|--------------------------------------------------------------------------
+| Presentación pública
+|--------------------------------------------------------------------------
+*/
+
+    public function presentation(): HasOne
+    {
+        return $this->hasOne(
+            EntityPresentation::class
+        );
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| EntityVersion utilizada públicamente
+|--------------------------------------------------------------------------
+*/
+
+    public function getPublicEntityVersionAttribute(): ?EntityVersion
+    {
+        $presentation =
+            $this->resolvedPresentation();
+
+
+        if (
+            ! $presentation
+            ||
+            $presentation->mode === 'BASE'
+        ) {
+            return null;
+        }
+
+
+        return $presentation
+            ->entityVersion;
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| Nombre público
+|--------------------------------------------------------------------------
+*/
+
+    public function getPublicDisplayNameAttribute(): string
+    {
+        $presentation =
+            $this->resolvedPresentation();
+
+
+        if (
+            ! $presentation
+            ||
+            $presentation->mode === 'BASE'
+            ||
+            ! $presentation->use_version_name
+            ||
+            ! $presentation->entityVersion
+        ) {
+            return $this->name;
+        }
+
+
+        return $presentation
+            ->entityVersion
+            ->name
+            ?: $this->name;
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| Descripción pública
+|--------------------------------------------------------------------------
+*/
+
+    public function getPublicDescriptionAttribute(): ?string
+    {
+        $presentation =
+            $this->resolvedPresentation();
+
+
+        if (
+            ! $presentation
+            ||
+            $presentation->mode === 'BASE'
+            ||
+            ! $presentation->use_version_description
+            ||
+            ! $presentation->entityVersion
+        ) {
+            return $this->description;
+        }
+
+
+        return $presentation
+            ->entityVersion
+            ->description
+            ?: $this->description;
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| Imagen pública
+|--------------------------------------------------------------------------
+*/
+
+    public function getPublicImageUrlAttribute(): ?string
+    {
+        $presentation =
+            $this->resolvedPresentation();
+
+
+        if (
+            ! $presentation
+            ||
+            $presentation->mode === 'BASE'
+        ) {
+            return $this->image_url;
+        }
+
+
+        /*
+     * Imagen concreta de Multimedia.
+     */
+        if (
+            $presentation->mode === 'VERSION_MEDIA'
+            &&
+            $presentation->mediaImage
+        ) {
+            return $presentation
+                ->mediaImage
+                ->image_url
+                ?: $presentation
+                ->entityVersion
+                ?->image_url
+                ?: $this->image_url;
+        }
+
+
+        /*
+     * Portada de EntityVersion.
+     */
+        return $presentation
+            ->entityVersion
+            ?->image_url
+            ?: $this->image_url;
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| Resolver presentación sin provocar consultas innecesarias
+|--------------------------------------------------------------------------
+*/
+
+    private function resolvedPresentation(): ?EntityPresentation
+    {
+        if (
+            $this->relationLoaded(
+                'presentation'
+            )
+        ) {
+            return $this->getRelation(
+                'presentation'
+            );
+        }
+
+
+        return $this
+            ->presentation()
+            ->with([
+                'entityVersion.version',
+                'mediaImage',
+            ])
+            ->first();
     }
 
     public function collections(): BelongsToMany

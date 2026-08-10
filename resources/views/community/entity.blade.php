@@ -12,8 +12,8 @@
 
     <article class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div class="relative min-h-72 bg-gradient-to-br from-indigo-500 to-violet-600 sm:min-h-[420px]">
-            @if ($entity->image_url)
-                <img src="{{ $entity->image_url }}" alt="{{ $entity->name }}"
+            @if ($entity->public_image_url)
+                <img src="{{ $entity->public_image_url }}" alt="{{ $entity->public_display_name }}"
                     class="absolute inset-0 h-full w-full object-cover">
 
                 <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent"></div>
@@ -36,7 +36,7 @@
                 </div>
 
                 <h2 class="mt-4 text-4xl font-black sm:text-6xl">
-                    {{ $entity->name }}
+                    {{ $entity->public_display_name }}
                 </h2>
 
                 <p class="
@@ -68,54 +68,227 @@
                     </h3>
 
                     <p class="mt-4 whitespace-pre-line leading-8 text-slate-600">
-                        {{ $entity->description ?: 'Esta entidad no tiene descripción.' }}
+                        {{ $entity->public_description ?: 'Esta entidad no tiene descripción.' }}
                     </p>
 
                     <section class="mt-10">
-                        <h3 class="text-xl font-black text-slate-900">
-                            Características
-                        </h3>
 
-                        <div class="mt-5 grid gap-4 sm:grid-cols-2">
-                            @forelse (
-                                $entity->entityAttributes
-                                as $entityAttribute
-                            )
-                                <article class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                                    <p class="text-xs font-black uppercase tracking-wider text-slate-400">
-                                        {{ $entityAttribute->custom_label ?: $entityAttribute->attribute->name }}
-                                    </p>
+                        <div
+                            class="
+            flex
+            flex-wrap
+            items-center
+            justify-between
+            gap-3
+        ">
 
-                                    <div class="mt-3 flex flex-wrap gap-2">
-                                        @forelse ($entityAttribute->values
-                                            as $value)
-                                            <span
-                                                class="rounded-xl bg-white px-3 py-2 text-sm font-bold text-slate-800 shadow-sm">
-                                                @if ($value->option?->image_url)
-                                                    <img src="{{ $value->option->image_url }}" alt=""
-                                                        class="mr-2 inline-block h-7 w-7 rounded-lg object-cover align-middle">
-                                                @elseif ($value->option?->icon)
-                                                    <span class="mr-1">
-                                                        {{ $value->option->icon }}
-                                                    </span>
-                                                @endif
+                            <h3
+                                class="
+                text-xl
+                font-black
+                text-slate-900
+            ">
+                                Características
+                            </h3>
 
-                                                {{ $value->displayValue() }}
-                                            </span>
-                                        @empty
-                                            <span class="text-sm text-slate-400">
-                                                Sin valor
-                                            </span>
-                                        @endforelse
-                                    </div>
-                                </article>
-                            @empty
-                                <p
-                                    class="sm:col-span-2 rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-500">
-                                    Esta entidad no tiene atributos públicos.
-                                </p>
-                            @endforelse
+
+                            @if ($publicEntityVersion)
+                                <span
+                                    class="
+                    rounded-full
+                    bg-violet-50
+                    px-3
+                    py-1.5
+                    text-[9px]
+                    font-black
+                    text-violet-700
+                ">
+                                    ◎
+                                    {{ $publicEntityVersion->name }}
+                                </span>
+                            @endif
+
                         </div>
+
+
+                        @if ($publicEffectiveAttributes !== null)
+
+                            <div
+                                class="
+                mt-5
+                grid
+                gap-4
+                sm:grid-cols-2
+            ">
+
+                                @forelse ($publicEffectiveAttributes
+                as $item)
+                                    <article
+                                        class="
+                        rounded-2xl
+                        border
+                        border-slate-200
+                        bg-slate-50
+                        p-5
+                    ">
+
+                                        <p
+                                            class="
+                            text-xs
+                            font-black
+                            uppercase
+                            tracking-wider
+                            text-slate-400
+                        ">
+                                            {{ $item['custom_label'] ?: $item['attribute']->name }}
+                                        </p>
+
+
+                                        <p
+                                            class="
+                            mt-3
+                            text-sm
+                            font-black
+                            text-slate-800
+                        ">
+                                            {{ $item['display'] ?: 'Sin valor' }}
+                                        </p>
+
+
+                                        <p
+                                            class="
+                            mt-2
+                            text-[8px]
+                            text-slate-400
+                        ">
+                                            {{ $item['source'] === 'BASE' ? 'Heredado de Entidad base' : 'Definido por ' . $item['source_name'] }}
+                                        </p>
+
+                                    </article>
+
+                                @empty
+
+                                    <p
+                                        class="
+                        sm:col-span-2
+                        rounded-2xl
+                        border
+                        border-dashed
+                        border-slate-300
+                        p-10
+                        text-center
+                        text-slate-500
+                    ">
+                                        Esta Version no tiene características públicas.
+                                    </p>
+                                @endforelse
+
+                            </div>
+                        @else
+                            {{-- ENTIDAD BASE --}}
+                            <div
+                                class="
+                mt-5
+                grid
+                gap-4
+                sm:grid-cols-2
+            ">
+
+                                @forelse ($entity->entityAttributes
+                as $entityAttribute)
+                                    <article
+                                        class="
+                        rounded-2xl
+                        border
+                        border-slate-200
+                        bg-slate-50
+                        p-5
+                    ">
+
+                                        <p
+                                            class="
+                            text-xs
+                            font-black
+                            uppercase
+                            tracking-wider
+                            text-slate-400
+                        ">
+                                            {{ $entityAttribute->custom_label ?: $entityAttribute->attribute->name }}
+                                        </p>
+
+
+                                        <div
+                                            class="
+                            mt-3
+                            flex
+                            flex-wrap
+                            gap-2
+                        ">
+
+                                            @forelse ($entityAttribute->values
+                            as $value)
+                                                <span
+                                                    class="
+                                    rounded-xl
+                                    bg-white
+                                    px-3
+                                    py-2
+                                    text-sm
+                                    font-bold
+                                    text-slate-800
+                                    shadow-sm
+                                ">
+
+                                                    @if ($value->option?->image_url)
+                                                        <img src="{{ $value->option->image_url }}" alt=""
+                                                            class="
+                                            mr-2
+                                            inline-block
+                                            h-7
+                                            w-7
+                                            rounded-lg
+                                            object-cover
+                                            align-middle
+                                        ">
+                                                    @endif
+
+
+                                                    {{ $value->displayValue() }}
+
+                                                </span>
+
+                                            @empty
+
+                                                <span class="text-sm text-slate-400">
+                                                    Sin valor
+                                                </span>
+                                            @endforelse
+
+                                        </div>
+
+                                    </article>
+
+                                @empty
+
+                                    <p
+                                        class="
+                        sm:col-span-2
+                        rounded-2xl
+                        border
+                        border-dashed
+                        border-slate-300
+                        p-10
+                        text-center
+                        text-slate-500
+                    ">
+                                        Esta Entidad no tiene Atributos públicos.
+                                    </p>
+                                @endforelse
+
+                            </div>
+
+                        @endif
+
                     </section>
                 </div>
 

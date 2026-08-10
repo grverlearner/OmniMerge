@@ -3,7 +3,9 @@
 namespace App\Http\Requests\Entities;
 
 use App\Models\Entity;
+
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
 
@@ -11,55 +13,73 @@ class UpdateEntityRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $entity = $this->route('entity');
+        $entity =
+            $this->route(
+                'entity'
+            );
+
 
         return $entity instanceof Entity
-            && $this->user()?->can(
+            &&
+            $this
+            ->user()
+            ?->can(
                 'update',
                 $entity
             );
     }
 
+
     protected function prepareForValidation(): void
     {
-        /** @var Entity|null $entity */
-        $entity = $this->route('entity');
+        $name =
+            trim(
+                (string) $this->input(
+                    'name'
+                )
+            );
+
 
         $this->merge([
-            'name' => trim(
-                (string) $this->input('name')
-            ),
+            'name' =>
+            $name,
 
-            'description' => $this->nullableText(
-                'description'
-            ),
-
-            'visibility' => strtoupper(
-                (string) $this->input(
-                    'visibility',
-                    $entity?->visibility ?? 'PUBLIC'
+            'code' =>
+            Str::upper(
+                Str::slug(
+                    $this->input(
+                        'code'
+                    )
+                        ?: $name,
+                    '_'
                 )
             ),
 
-            'status' => strtoupper(
-                (string) $this->input(
-                    'status',
-                    $entity?->status ?? 'ACTIVE'
+            'slug' =>
+            Str::slug(
+                $this->input(
+                    'slug'
                 )
+                    ?: $name
             ),
 
-            'allow_cloning' => $this->boolean(
+            'allow_cloning' =>
+            $this->boolean(
                 'allow_cloning'
-            ),
-
-            'remove_image' => $this->boolean(
-                'remove_image'
             ),
         ]);
     }
 
+
     public function rules(): array
     {
+        /** @var Entity $entity */
+        $entity =
+            $this->route(
+                'entity'
+            );
+
+
         return [
             'entity_type_id' => [
                 'nullable',
@@ -67,15 +87,22 @@ class UpdateEntityRequest extends FormRequest
                 Rule::exists(
                     'entity_types',
                     'id'
-                )->where(
-                    fn ($query) => $query
-                        ->where(
-                            'user_id',
-                            $this->user()->id
-                        )
-                        ->whereNull('deleted_at')
-                ),
+                )
+                    ->where(
+                        fn($query) =>
+                        $query
+                            ->where(
+                                'user_id',
+                                $this
+                                    ->user()
+                                    ->id
+                            )
+                            ->whereNull(
+                                'deleted_at'
+                            )
+                    ),
             ],
+
 
             'name' => [
                 'required',
@@ -83,11 +110,68 @@ class UpdateEntityRequest extends FormRequest
                 'max:150',
             ],
 
+
+            'code' => [
+                'required',
+                'string',
+                'max:30',
+                'regex:/^[A-Z0-9_]+$/',
+
+                Rule::unique(
+                    'entities',
+                    'code'
+                )
+                    ->where(
+                        fn($query) =>
+                        $query->where(
+                            'user_id',
+                            $this
+                                ->user()
+                                ->id
+                        )
+                    )
+                    ->ignore(
+                        $entity->id
+                    ),
+            ],
+
+
+            'slug' => [
+                'required',
+                'string',
+                'max:180',
+
+                Rule::unique(
+                    'entities',
+                    'slug'
+                )
+                    ->where(
+                        fn($query) =>
+                        $query->where(
+                            'user_id',
+                            $this
+                                ->user()
+                                ->id
+                        )
+                    )
+                    ->ignore(
+                        $entity->id
+                    ),
+            ],
+
+
             'description' => [
                 'nullable',
                 'string',
                 'max:5000',
             ],
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Imagen
+            |--------------------------------------------------------------------------
+            */
 
             'image' => [
                 'nullable',
@@ -102,19 +186,18 @@ class UpdateEntityRequest extends FormRequest
                     ->max('4mb'),
             ],
 
+
             'remove_image' => [
+                'nullable',
                 'boolean',
             ],
 
-            'visibility' => [
-                'required',
 
-                Rule::in([
-                    'PUBLIC',
-                    'PRIVATE',
-                    'UNLISTED',
-                ]),
-            ],
+            /*
+            |--------------------------------------------------------------------------
+            | Publicación
+            |--------------------------------------------------------------------------
+            */
 
             'status' => [
                 'required',
@@ -126,14 +209,34 @@ class UpdateEntityRequest extends FormRequest
                 ]),
             ],
 
+
+            'visibility' => [
+                'required',
+
+                Rule::in([
+                    'PRIVATE',
+                    'PUBLIC',
+                    'UNLISTED',
+                ]),
+            ],
+
+
             'allow_cloning' => [
                 'boolean',
             ],
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Atributos
+            |--------------------------------------------------------------------------
+            */
 
             'selected_attribute_ids' => [
                 'nullable',
                 'array',
             ],
+
 
             'selected_attribute_ids.*' => [
                 'integer',
@@ -141,29 +244,44 @@ class UpdateEntityRequest extends FormRequest
                 Rule::exists(
                     'attributes',
                     'id'
-                )->where(
-                    fn ($query) => $query
-                        ->where(
-                            'user_id',
-                            $this->user()->id
-                        )
-                        ->where(
-                            'status',
-                            'ACTIVE'
-                        )
-                        ->whereNull('deleted_at')
-                ),
+                )
+                    ->where(
+                        fn($query) =>
+                        $query
+                            ->where(
+                                'user_id',
+                                $this
+                                    ->user()
+                                    ->id
+                            )
+                            ->where(
+                                'status',
+                                'ACTIVE'
+                            )
+                            ->whereNull(
+                                'deleted_at'
+                            )
+                    ),
             ],
+
 
             'attributes' => [
                 'nullable',
                 'array',
             ],
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | Colecciones
+            |--------------------------------------------------------------------------
+            */
+
             'collection_ids' => [
                 'nullable',
                 'array',
             ],
+
 
             'collection_ids.*' => [
                 'integer',
@@ -171,27 +289,21 @@ class UpdateEntityRequest extends FormRequest
                 Rule::exists(
                     'collections',
                     'id'
-                )->where(
-                    fn ($query) => $query
-                        ->where(
-                            'user_id',
-                            $this->user()->id
-                        )
-                        ->whereNull('deleted_at')
-                ),
+                )
+                    ->where(
+                        fn($query) =>
+                        $query
+                            ->where(
+                                'user_id',
+                                $this
+                                    ->user()
+                                    ->id
+                            )
+                            ->whereNull(
+                                'deleted_at'
+                            )
+                    ),
             ],
         ];
-    }
-
-    private function nullableText(
-        string $field
-    ): ?string {
-        $value = trim(
-            (string) $this->input($field)
-        );
-
-        return $value !== ''
-            ? $value
-            : null;
     }
 }

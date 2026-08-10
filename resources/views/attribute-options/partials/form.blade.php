@@ -430,153 +430,36 @@
                 Imagen e identidad visual
             </h3>
 
+            <div class="
+        mt-6
+        max-w-2xl
+    "
+                @omni-image-selected="
+        imagePreview =
+            $event.detail.url;
 
-            <div
-                class="
-                    mt-6
-                    flex
-                    flex-col
-                    gap-5
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-slate-50
-                    p-5
-                    sm:flex-row
-                    sm:items-center
-                ">
+        removeImage =
+            false;
+    "
+                @omni-image-cleared="
+        imagePreview =
+            null;
 
-                <div
-                    class="
-                        h-28
-                        w-28
-                        shrink-0
-                        overflow-hidden
-                        rounded-2xl
-                        border
-                        border-slate-200
-                        bg-white
-                    ">
+        removeImage =
+            true;
+    "
+                @omni-image-restored="
+        imagePreview =
+            $event.detail.url;
 
-                    <template x-if="imagePreview">
+        removeImage =
+            false;
+    ">
 
-                        <img :src="imagePreview" alt=""
-                            class="
-                                h-full
-                                w-full
-                                object-cover
-                            ">
-
-                    </template>
-
-
-                    <template x-if="! imagePreview">
-
-                        <div class="
-                                flex
-                                h-full
-                                w-full
-                                items-center
-                                justify-center
-                                text-4xl
-                                font-black
-                            "
-                            :style="`
-                                                            background-color:
-                                                                ${color}20;
-                            
-                                                            color:
-                                                                ${color};
-                                                        `">
-                            <span
-                                x-text="
-                                    icon
-                                    || '◆'
-                                "></span>
-                        </div>
-
-                    </template>
-
-                </div>
-
-
-                <div class="flex-1">
-
-                    <label
-                        class="
-                            block
-                            text-sm
-                            font-bold
-                            text-slate-700
-                        ">
-                        Imagen
-                    </label>
-
-
-                    <input x-ref="imageInput" name="image" type="file" accept=".jpg,.jpeg,.png,.webp"
-                        @change="
-                            previewImage(
-                                $event
-                            )
-                        "
-                        class="
-                            mt-2
-                            block
-                            w-full
-                            rounded-xl
-                            border
-                            border-slate-300
-                            bg-white
-                            text-sm
-                            text-slate-700
-
-                            file:mr-4
-                            file:border-0
-                            file:bg-violet-50
-                            file:px-4
-                            file:py-3
-                            file:font-bold
-                            file:text-violet-700
-                        ">
-
-
-                    <p
-                        class="
-                            mt-2
-                            text-xs
-                            text-slate-500
-                        ">
-                        JPG, PNG o WEBP.
-                        Máximo 4 MB.
-                    </p>
-
-
-                    @if ($editing)
-                        <input type="hidden" name="remove_image"
-                            :value="removeImage
-                                ?
-                                1 :
-                                0">
-
-
-                        <button type="button" x-show="imagePreview"
-                            @click="
-                                clearImage()
-                            "
-                            class="
-                                mt-3
-                                text-xs
-                                font-bold
-                                text-red-600
-                            ">
-                            Quitar imagen actual
-                        </button>
-                    @endif
-
-                </div>
+                <x-omni-image-upload name="image" label="Imagen del elemento de Catálogo" :current-url="$editing ? $attributeOption->image_url : null"
+                    :max-mb="4" :remove-name="$editing ? 'remove_image' : null" />
 
             </div>
-
 
             <div
                 class="
@@ -1176,12 +1059,12 @@
                                 font-black
                             "
                             :style="`
-                                                            background-color:
-                                                                ${color}20;
-                            
-                                                            color:
-                                                                ${color};
-                                                        `">
+                                                                                        background-color:
+                                                                                            ${color}20;
+                                                        
+                                                                                        color:
+                                                                                            ${color};
+                                                                                    `">
                             <span
                                 x-text="
                                     icon

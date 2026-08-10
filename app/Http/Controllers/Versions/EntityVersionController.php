@@ -488,6 +488,8 @@ class EntityVersionController extends Controller
             'versionAttributes.values.option',
 
             'images',
+            'entity.presentation.entityVersion',
+            'entity.presentation.mediaImage',
         ]);
 
 

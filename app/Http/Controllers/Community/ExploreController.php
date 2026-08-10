@@ -10,6 +10,7 @@ use App\Models\Entity;
 use App\Models\EntityType;
 use App\Models\User;
 use App\Services\Community\CommunityCloneService;
+use App\Services\Versions\VersionResolverService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -701,14 +702,14 @@ class ExploreController extends Controller
                         'Entidad',
 
                         'title' =>
-                        $entity->name,
+                        $entity->public_display_name,
 
                         'subtitle' =>
                         $entity->entityType?->name
                             ?? 'Sin tipo',
 
                         'image' =>
-                        $entity->image_url,
+                        $entity->public_image_url,
 
                         'icon' =>
                         $entity->entityType?->icon
@@ -865,7 +866,8 @@ class ExploreController extends Controller
 
     public function entity(
         Request $request,
-        Entity $entity
+        Entity $entity,
+        VersionResolverService $resolver
     ): View {
 
         $this->ensurePublicEntity(
@@ -875,11 +877,13 @@ class ExploreController extends Controller
         $entity->load([
             'creator',
             'entityType',
-
             'entityAttributes.attribute',
-
             'entityAttributes.values.option',
-
+            'presentation.entityVersion.version',
+            'presentation.entityVersion.parent',
+            'presentation.entityVersion.versionAttributes.attribute.groups',
+            'presentation.entityVersion.versionAttributes.values.option',
+            'presentation.mediaImage',
             'collections' =>
             fn($query) =>
             $query
@@ -892,6 +896,32 @@ class ExploreController extends Controller
                     'ACTIVE'
                 ),
         ]);
+
+        /*
+|--------------------------------------------------------------------------
+| Características públicas
+|--------------------------------------------------------------------------
+*/
+
+        $publicEffectiveAttributes =
+            null;
+
+
+        $publicEntityVersion =
+            $entity
+            ->public_entity_version;
+
+
+        if (
+            $publicEntityVersion
+        ) {
+
+            $publicEffectiveAttributes =
+                $resolver
+                ->effectiveAttributes(
+                    $publicEntityVersion
+                );
+        }
 
 
         $this->recordView(
@@ -931,7 +961,9 @@ class ExploreController extends Controller
             'community.entity',
             compact(
                 'entity',
-                'relatedEntities'
+                'relatedEntities',
+                'publicEntityVersion',
+                'publicEffectiveAttributes'
             )
         );
     }
@@ -1350,6 +1382,8 @@ class ExploreController extends Controller
             ->with([
                 'creator',
                 'entityType',
+                'presentation.entityVersion.version',
+                'presentation.mediaImage',
 
                 'clones' =>
                 fn($query) =>

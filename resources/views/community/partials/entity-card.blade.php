@@ -2,8 +2,8 @@
     class="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
     <a href="{{ route('community.entities.show', $entity) }}" class="block">
         <div class="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-indigo-50 to-violet-100">
-            @if ($entity->image_url)
-                <img src="{{ $entity->image_url }}" alt="{{ $entity->name }}"
+            @if ($entity->public_image_url)
+                <img src="{{ $entity->public_image_url }}" alt="{{ $entity->public_display_name }}"
                     class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
             @else
                 <div class="flex h-full items-center justify-center text-6xl text-indigo-400">
@@ -20,7 +20,7 @@
 
             <div class="absolute bottom-4 left-4 right-4">
                 <h3 class="text-xl font-black text-white">
-                    {{ $entity->name }}
+                    {{ $entity->public_display_name }}
                 </h3>
             </div>
         </div>
@@ -66,7 +66,7 @@
         </a>
 
         <p class="mt-4 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-slate-500">
-            {{ $entity->description ?: 'Sin descripción.' }}
+            {{ $entity->public_description ?: 'Sin descripción.' }}
         </p>
 
         <div class="mt-5 flex items-center gap-4 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-500">

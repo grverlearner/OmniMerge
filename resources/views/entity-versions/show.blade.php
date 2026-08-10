@@ -376,6 +376,40 @@
                             + Subversión
                         </a>
 
+                        <form method="POST"
+                            action="{{ route('entities.presentation.update', $entity) }}">
+
+                            @csrf
+                            @method('PUT')
+
+
+                            <input type="hidden" name="mode" value="VERSION_PRIMARY">
+
+
+                            <input type="hidden" name="entity_version_id" value="{{ $entityVersion->id }}">
+
+
+                            <input type="hidden" name="use_version_name" value="1">
+
+
+                            <input type="hidden" name="use_version_description" value="1">
+
+
+                            <button
+                                class="
+                                    rounded-xl
+                                    bg-fuchsia-600
+                                    px-4
+                                    py-2.5
+                                    text-xs
+                                    font-black
+                                    text-white
+                                ">
+                                ◎ Mostrar públicamente
+                            </button>
+
+                        </form>
+
                     </div>
 
                 </div>

@@ -580,4 +580,45 @@ class Attribute extends Model
         return $this->isPublished()
             && $this->allow_cloning;
     }
+
+    /*
+|--------------------------------------------------------------------------
+| Dependencias contextuales
+|--------------------------------------------------------------------------
+*/
+
+    public function outgoingRelationships(): HasMany
+    {
+        return $this->hasMany(
+            AttributeRelationship::class,
+            'source_attribute_id'
+        );
+    }
+
+
+    public function incomingRelationships(): HasMany
+    {
+        return $this->hasMany(
+            AttributeRelationship::class,
+            'target_attribute_id'
+        );
+    }
+
+
+    public function contextRules(): HasMany
+    {
+        return $this->hasMany(
+            AttributeContextRule::class,
+            'target_attribute_id'
+        );
+    }
+
+
+    public function sourceRuleConditions(): HasMany
+    {
+        return $this->hasMany(
+            AttributeContextRuleCondition::class,
+            'source_attribute_id'
+        );
+    }
 }

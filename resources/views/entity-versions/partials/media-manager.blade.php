@@ -165,18 +165,12 @@
             </select>
 
 
-            <input type="file" name="gallery_images[]" multiple accept="image/jpeg,image/png,image/webp" required
-                class="
-                    mt-3
-                    block
-                    w-full
-                    rounded-xl
-                    border
-                    border-fuchsia-200
-                    bg-white
-                    p-2
-                    text-xs
-                ">
+            <div class="mt-3">
+
+                <x-omni-multi-image-upload name="gallery_images[]" label="Seleccionar Multimedia" :max-mb="2"
+                    :max-files="20" />
+
+            </div>
 
 
             <button
@@ -392,8 +386,7 @@
                         <div class="p-4">
 
                             {{-- EDIT --}}
-                            <form method="POST"
-                                :action="item.update_url">
+                            <form method="POST" :action="item.update_url">
 
                                 @csrf
                                 @method('PATCH')
@@ -495,8 +488,7 @@
                                 ">
 
                                 {{-- PRIMARY --}}
-                                <form method="POST"
-                                    :action="item.primary_url">
+                                <form method="POST" :action="item.primary_url">
 
                                     @csrf
 
@@ -519,8 +511,7 @@
 
 
                                 {{-- DELETE --}}
-                                <form method="POST"
-                                    :action="item.delete_url"
+                                <form method="POST" :action="item.delete_url"
                                     onsubmit="
                                         return confirm(
                                             '¿Eliminar esta imagen?'
@@ -547,6 +538,45 @@
 
                                 </form>
 
+                                <form method="POST"
+                                    action="{{ route('entities.presentation.update', $entity) }}">
+
+                                    @csrf
+                                    @method('PUT')
+
+
+                                    <input type="hidden" name="mode" value="VERSION_MEDIA">
+
+
+                                    <input type="hidden" name="entity_version_id" value="{{ $entityVersion->id }}">
+
+
+                                    <input type="hidden" name="entity_version_image_id" :value="item.id">
+
+
+                                    <input type="hidden" name="use_version_name" value="1">
+
+
+                                    <input type="hidden" name="use_version_description" value="1">
+
+
+                                    <button
+                                        class="
+                                            mt-2
+                                            w-full
+                                            rounded-xl
+                                            bg-fuchsia-50
+                                            px-3
+                                            py-2
+                                            text-[9px]
+                                            font-black
+                                            text-fuchsia-700
+                                        ">
+                                        ◎ Usar públicamente
+                                    </button>
+
+                                </form>
+
                             </div>
 
                         </div>
@@ -559,8 +589,7 @@
 
 
             {{-- REORDER --}}
-            <form method="POST"
-                action="{{ route('entity-versions.images.reorder', [$entity, $entityVersion]) }}"
+            <form method="POST" action="{{ route('entity-versions.images.reorder', [$entity, $entityVersion]) }}"
                 class="
                     mt-4
                     flex
@@ -573,8 +602,7 @@
 
                 <template x-for="
                         item in items
-                    "
-                    :key="`order-${item.id}`">
+                    " :key="`order-${item.id}`">
 
                     <input type="hidden" name="ordered_ids[]" :value="item.id">
 
@@ -705,8 +733,7 @@
 
             return {
 
-                items: initialItems ??
-                    [],
+                items: initialItems ?? [],
 
                 dragIndex: null,
 

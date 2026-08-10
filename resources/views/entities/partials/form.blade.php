@@ -564,161 +564,83 @@
 
         </section>
 
-
         {{-- ===================================================== --}}
         {{-- 3. IMAGEN --}}
         {{-- ===================================================== --}}
 
         <section class="
-                border-t
-                border-slate-200
-                pt-8
-            ">
+        border-t
+        border-slate-200
+        pt-8
+    ">
 
             <p
                 class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-[0.16em]
-                    text-indigo-600
-                ">
+            text-xs
+            font-black
+            uppercase
+            tracking-[0.16em]
+            text-indigo-600
+        ">
                 3 · Representación
             </p>
 
 
             <h3
                 class="
-                    mt-2
-                    text-xl
-                    font-black
-                    text-slate-900
-                ">
-                Imagen de la entidad
+            mt-2
+            text-xl
+            font-black
+            text-slate-900
+        ">
+                Imagen de la Entidad
             </h3>
 
 
-            <div
+            <p
                 class="
-                    mt-5
-                    flex
-                    flex-col
-                    gap-5
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-slate-50
-                    p-5
-                    sm:flex-row
-                    sm:items-center
-                ">
-
-                <div
-                    class="
-                        h-32
-                        w-32
-                        shrink-0
-                        overflow-hidden
-                        rounded-2xl
-                        border
-                        border-slate-200
-                        bg-white
-                    ">
-
-                    <template x-if="imagePreview">
-
-                        <img :src="imagePreview"
-                            class="
-                                h-full
-                                w-full
-                                object-cover
-                            ">
-
-                    </template>
+            mt-2
+            max-w-2xl
+            text-sm
+            leading-6
+            text-slate-500
+        ">
+                Será la imagen base de la Entidad.
+                Más adelante podrás seleccionar una
+                Version o una imagen Multimedia como
+                presentación pública.
+            </p>
 
 
-                    <template x-if="! imagePreview">
+            <div class="
+            mt-5
+            max-w-2xl
+        "
+                @omni-image-selected="
+            imagePreview =
+                $event.detail.url;
 
-                        <div
-                            class="
-                                flex
-                                h-full
-                                items-center
-                                justify-center
-                                bg-indigo-50
-                                text-4xl
-                                font-black
-                                text-indigo-300
-                            ">
-                            ✦
-                        </div>
+            removeImage =
+                false;
+        "
+                @omni-image-cleared="
+            imagePreview =
+                null;
 
-                    </template>
+            removeImage =
+                true;
+        "
+                @omni-image-restored="
+            imagePreview =
+                $event.detail.url;
 
-                </div>
+            removeImage =
+                false;
+        ">
 
-
-                <div class="flex-1">
-
-                    <input x-ref="imageInput" type="file" name="image" accept=".jpg,.jpeg,.png,.webp"
-                        @change="
-                            previewImage(
-                                $event
-                            )
-                        "
-                        class="
-                            block
-                            w-full
-                            rounded-xl
-                            border
-                            border-slate-300
-                            bg-white
-                            text-sm
-                            text-slate-700
-
-                            file:mr-4
-                            file:border-0
-                            file:bg-indigo-50
-                            file:px-4
-                            file:py-3
-                            file:font-bold
-                            file:text-indigo-700
-                        ">
-
-
-                    <p
-                        class="
-                            mt-2
-                            text-xs
-                            text-slate-500
-                        ">
-                        JPG, PNG o WEBP. Máximo 4 MB.
-                    </p>
-
-
-                    @if ($editing)
-                        <input type="hidden" name="remove_image"
-                            :value="removeImage
-                                ?
-                                1 :
-                                0">
-
-
-                        <button type="button" x-show="imagePreview"
-                            @click="
-                                clearImage()
-                            "
-                            class="
-                                mt-3
-                                text-xs
-                                font-bold
-                                text-red-600
-                            ">
-                            Quitar imagen
-                        </button>
-                    @endif
-
-                </div>
+                <x-omni-image-upload name="image" label="Imagen de la Entidad" :current-url="$editing ? $entity->image_url : null" :max-mb="4"
+                    :remove-name="$editing ? 'remove_image' : null"
+                    help="La imagen base no desaparecerá aunque posteriormente elijas una Version para mostrar públicamente." />
 
             </div>
 

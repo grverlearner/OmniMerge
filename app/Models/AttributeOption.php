@@ -176,6 +176,29 @@ class AttributeOption extends Model
             );
     }
 
+    /*
+|--------------------------------------------------------------------------
+| Dependencias entre elementos de Catálogo
+|--------------------------------------------------------------------------
+*/
+
+    public function outgoingOptionRelationships(): HasMany
+    {
+        return $this->hasMany(
+            AttributeOptionRelationship::class,
+            'source_option_id'
+        );
+    }
+
+
+    public function incomingOptionRelationships(): HasMany
+    {
+        return $this->hasMany(
+            AttributeOptionRelationship::class,
+            'target_option_id'
+        );
+    }
+
 
     /*
     |--------------------------------------------------------------------------

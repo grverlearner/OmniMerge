@@ -6,11 +6,13 @@ use App\Models\Entity;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\Attributes\AttributeContextService;
 
 class EntityBuilderService
 {
     public function __construct(
-        private readonly EntityAttributeValueService $attributeValueService
+        private readonly EntityAttributeValueService $attributeValueService,
+        private readonly AttributeContextService $attributeContextService
     ) {}
 
 
@@ -397,6 +399,22 @@ class EntityBuilderService
                     $data
                 );
 
+                $context =
+                    $this
+                    ->attributeContextService
+                    ->sanitizeSelection(
+                        $user,
+                        $selectedAttributeIds,
+                        $attributeInputs
+                    );
+
+
+                $selectedAttributeIds =
+                    $context['selected_attribute_ids'];
+
+
+                $attributeInputs =
+                    $context['inputs'];
 
                 $this
                     ->attributeValueService
@@ -491,6 +509,22 @@ class EntityBuilderService
         | Características
         |--------------------------------------------------------------------------
         */
+        $context =
+            $this
+            ->attributeContextService
+            ->sanitizeSelection(
+                $lockedUser,
+                $selectedAttributeIds,
+                $attributeInputs
+            );
+
+
+        $selectedAttributeIds =
+            $context['selected_attribute_ids'];
+
+
+        $attributeInputs =
+            $context['inputs'];
 
         $this
             ->attributeValueService

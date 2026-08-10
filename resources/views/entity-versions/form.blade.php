@@ -946,15 +946,9 @@
                             "
                             x-cloak class="mt-4">
 
-                            <input type="file" name="new_version_image" accept="image/jpeg,image/png,image/webp"
-                                class="
-                                    w-full
-                                    rounded-xl
-                                    border
-                                    border-slate-200
-                                    p-3
-                                    text-xs
-                                ">
+                            <x-omni-image-upload name="new_version_image" label="Portada de la nueva definición"
+                                :max-mb="2"
+                                help="Esta portada representa la definición general. La EntityVersion concreta conserva su propia imagen." />
 
                         </div>
 
@@ -1195,41 +1189,6 @@
                 {{-- IMAGE BUILDER --}}
                 <div>
 
-                    <div
-                        class="
-                            relative
-                            aspect-square
-                            overflow-hidden
-                            rounded-3xl
-                            border
-                            border-slate-200
-                            bg-slate-100
-                        ">
-
-                        <img x-show="imagePreview" :src="imagePreview"
-                            class="
-                                h-full
-                                w-full
-                                object-cover
-                            ">
-
-
-                        <div x-show="! imagePreview"
-                            class="
-                                absolute
-                                inset-0
-                                flex
-                                items-center
-                                justify-center
-                                text-6xl
-                                text-slate-300
-                            ">
-                            ◈
-                        </div>
-
-                    </div>
-
-
                     @if (!$editing)
 
                         <input type="hidden" name="image_source" :value="imageSource">
@@ -1313,29 +1272,21 @@
 
                         </div>
 
-
                         <div x-show="
-                                imageSource === 'UPLOAD'
-                            "
-                            class="mt-3">
+                            imageSource === 'UPLOAD'
+                            " class="mt-3"
+                                                    @omni-image-selected="
+                                imageSource =
+                                    'UPLOAD';
 
-                            <input type="file" name="image" accept="image/jpeg,image/png,image/webp"
-                                @change="
-                                    previewUploadedImage(
-                                        $event
-                                    )
-                                "
-                                class="
-                                    w-full
-                                    rounded-xl
-                                    border
-                                    border-slate-200
-                                    p-3
-                                    text-xs
-                                ">
+                                imagePreview =
+                                    $event.detail.url;
+                            ">
+
+                            <x-omni-image-upload name="image" label="Imagen específica de esta Version"
+                                :max-mb="2" />
 
                         </div>
-
 
                         <div x-show="
                                 imageSource === 'VERSION'
@@ -1372,37 +1323,16 @@
 
                         </div>
                     @else
-                        <label
-                            class="
-                                mt-3
-                                block
-                                rounded-xl
-                                border
-                                border-slate-200
-                                p-3
-                                text-xs
-                                font-black
-                                text-slate-600
+                        <div class="mt-3"
+                            @omni-image-selected="
+                                imagePreview =
+                                    $event.detail.url;
                             ">
 
-                            Cambiar imagen
+                            <x-omni-image-upload name="image" label="Cambiar imagen de la Version" :current-url="$entityVersion?->image_url"
+                                :max-mb="2" />
 
-                            <input type="file" name="image" accept="image/jpeg,image/png,image/webp"
-                                @change="
-                                    previewUploadedImage(
-                                        $event
-                                    )
-                                "
-                                class="
-                                    mt-2
-                                    block
-                                    w-full
-                                    text-[10px]
-                                    font-normal
-                                ">
-
-                        </label>
-
+                        </div>
                     @endif
 
                 </div>
@@ -1425,8 +1355,7 @@
 
 
                         <input type="text" name="name" value="{{ old('name', $entityVersion?->name) }}"
-                            {{ $editing ? 'required' : '' }}
-                            :placeholder="suggestedEntityVersionName()"
+                            {{ $editing ? 'required' : '' }} :placeholder="suggestedEntityVersionName()"
                             class="
                                 mt-2
                                 w-full
@@ -1985,14 +1914,11 @@
 
                 entityImageUrl: config.entityImageUrl,
 
-                versions: config.versions ??
-                    [],
+                versions: config.versions ?? [],
 
-                entityVersions: config.entityVersions ??
-                    [],
+                entityVersions: config.entityVersions ?? [],
 
-                catalogs: config.catalogs ??
-                    [],
+                catalogs: config.catalogs ?? [],
 
 
                 /*
@@ -2002,8 +1928,7 @@
                 */
 
                 mode: config.editing ?
-                    'EXISTING' :
-                    (
+                    'EXISTING' : (
                         config.initialMode ||
                         'EXISTING'
                     ),
@@ -2334,8 +2259,7 @@
                             String(item.id) ===
                             String(attributeId)
                         )
-                        ?.options ||
-                        [];
+                        ?.options || [];
                 },
             };
         }

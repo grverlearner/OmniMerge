@@ -140,150 +140,34 @@
                     sm:flex-row
                     sm:items-center
                 ">
+                <div class="
+        mt-5
+        max-w-2xl
+    "
+                    @omni-image-selected="
+        imagePreview =
+            $event.detail.url;
 
-                {{-- PREVIEW --}}
-                <div
-                    class="
-                        h-28
-                        w-28
-                        shrink-0
-                        overflow-hidden
-                        rounded-2xl
-                        border
-                        border-slate-200
-                        bg-white
-                        shadow-sm
-                    ">
+        removeImage =
+            false;
+    "
+                    @omni-image-cleared="
+        imagePreview =
+            null;
 
-                    <template x-if="imagePreview">
+        removeImage =
+            true;
+    "
+                    @omni-image-restored="
+        imagePreview =
+            $event.detail.url;
 
-                        <img :src="imagePreview" alt=""
-                            class="
-                                h-full
-                                w-full
-                                object-cover
-                            ">
+        removeImage =
+            false;
+    ">
 
-                    </template>
-
-
-                    <template x-if="! imagePreview">
-
-                        <div class="
-                                flex
-                                h-full
-                                w-full
-                                items-center
-                                justify-center
-                                text-4xl
-                                font-black
-                            "
-                            :style="`
-                                                            background-color:
-                                                                ${color}20;
-                            
-                                                            color:
-                                                                ${color};
-                                                        `">
-                            <span
-                                x-text="
-                                    icon
-                                    || '◇'
-                                "></span>
-                        </div>
-
-                    </template>
-
-                </div>
-
-
-                {{-- CONTROLES --}}
-                <div class="flex-1">
-
-                    <label
-                        class="
-                            block
-                            text-sm
-                            font-bold
-                            text-slate-700
-                        ">
-                        Archivo de imagen
-                    </label>
-
-
-                    <input x-ref="imageInput" name="image" type="file" accept=".jpg,.jpeg,.png,.webp"
-                        @change="
-                            previewImage(
-                                $event
-                            )
-                        "
-                        class="
-                            mt-2
-                            block
-                            w-full
-                            rounded-xl
-                            border
-                            border-slate-300
-                            bg-white
-                            text-sm
-                            text-slate-700
-
-                            file:mr-4
-                            file:border-0
-                            file:bg-indigo-50
-                            file:px-4
-                            file:py-3
-                            file:font-bold
-                            file:text-indigo-700
-                        ">
-
-
-                    <p
-                        class="
-                            mt-2
-                            text-xs
-                            text-slate-500
-                        ">
-                        JPG, PNG o WEBP.
-                        Máximo 4 MB.
-                    </p>
-
-
-                    @if ($editing)
-                        <input type="hidden" name="remove_image"
-                            :value="removeImage
-                                ?
-                                1 :
-                                0">
-
-
-                        <button type="button" x-show="imagePreview"
-                            @click="
-                                clearImage()
-                            "
-                            class="
-                                mt-3
-                                text-xs
-                                font-bold
-                                text-red-600
-                                hover:text-red-800
-                            ">
-                            Quitar imagen actual
-                        </button>
-                    @endif
-
-
-                    @error('image')
-                        <p
-                            class="
-                                mt-2
-                                text-sm
-                                font-semibold
-                                text-red-600
-                            ">
-                            {{ $message }}
-                        </p>
-                    @enderror
+                    <x-omni-image-upload name="image" label="Imagen del Tipo de Entidad" :current-url="$editing ? $entityType->image_url : null"
+                        :max-mb="4" :remove-name="$editing ? 'remove_image' : null" />
 
                 </div>
 
@@ -338,8 +222,7 @@
 
 
                     <input id="name" name="name" type="text" x-model="name"
-                        value="{{ old('name', $entityType->name ?? '') }}"
-                        required placeholder="Ejemplo: Personaje"
+                        value="{{ old('name', $entityType->name ?? '') }}" required placeholder="Ejemplo: Personaje"
                         class="
                             w-full
                             rounded-xl
@@ -576,8 +459,7 @@
 
 
                     <input id="icon" name="icon" type="text" x-model="icon"
-                        value="{{ old('icon', $entityType->icon ?? '') }}"
-                        placeholder="Ejemplo: 👤, 🐉, 🌍"
+                        value="{{ old('icon', $entityType->icon ?? '') }}" placeholder="Ejemplo: 👤, 🐉, 🌍"
                         class="
                             w-full
                             rounded-xl
@@ -864,12 +746,12 @@
                                 font-black
                             "
                             :style="`
-                                                            background-color:
-                                                                ${color}20;
-                            
-                                                            color:
-                                                                ${color};
-                                                        `">
+                                                                                        background-color:
+                                                                                            ${color}20;
+                                                        
+                                                                                        color:
+                                                                                            ${color};
+                                                                                    `">
                             <span
                                 x-text="
                                     icon

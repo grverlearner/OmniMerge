@@ -24,6 +24,9 @@ use App\Http\Controllers\Versions\EntityVersionAttributeController;
 use App\Http\Controllers\Versions\BulkEntityVersionController;
 use App\Http\Controllers\Versions\VersionWorkspaceController;
 
+use App\Http\Controllers\Attributes\AttributeStructureController;
+use App\Http\Controllers\Entities\EntityPresentationController;
+
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')
@@ -289,17 +292,6 @@ Route::middleware('auth')->group(function () {
     );
 
 
-    Route::delete(
-        'entities/{entity}/versions/{entityVersion}',
-        [
-            EntityVersionController::class,
-            'destroy',
-        ]
-    )->name(
-        'entity-versions.destroy'
-    );
-
-
     /*
 |--------------------------------------------------------------------------
 | CARACTERÍSTICAS
@@ -399,6 +391,33 @@ Route::middleware('auth')->group(function () {
         'entity-versions.images.destroy'
     );
 
+    /*
+|--------------------------------------------------------------------------
+| Presentación pública de Entidades
+|--------------------------------------------------------------------------
+*/
+
+    Route::get(
+        'entities/{entity}/presentation',
+        [
+            EntityPresentationController::class,
+            'edit',
+        ]
+    )->name(
+        'entities.presentation.edit'
+    );
+
+
+    Route::put(
+        'entities/{entity}/presentation',
+        [
+            EntityPresentationController::class,
+            'update',
+        ]
+    )->name(
+        'entities.presentation.update'
+    );
+
     Route::resource(
         'entities',
         EntityController::class
@@ -418,6 +437,70 @@ Route::middleware('auth')->group(function () {
         ProfileController::class,
         'destroy',
     ])->name('profile.destroy');
+
+    /*
+|--------------------------------------------------------------------------
+| Estructura contextual de Atributos
+|--------------------------------------------------------------------------
+|
+| IMPORTANTE:
+| Deben ir antes de attributes/{attribute}.
+|
+*/
+
+    Route::get(
+        'attributes/structure',
+        [
+            AttributeStructureController::class,
+            'index',
+        ]
+    )->name(
+        'attributes.structure.index'
+    );
+
+
+    Route::post(
+        'attributes/structure/rules',
+        [
+            AttributeStructureController::class,
+            'storeRule',
+        ]
+    )->name(
+        'attributes.structure.rules.store'
+    );
+
+
+    Route::delete(
+        'attributes/structure/rules/{rule}',
+        [
+            AttributeStructureController::class,
+            'destroyRule',
+        ]
+    )->name(
+        'attributes.structure.rules.destroy'
+    );
+
+
+    Route::post(
+        'attributes/structure/options',
+        [
+            AttributeStructureController::class,
+            'storeOptionRelationship',
+        ]
+    )->name(
+        'attributes.structure.options.store'
+    );
+
+
+    Route::delete(
+        'attributes/structure/options/{relationship}',
+        [
+            AttributeStructureController::class,
+            'destroyOptionRelationship',
+        ]
+    )->name(
+        'attributes.structure.options.destroy'
+    );
 
     Route::resource(
         'attributes',

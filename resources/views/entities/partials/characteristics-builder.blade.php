@@ -11,22 +11,64 @@
 
     $selectedAttributeIds = array_map('strval', $selectedAttributeIds);
 
+    $contextPayload = $contextPayload ?? [
+        'rules' => [],
+
+        'option_relations' => [],
+    ];
+
+    $attributeMeta = $attributes
+        ->mapWithKeys(
+            fn($attribute) => [
+                (string) $attribute->id => [
+                    'multiple' => (bool) $attribute->allows_multiple,
+
+                    'type' => $attribute->data_type,
+                ],
+            ],
+        )
+        ->all();
+
+    $contextInitialSelections = [];
+
+    foreach ($attributes as $attribute) {
+        if ($attribute->data_type !== 'OPTION') {
+            continue;
+        }
+
+        $assignment = $existingAssignments->get($attribute->id);
+
+        $existing =
+            $assignment?->values
+                ?->pluck('attribute_option_id')
+                ->filter()
+                ->map(fn($id) => (string) $id)
+                ->values()
+                ->all() ?? [];
+
+        $old = old("attributes.{$attribute->id}");
+
+        if ($old !== null) {
+            $existing = collect((array) $old)->map('strval')->values()->all();
+        }
+
+        $contextInitialSelections[(string) $attribute->id] = $attribute->allows_multiple
+            ? $existing
+            : $existing[0] ?? '';
+    }
 @endphp
 
 
 <div x-data="{
 
     selectedAttributes: @js($selectedAttributeIds),
-
+    context: @js($contextPayload),
+    attributeMeta: @js($attributeMeta),
+    contextSelections: @js($contextInitialSelections),
     attributeSearch: '',
-
     attributeType: 'ALL',
-
     attributeGroup: 'ALL',
-
     optionSearch: {},
-
-
     isSelected(id) {
 
         return this
@@ -36,11 +78,8 @@
             );
     },
 
-
     addAttribute(id) {
-
         id = String(id);
-
 
         if (
             !this.selectedAttributes.includes(id)
@@ -55,7 +94,8 @@
 
     removeAttribute(id) {
 
-        id = String(id);
+        id =
+            String(id);
 
 
         this.selectedAttributes =
@@ -63,81 +103,539 @@
             .selectedAttributes
             .filter(
                 value =>
-                value !== id
-            );
-    },
-
-
-    matchesAttribute(
-        name,
-        code,
-        dataType,
-        groups
-    ) {
-
-        const search =
-            this
-            .attributeSearch
-            .toLowerCase();
-
-
-        const text =
-            `${name} ${code}`
-            .toLowerCase();
-
-
-        const matchesSearch = !search ||
-            text.includes(
-                search
+                value !==
+                id
             );
 
 
-        const matchesType =
-            this.attributeType === 'ALL' ||
-            this.attributeType === dataType;
+        if (
+            this.attributeMeta[
+                id
+            ]
+            ?.type ===
+            'OPTION'
+        ) {
 
-
-        const matchesGroup =
-            this.attributeGroup === 'ALL' ||
-            groups.includes(
-                this.attributeGroup
-            );
-
-
-        return matchesSearch &&
-            matchesType &&
-            matchesGroup;
-    },
-
-
-    matchesOption(
-        attributeId,
-        name,
-        code
-    ) {
-
-        const search =
-            (
-                this.optionSearch[
-                    attributeId
-                ] ||
-                ''
-            )
-            .toLowerCase();
-
-
-        if (!search) {
-            return true;
+            this.contextSelections[
+                    id
+                ] =
+                this.attributeMeta[
+                    id
+                ]
+                ?.multiple ? [] :
+                '';
         }
+    },
+
+    selectedContextOptionIds() {
+
+        const result = [];
 
 
-        return `${name} ${code}`
-            .toLowerCase()
-            .includes(
-                search
-            );
-    }
-}">
+        for (
+            const [
+                attributeId,
+                value
+            ] of Object.entries(
+                this.contextSelections
+            )
+        ) {
+
+            if (
+                !this.isSelected(
+                    attributeId
+                )
+            ) {
+                continue;
+            }
+
+
+            if (
+                Array.isArray(
+                    value
+                )
+            ) {
+
+                for (
+                    const optionId of value
+                ) {
+
+                    if (
+                        optionId !==
+                        null &&
+                        optionId !==
+                        ''
+                    ) {
+
+                        result.push(
+                            String(
+                                optionId
+                            )
+                        );
+                    }
+                } else if (
+                    value !== null &&
+                    value !== ''
+                ) {
+
+                    result.push(
+                        String(
+                            value
+                        )
+                    );
+                }
+            }
+
+
+            return [
+                ...new Set(
+                    result
+                )
+            ];
+        },
+
+
+        conditionMatches(
+                condition
+            ) {
+
+                const attributeId =
+                    String(
+                        condition
+                        .source_attribute_id
+                    );
+
+
+                const selected =
+                    this.selectedContextOptionIds();
+
+
+                const optionId =
+                    condition
+                    .source_option_id !==
+                    null &&
+                    condition
+                    .source_option_id !==
+                    undefined ?
+                    String(
+                        condition
+                        .source_option_id
+                    ) :
+                    null;
+
+
+                const sourceValue =
+                    this.contextSelections[
+                        attributeId
+                    ];
+
+
+                const sourceHasValue =
+                    this.isSelected(
+                        attributeId
+                    ) &&
+                    (
+                        Array.isArray(
+                            sourceValue
+                        ) ?
+                        sourceValue.length > 0 :
+                        (
+                            sourceValue !== null &&
+                            sourceValue !== ''
+                        )
+                    );
+
+
+                switch (
+                    condition.operator
+                ) {
+
+                    case 'EQUALS':
+
+                        return optionId !==
+                            null &&
+                            selected.includes(
+                                optionId
+                            );
+
+
+                    case 'NOT_EQUALS':
+
+                        return !(
+                            optionId !==
+                            null &&
+                            selected.includes(
+                                optionId
+                            )
+                        );
+
+
+                    case 'EXISTS':
+
+                        return sourceHasValue;
+
+
+                    case 'NOT_EXISTS':
+
+                        return !sourceHasValue;
+
+
+                    default:
+
+                        return false;
+                }
+            },
+
+
+            ruleMatches(
+                rule
+            ) {
+
+                const results =
+                    (
+                        rule.conditions || []
+                    )
+                    .map(
+                        condition =>
+                        this.conditionMatches(
+                            condition
+                        )
+                    );
+
+
+                if (
+                    results.length ===
+                    0
+                ) {
+                    return false;
+                }
+
+
+                if (
+                    rule.match_mode ===
+                    'ANY'
+                ) {
+
+                    return results.some(
+                        Boolean
+                    );
+                }
+
+
+                return results.every(
+                    Boolean
+                );
+            },
+
+
+            rulesFor(
+                attributeId
+            ) {
+
+                return (
+                        this.context.rules || []
+                    )
+                    .filter(
+                        rule =>
+                        String(
+                            rule.target_attribute_id
+                        ) ===
+                        String(
+                            attributeId
+                        )
+                    );
+            },
+
+
+            hasContextRules(
+                attributeId
+            ) {
+
+                return this.rulesFor(
+                        attributeId
+                    ).length >
+                    0;
+            },
+
+
+            isContextRequired(
+                attributeId
+            ) {
+
+                return this
+                    .rulesFor(
+                        attributeId
+                    )
+                    .filter(
+                        rule =>
+                        rule.action ===
+                        'REQUIRE'
+                    )
+                    .some(
+                        rule =>
+                        this.ruleMatches(
+                            rule
+                        )
+                    );
+            },
+
+
+            isContextVisible(
+                attributeId
+            ) {
+
+                const rules =
+                    this.rulesFor(
+                        attributeId
+                    );
+
+
+                if (
+                    rules.length ===
+                    0
+                ) {
+                    return true;
+                }
+
+
+                /*
+                 * HIDE gana.
+                 */
+                const hide =
+                    rules
+                    .filter(
+                        rule =>
+                        rule.action ===
+                        'HIDE'
+                    )
+                    .some(
+                        rule =>
+                        this.ruleMatches(
+                            rule
+                        )
+                    );
+
+
+                if (hide) {
+                    return false;
+                }
+
+
+                /*
+                 * REQUIRE obliga a mostrar.
+                 */
+                const required =
+                    rules
+                    .filter(
+                        rule =>
+                        rule.action ===
+                        'REQUIRE'
+                    )
+                    .some(
+                        rule =>
+                        this.ruleMatches(
+                            rule
+                        )
+                    );
+
+
+                if (required) {
+                    return true;
+                }
+
+
+                const showRules =
+                    rules.filter(
+                        rule =>
+                        rule.action ===
+                        'SHOW'
+                    );
+
+
+                if (
+                    showRules.length >
+                    0
+                ) {
+
+                    return showRules.some(
+                        rule =>
+                        this.ruleMatches(
+                            rule
+                        )
+                    );
+                }
+
+
+                return true;
+            },
+
+
+            isOptionAllowed(
+                attributeId,
+                optionId
+            ) {
+
+                const selected =
+                    this.selectedContextOptionIds();
+
+
+                const relevant =
+                    (
+                        this.context
+                        .option_relations || []
+                    )
+                    .filter(
+                        relation =>
+                        String(
+                            relation
+                            .target_attribute_id
+                        ) ===
+                        String(
+                            attributeId
+                        ) &&
+                        selected.includes(
+                            String(
+                                relation
+                                .source_option_id
+                            )
+                        )
+                    );
+
+
+                if (
+                    relevant.length ===
+                    0
+                ) {
+                    return true;
+                }
+
+
+                const allows =
+                    relevant.filter(
+                        relation =>
+                        relation
+                        .relationship_type ===
+                        'ALLOWS'
+                    );
+
+
+                const blocks =
+                    relevant.filter(
+                        relation =>
+                        relation
+                        .relationship_type ===
+                        'BLOCKS'
+                    );
+
+
+                if (
+                    blocks.some(
+                        relation =>
+                        String(
+                            relation
+                            .target_option_id
+                        ) ===
+                        String(
+                            optionId
+                        )
+                    )
+                ) {
+                    return false;
+                }
+
+
+                if (
+                    allows.length >
+                    0
+                ) {
+
+                    return allows.some(
+                        relation =>
+                        String(
+                            relation
+                            .target_option_id
+                        ) ===
+                        String(
+                            optionId
+                        )
+                    );
+                }
+
+
+                return true;
+            },
+
+
+            matchesAttribute(
+                name,
+                code,
+                dataType,
+                groups
+            ) {
+
+                const search =
+                    this
+                    .attributeSearch
+                    .toLowerCase();
+
+
+                const text =
+                    `${name} ${code}`
+                    .toLowerCase();
+
+
+                const matchesSearch = !search ||
+                    text.includes(
+                        search
+                    );
+
+
+                const matchesType =
+                    this.attributeType === 'ALL' ||
+                    this.attributeType === dataType;
+
+
+                const matchesGroup =
+                    this.attributeGroup === 'ALL' ||
+                    groups.includes(
+                        this.attributeGroup
+                    );
+
+
+                return matchesSearch &&
+                    matchesType &&
+                    matchesGroup;
+            },
+
+
+            matchesOption(
+                attributeId,
+                name,
+                code
+            ) {
+
+                const search =
+                    (
+                        this.optionSearch[
+                            attributeId
+                        ] ||
+                        ''
+                    )
+                    .toLowerCase();
+
+
+                if (!search) {
+                    return true;
+                }
+
+
+                return `${name} ${code}`
+                    .toLowerCase()
+                    .includes(
+                        search
+                    );
+            }
+    }">
 
     {{-- ========================================================= --}}
     {{-- INPUTS DE ATRIBUTOS SELECCIONADOS --}}
@@ -268,6 +766,10 @@
                     isSelected(
                         '{{ $attribute->id }}'
                     )
+                    &&
+                    isContextVisible(
+                        '{{ $attribute->id }}'
+                    )
                 "
                 class="
                     overflow-hidden
@@ -364,6 +866,50 @@
                                     text-indigo-700
                                 ">
                                 {{ $attribute->data_type_label }}
+                                <template
+                                    x-if="
+        hasContextRules(
+            '{{ $attribute->id }}'
+        )
+    ">
+
+                                    <span
+                                        class="
+            rounded-full
+            bg-cyan-100
+            px-2
+            py-1
+            text-[9px]
+            font-black
+            text-cyan-700
+        ">
+                                        CONTEXTUAL
+                                    </span>
+
+                                </template>
+
+
+                                <template
+                                    x-if="
+        isContextRequired(
+            '{{ $attribute->id }}'
+        )
+    ">
+
+                                    <span
+                                        class="
+            rounded-full
+            bg-amber-100
+            px-2
+            py-1
+            text-[9px]
+            font-black
+            text-amber-700
+        ">
+                                        REQUERIDO AHORA
+                                    </span>
+
+                                </template>
                             </span>
 
 
@@ -546,6 +1092,11 @@
                                                     @js($option->name),
                                                     @js($option->code)
                                                 )
+                                                &&
+                                                isOptionAllowed(
+                                                    '{{ $attribute->id }}',
+                                                    '{{ $option->id }}'
+                                                )
                                             "
                                             class="
                                                 group
@@ -564,10 +1115,15 @@
                                                 has-[:checked]:ring-indigo-100
                                             ">
 
-                                            <input
-                                                type="{{ $attribute->allows_multiple ? 'checkbox' : 'radio' }}"
+                                            <input type="{{ $attribute->allows_multiple ? 'checkbox' : 'radio' }}"
                                                 name="{{ $attribute->allows_multiple ? $inputName . '[]' : $inputName }}"
-                                                value="{{ $option->id }}" @checked($checked)
+                                                value="{{ $option->id }}"
+                                                x-model="
+                                                    contextSelections[
+                                                        '{{ $attribute->id }}'
+                                                    ]
+                                                "
+                                                @checked($checked)
                                                 class="
                                                     absolute
                                                     right-2
@@ -1045,6 +1601,10 @@
                 <button type="button"
                     x-show="
                         ! isSelected(
+                            '{{ $attribute->id }}'
+                        )
+                        &&
+                        isContextVisible(
                             '{{ $attribute->id }}'
                         )
                         &&

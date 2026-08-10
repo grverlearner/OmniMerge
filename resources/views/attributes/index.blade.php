@@ -93,9 +93,33 @@
 
             </div>
 
+            <div class="
+                    flex
+                    flex-wrap
+                    gap-2
+                ">
 
-            <a href="{{ route('attributes.create') }}"
-                class="
+                <a href="{{ route('attributes.structure.index') }}"
+                    class="
+                    rounded-xl
+                    border
+                    border-violet-200
+                    bg-violet-50
+                    px-5
+                    py-3
+                    text-center
+                    text-sm
+                    font-black
+                    text-violet-700
+                    transition
+                    hover:bg-violet-100
+                ">
+                    ⌘ Estructura
+                </a>
+
+
+                <a href="{{ route('attributes.create') }}"
+                    class="
                     rounded-xl
                     bg-indigo-600
                     px-5
@@ -108,9 +132,10 @@
                     shadow-indigo-600/20
                     hover:bg-indigo-700
                 ">
-                + Nuevo atributo
-            </a>
+                    + Nuevo atributo
+                </a>
 
+            </div>
         </div>
 
 
