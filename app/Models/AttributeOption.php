@@ -191,6 +191,14 @@ class AttributeOption extends Model
         );
     }
 
+    public function versionCatalogLinks(): HasMany
+    {
+        return $this->hasMany(
+            VersionCatalogLink::class,
+            'attribute_option_id'
+        );
+    }
+
 
     /*
     |--------------------------------------------------------------------------

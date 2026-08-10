@@ -241,8 +241,7 @@
                         </a>
 
 
-                        <form method="POST"
-                            action="{{ route('entities.destroy', $entity) }}"
+                        <form method="POST" action="{{ route('entities.destroy', $entity) }}"
                             onsubmit="
                                 return confirm(
                                     '¿Eliminar esta entidad?'
@@ -325,6 +324,231 @@
 
                 </article>
             @endforeach
+
+        </section>
+
+        {{-- ===================================================== --}}
+        {{-- VERSIONES --}}
+        {{-- ===================================================== --}}
+
+        <section class="mt-10">
+
+            <div
+                class="
+            flex
+            flex-col
+            gap-4
+            sm:flex-row
+            sm:items-end
+            sm:justify-between
+        ">
+
+                <div>
+
+                    <p
+                        class="
+                    text-xs
+                    font-black
+                    uppercase
+                    tracking-wider
+                    text-violet-600
+                ">
+                        Evolución
+                    </p>
+
+
+                    <h2
+                        class="
+                    mt-2
+                    text-2xl
+                    font-black
+                    text-slate-900
+                ">
+                        Versiones
+                    </h2>
+
+
+                    <p
+                        class="
+                    mt-2
+                    max-w-xl
+                    text-sm
+                    text-slate-500
+                ">
+                        Eras, edades, formas y transformaciones
+                        de {{ $entity->name }}.
+                    </p>
+
+                </div>
+
+
+                <div class="
+                flex
+                flex-wrap
+                gap-2
+            ">
+
+                    <a href="{{ route('entity-versions.index', $entity) }}"
+                        class="
+                    rounded-xl
+                    bg-violet-50
+                    px-4
+                    py-2.5
+                    text-xs
+                    font-black
+                    text-violet-700
+                ">
+                        Ver todas
+                    </a>
+
+
+                    <a href="{{ route('entity-versions.create', $entity) }}"
+                        class="
+                    rounded-xl
+                    bg-violet-600
+                    px-4
+                    py-2.5
+                    text-xs
+                    font-black
+                    text-white
+                ">
+                        + Nueva Version
+                    </a>
+
+                </div>
+
+            </div>
+
+
+            @if ($entity->entityVersions->isEmpty())
+
+                <div
+                    class="
+                mt-5
+                rounded-3xl
+                border
+                border-dashed
+                border-violet-200
+                bg-violet-50/30
+                p-8
+                text-center
+            ">
+
+                    <div class="text-4xl">
+                        ◈
+                    </div>
+
+
+                    <p
+                        class="
+                    mt-3
+                    text-sm
+                    font-black
+                    text-slate-700
+                ">
+                        Esta Entidad todavía no tiene Versiones.
+                    </p>
+
+                </div>
+            @else
+                <div
+                    class="
+                mt-5
+                grid
+                gap-4
+                grid-cols-2
+                md:grid-cols-3
+                lg:grid-cols-4
+                xl:grid-cols-5
+            ">
+
+                    @foreach ($entity->entityVersions->take(10) as $entityVersion)
+                        <a href="{{ route('entity-versions.show', [$entity, $entityVersion]) }}"
+                            class="
+                        group
+                        overflow-hidden
+                        rounded-2xl
+                        border
+                        border-slate-200
+                        bg-white
+                        shadow-sm
+                        transition
+                        hover:-translate-y-1
+                        hover:border-violet-300
+                    ">
+
+                            <div
+                                class="
+                            relative
+                            aspect-square
+                            overflow-hidden
+                            bg-slate-100
+                        ">
+
+                                <img src="{{ $entityVersion->image_url }}"
+                                    class="
+                                h-full
+                                w-full
+                                object-cover
+                                transition
+                                duration-300
+                                group-hover:scale-105
+                            ">
+
+
+                                @if ($entityVersion->is_default)
+                                    <span
+                                        class="
+                                    absolute
+                                    right-2
+                                    top-2
+                                    rounded-full
+                                    bg-amber-400
+                                    px-2
+                                    py-1
+                                    text-[7px]
+                                    font-black
+                                    text-amber-950
+                                ">
+                                        ★
+                                    </span>
+                                @endif
+
+                            </div>
+
+
+                            <div class="p-3">
+
+                                <p
+                                    class="
+                                truncate
+                                text-xs
+                                font-black
+                                text-slate-800
+                            ">
+                                    {{ $entityVersion->name }}
+                                </p>
+
+
+                                <p
+                                    class="
+                                mt-1
+                                truncate
+                                text-[8px]
+                                font-bold
+                                text-violet-500
+                            ">
+                                    {{ $entityVersion->version->name }}
+                                </p>
+
+                            </div>
+
+                        </a>
+                    @endforeach
+
+                </div>
+
+            @endif
 
         </section>
 

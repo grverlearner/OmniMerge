@@ -238,6 +238,21 @@ class Attribute extends Model
         );
     }
 
+    public function entityVersionAttributes(): HasMany
+    {
+        return $this->hasMany(
+            EntityVersionAttribute::class
+        );
+    }
+
+
+    public function versionCatalogLinks(): HasMany
+    {
+        return $this->hasMany(
+            VersionCatalogLink::class
+        );
+    }
+
 
     public function groups(): BelongsToMany
     {

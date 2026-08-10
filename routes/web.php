@@ -18,6 +18,11 @@ use App\Http\Controllers\Community\ExploreController;
 use App\Http\Controllers\Community\CreatorController;
 use App\Http\Controllers\Entities\BulkEditEntityController;
 
+use App\Http\Controllers\Versions\VersionController;
+use App\Http\Controllers\Versions\EntityVersionController;
+use App\Http\Controllers\Versions\EntityVersionAttributeController;
+use App\Http\Controllers\Versions\BulkEntityVersionController;
+
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')
@@ -93,6 +98,171 @@ Route::middleware('auth')->group(function () {
         ]
     )->name(
         'entities.bulk-edit.update'
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Versiones globales
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        'versions/{version}/entities/bulk',
+        [
+            BulkEntityVersionController::class,
+            'create',
+        ]
+    )->name(
+        'versions.entities.bulk.create'
+    );
+
+
+    Route::post(
+        'versions/{version}/entities/bulk',
+        [
+            BulkEntityVersionController::class,
+            'store',
+        ]
+    )->name(
+        'versions.entities.bulk.store'
+    );
+
+
+    Route::resource(
+        'versions',
+        VersionController::class
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Versiones de una Entidad
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        'entities/{entity}/versions',
+        [
+            EntityVersionController::class,
+            'index',
+        ]
+    )->name(
+        'entity-versions.index'
+    );
+
+
+    Route::get(
+        'entities/{entity}/versions/create',
+        [
+            EntityVersionController::class,
+            'create',
+        ]
+    )->name(
+        'entity-versions.create'
+    );
+
+
+    Route::post(
+        'entities/{entity}/versions',
+        [
+            EntityVersionController::class,
+            'store',
+        ]
+    )->name(
+        'entity-versions.store'
+    );
+
+
+    Route::get(
+        'entities/{entity}/versions/{entityVersion}',
+        [
+            EntityVersionController::class,
+            'show',
+        ]
+    )->name(
+        'entity-versions.show'
+    );
+
+
+    Route::get(
+        'entities/{entity}/versions/{entityVersion}/edit',
+        [
+            EntityVersionController::class,
+            'edit',
+        ]
+    )->name(
+        'entity-versions.edit'
+    );
+
+
+    Route::put(
+        'entities/{entity}/versions/{entityVersion}',
+        [
+            EntityVersionController::class,
+            'update',
+        ]
+    )->name(
+        'entity-versions.update'
+    );
+
+
+    Route::delete(
+        'entities/{entity}/versions/{entityVersion}',
+        [
+            EntityVersionController::class,
+            'destroy',
+        ]
+    )->name(
+        'entity-versions.destroy'
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Características de Version
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        'entities/{entity}/versions/{entityVersion}/attributes',
+        [
+            EntityVersionAttributeController::class,
+            'edit',
+        ]
+    )->name(
+        'entity-versions.attributes.edit'
+    );
+
+
+    Route::put(
+        'entities/{entity}/versions/{entityVersion}/attributes',
+        [
+            EntityVersionAttributeController::class,
+            'update',
+        ]
+    )->name(
+        'entity-versions.attributes.update'
+    );
+
+    Route::post(
+        'entities/{entity}/versions/{entityVersion}/images',
+        [
+            EntityVersionController::class,
+            'storeImages',
+        ]
+    )->name(
+        'entity-versions.images.store'
+    );
+
+
+    Route::delete(
+        'entities/{entity}/versions/{entityVersion}/images/{image}',
+        [
+            EntityVersionController::class,
+            'destroyImage',
+        ]
+    )->name(
+        'entity-versions.images.destroy'
     );
 
     Route::resource(

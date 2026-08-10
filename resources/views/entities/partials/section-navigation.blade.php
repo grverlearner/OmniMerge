@@ -10,93 +10,117 @@
         bg-white
         p-3
         shadow-sm
-        lg:flex-row
-        lg:items-center
-        lg:justify-between
+        xl:flex-row
+        xl:items-center
+        xl:justify-between
     ">
 
-    <div
-        class="
-            inline-flex
-            w-full
-            rounded-xl
-            bg-slate-100
-            p-1
-            sm:w-auto
+    <div class="
+            overflow-x-auto
         ">
 
-        {{-- ENTIDADES --}}
-        <a href="{{ route('entities.index') }}"
+        <div
             class="
-                {{ request()->routeIs('entities.*')
-                    ? 'bg-white text-indigo-700 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900' }}
-
-                flex-1
-                rounded-lg
-                px-4
-                py-2.5
-                text-center
-                text-sm
-                font-bold
-                transition
-                sm:flex-none
+                inline-flex
+                min-w-max
+                rounded-xl
+                bg-slate-100
+                p-1
             ">
-            ✦ Entidades
-        </a>
+
+            {{-- ENTIDADES --}}
+            <a href="{{ route('entities.index') }}"
+                class="
+                    {{ request()->routeIs('entities.*')
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900' }}
+
+                    rounded-lg
+                    px-4
+                    py-2.5
+                    text-center
+                    text-sm
+                    font-bold
+                    transition
+                ">
+                ✦ Entidades
+            </a>
 
 
-        {{-- TIPOS --}}
-        <a href="{{ route('entity-types.index') }}"
-            class="
-                {{ request()->routeIs('entity-types.*')
-                    ? 'bg-white text-indigo-700 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900' }}
+            {{-- VERSIONES --}}
+            <a href="{{ route('versions.index') }}"
+                class="
+                    {{ request()->routeIs('versions.*') || request()->routeIs('entity-versions.*')
+                        ? 'bg-white text-violet-700 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900' }}
 
-                flex-1
-                rounded-lg
-                px-4
-                py-2.5
-                text-center
-                text-sm
-                font-bold
-                transition
-                sm:flex-none
-            ">
-            ◇ Tipos
-        </a>
+                    rounded-lg
+                    px-4
+                    py-2.5
+                    text-center
+                    text-sm
+                    font-bold
+                    transition
+                ">
+                ◈ Versiones
+            </a>
 
 
-        {{-- COLECCIONES --}}
-        <a href="{{ route('collections.index') }}"
-            class="
-                {{ request()->routeIs('collections.*')
-                    ? 'bg-white text-indigo-700 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900' }}
+            {{-- TIPOS --}}
+            <a href="{{ route('entity-types.index') }}"
+                class="
+                    {{ request()->routeIs('entity-types.*')
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900' }}
 
-                flex-1
-                rounded-lg
-                px-4
-                py-2.5
-                text-center
-                text-sm
-                font-bold
-                transition
-                sm:flex-none
-            ">
-            ▤ Colecciones
-        </a>
+                    rounded-lg
+                    px-4
+                    py-2.5
+                    text-center
+                    text-sm
+                    font-bold
+                    transition
+                ">
+                ◇ Tipos
+            </a>
+
+
+            {{-- COLECCIONES --}}
+            <a href="{{ route('collections.index') }}"
+                class="
+                    {{ request()->routeIs('collections.*')
+                        ? 'bg-white text-cyan-700 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900' }}
+
+                    rounded-lg
+                    px-4
+                    py-2.5
+                    text-center
+                    text-sm
+                    font-bold
+                    transition
+                ">
+                ▤ Colecciones
+            </a>
+
+        </div>
 
     </div>
 
 
-    <p class="
+    <p
+        class="
             hidden
+            max-w-lg
+            text-right
             text-xs
+            leading-5
             text-slate-400
             xl:block
         ">
-        Entidades crean · Tipos clasifican · Colecciones organizan
+        Crea identidades base y representa
+        sus eras, formas, transformaciones
+        y otras Versiones.
     </p>
 
 </div>

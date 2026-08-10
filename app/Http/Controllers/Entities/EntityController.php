@@ -655,11 +655,14 @@ class EntityController extends Controller
             'entityAttributes.attribute.groups',
 
             'entityAttributes.values.option',
+
+            'entityVersions.version',
         ]);
 
         $entity->loadCount([
             'entityAttributes',
             'collections',
+            'entityVersions',
         ]);
 
         /*

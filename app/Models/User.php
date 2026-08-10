@@ -195,4 +195,19 @@ class User extends Authenticatable
             Collection::class
         );
     }
+
+    public function versions(): HasMany
+    {
+        return $this->hasMany(
+            Version::class
+        );
+    }
+
+
+    public function entityVersions(): HasMany
+    {
+        return $this->hasMany(
+            EntityVersion::class
+        );
+    }
 }

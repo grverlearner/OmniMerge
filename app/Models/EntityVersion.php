@@ -6,24 +6,27 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 
-class Entity extends Model
+class EntityVersion extends Model
 {
     use HasFactory;
     use SoftDeletes;
 
+
     protected $fillable = [
         'user_id',
-        'source_entity_id',
+
+        'entity_id',
+        'version_id',
+
+        'parent_entity_version_id',
+        'source_entity_version_id',
 
         'sequence_number',
-        'entity_type_id',
-
         'code',
         'name',
         'slug',
@@ -31,27 +34,40 @@ class Entity extends Model
         'description',
         'image',
 
-        'status',
-        'visibility',
-        'metadata',
+        'inherit_base_attributes',
+        'is_default',
 
-        'allow_cloning',
-        'views_count',
-        'clones_count',
-        'published_at',
+        'priority',
+        'sort_order',
+
+        'status',
+        'metadata',
     ];
+
 
     protected function casts(): array
     {
         return [
-            'sequence_number' => 'integer',
-            'metadata' => 'array',
-            'allow_cloning' => 'boolean',
-            'views_count' => 'integer',
-            'clones_count' => 'integer',
-            'published_at' => 'datetime',
+            'sequence_number' =>
+            'integer',
+
+            'inherit_base_attributes' =>
+            'boolean',
+
+            'is_default' =>
+            'boolean',
+
+            'priority' =>
+            'integer',
+
+            'sort_order' =>
+            'integer',
+
+            'metadata' =>
+            'array',
         ];
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -61,52 +77,42 @@ class Entity extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
-    }
-
-    public function creator(): BelongsTo
-    {
         return $this->belongsTo(
-            User::class,
-            'user_id'
+            User::class
         );
     }
 
-    public function entityType(): BelongsTo
+
+    public function entity(): BelongsTo
     {
         return $this->belongsTo(
-            EntityType::class
+            Entity::class
         );
     }
 
-    public function sourceEntity(): BelongsTo
+
+    public function version(): BelongsTo
+    {
+        return $this->belongsTo(
+            Version::class
+        );
+    }
+
+
+    public function parent(): BelongsTo
     {
         return $this->belongsTo(
             self::class,
-            'source_entity_id'
+            'parent_entity_version_id'
         );
     }
 
-    public function clones(): HasMany
+
+    public function children(): HasMany
     {
         return $this->hasMany(
             self::class,
-            'source_entity_id'
-        );
-    }
-
-    public function entityAttributes(): HasMany
-    {
-        return $this->hasMany(
-            EntityAttribute::class
-        )
-            ->orderBy('sort_order');
-    }
-
-    public function entityVersions(): HasMany
-    {
-        return $this->hasMany(
-            EntityVersion::class
+            'parent_entity_version_id'
         )
             ->orderBy(
                 'sort_order'
@@ -116,19 +122,49 @@ class Entity extends Model
             );
     }
 
-    public function collections(): BelongsToMany
+
+    public function sourceEntityVersion(): BelongsTo
     {
-        return $this->belongsToMany(
-            Collection::class,
-            'collection_entity'
-        )
-            ->withPivot([
-                'sort_order',
-                'notes',
-                'added_at',
-            ])
-            ->orderByPivot('sort_order');
+        return $this->belongsTo(
+            self::class,
+            'source_entity_version_id'
+        );
     }
+
+
+    public function clones(): HasMany
+    {
+        return $this->hasMany(
+            self::class,
+            'source_entity_version_id'
+        );
+    }
+
+
+    public function versionAttributes(): HasMany
+    {
+        return $this->hasMany(
+            EntityVersionAttribute::class
+        )
+            ->orderBy(
+                'sort_order'
+            );
+    }
+
+
+    public function images(): HasMany
+    {
+        return $this->hasMany(
+            EntityVersionImage::class
+        )
+            ->orderBy(
+                'sort_order'
+            )
+            ->orderBy(
+                'id'
+            );
+    }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -140,20 +176,24 @@ class Entity extends Model
         Builder $query,
         User $user
     ): Builder {
+
         return $query->where(
             'user_id',
             $user->id
         );
     }
 
+
     public function scopeActive(
         Builder $query
     ): Builder {
+
         return $query->where(
             'status',
             'ACTIVE'
         );
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -164,11 +204,13 @@ class Entity extends Model
     public static function formatCode(
         int $sequence
     ): string {
+
         return sprintf(
-            'ENT%06d',
+            'EVR%06d',
             $sequence
         );
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -182,65 +224,40 @@ class Entity extends Model
             return null;
         }
 
+
         /** @var FilesystemAdapter $disk */
-        $disk = Storage::disk('public');
+        $disk =
+            Storage::disk(
+                'public'
+            );
+
 
         if (! $disk->exists($this->image)) {
             return null;
         }
+
 
         return $disk->url(
             $this->image
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Etiquetas
-    |--------------------------------------------------------------------------
-    */
-
-    public function getVisibilityLabelAttribute(): string
-    {
-        return match ($this->visibility) {
-            'PUBLIC' => 'Público',
-            'PRIVATE' => 'Privado',
-            'UNLISTED' => 'No listado',
-            default => $this->visibility,
-        };
-    }
 
     public function getStatusLabelAttribute(): string
     {
         return match ($this->status) {
-            'ACTIVE' => 'Activo',
-            'INACTIVE' => 'Inactivo',
-            'ARCHIVED' => 'Archivado',
-            default => $this->status,
+
+            'ACTIVE' =>
+            'Activa',
+
+            'INACTIVE' =>
+            'Inactiva',
+
+            'ARCHIVED' =>
+            'Archivada',
+
+            default =>
+            $this->status,
         };
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Comunidad
-    |--------------------------------------------------------------------------
-    */
-
-    public function isPublic(): bool
-    {
-        return $this->visibility === 'PUBLIC';
-    }
-
-    public function isPublished(): bool
-    {
-        return $this->visibility === 'PUBLIC'
-            && $this->status === 'ACTIVE'
-            && $this->published_at !== null;
-    }
-
-    public function canBeCloned(): bool
-    {
-        return $this->isPublished()
-            && $this->allow_cloning;
     }
 }

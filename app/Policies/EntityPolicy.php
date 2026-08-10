@@ -11,12 +11,6 @@ class EntityPolicy
     {
         return $user->isActive();
     }
-    public function updateAny(
-        User $user
-    ): bool {
-
-        return $user->isActive();
-    }
 
     public function view(User $user, Entity $entity): bool
     {
@@ -26,6 +20,13 @@ class EntityPolicy
 
     public function create(User $user): bool
     {
+        return $user->isActive();
+    }
+
+    public function updateAny(
+        User $user
+    ): bool {
+
         return $user->isActive();
     }
 

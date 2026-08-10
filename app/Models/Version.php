@@ -6,24 +6,23 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 
-class Entity extends Model
+class Version extends Model
 {
     use HasFactory;
     use SoftDeletes;
 
+
     protected $fillable = [
         'user_id',
-        'source_entity_id',
+        'source_version_id',
+        'parent_version_id',
 
         'sequence_number',
-        'entity_type_id',
-
         'code',
         'name',
         'slug',
@@ -31,27 +30,35 @@ class Entity extends Model
         'description',
         'image',
 
-        'status',
-        'visibility',
-        'metadata',
+        'version_kind',
+        'scope',
+        'activation_mode',
 
-        'allow_cloning',
-        'views_count',
-        'clones_count',
-        'published_at',
+        'priority',
+        'sort_order',
+
+        'status',
+        'metadata',
     ];
+
 
     protected function casts(): array
     {
         return [
-            'sequence_number' => 'integer',
-            'metadata' => 'array',
-            'allow_cloning' => 'boolean',
-            'views_count' => 'integer',
-            'clones_count' => 'integer',
-            'published_at' => 'datetime',
+            'sequence_number' =>
+            'integer',
+
+            'priority' =>
+            'integer',
+
+            'sort_order' =>
+            'integer',
+
+            'metadata' =>
+            'array',
         ];
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -61,47 +68,53 @@ class Entity extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
-    }
-
-    public function creator(): BelongsTo
-    {
         return $this->belongsTo(
-            User::class,
-            'user_id'
+            User::class
         );
     }
 
-    public function entityType(): BelongsTo
-    {
-        return $this->belongsTo(
-            EntityType::class
-        );
-    }
 
-    public function sourceEntity(): BelongsTo
+    public function sourceVersion(): BelongsTo
     {
         return $this->belongsTo(
             self::class,
-            'source_entity_id'
+            'source_version_id'
         );
     }
+
 
     public function clones(): HasMany
     {
         return $this->hasMany(
             self::class,
-            'source_entity_id'
+            'source_version_id'
         );
     }
 
-    public function entityAttributes(): HasMany
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(
+            self::class,
+            'parent_version_id'
+        );
+    }
+
+
+    public function children(): HasMany
     {
         return $this->hasMany(
-            EntityAttribute::class
+            self::class,
+            'parent_version_id'
         )
-            ->orderBy('sort_order');
+            ->orderBy(
+                'sort_order'
+            )
+            ->orderBy(
+                'name'
+            );
     }
+
 
     public function entityVersions(): HasMany
     {
@@ -116,19 +129,20 @@ class Entity extends Model
             );
     }
 
-    public function collections(): BelongsToMany
+
+    public function catalogLinks(): HasMany
     {
-        return $this->belongsToMany(
-            Collection::class,
-            'collection_entity'
+        return $this->hasMany(
+            VersionCatalogLink::class
         )
-            ->withPivot([
-                'sort_order',
-                'notes',
-                'added_at',
-            ])
-            ->orderByPivot('sort_order');
+            ->orderBy(
+                'condition_group'
+            )
+            ->orderByDesc(
+                'priority'
+            );
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -140,20 +154,24 @@ class Entity extends Model
         Builder $query,
         User $user
     ): Builder {
+
         return $query->where(
             'user_id',
             $user->id
         );
     }
 
+
     public function scopeActive(
         Builder $query
     ): Builder {
+
         return $query->where(
             'status',
             'ACTIVE'
         );
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -164,11 +182,13 @@ class Entity extends Model
     public static function formatCode(
         int $sequence
     ): string {
+
         return sprintf(
-            'ENT%06d',
+            'VER%06d',
             $sequence
         );
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -182,65 +202,126 @@ class Entity extends Model
             return null;
         }
 
+
         /** @var FilesystemAdapter $disk */
-        $disk = Storage::disk('public');
+        $disk =
+            Storage::disk(
+                'public'
+            );
+
 
         if (! $disk->exists($this->image)) {
             return null;
         }
+
 
         return $disk->url(
             $this->image
         );
     }
 
+
     /*
     |--------------------------------------------------------------------------
-    | Etiquetas
+    | Helpers
     |--------------------------------------------------------------------------
     */
 
-    public function getVisibilityLabelAttribute(): string
+    public function isExclusive(): bool
     {
-        return match ($this->visibility) {
-            'PUBLIC' => 'Público',
-            'PRIVATE' => 'Privado',
-            'UNLISTED' => 'No listado',
-            default => $this->visibility,
+        return $this->scope
+            === 'EXCLUSIVE';
+    }
+
+
+    public function isShared(): bool
+    {
+        return $this->scope
+            === 'SHARED';
+    }
+
+
+    public function canAutoActivate(): bool
+    {
+        return in_array(
+            $this->activation_mode,
+            [
+                'AUTO',
+                'BOTH',
+            ],
+            true
+        );
+    }
+
+
+    public function getKindLabelAttribute(): string
+    {
+        return match ($this->version_kind) {
+
+            'ERA' =>
+            'Era',
+
+            'AGE' =>
+            'Edad',
+
+            'FORM' =>
+            'Forma',
+
+            'TRANSFORMATION' =>
+            'Transformación',
+
+            'OUTFIT' =>
+            'Apariencia',
+
+            'TIMELINE' =>
+            'Línea temporal',
+
+            default =>
+            'Otra',
         };
     }
+
+
+    public function getScopeLabelAttribute(): string
+    {
+        return $this->scope
+            === 'EXCLUSIVE'
+            ? 'Exclusiva'
+            : 'Compartida';
+    }
+
+
+    public function getActivationLabelAttribute(): string
+    {
+        return match ($this->activation_mode) {
+
+            'AUTO' =>
+            'Automática',
+
+            'MANUAL' =>
+            'Manual',
+
+            default =>
+            'Automática y manual',
+        };
+    }
+
 
     public function getStatusLabelAttribute(): string
     {
         return match ($this->status) {
-            'ACTIVE' => 'Activo',
-            'INACTIVE' => 'Inactivo',
-            'ARCHIVED' => 'Archivado',
-            default => $this->status,
+
+            'ACTIVE' =>
+            'Activa',
+
+            'INACTIVE' =>
+            'Inactiva',
+
+            'ARCHIVED' =>
+            'Archivada',
+
+            default =>
+            $this->status,
         };
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Comunidad
-    |--------------------------------------------------------------------------
-    */
-
-    public function isPublic(): bool
-    {
-        return $this->visibility === 'PUBLIC';
-    }
-
-    public function isPublished(): bool
-    {
-        return $this->visibility === 'PUBLIC'
-            && $this->status === 'ACTIVE'
-            && $this->published_at !== null;
-    }
-
-    public function canBeCloned(): bool
-    {
-        return $this->isPublished()
-            && $this->allow_cloning;
     }
 }
