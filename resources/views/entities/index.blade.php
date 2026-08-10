@@ -98,13 +98,42 @@
 
             </div>
 
+            <div
+                class="
+        flex
+        flex-col
+        gap-2
+        sm:flex-row
+        sm:flex-wrap
+        sm:justify-end
+    ">
 
-            <div class="
-                flex
-                flex-col
-                gap-2
-                sm:flex-row
-            ">
+                <a href="{{ route('entities.bulk-edit.index') }}"
+                    class="
+                        flex
+                        items-center
+                        justify-center
+                        gap-2
+                        rounded-xl
+                        border
+                        border-violet-200
+                        bg-violet-50
+                        px-5
+                        py-3
+                        text-sm
+                        font-black
+                        text-violet-700
+                        transition
+                        hover:border-violet-300
+                        hover:bg-violet-100
+                    ">
+                    <span>
+                        ⚙
+                    </span>
+
+                    Edición masiva
+                </a>
+
 
                 <a href="{{ route('entities.bulk.create') }}"
                     class="
@@ -135,22 +164,22 @@
 
                 <a href="{{ route('entities.create') }}"
                     class="
-                    flex
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-xl
-                    bg-indigo-600
-                    px-5
-                    py-3
-                    text-sm
-                    font-black
-                    text-white
-                    shadow-lg
-                    shadow-indigo-600/20
-                    transition
-                    hover:bg-indigo-700
-                ">
+                        flex
+                        items-center
+                        justify-center
+                        gap-2
+                        rounded-xl
+                        bg-indigo-600
+                        px-5
+                        py-3
+                        text-sm
+                        font-black
+                        text-white
+                        shadow-lg
+                        shadow-indigo-600/20
+                        transition
+                        hover:bg-indigo-700
+                    ">
                     <span>
                         +
                     </span>

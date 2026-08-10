@@ -102,7 +102,7 @@
                             </p>
 
                             <p class="mt-2 font-black">
-                                {{ $attribute->display_style }}
+                                {{ $attribute->display_style_label }}
                             </p>
                         </div>
 

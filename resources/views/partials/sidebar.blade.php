@@ -321,14 +321,14 @@
 
             <p
                 class="
-            mb-2
-            px-3
-            text-xs
-            font-semibold
-            uppercase
-            tracking-wider
-            text-slate-500
-        ">
+                mb-2
+                px-3
+                text-xs
+                font-semibold
+                uppercase
+                tracking-wider
+                text-slate-500
+            ">
                 Descubrir
             </p>
 

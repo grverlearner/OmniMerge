@@ -444,11 +444,11 @@
                 ">
 
                 @foreach ([
-                    'gallery' => '▦ Galería',
-                    'grid' => '▦ Cuadrícula',
-                    'list' => '☰ Lista',
-                    'table' => '≡ Tabla',
-                ] as $value => $labelText)
+        'gallery' => '▦ Galería',
+        'grid' => '▦ Cuadrícula',
+        'list' => '☰ Lista',
+        'table' => '≡ Tabla',
+    ] as $value => $labelText)
                     <button type="button"
                         @click="
                             setView(
@@ -580,6 +580,32 @@
 
             </div>
         @else
+            {{-- ===================================================== --}}
+            {{-- GALERÍA --}}
+            {{-- ===================================================== --}}
+
+            <div x-cloak x-show="
+        view === 'gallery'
+    "
+                class="
+        mt-6
+        grid
+        grid-cols-3
+        gap-3
+        sm:grid-cols-4
+        md:grid-cols-5
+        lg:grid-cols-7
+        xl:grid-cols-8
+        2xl:grid-cols-10
+    ">
+
+                @foreach ($groups as $group)
+                    @include('attribute-groups.partials.index-gallery-card', [
+                        'group' => $group,
+                    ])
+                @endforeach
+
+            </div>
             {{-- ================================================= --}}
             {{-- GRID --}}
             {{-- ================================================= --}}

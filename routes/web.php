@@ -16,6 +16,7 @@ use App\Http\Controllers\Entities\BulkEntityController;
 use App\Http\Controllers\Collections\CollectionController;
 use App\Http\Controllers\Community\ExploreController;
 use App\Http\Controllers\Community\CreatorController;
+use App\Http\Controllers\Entities\BulkEditEntityController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -66,6 +67,32 @@ Route::middleware('auth')->group(function () {
         ]
     )->name(
         'entities.bulk.store'
+    );
+    /*
+    |--------------------------------------------------------------------------
+    | Edición masiva de Entidades
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        'entities/bulk-edit',
+        [
+            BulkEditEntityController::class,
+            'index',
+        ]
+    )->name(
+        'entities.bulk-edit.index'
+    );
+
+
+    Route::post(
+        'entities/bulk-edit',
+        [
+            BulkEditEntityController::class,
+            'update',
+        ]
+    )->name(
+        'entities.bulk-edit.update'
     );
 
     Route::resource(
