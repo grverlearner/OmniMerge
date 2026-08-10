@@ -6,7 +6,7 @@
 
 
     @include('entities.partials.section-navigation')
-
+    @include('versions.partials.workspace-navigation')
 
     <style>
         [x-cloak] {

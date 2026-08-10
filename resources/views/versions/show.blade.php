@@ -4,7 +4,7 @@
         Versiones
     </x-slot>
 
-
+    @include('versions.partials.workspace-navigation')
     @include('entities.partials.section-navigation')
 
 
@@ -1258,8 +1258,7 @@
             </div>
 
 
-            <form method="POST"
-                action="{{ route('versions.destroy', $version) }}"
+            <form method="POST" action="{{ route('versions.destroy', $version) }}"
                 onsubmit="
                     return confirm(
                         '¿Seguro que deseas eliminar esta Versión?'

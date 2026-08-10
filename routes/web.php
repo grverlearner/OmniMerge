@@ -22,6 +22,7 @@ use App\Http\Controllers\Versions\VersionController;
 use App\Http\Controllers\Versions\EntityVersionController;
 use App\Http\Controllers\Versions\EntityVersionAttributeController;
 use App\Http\Controllers\Versions\BulkEntityVersionController;
+use App\Http\Controllers\Versions\VersionWorkspaceController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -101,10 +102,64 @@ Route::middleware('auth')->group(function () {
     );
 
     /*
-    |--------------------------------------------------------------------------
-    | Versiones globales
-    |--------------------------------------------------------------------------
-    */
+|--------------------------------------------------------------------------
+| VERSIONES — WORKSPACE
+|--------------------------------------------------------------------------
+|
+| IMPORTANTE:
+| las rutas estáticas van ANTES de versions/{version}.
+|
+*/
+
+    Route::get(
+        'versions/entities',
+        [
+            VersionWorkspaceController::class,
+            'entities',
+        ]
+    )->name(
+        'versions.entities.index'
+    );
+
+
+    Route::get(
+        'versions/coverage',
+        [
+            VersionWorkspaceController::class,
+            'coverage',
+        ]
+    )->name(
+        'versions.coverage'
+    );
+
+
+    Route::get(
+        'versions/media',
+        [
+            VersionWorkspaceController::class,
+            'media',
+        ]
+    )->name(
+        'versions.media'
+    );
+
+
+    Route::get(
+        'versions/resolver',
+        [
+            VersionWorkspaceController::class,
+            'resolver',
+        ]
+    )->name(
+        'versions.resolver'
+    );
+
+
+    /*
+|--------------------------------------------------------------------------
+| ASOCIACIÓN MASIVA
+|--------------------------------------------------------------------------
+*/
 
     Route::get(
         'versions/{version}/entities/bulk',
@@ -128,6 +183,12 @@ Route::middleware('auth')->group(function () {
     );
 
 
+    /*
+|--------------------------------------------------------------------------
+| DEFINICIONES
+|--------------------------------------------------------------------------
+*/
+
     Route::resource(
         'versions',
         VersionController::class
@@ -135,10 +196,10 @@ Route::middleware('auth')->group(function () {
 
 
     /*
-    |--------------------------------------------------------------------------
-    | Versiones de una Entidad
-    |--------------------------------------------------------------------------
-    */
+|--------------------------------------------------------------------------
+| VERSIONES DE UNA ENTIDAD
+|--------------------------------------------------------------------------
+*/
 
     Route::get(
         'entities/{entity}/versions',
@@ -170,6 +231,28 @@ Route::middleware('auth')->group(function () {
         ]
     )->name(
         'entity-versions.store'
+    );
+
+
+    /*
+|--------------------------------------------------------------------------
+| COMPARAR
+|--------------------------------------------------------------------------
+|
+| Debe ir antes de:
+|
+| entities/{entity}/versions/{entityVersion}
+|
+*/
+
+    Route::get(
+        'entities/{entity}/versions/compare',
+        [
+            VersionWorkspaceController::class,
+            'compare',
+        ]
+    )->name(
+        'entity-versions.compare'
     );
 
 
@@ -218,10 +301,10 @@ Route::middleware('auth')->group(function () {
 
 
     /*
-    |--------------------------------------------------------------------------
-    | Características de Version
-    |--------------------------------------------------------------------------
-    */
+|--------------------------------------------------------------------------
+| CARACTERÍSTICAS
+|--------------------------------------------------------------------------
+*/
 
     Route::get(
         'entities/{entity}/versions/{entityVersion}/attributes',
@@ -244,6 +327,13 @@ Route::middleware('auth')->group(function () {
         'entity-versions.attributes.update'
     );
 
+
+    /*
+|--------------------------------------------------------------------------
+| MULTIMEDIA
+|--------------------------------------------------------------------------
+*/
+
     Route::post(
         'entities/{entity}/versions/{entityVersion}/images',
         [
@@ -252,6 +342,50 @@ Route::middleware('auth')->group(function () {
         ]
     )->name(
         'entity-versions.images.store'
+    );
+
+
+    Route::patch(
+        'entities/{entity}/versions/{entityVersion}/images/reorder',
+        [
+            EntityVersionController::class,
+            'reorderImages',
+        ]
+    )->name(
+        'entity-versions.images.reorder'
+    );
+
+
+    Route::patch(
+        'entities/{entity}/versions/{entityVersion}/images/{image}',
+        [
+            EntityVersionController::class,
+            'updateImage',
+        ]
+    )->name(
+        'entity-versions.images.update'
+    );
+
+
+    Route::post(
+        'entities/{entity}/versions/{entityVersion}/images/{image}/primary',
+        [
+            EntityVersionController::class,
+            'makeImagePrimary',
+        ]
+    )->name(
+        'entity-versions.images.primary'
+    );
+
+
+    Route::delete(
+        'entities/{entity}/versions/{entityVersion}/images/{image}',
+        [
+            EntityVersionController::class,
+            'destroyImage',
+        ]
+    )->name(
+        'entity-versions.images.destroy'
     );
 
 

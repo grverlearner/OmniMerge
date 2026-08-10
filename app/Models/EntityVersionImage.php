@@ -15,8 +15,13 @@ class EntityVersionImage extends Model
 
     protected $fillable = [
         'entity_version_id',
+
         'image',
+
         'caption',
+        'media_type',
+        'alt_text',
+
         'sort_order',
     ];
 
@@ -24,11 +29,16 @@ class EntityVersionImage extends Model
     protected function casts(): array
     {
         return [
-            'sort_order' =>
-            'integer',
+            'sort_order' => 'integer',
         ];
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relaciones
+    |--------------------------------------------------------------------------
+    */
 
     public function entityVersion(): BelongsTo
     {
@@ -38,6 +48,12 @@ class EntityVersionImage extends Model
     }
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | Imagen
+    |--------------------------------------------------------------------------
+    */
+
     public function getImageUrlAttribute(): ?string
     {
         if (! $this->image) {
@@ -46,10 +62,9 @@ class EntityVersionImage extends Model
 
 
         /** @var FilesystemAdapter $disk */
-        $disk =
-            Storage::disk(
-                'public'
-            );
+        $disk = Storage::disk(
+            'public'
+        );
 
 
         if (! $disk->exists($this->image)) {
@@ -60,5 +75,39 @@ class EntityVersionImage extends Model
         return $disk->url(
             $this->image
         );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tipo amigable
+    |--------------------------------------------------------------------------
+    */
+
+    public function getMediaTypeLabelAttribute(): string
+    {
+        return match ($this->media_type) {
+
+            'PORTRAIT' =>
+            'Retrato',
+
+            'FULL_BODY' =>
+            'Cuerpo completo',
+
+            'COMBAT' =>
+            'Combate',
+
+            'OUTFIT' =>
+            'Apariencia',
+
+            'REFERENCE' =>
+            'Referencia',
+
+            'ALTERNATIVE' =>
+            'Alternativa',
+
+            default =>
+            'Otra',
+        };
     }
 }
