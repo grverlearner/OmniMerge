@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EntityVersion extends Model
 {
@@ -163,6 +164,46 @@ class EntityVersion extends Model
             ->orderBy(
                 'id'
             );
+    }
+
+    /*
+|--------------------------------------------------------------------------
+| Base activa
+|--------------------------------------------------------------------------
+*/
+
+    public function baseSetting(): HasOne
+    {
+        return $this->hasOne(
+            EntityBaseVersion::class,
+            'entity_version_id'
+        );
+    }
+
+
+    /*
+|--------------------------------------------------------------------------
+| Saber si esta EntityVersion es Base activa
+|--------------------------------------------------------------------------
+*/
+
+    public function getIsActiveBaseAttribute(): bool
+    {
+        if (
+            $this->relationLoaded(
+                'baseSetting'
+            )
+        ) {
+
+            return $this->baseSetting
+                !==
+                null;
+        }
+
+
+        return $this
+            ->baseSetting()
+            ->exists();
     }
 
 

@@ -261,6 +261,37 @@
                                     text-slate-600
                                 ">
                                 {{ $entityVersion->status_label }}
+                                @if ($entityVersion->baseSetting)
+                                    <span
+                                        class="
+                                            rounded-full
+                                            bg-violet-600
+                                            px-3
+                                            py-1
+                                            text-[9px]
+                                            font-black
+                                            text-white
+                                            shadow
+                                        ">
+                                        ★ BASE ACTIVA
+                                    </span>
+                                @endif
+
+
+                                @if ($entityVersion->is_default)
+                                    <span
+                                        class="
+                                            rounded-full
+                                            bg-amber-100
+                                            px-3
+                                            py-1
+                                            text-[9px]
+                                            font-black
+                                            text-amber-700
+                                        ">
+                                        ⚡ DEFAULT RESOLVER
+                                    </span>
+                                @endif
                             </span>
 
                         </div>
@@ -326,7 +357,66 @@
                             ">
                             ✎ Editar
                         </a>
+                        @if ($entityVersion->baseSetting)
+                            <form method="POST" action="{{ route('entities.base-version.destroy', $entity) }}"
+                                onsubmit="
+                                    return confirm(
+                                        'Esta Version es la Base activa. ¿Volver a la Base original?'
+                                    );
+                                ">
 
+                                @csrf
+                                @method('DELETE')
+
+
+                                <button type="submit"
+                                    class="
+                                        rounded-xl
+                                        border
+                                        border-violet-200
+                                        bg-violet-50
+                                        px-4
+                                        py-2.5
+                                        text-xs
+                                        font-black
+                                        text-violet-700
+                                    ">
+                                    ✓ Es Base · Restaurar original
+                                </button>
+
+                            </form>
+                        @else
+                            <form method="POST" action="{{ route('entities.base-version.update', $entity) }}"
+                                onsubmit="
+                                    return confirm(
+                                        '¿Convertir esta Version en la Base activa de la Entidad?'
+                                    );
+                                ">
+
+                                @csrf
+                                @method('PUT')
+
+
+                                <input type="hidden" name="entity_version_id" value="{{ $entityVersion->id }}">
+
+
+                                <button type="submit"
+                                    class="
+                                        rounded-xl
+                                        bg-fuchsia-600
+                                        px-4
+                                        py-2.5
+                                        text-xs
+                                        font-black
+                                        text-white
+                                        shadow-lg
+                                        shadow-fuchsia-600/20
+                                    ">
+                                    ★ Hacer Base activa
+                                </button>
+
+                            </form>
+                        @endif
 
                         <a href="{{ route('entity-versions.attributes.edit', [$entity, $entityVersion]) }}"
                             class="
@@ -376,8 +466,7 @@
                             + Subversión
                         </a>
 
-                        <form method="POST"
-                            action="{{ route('entities.presentation.update', $entity) }}">
+                        <form method="POST" action="{{ route('entities.presentation.update', $entity) }}">
 
                             @csrf
                             @method('PUT')

@@ -16,6 +16,7 @@ use App\Models\Version;
 use App\Services\Versions\EntityVersionService;
 use App\Services\Versions\UnifiedEntityVersionCreationService;
 use App\Services\Versions\VersionResolverService;
+use App\Services\Entities\EntityBaseVersionService;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,11 +47,27 @@ class EntityVersionController extends Controller
 
 
         $entity->load([
+            /*
+        |--------------------------------------------------------------------------
+        | Base activa
+        |--------------------------------------------------------------------------
+        */
+
+            'baseVersionSetting.entityVersion.version',
+
+
+            /*
+        |--------------------------------------------------------------------------
+        | Versiones
+        |--------------------------------------------------------------------------
+        */
+
             'entityVersions' =>
             fn($query) =>
             $query
                 ->with([
                     'version.parent',
+                    'baseSetting',
                 ])
                 ->withCount([
                     'images',
@@ -72,7 +89,6 @@ class EntityVersionController extends Controller
             )
         );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -476,7 +492,9 @@ class EntityVersionController extends Controller
 
 
         $entityVersion->load([
-            'entity',
+            'entity.baseVersionSetting.entityVersion',
+
+            'baseSetting',
 
             'version.parent',
             'version.children',
@@ -565,7 +583,8 @@ class EntityVersionController extends Controller
         EntityVersionRequest $request,
         Entity $entity,
         EntityVersion $entityVersion,
-        EntityVersionService $service
+        EntityVersionService $service,
+        EntityBaseVersionService $baseVersionService
     ): RedirectResponse {
 
         $this->ensureEntity(
@@ -621,11 +640,37 @@ class EntityVersionController extends Controller
 
         try {
 
-            $service->update(
-                $request->user(),
-                $entityVersion,
-                $data
-            );
+            $updatedEntityVersion =
+                $service->update(
+                    $request->user(),
+                    $entityVersion,
+                    $data
+                );
+
+
+            $baseWasReset =
+                false;
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Una Base activa debe continuar activa
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $updatedEntityVersion->status
+                !==
+                'ACTIVE'
+            ) {
+
+                $baseWasReset =
+                    $baseVersionService
+                    ->resetIfUsingVersion(
+                        $request->user(),
+                        $updatedEntityVersion
+                    );
+            }
         } catch (Throwable $exception) {
 
             if ($newImage) {
@@ -656,6 +701,10 @@ class EntityVersionController extends Controller
                     $oldImage
                 );
         }
+        $message =
+            $baseWasReset
+            ? 'Versión actualizada. Como dejó de estar activa, la Entidad volvió automáticamente a su Base original.'
+            : 'Versión actualizada correctamente.';
 
 
         return redirect()
@@ -668,20 +717,21 @@ class EntityVersionController extends Controller
             )
             ->with(
                 'success',
-                'Versión actualizada correctamente.'
+                $message
             );
     }
 
-
     /*
-    |--------------------------------------------------------------------------
-    | DELETE
-    |--------------------------------------------------------------------------
-    */
+|--------------------------------------------------------------------------
+| DELETE
+|--------------------------------------------------------------------------
+*/
 
     public function destroy(
+        Request $request,
         Entity $entity,
-        EntityVersion $entityVersion
+        EntityVersion $entityVersion,
+        EntityBaseVersionService $baseVersionService
     ): RedirectResponse {
 
         $this->ensureEntity(
@@ -696,6 +746,20 @@ class EntityVersionController extends Controller
         );
 
 
+        /*
+    |--------------------------------------------------------------------------
+    | Si era Base activa, restaurar Base original
+    |--------------------------------------------------------------------------
+    */
+
+        $baseWasReset =
+            $baseVersionService
+            ->resetIfUsingVersion(
+                $request->user(),
+                $entityVersion
+            );
+
+
         $entityVersion->delete();
 
 
@@ -706,10 +770,11 @@ class EntityVersionController extends Controller
             )
             ->with(
                 'success',
-                'Versión eliminada.'
+                $baseWasReset
+                    ? 'Versión eliminada. La Entidad volvió automáticamente a su Base original.'
+                    : 'Versión eliminada.'
             );
     }
-
 
     /*
     |--------------------------------------------------------------------------

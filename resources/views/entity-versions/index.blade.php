@@ -15,6 +15,9 @@
             display: none !important;
         }
     </style>
+    @php
+        $activeBaseEntityVersion = $entity->baseVersionSetting?->entityVersion;
+    @endphp
 
 
     <div x-data="{
@@ -118,6 +121,61 @@
                             tracking-tight
                         ">
                         {{ $entity->name }}
+                        @if ($activeBaseEntityVersion)
+                            <div
+                                class="
+                                    mt-3
+                                    flex
+                                    flex-wrap
+                                    items-center
+                                    gap-2
+                                ">
+
+                                <span
+                                    class="
+                                        rounded-full
+                                        bg-violet-400/20
+                                        px-3
+                                        py-1.5
+                                        text-[8px]
+                                        font-black
+                                        text-violet-200
+                                        ring-1
+                                        ring-violet-300/30
+                                    ">
+                                    ★ BASE ACTIVA
+                                </span>
+
+
+                                <span
+                                    class="
+                                        text-xs
+                                        font-black
+                                        text-violet-200
+                                    ">
+                                    {{ $activeBaseEntityVersion->name }}
+                                </span>
+
+                            </div>
+                        @else
+                            <div class="mt-3">
+
+                                <span
+                                    class="
+                                        rounded-full
+                                        bg-white/10
+                                        px-3
+                                        py-1.5
+                                        text-[8px]
+                                        font-black
+                                        text-white/60
+                                    ">
+                                    BASE ORIGINAL
+                                </span>
+
+                            </div>
+                        @endif
+
                     </h1>
 
 
@@ -191,7 +249,7 @@
 
         </section>
 
-
+        @include('entities.partials.base-version-manager')
         {{-- VIEW SWITCH --}}
         <div class="
                 mt-5
@@ -357,7 +415,7 @@
                                 tracking-wider
                                 text-slate-400
                             ">
-                            Base
+                            Base original
                         </p>
 
 
@@ -448,23 +506,51 @@
                                 ">
 
 
-                            @if ($item->is_default)
-                                <span
-                                    class="
-                                        absolute
-                                        right-3
-                                        top-3
-                                        rounded-full
-                                        bg-amber-400
-                                        px-2.5
-                                        py-1
-                                        text-[8px]
-                                        font-black
-                                        text-amber-950
-                                    ">
-                                    ★ PREDETERMINADA
-                                </span>
-                            @endif
+                            <div
+                                class="
+                                    absolute
+                                    right-3
+                                    top-3
+                                    flex
+                                    flex-col
+                                    items-end
+                                    gap-1
+                                ">
+
+                                @if ($item->baseSetting)
+                                    <span
+                                        class="
+                                            rounded-full
+                                            bg-violet-600
+                                            px-2.5
+                                            py-1
+                                            text-[7px]
+                                            font-black
+                                            text-white
+                                            shadow
+                                        ">
+                                        ★ BASE
+                                    </span>
+                                @endif
+
+
+                                @if ($item->is_default)
+                                    <span
+                                        class="
+                                            rounded-full
+                                            bg-amber-400
+                                            px-2.5
+                                            py-1
+                                            text-[7px]
+                                            font-black
+                                            text-amber-950
+                                            shadow
+                                        ">
+                                        ⚡ RESOLVER
+                                    </span>
+                                @endif
+
+                            </div>
 
                         </div>
 

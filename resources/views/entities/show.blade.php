@@ -69,8 +69,8 @@
                         bg-slate-100
                     ">
 
-                    @if ($entity->image_url)
-                        <img src="{{ $entity->image_url }}" alt="{{ $entity->name }}"
+                    @if ($displayImageUrl)
+                        <img src="{{ $displayImageUrl }}" alt="{{ $displayName }}"
                             class="
                                 h-full
                                 min-h-[380px]
@@ -162,6 +162,34 @@
 
 
                             <x-status-badge :status="$entity->status" />
+                            @if ($usingActiveBase)
+                                <span
+                                    class="
+                                        rounded-full
+                                        bg-violet-600
+                                        px-3
+                                        py-1
+                                        text-[10px]
+                                        font-black
+                                        text-white
+                                        shadow
+                                    ">
+                                    ★ BASE ACTIVA
+                                </span>
+                            @elseif ($activeBaseEntityVersion && $showOriginal)
+                                <span
+                                    class="
+                                        rounded-full
+                                        bg-indigo-100
+                                        px-3
+                                        py-1
+                                        text-[10px]
+                                        font-black
+                                        text-indigo-700
+                                    ">
+                                    ORIGINAL · VISTA TEMPORAL
+                                </span>
+                            @endif
 
                         </div>
 
@@ -174,7 +202,7 @@
                                 tracking-tight
                                 text-slate-900
                             ">
-                            {{ $entity->name }}
+                            {{ $displayName }}
                         </h1>
 
 
@@ -197,87 +225,149 @@
                                 leading-7
                                 text-slate-600
                             ">
-                            {{ $entity->description ?: 'Esta entidad todavía no tiene una descripción.' }}
+                            {{ $displayDescription ?: 'Esta entidad todavía no tiene una descripción.' }}
                         </p>
 
                     </div>
+                    <div class="
+        mt-8
+        flex
+        flex-wrap
+        gap-3
+    ">
 
+                        {{-- ===================================================== --}}
+                        {{-- BASE ACTIVA --}}
+                        {{-- ===================================================== --}}
 
-                    <div
-                        class="
-                            mt-8
-                            flex
-                            flex-wrap
-                            gap-3
-                        ">
+                        @if ($usingActiveBase)
 
-                        <a href="{{ route('entities.edit', $entity) }}"
-                            class="
-                                rounded-xl
-                                bg-indigo-600
-                                px-5
-                                py-3
-                                text-sm
-                                font-black
-                                text-white
-                            ">
-                            Editar entidad
-                        </a>
-
-
-                        <a href="{{ route('entities.attributes.edit', $entity) }}"
-                            class="
-                                rounded-xl
-                                border
-                                border-indigo-200
-                                bg-indigo-50
-                                px-5
-                                py-3
-                                text-sm
-                                font-black
-                                text-indigo-700
-                            ">
-                            Características
-                        </a>
-
-                        <a href="{{ route('entities.presentation.edit', $entity) }}"
-                            class="
-                                rounded-xl
-                                border
-                                border-fuchsia-200
-                                bg-fuchsia-50
-                                px-4
-                                py-3
-                                text-xs
-                                font-black
-                                text-fuchsia-700
-                                transition
-                                hover:bg-fuchsia-100
-                            ">
-                            ◎ Presentación pública
-                        </a>
-
-                        @if ($entity->presentation && $entity->presentation->mode !== 'BASE')
-                            <span
+                            <a href="{{ route('entity-versions.edit', [$entity, $activeBaseEntityVersion]) }}"
                                 class="
-                                    rounded-full
-                                    bg-fuchsia-100
-                                    px-4
+                rounded-xl
+                bg-violet-600
+                px-5
+                py-3
+                text-sm
+                font-black
+                text-white
+                shadow-lg
+                shadow-violet-600/20
+            ">
+                                ✎ Editar Base activa
+                            </a>
+
+
+                            <a href="{{ route('entity-versions.attributes.edit', [$entity, $activeBaseEntityVersion]) }}"
+                                class="
+                                    rounded-xl
+                                    border
+                                    border-violet-200
+                                    bg-violet-50
+                                    px-5
                                     py-3
-                                    text-xs
+                                    text-sm
                                     font-black
-                                    text-orange-700
+                                    text-violet-700
                                 ">
-                                ◎ Presentación:
-                                {{ $entity->presentation->entityVersion?->name }}
-                            </span>
+                                Características de Base
+                            </a>
+
+
+                            <a href="{{ route('entities.show', [
+                                'entity' => $entity,
+                            
+                                'view' => 'original',
+                            ]) }}"
+                                class="
+                                    rounded-xl
+                                    border
+                                    border-indigo-200
+                                    bg-indigo-50
+                                    px-5
+                                    py-3
+                                    text-sm
+                                    font-black
+                                    text-indigo-700
+                                ">
+                                ◇ Ver Base original
+                            </a>
+
+
+                            <a href="{{ route('entities.edit', $entity) }}"
+                                class="
+                                rounded-xl
+                                bg-slate-100
+                                px-5
+                                py-3
+                                text-sm
+                                font-bold
+                                text-slate-600
+                            ">
+                                Editar original
+                            </a>
+                        @else
+                            {{-- ================================================= --}}
+                            {{-- ORIGINAL --}}
+                            {{-- ================================================= --}}
+
+                            @if ($activeBaseEntityVersion && $showOriginal)
+                                <a href="{{ route('entities.show', $entity) }}"
+                                    class="
+                                    rounded-xl
+                                    bg-violet-600
+                                    px-5
+                                    py-3
+                                    text-sm
+                                    font-black
+                                    text-white
+                                ">
+                                    ★ Volver a Base activa
+                                </a>
+                            @endif
+
+
+                            <a href="{{ route('entities.edit', $entity) }}"
+                                class="
+                                    rounded-xl
+                                    bg-indigo-600
+                                    px-5
+                                    py-3
+                                    text-sm
+                                    font-black
+                                    text-white
+                                ">
+                                Editar entidad original
+                            </a>
+
+
+                            <a href="{{ route('entities.attributes.edit', $entity) }}"
+                                class="
+                                    rounded-xl
+                                    border
+                                    border-indigo-200
+                                    bg-indigo-50
+                                    px-5
+                                    py-3
+                                    text-sm
+                                    font-black
+                                    text-indigo-700
+                                ">
+                                Características originales
+                            </a>
+
                         @endif
+
+
+                        {{-- ===================================================== --}}
+                        {{-- DELETE ENTIDAD --}}
+                        {{-- ===================================================== --}}
 
                         <form method="POST" action="{{ route('entities.destroy', $entity) }}"
                             onsubmit="
                                 return confirm(
                                     '¿Eliminar esta entidad?'
-                                )
+                                );
                             ">
 
                             @csrf
@@ -307,6 +397,7 @@
             </div>
 
         </article>
+        @include('entities.partials.base-version-manager')
 
 
         {{-- ===================================================== --}}
@@ -322,7 +413,7 @@
                 lg:grid-cols-6
             ">
 
-            @foreach ([['Características', $entity->entity_attributes_count], ['Catálogos', $catalogValuesCount], ['Colecciones', $entity->collections_count], ['Vistas', $entity->views_count], ['Clonaciones', $entity->clones_count], ['Creada', $entity->created_at->format('d/m/Y')]] as [$label, $value])
+            @foreach ([['Características', $displayCharacteristicsCount], ['Catálogos', $catalogValuesCount], ['Colecciones', $entity->collections_count], ['Vistas', $entity->views_count], ['Clonaciones', $entity->clones_count], ['Creada', $entity->created_at->format('d/m/Y')]] as [$label, $value])
                 <article
                     class="
                         rounded-2xl
@@ -497,54 +588,82 @@
                     @foreach ($entity->entityVersions->take(10) as $entityVersion)
                         <a href="{{ route('entity-versions.show', [$entity, $entityVersion]) }}"
                             class="
-                        group
-                        overflow-hidden
-                        rounded-2xl
-                        border
-                        border-slate-200
-                        bg-white
-                        shadow-sm
-                        transition
-                        hover:-translate-y-1
-                        hover:border-violet-300
-                    ">
+                                group
+                                overflow-hidden
+                                rounded-2xl
+                                border
+                                border-slate-200
+                                bg-white
+                                shadow-sm
+                                transition
+                                hover:-translate-y-1
+                                hover:border-violet-300
+                            ">
 
                             <div
                                 class="
-                            relative
-                            aspect-square
-                            overflow-hidden
-                            bg-slate-100
-                        ">
+                                    relative
+                                    aspect-square
+                                    overflow-hidden
+                                    bg-slate-100
+                                ">
 
                                 <img src="{{ $entityVersion->image_url }}"
                                     class="
-                                h-full
-                                w-full
-                                object-cover
-                                transition
-                                duration-300
-                                group-hover:scale-105
-                            ">
+                                        h-full
+                                        w-full
+                                        object-cover
+                                        transition
+                                        duration-300
+                                        group-hover:scale-105
+                                    ">
 
 
-                                @if ($entityVersion->is_default)
-                                    <span
-                                        class="
-                                    absolute
-                                    right-2
-                                    top-2
-                                    rounded-full
-                                    bg-amber-400
-                                    px-2
-                                    py-1
-                                    text-[7px]
-                                    font-black
-                                    text-amber-950
-                                ">
-                                        ★
-                                    </span>
-                                @endif
+                                <div
+                                    class="
+                                        absolute
+                                        right-2
+                                        top-2
+                                        flex
+                                        flex-col
+                                        items-end
+                                        gap-1
+                                    ">
+
+                                    @if ($entityVersion->baseSetting)
+                                        <span
+                                            class="
+                                                rounded-full
+                                                bg-violet-600
+                                                px-2
+                                                py-1
+                                                text-[7px]
+                                                font-black
+                                                text-white
+                                                shadow
+                                            ">
+                                            ★ BASE
+                                        </span>
+                                    @endif
+
+
+                                    @if ($entityVersion->is_default)
+                                        <span
+                                            class="
+                                                rounded-full
+                                                bg-amber-400
+                                                px-2
+                                                py-1
+                                                text-[7px]
+                                                font-black
+                                                text-amber-950
+                                                shadow
+                                            ">
+                                            ⚡ RESOLVER
+                                        </span>
+                                    @endif
+
+                                </div>
 
                             </div>
 
@@ -857,10 +976,13 @@
         {{-- CARACTERÍSTICAS --}}
         {{-- ===================================================== --}}
 
-        <section class="mt-10">
+        @if ($usingActiveBase)
+            @include('entities.partials.active-base-characteristics')
+        @else
+            <section class="mt-10">
 
-            <div
-                class="
+                <div
+                    class="
                     flex
                     flex-col
                     justify-between
@@ -869,78 +991,78 @@
                     sm:items-end
                 ">
 
-                <div>
+                    <div>
 
-                    <p
-                        class="
+                        <p
+                            class="
                             text-xs
                             font-black
                             uppercase
                             tracking-wider
                             text-violet-600
                         ">
-                        Perfil dinámico
-                    </p>
+                            Perfil dinámico
+                        </p>
 
 
-                    <h2
-                        class="
+                        <h2
+                            class="
                             mt-2
                             text-3xl
                             font-black
                             text-slate-900
                         ">
-                        Características
-                    </h2>
+                            Características
+                        </h2>
 
-                </div>
+                    </div>
 
 
-                <div
-                    class="
+                    <div
+                        class="
                         flex
                         flex-wrap
                         gap-2
                     ">
 
-                    @foreach ([
+                        @foreach ([
         'cards' => '▦ Tarjetas',
         'list' => '☰ Lista',
         'groups' => '▥ Grupos',
     ] as $value => $label)
-                        <button type="button"
-                            @click="
+                            <button type="button"
+                                @click="
                                 setCharacteristicView(
                                     '{{ $value }}'
                                 )
                             "
-                            :class="characteristicView === '{{ $value }}'
-                            
-                                ?
-                                'bg-violet-600 text-white'
-                            
-                                :
-                                'bg-slate-100 text-slate-500'"
-                            class="
+                                :class="characteristicView === '{{ $value }}'
+                                
+                                    ?
+                                    'bg-violet-600 text-white'
+                                
+                                    :
+                                    'bg-slate-100 text-slate-500'"
+                                class="
                                 rounded-lg
                                 px-3
                                 py-2
                                 text-xs
                                 font-bold
                             ">
-                            {{ $label }}
-                        </button>
-                    @endforeach
+                                {{ $label }}
+                            </button>
+                        @endforeach
+
+                    </div>
 
                 </div>
 
-            </div>
 
+                @if ($entity->entityAttributes->isEmpty())
 
-            @if ($entity->entityAttributes->isEmpty())
-
-                <div
-                    class="
+                    <div
+                        class="
                         mt-5
                         rounded-3xl
                         border
@@ -951,17 +1073,17 @@
                         text-center
                     ">
 
-                    <p
-                        class="
+                        <p
+                            class="
                             font-black
                             text-slate-700
                         ">
-                        Sin características configuradas
-                    </p>
+                            Sin características configuradas
+                        </p>
 
 
-                    <a href="{{ route('entities.attributes.edit', $entity) }}"
-                        class="
+                        <a href="{{ route('entities.attributes.edit', $entity) }}"
+                            class="
                             mt-4
                             inline-flex
                             rounded-xl
@@ -972,16 +1094,16 @@
                             font-black
                             text-white
                         ">
-                        Añadir características
-                    </a>
+                            Añadir características
+                        </a>
 
-                </div>
-            @else
-                {{-- CARDS --}}
-                <div x-show="
+                    </div>
+                @else
+                    {{-- CARDS --}}
+                    <div x-show="
                         characteristicView === 'cards'
                     "
-                    class="
+                        class="
                         mt-5
                         grid
                         gap-4
@@ -989,14 +1111,14 @@
                         xl:grid-cols-3
                     ">
 
-                    @foreach ($entity->entityAttributes as $assignment)
-                        @php
-                            $attribute = $assignment->attribute;
-                        @endphp
+                        @foreach ($entity->entityAttributes as $assignment)
+                            @php
+                                $attribute = $assignment->attribute;
+                            @endphp
 
 
-                        <article
-                            class="
+                            <article
+                                class="
                                 rounded-2xl
                                 border
                                 border-slate-200
@@ -1004,15 +1126,15 @@
                                 p-5
                             ">
 
-                            <div
-                                class="
+                                <div
+                                    class="
                                     flex
                                     items-center
                                     gap-3
                                 ">
 
-                                <div
-                                    class="
+                                    <div
+                                        class="
                                         h-12
                                         w-12
                                         shrink-0
@@ -1021,68 +1143,68 @@
                                         bg-slate-100
                                     ">
 
-                                    @if ($attribute->image_url)
-                                        <img src="{{ $attribute->image_url }}"
-                                            class="
+                                        @if ($attribute->image_url)
+                                            <img src="{{ $attribute->image_url }}"
+                                                class="
                                                 h-full
                                                 w-full
                                                 object-cover
                                             ">
-                                    @else
-                                        <div
-                                            class="
+                                        @else
+                                            <div
+                                                class="
                                                 flex
                                                 h-full
                                                 items-center
                                                 justify-center
                                                 font-black
                                             ">
-                                            {{ $attribute->icon ?: $attribute->data_type_icon }}
-                                        </div>
-                                    @endif
+                                                {{ $attribute->icon ?: $attribute->data_type_icon }}
+                                            </div>
+                                        @endif
 
-                                </div>
+                                    </div>
 
 
-                                <div>
+                                    <div>
 
-                                    <p
-                                        class="
+                                        <p
+                                            class="
                                             font-black
                                             text-slate-900
                                         ">
-                                        {{ $assignment->custom_label ?: $attribute->name }}
-                                    </p>
+                                            {{ $assignment->custom_label ?: $attribute->name }}
+                                        </p>
 
 
-                                    <p
-                                        class="
+                                        <p
+                                            class="
                                             mt-1
                                             font-mono
                                             text-[9px]
                                             text-slate-400
                                         ">
-                                        {{ $attribute->code }}
-                                    </p>
+                                            {{ $attribute->code }}
+                                        </p>
+
+                                    </div>
 
                                 </div>
 
-                            </div>
 
-
-                            <div
-                                class="
+                                <div
+                                    class="
                                     mt-4
                                     flex
                                     flex-wrap
                                     gap-2
                                 ">
 
-                                @forelse ($assignment->values
+                                    @forelse ($assignment->values
                                     as $value)
-                                    @if ($value->option)
-                                        <a href="{{ route('attribute-options.show', $value->option) }}"
-                                            class="
+                                        @if ($value->option)
+                                            <a href="{{ route('attribute-options.show', $value->option) }}"
+                                                class="
                                                 flex
                                                 items-center
                                                 gap-2
@@ -1093,8 +1215,8 @@
                                                 p-2
                                             ">
 
-                                            <div
-                                                class="
+                                                <div
+                                                    class="
                                                     h-9
                                                     w-9
                                                     overflow-hidden
@@ -1102,42 +1224,42 @@
                                                     bg-white
                                                 ">
 
-                                                @if ($value->option->image_url)
-                                                    <img src="{{ $value->option->image_url }}"
-                                                        class="
+                                                    @if ($value->option->image_url)
+                                                        <img src="{{ $value->option->image_url }}"
+                                                            class="
                                                             h-full
                                                             w-full
                                                             object-cover
                                                         ">
-                                                @else
-                                                    <div
-                                                        class="
+                                                    @else
+                                                        <div
+                                                            class="
                                                             flex
                                                             h-full
                                                             items-center
                                                             justify-center
                                                             text-xs
                                                         ">
-                                                        {{ $value->option->icon ?: '◆' }}
-                                                    </div>
-                                                @endif
+                                                            {{ $value->option->icon ?: '◆' }}
+                                                        </div>
+                                                    @endif
 
-                                            </div>
+                                                </div>
 
 
-                                            <span
-                                                class="
+                                                <span
+                                                    class="
                                                     text-xs
                                                     font-black
                                                     text-violet-700
                                                 ">
-                                                {{ $value->option->name }}
-                                            </span>
+                                                    {{ $value->option->name }}
+                                                </span>
 
-                                        </a>
-                                    @else
-                                        <span
-                                            class="
+                                            </a>
+                                        @else
+                                            <span
+                                                class="
                                                 rounded-xl
                                                 bg-slate-100
                                                 px-3
@@ -1146,39 +1268,39 @@
                                                 font-black
                                                 text-slate-700
                                             ">
-                                            {{ $value->displayValue() }}
+                                                {{ $value->displayValue() }}
 
-                                            @if ($attribute->unit)
-                                                {{ $attribute->unit }}
-                                            @endif
-                                        </span>
-                                    @endif
+                                                @if ($attribute->unit)
+                                                    {{ $attribute->unit }}
+                                                @endif
+                                            </span>
+                                        @endif
 
-                                @empty
+                                    @empty
 
-                                    <span
-                                        class="
+                                        <span
+                                            class="
                                             text-sm
                                             font-bold
                                             text-slate-400
                                         ">
-                                        Sin definir
-                                    </span>
-                                @endforelse
+                                            Sin definir
+                                        </span>
+                                    @endforelse
 
-                            </div>
+                                </div>
 
-                        </article>
-                    @endforeach
+                            </article>
+                        @endforeach
 
-                </div>
+                    </div>
 
 
-                {{-- LIST --}}
-                <div x-cloak x-show="
+                    {{-- LIST --}}
+                    <div x-cloak x-show="
                         characteristicView === 'list'
                     "
-                    class="
+                        class="
                         mt-5
                         overflow-hidden
                         rounded-2xl
@@ -1187,9 +1309,9 @@
                         bg-white
                     ">
 
-                    @foreach ($entity->entityAttributes as $assignment)
-                        <div
-                            class="
+                        @foreach ($entity->entityAttributes as $assignment)
+                            <div
+                                class="
                                 grid
                                 gap-3
                                 border-b
@@ -1200,30 +1322,30 @@
                                 md:grid-cols-[220px_minmax(0,1fr)]
                             ">
 
-                            <div>
+                                <div>
 
-                                <p
-                                    class="
+                                    <p
+                                        class="
                                         font-black
                                         text-slate-800
                                     ">
-                                    {{ $assignment->custom_label ?: $assignment->attribute->name }}
-                                </p>
+                                        {{ $assignment->custom_label ?: $assignment->attribute->name }}
+                                    </p>
 
-                            </div>
+                                </div>
 
 
-                            <div
-                                class="
+                                <div
+                                    class="
                                     flex
                                     flex-wrap
                                     gap-2
                                 ">
 
-                                @forelse ($assignment->values
+                                    @forelse ($assignment->values
                                     as $value)
-                                    <span
-                                        class="
+                                        <span
+                                            class="
                                             rounded-lg
                                             bg-slate-100
                                             px-3
@@ -1232,36 +1354,36 @@
                                             font-bold
                                             text-slate-700
                                         ">
-                                        {{ $value->displayValue() }}
-                                    </span>
+                                            {{ $value->displayValue() }}
+                                        </span>
 
-                                @empty
+                                    @empty
 
-                                    <span class="text-sm text-slate-400">
-                                        Sin definir
-                                    </span>
-                                @endforelse
+                                        <span class="text-sm text-slate-400">
+                                            Sin definir
+                                        </span>
+                                    @endforelse
+
+                                </div>
 
                             </div>
+                        @endforeach
 
-                        </div>
-                    @endforeach
-
-                </div>
+                    </div>
 
 
-                {{-- GROUPS --}}
-                <div x-cloak x-show="
+                    {{-- GROUPS --}}
+                    <div x-cloak x-show="
                         characteristicView === 'groups'
                     "
-                    class="
+                        class="
                         mt-5
                         space-y-6
                     ">
 
-                    @foreach ($characteristicGroups as $groupName => $items)
-                        <section
-                            class="
+                        @foreach ($characteristicGroups as $groupName => $items)
+                            <section
+                                class="
                                 rounded-2xl
                                 border
                                 border-slate-200
@@ -1269,32 +1391,32 @@
                                 p-5
                             ">
 
-                            <h3
-                                class="
+                                <h3
+                                    class="
                                     text-sm
                                     font-black
                                     uppercase
                                     tracking-wider
                                     text-slate-500
                                 ">
-                                {{ $groupName }}
-                            </h3>
+                                    {{ $groupName }}
+                                </h3>
 
 
-                            <div
-                                class="
+                                <div
+                                    class="
                                     mt-4
                                     space-y-3
                                 ">
 
-                                @foreach ($items as $item)
-                                    @php
-                                        $assignment = $item['assignment'];
-                                    @endphp
+                                    @foreach ($items as $item)
+                                        @php
+                                            $assignment = $item['assignment'];
+                                        @endphp
 
 
-                                    <div
-                                        class="
+                                        <div
+                                            class="
                                             flex
                                             flex-col
                                             justify-between
@@ -1306,26 +1428,26 @@
                                             sm:items-center
                                         ">
 
-                                        <p
-                                            class="
+                                            <p
+                                                class="
                                                 font-bold
                                                 text-slate-800
                                             ">
-                                            {{ $assignment->attribute->name }}
-                                        </p>
+                                                {{ $assignment->attribute->name }}
+                                            </p>
 
 
-                                        <div
-                                            class="
+                                            <div
+                                                class="
                                                 flex
                                                 flex-wrap
                                                 gap-2
                                             ">
 
-                                            @forelse ($assignment->values
+                                                @forelse ($assignment->values
                                                 as $value)
-                                                <span
-                                                    class="
+                                                    <span
+                                                        class="
                                                         rounded-lg
                                                         bg-white
                                                         px-3
@@ -1334,35 +1456,36 @@
                                                         font-black
                                                         text-slate-700
                                                     ">
-                                                    {{ $value->displayValue() }}
-                                                </span>
+                                                        {{ $value->displayValue() }}
+                                                    </span>
 
-                                            @empty
+                                                @empty
 
-                                                <span
-                                                    class="
+                                                    <span
+                                                        class="
                                                         text-xs
                                                         text-slate-400
                                                     ">
-                                                    Sin definir
-                                                </span>
-                                            @endforelse
+                                                        Sin definir
+                                                    </span>
+                                                @endforelse
+
+                                            </div>
 
                                         </div>
+                                    @endforeach
 
-                                    </div>
-                                @endforeach
+                                </div>
 
-                            </div>
+                            </section>
+                        @endforeach
 
-                        </section>
-                    @endforeach
+                    </div>
 
-                </div>
+                @endif
 
-            @endif
-
-        </section>
+            </section>
+        @endif
 
     </div>
 

@@ -13,10 +13,13 @@ use App\Models\EntityType;
 use App\Models\User;
 use App\Services\Entities\EntityBuilderService;
 use App\Services\Attributes\AttributeContextService;
+use App\Services\Versions\VersionResolverService;
+
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+
 use Throwable;
 
 class EntityController extends Controller
@@ -635,28 +638,66 @@ class EntityController extends Controller
     }
 
     /*
-    |--------------------------------------------------------------------------
-    | Show
-    |--------------------------------------------------------------------------
-    */
+|--------------------------------------------------------------------------
+| Show
+|--------------------------------------------------------------------------
+*/
 
     public function show(
-        Entity $entity
+        Request $request,
+        Entity $entity,
+        VersionResolverService $resolver
     ): View {
+
         $this->authorize(
             'view',
             $entity
         );
 
+
+        /*
+    |--------------------------------------------------------------------------
+    | Cargar Entidad completa
+    |--------------------------------------------------------------------------
+    */
+
         $entity->load([
             'entityType',
+
             'collections',
+
             'entityAttributes.attribute.groups',
             'entityAttributes.values.option',
-            'entityVersions.version',
-            'presentation.entityVersion.version',
-            'presentation.mediaImage',
+
+            /*
+         * Versiones visibles en la ficha.
+         */
+            'entityVersions' =>
+            fn($query) =>
+            $query
+                ->with([
+                    'version',
+                    'baseSetting',
+                ])
+                ->orderBy(
+                    'sort_order'
+                )
+                ->orderBy(
+                    'name'
+                ),
+
+            /*
+         * Base activa.
+         */
+            'baseVersionSetting.entityVersion.version',
+
+            'baseVersionSetting.entityVersion.parent',
+
+            'baseVersionSetting.entityVersion.versionAttributes.attribute.groups',
+
+            'baseVersionSetting.entityVersion.versionAttributes.values.option',
         ]);
+
 
         $entity->loadCount([
             'entityAttributes',
@@ -664,66 +705,146 @@ class EntityController extends Controller
             'entityVersions',
         ]);
 
+
         /*
-        |--------------------------------------------------------------------------
-        | Grupos visuales
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | Base activa
+    |--------------------------------------------------------------------------
+    */
 
-        $characteristicGroups =
-            collect();
+        $activeBaseEntityVersion =
+            $entity
+            ->baseVersionSetting
+            ?->entityVersion;
 
-        foreach (
-            $entity->entityAttributes
-            as $assignment
+
+        /*
+     * Una Base personalizada siempre debe estar ACTIVE.
+     *
+     * Esto además protege contra datos antiguos o cambios
+     * realizados manualmente directamente en la BD.
+     */
+        if (
+            $activeBaseEntityVersion
+            &&
+            $activeBaseEntityVersion->status
+            !==
+            'ACTIVE'
         ) {
-            $groups =
-                $assignment
-                ->attribute
-                ->groups;
 
-            if ($groups->isEmpty()) {
-                $characteristicGroups
-                    ->push([
-                        'name' =>
-                        'Otros',
-
-                        'assignment' =>
-                        $assignment,
-                    ]);
-
-                continue;
-            }
-
-            /*
-             * Si un atributo pertenece a varios grupos,
-             * mostramos el primero para evitar duplicarlo.
-             */
-
-            $group = $groups
-                ->sortBy(
-                    fn($group) =>
-                    $group->pivot
-                        ->sort_order
-                        ?? 0
-                )
-                ->first();
-
-            $characteristicGroups
-                ->push([
-                    'name' =>
-                    $group->name,
-
-                    'assignment' =>
-                    $assignment,
-                ]);
+            $activeBaseEntityVersion =
+                null;
         }
 
-        $characteristicGroups =
-            $characteristicGroups
-            ->groupBy('name');
 
-        $catalogValuesCount =
+        /*
+    |--------------------------------------------------------------------------
+    | Mostrar temporalmente la Base original
+    |--------------------------------------------------------------------------
+    |
+    | /entities/6
+    |      → Base activa.
+    |
+    | /entities/6?view=original
+    |      → Base original temporalmente.
+    |
+    */
+
+        $showOriginal =
+            $request->query(
+                'view'
+            )
+            ===
+            'original';
+
+
+        $usingActiveBase =
+            $activeBaseEntityVersion
+            !==
+            null
+            &&
+            ! $showOriginal;
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Características efectivas de la Base activa
+    |--------------------------------------------------------------------------
+    */
+
+        $activeBaseEffectiveAttributes =
+            collect();
+
+
+        if (
+            $activeBaseEntityVersion
+        ) {
+
+            $activeBaseEffectiveAttributes =
+                $resolver
+                ->effectiveAttributes(
+                    $activeBaseEntityVersion
+                )
+                ->filter(
+                    fn($item) =>
+                    $item['is_visible']
+                        ?? true
+                )
+                ->values();
+        }
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Datos mostrados
+    |--------------------------------------------------------------------------
+    */
+
+        $displayName =
+            $usingActiveBase
+            ? $activeBaseEntityVersion->name
+            : $entity->name;
+
+
+        $displayDescription =
+            $usingActiveBase
+            ? (
+                $activeBaseEntityVersion->description
+                ?: $entity->description
+            )
+            : $entity->description;
+
+
+        $displayImageUrl =
+            $usingActiveBase
+            ? (
+                $activeBaseEntityVersion->image_url
+                ?: $entity->image_url
+            )
+            : $entity->image_url;
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Estadísticas visuales
+    |--------------------------------------------------------------------------
+    */
+
+        $displayCharacteristicsCount =
+            $usingActiveBase
+            ? $activeBaseEffectiveAttributes
+            ->count()
+            : $entity
+            ->entity_attributes_count;
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Catálogos originales
+    |--------------------------------------------------------------------------
+    */
+
+        $originalCatalogValuesCount =
             $entity
             ->entityAttributes
             ->sum(
@@ -736,16 +857,143 @@ class EntityController extends Controller
                     ->count()
             );
 
+
+        /*
+    |--------------------------------------------------------------------------
+    | Catálogos efectivos de Base activa
+    |--------------------------------------------------------------------------
+    */
+
+        $activeBaseCatalogValuesCount =
+            $activeBaseEffectiveAttributes
+            ->filter(
+                fn($item) =>
+                $item['attribute']
+                    ?->data_type
+                    ===
+                    'OPTION'
+            )
+            ->sum(
+                fn($item) =>
+                count(
+                    $item['values']
+                        ?? []
+                )
+            );
+
+
+        $catalogValuesCount =
+            $usingActiveBase
+            ? $activeBaseCatalogValuesCount
+            : $originalCatalogValuesCount;
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Grupos visuales de Base ORIGINAL
+    |--------------------------------------------------------------------------
+    |
+    | La vista original actual de OmniMerge
+    | todavía utiliza estos grupos.
+    |
+    */
+
+        $characteristicGroups =
+            collect();
+
+
+        foreach (
+            $entity->entityAttributes
+            as $assignment
+        ) {
+
+            $groups =
+                $assignment
+                ->attribute
+                ->groups;
+
+
+            if (
+                $groups->isEmpty()
+            ) {
+
+                $characteristicGroups
+                    ->push([
+                        'name' =>
+                        'Otros',
+
+                        'assignment' =>
+                        $assignment,
+                    ]);
+
+
+                continue;
+            }
+
+
+            /*
+         * Si un atributo pertenece a varios grupos,
+         * utilizar solamente el primero para evitar
+         * duplicados visuales.
+         */
+            $group =
+                $groups
+                ->sortBy(
+                    fn($group) =>
+                    $group
+                        ->pivot
+                        ->sort_order
+                        ?? 0
+                )
+                ->first();
+
+
+            $characteristicGroups
+                ->push([
+                    'name' =>
+                    $group->name,
+
+                    'assignment' =>
+                    $assignment,
+                ]);
+        }
+
+
+        $characteristicGroups =
+            $characteristicGroups
+            ->groupBy(
+                'name'
+            );
+
+
+        /*
+    |--------------------------------------------------------------------------
+    | Vista
+    |--------------------------------------------------------------------------
+    */
+
         return view(
             'entities.show',
             compact(
                 'entity',
+
                 'characteristicGroups',
-                'catalogValuesCount'
+                'catalogValuesCount',
+
+                'activeBaseEntityVersion',
+                'activeBaseEffectiveAttributes',
+
+                'showOriginal',
+                'usingActiveBase',
+
+                'displayName',
+                'displayDescription',
+                'displayImageUrl',
+
+                'displayCharacteristicsCount'
             )
         );
     }
-
     /*
     |--------------------------------------------------------------------------
     | Edit

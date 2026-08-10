@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 
@@ -115,6 +115,92 @@ class Entity extends Model
             ->orderBy(
                 'name'
             );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Configuración de Base activa
+    |--------------------------------------------------------------------------
+    */
+
+    public function baseVersionSetting(): HasOne
+    {
+        return $this->hasOne(
+            EntityBaseVersion::class
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ¿Tiene Base activa personalizada?
+    |--------------------------------------------------------------------------
+    */
+
+    public function hasActiveBaseVersion(): bool
+    {
+        if (
+            $this->relationLoaded(
+                'baseVersionSetting'
+            )
+        ) {
+
+            return $this
+                ->baseVersionSetting
+                ?->entityVersion
+                !== null;
+        }
+
+
+        return $this
+            ->baseVersionSetting()
+            ->whereHas(
+                'entityVersion',
+                fn($query) =>
+                $query->where(
+                    'status',
+                    'ACTIVE'
+                )
+            )
+            ->exists();
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Obtener EntityVersion utilizada como Base
+    |--------------------------------------------------------------------------
+    */
+
+    public function activeBaseVersion(): ?EntityVersion
+    {
+        if (
+            $this->relationLoaded(
+                'baseVersionSetting'
+            )
+        ) {
+
+            $entityVersion =
+                $this
+                ->baseVersionSetting
+                ?->entityVersion;
+
+
+            return $entityVersion
+                &&
+                $entityVersion->status === 'ACTIVE'
+                ? $entityVersion
+                : null;
+        }
+
+
+        return $this
+            ->baseVersionSetting()
+            ->with(
+                'entityVersion'
+            )
+            ->first()
+            ?->entityVersion;
     }
 
     /*

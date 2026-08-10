@@ -29,21 +29,56 @@
             gap-3
             rounded-2xl
             border
-            border-slate-200
-            bg-slate-50
             p-3
             sm:flex-row
             sm:items-center
+
+            {{ $node->baseSetting
+                ? 'border-violet-300 bg-violet-50 ring-2 ring-violet-100'
+                : 'border-slate-200 bg-slate-50' }}
         ">
 
-        <img src="{{ $node->image_url }}"
+        <div
             class="
+                relative
                 h-14
                 w-14
                 shrink-0
-                rounded-xl
-                object-cover
             ">
+
+            <img src="{{ $node->image_url }}" alt="{{ $node->name }}"
+                class="
+                    h-14
+                    w-14
+                    rounded-xl
+                    object-cover
+                ">
+
+
+            @if ($node->baseSetting)
+                <span
+                    class="
+                        absolute
+                        -bottom-1
+                        -right-1
+                        flex
+                        h-5
+                        w-5
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-violet-600
+                        text-[8px]
+                        font-black
+                        text-white
+                        ring-2
+                        ring-white
+                    ">
+                    ★
+                </span>
+            @endif
+
+        </div>
 
 
         <div class="
@@ -71,6 +106,22 @@
                 </a>
 
 
+                @if ($node->baseSetting)
+                    <span
+                        class="
+                            rounded-full
+                            bg-violet-600
+                            px-2
+                            py-1
+                            text-[7px]
+                            font-black
+                            text-white
+                        ">
+                        ★ BASE
+                    </span>
+                @endif
+
+
                 @if ($node->is_default)
                     <span
                         class="
@@ -82,7 +133,7 @@
                             font-black
                             text-amber-700
                         ">
-                        ★
+                        ⚡ RESOLVER
                     </span>
                 @endif
 
@@ -100,16 +151,60 @@
                 {{ $node->version->kind_label }}
             </p>
 
+
+            @if ($node->baseSetting)
+                <p
+                    class="
+                        mt-1
+                        text-[8px]
+                        font-bold
+                        text-violet-600
+                    ">
+                    Representación principal actual de
+                    {{ $entity->name }}
+                </p>
+            @endif
+
         </div>
 
 
         <div class="
                 flex
+                flex-wrap
                 gap-2
             ">
 
+            @if (!$node->baseSetting)
+                <form method="POST"
+                    action="{{ route('entities.base-version.update', $entity) }}">
+
+                    @csrf
+                    @method('PUT')
+
+
+                    <input type="hidden" name="entity_version_id" value="{{ $node->id }}">
+
+
+                    <button type="submit"
+                        class="
+                            rounded-lg
+                            bg-indigo-50
+                            px-3
+                            py-2
+                            text-[9px]
+                            font-black
+                            text-indigo-700
+                        ">
+                        ★ Hacer Base
+                    </button>
+
+                </form>
+            @endif
+
+
             <a href="{{ route('entity-versions.create', [
                 $entity,
+            
                 'definition_mode' => 'NEW_EXCLUSIVE',
             
                 'parent_entity_version_id' => $node->id,

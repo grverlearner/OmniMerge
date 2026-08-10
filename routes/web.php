@@ -26,6 +26,7 @@ use App\Http\Controllers\Versions\VersionWorkspaceController;
 
 use App\Http\Controllers\Attributes\AttributeStructureController;
 use App\Http\Controllers\Entities\EntityPresentationController;
+use App\Http\Controllers\Entities\EntityBaseVersionController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -416,6 +417,33 @@ Route::middleware('auth')->group(function () {
         ]
     )->name(
         'entities.presentation.update'
+    );
+
+    /*
+|--------------------------------------------------------------------------
+| Base activa de una Entidad
+|--------------------------------------------------------------------------
+*/
+
+    Route::put(
+        'entities/{entity}/base-version',
+        [
+            EntityBaseVersionController::class,
+            'update',
+        ]
+    )->name(
+        'entities.base-version.update'
+    );
+
+
+    Route::delete(
+        'entities/{entity}/base-version',
+        [
+            EntityBaseVersionController::class,
+            'destroy',
+        ]
+    )->name(
+        'entities.base-version.destroy'
     );
 
     Route::resource(
