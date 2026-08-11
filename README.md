@@ -1,480 +1,361 @@
-<div align="center">
-
 # 🌌 OmniMerge
 
-### Create · Connect · Evolve
+> Plataforma web flexible para crear, organizar, versionar, relacionar y reutilizar entidades dinámicas mediante atributos, catálogos, colecciones y contextos configurables.
 
-**Plataforma web modular para crear, organizar, compartir y reutilizar entidades, atributos y colecciones, preparada para evolucionar hacia universos, torneos, simulaciones y rankings.**
-
-**Laravel 12 · PHP 8.2+ · MySQL · Blade · Tailwind CSS · Alpine.js · Vite**
-
----
-
-**Estado:** En desarrollo activo
-**Arquitectura:** MVC + Form Requests + Policies + Services
-**Repositorio:** `grverlearner/OmniMerge`
-
-</div>
+![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?style=flat-square\&logo=laravel\&logoColor=white)
+![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=flat-square\&logo=php\&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-Database-4479A1?style=flat-square\&logo=mysql\&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-UI-06B6D4?style=flat-square\&logo=tailwindcss\&logoColor=white)
+![Alpine.js](https://img.shields.io/badge/Alpine.js-Interaction-8BC0D0?style=flat-square\&logo=alpinedotjs\&logoColor=white)
+![Status](https://img.shields.io/badge/Estado-En%20desarrollo-yellow?style=flat-square)
 
 ---
 
-# 📖 Tabla de contenidos
+## 📖 ¿Qué es OmniMerge?
 
-1. [¿Qué es OmniMerge?](#-qué-es-omnimerge)
-2. [Visión del proyecto](#-visión-del-proyecto)
-3. [Problema que busca resolver](#-problema-que-busca-resolver)
-4. [Arquitectura general de la plataforma](#-arquitectura-general-de-la-plataforma)
-5. [Flujo del usuario](#-flujo-del-usuario)
-6. [Módulos actuales](#-módulos-actuales)
-7. [Conceptos principales](#-conceptos-principales)
-8. [Características implementadas](#-características-implementadas)
-9. [Stack tecnológico](#-stack-tecnológico)
-10. [Arquitectura Laravel](#-arquitectura-laravel)
-11. [Estructura del proyecto](#-estructura-del-proyecto)
-12. [Modelo de datos](#-modelo-de-datos)
-13. [Relaciones principales](#-relaciones-principales)
-14. [Rutas principales](#-rutas-principales)
-15. [Autenticación](#-autenticación)
-16. [Centro OmniMerge — Hub](#-centro-omnimerge--hub)
-17. [Biblioteca](#-biblioteca)
-18. [Comunidad](#-comunidad)
-19. [Gestión de imágenes](#-gestión-de-imágenes)
-20. [Seguridad](#-seguridad)
-21. [Instalación](#-instalación)
-22. [Ejecución](#-ejecución)
-23. [Comandos útiles](#-comandos-útiles)
-24. [Pruebas](#-pruebas)
-25. [Git y flujo de trabajo](#-git-y-flujo-de-trabajo)
-26. [Documentación](#-documentación)
-27. [Estado del desarrollo](#-estado-del-desarrollo)
-28. [Roadmap](#-roadmap)
-29. [Solución de problemas](#-solución-de-problemas)
-30. [Principios del proyecto](#-principios-del-proyecto)
+**OmniMerge** es una plataforma web diseñada para permitir que cada usuario construya y organice información completamente personalizada sin quedar limitado a un tipo específico de contenido.
 
----
+En OmniMerge una entidad puede ser prácticamente cualquier cosa:
 
-# 🌌 ¿Qué es OmniMerge?
+* un personaje;
+* una persona;
+* un animal;
+* un país;
+* una ciudad;
+* un objeto;
+* un vehículo;
+* una organización;
+* una criatura;
+* un concepto;
+* una obra;
+* un elemento ficticio;
+* o cualquier otro tipo de elemento definido por el usuario.
 
-OmniMerge es una plataforma web multiusuario orientada a la **creación, organización, reutilización y futura interacción de entidades completamente personalizables**.
+La plataforma no impone atributos rígidos.
 
-La plataforma no obliga al usuario a trabajar únicamente con personajes humanos ni con estructuras predefinidas.
+Cada usuario puede crear sus propios:
 
-En OmniMerge una entidad puede representar:
+* tipos de entidad;
+* atributos;
+* catálogos;
+* opciones;
+* jerarquías;
+* dependencias;
+* grupos;
+* colecciones;
+* versiones;
+* imágenes;
+* reglas contextuales.
 
-* 👤 Un personaje.
-* 🐉 Una criatura.
-* 🐺 Un animal.
-* 🌎 Un país.
-* 🏙️ Una ciudad.
-* 🪐 Un planeta.
-* ⚔️ Un objeto.
-* 🚗 Un vehículo.
-* 🏰 Un lugar.
-* 🛡️ Una organización.
-* 🔥 Un elemento.
-* 🎨 Un color.
-* ✨ Una habilidad.
-* 💡 Un concepto abstracto.
-* Cualquier otra cosa definida por el usuario.
-
-La idea central es:
-
-> **OmniMerge no decide qué información debe tener una entidad. El usuario diseña su propia estructura.**
-
-Por ejemplo:
-
-```text
-Entidad: Naruto Uzumaki
-
-Tipo:
-Personaje
-
-Características:
-├── Anime: Naruto
-├── Elementos:
-│   ├── Viento
-│   └── Fuego
-├── Poder: 92
-├── Puede volar: No
-└── Descripción: Ninja de la Aldea Oculta de la Hoja
-```
-
-La misma plataforma también puede utilizarse para:
-
-```text
-Entidad: Perú
-
-Tipo:
-País
-
-Características:
-├── Continente: América
-├── Capital: Lima
-├── Idioma: Español
-├── Moneda: Sol
-└── Color representativo: #D91023
-```
-
-Por esta razón OmniMerge no es simplemente un creador de personajes.
-
-Es una **plataforma de modelado flexible de entidades**.
+El objetivo final de OmniMerge es evolucionar hacia una plataforma capaz de utilizar toda esta información para construir **universos, interacciones, torneos, simulaciones, escenarios e historiales reutilizables**.
 
 ---
 
 # 🎯 Visión del proyecto
 
-OmniMerge se está diseñando como una plataforma modular.
+OmniMerge busca resolver una limitación común en muchas plataformas de creación de personajes, fichas o universos:
 
-La Biblioteca actualmente permite construir los elementos base.
+> Los sistemas tradicionales suelen decidir de antemano qué puede crear el usuario y qué atributos debe tener.
 
-En versiones futuras estas entidades podrán utilizarse dentro de:
+OmniMerge adopta el enfoque contrario.
 
 ```text
-Biblioteca
-    ↓
-Universos
-    ↓
-Temporadas
-    ↓
-Torneos
-    ↓
-Simulaciones
-    ↓
-Resultados
-    ↓
-Rankings
-    ↓
-Historial
+Usuario
+   ↓
+Define su estructura
+   ↓
+Crea sus atributos
+   ↓
+Crea sus catálogos
+   ↓
+Crea sus entidades
+   ↓
+Crea sus versiones
+   ↓
+Organiza información
+   ↓
+Relaciona contenido
+   ↓
+Construye universos
+   ↓
+Simula escenarios
 ```
 
-La visión general es permitir que un usuario pueda:
-
-1. Crear entidades.
-2. Diseñar sus características.
-3. Agruparlas.
-4. Compartirlas.
-5. Reutilizarlas.
-6. Introducirlas en universos.
-7. Participar en torneos.
-8. Ejecutar simulaciones.
-9. Registrar resultados.
-10. Analizar su evolución.
+La información es configurable y reutilizable.
 
 ---
 
-# ❓ Problema que busca resolver
+# 🧠 Filosofía principal
 
-Muchas herramientas existentes para crear personajes, fichas, historias o simulaciones presentan limitaciones como:
+La arquitectura de OmniMerge gira alrededor de algunas ideas fundamentales.
 
-* Formularios rígidos.
-* Características predefinidas.
-* Dependencia de una temática específica.
-* Restricción a personajes humanoides.
-* Falta de atributos personalizados.
-* Falta de selección múltiple.
-* Ausencia de catálogos reutilizables.
-* Falta de organización por colecciones.
-* Falta de reutilización entre diferentes contextos.
-* Ausencia de clonación comunitaria.
-* Escasa preparación para simulaciones automáticas.
+## 1. Las entidades son genéricas
 
-OmniMerge propone una arquitectura donde la estructura no está completamente determinada por el desarrollador.
-
-El usuario puede construirla.
-
----
-
-# 🏗 Arquitectura general de la plataforma
-
-OmniMerge está dividido conceptualmente en diferentes niveles.
+No existe una tabla exclusiva para:
 
 ```text
-                           OMNIMERGE
-                               │
-              ┌────────────────┴────────────────┐
-              │                                 │
-              ▼                                 ▼
-       Página pública                     Autenticación
-             /                          /login /register
-              │                                 │
-              └────────────────┬────────────────┘
-                               │
-                               ▼
-                      🏠 CENTRO OMNIMERGE
-                             /hub
-                               │
-        ┌──────────────────────┼──────────────────────┐
-        │                      │                      │
-        ▼                      ▼                      ▼
- 📚 Biblioteca           🌐 Comunidad          👤 Perfil
-   /dashboard              /explore              /profile
-        │
-        ├── Tipos de entidad
-        ├── Entidades
-        ├── Atributos
-        ├── Opciones
-        ├── Grupos
-        └── Colecciones
+Personajes
+Animales
+Países
+Objetos
+```
 
+Todos pueden representarse mediante:
 
-              MÓDULOS FUTUROS DESDE EL HUB
+```text
+Entity
+```
 
-        ├── 🌌 Universos
-        ├── 🏆 Torneos
-        ├── ⚡ Simulaciones
-        └── 📊 Rankings
+y clasificarse con:
+
+```text
+EntityType
 ```
 
 ---
 
-# 🔄 Flujo del usuario
+## 2. Los atributos no están codificados de forma rígida
 
-## Visitante
-
-```text
-/
-↓
-Landing pública
-↓
-Login o Registro
-```
-
-## Usuario que inicia sesión
+Una entidad no tiene columnas como:
 
 ```text
-/login
-↓
-Validación
-↓
-Autenticación correcta
-↓
-/hub
+edad
+aldea
+clan
+nivel
+elemento
+raza
+sexo
 ```
 
-## Usuario que se registra
+En su lugar, OmniMerge permite crear atributos dinámicamente.
+
+Ejemplo:
 
 ```text
-/register
-↓
-Creación de cuenta
-↓
-Inicio automático de sesión
-↓
-/hub
+Entidad:
+Naruto Uzumaki
+
+Atributos:
+├── Anime
+├── Aldea
+├── Clan
+├── Naturaleza de Chakra
+├── Rango Ninja
+├── Dōjutsu
+├── Afiliación
+└── Bijū
 ```
 
-## Desde el Hub
+Otro usuario podría crear:
 
 ```text
-/hub
-│
-├── Biblioteca
-│      ↓
-│   /dashboard
-│
-├── Comunidad
-│      ↓
-│   /explore
-│
-├── Perfil
-│      ↓
-│   /profile
-│
-├── Universos
-│      ↓
-│   Próximamente
-│
-├── Torneos
-│      ↓
-│   Próximamente
-│
-└── Rankings
-       ↓
-    Próximamente
+Entidad:
+Toyota Supra
+
+Atributos:
+├── Marca
+├── Modelo
+├── Motor
+├── Potencia
+├── Tracción
+└── Año
 ```
+
+La arquitectura es la misma.
 
 ---
 
-# 🧩 Módulos actuales
+# ✨ Funcionalidades implementadas
 
-## 🌐 Landing pública
-
-Ruta:
-
-```text
-/
-```
-
-Presenta:
-
-* Qué es OmniMerge.
-* Características principales.
-* Ejemplos de entidades.
-* Atributos dinámicos.
-* Comunidad.
-* Roadmap.
-* Inicio de sesión.
-* Registro.
-
----
+Actualmente OmniMerge dispone de una base funcional considerable.
 
 ## 🔐 Autenticación
 
+Sistema de autenticación basado en Laravel.
+
 Incluye:
 
-* Registro.
-* Inicio de sesión.
-* Cierre de sesión.
-* Recuperación de contraseña.
-* Confirmación de contraseña.
-* Gestión básica de perfil.
+* registro;
+* inicio de sesión;
+* cierre de sesión;
+* recuperación de contraseña;
+* verificación de correo;
+* perfil de usuario;
+* protección de rutas;
+* autorización mediante Policies.
 
 ---
 
-## 🏠 Centro OmniMerge — Hub
+# 🧩 Tipos de Entidad
 
-Ruta:
-
-```text
-/hub
-```
-
-Es el punto central de la aplicación después de autenticarse.
-
-Permite acceder a:
-
-* 📚 Biblioteca.
-* 🌐 Comunidad.
-* 👤 Perfil y cuenta.
-* 🌌 Universos — futuro.
-* 🏆 Torneos — futuro.
-* 📊 Rankings — futuro.
-
-También muestra:
-
-* Estadísticas generales.
-* Creaciones recientes.
-* Accesos rápidos.
-* Información del usuario.
-
----
-
-## 📚 Biblioteca
-
-Actualmente es el módulo más desarrollado.
-
-Contiene:
-
-```text
-Biblioteca
-│
-├── Dashboard
-├── Tipos de entidad
-├── Entidades
-├── Atributos
-├── Valores y opciones
-├── Grupos de atributos
-└── Colecciones
-```
-
-La Biblioteca representa el lugar donde se construyen las piezas reutilizables de OmniMerge.
-
----
-
-## 🌐 Comunidad
-
-Permite explorar contenido publicado por otros usuarios.
-
-Actualmente contempla:
-
-* Entidades.
-* Colecciones.
-* Atributos.
-* Búsqueda.
-* Filtros.
-* Ordenamiento.
-* Contadores.
-* Detalles.
-* Clonación de contenido.
-
----
-
-## 👤 Perfil y cuenta
-
-Actualmente permite administrar aspectos básicos de la cuenta.
-
-Está preparado para evolucionar posteriormente hacia:
-
-* Perfil público.
-* Avatar.
-* Biografía.
-* Privacidad.
-* Seguridad.
-* Apariencia.
-* Notificaciones.
-* Preferencias.
-
----
-
-# 💡 Conceptos principales
-
-## Tipo de entidad
-
-Define la clasificación general de una entidad.
+Los usuarios pueden definir las categorías generales de sus entidades.
 
 Ejemplos:
 
 ```text
 Personaje
-País
 Animal
+País
 Objeto
-Planeta
+Vehículo
+Organización
 Criatura
-Lugar
 Concepto
 ```
 
+Cada tipo permite organizar la biblioteca sin imponer una estructura fija de atributos.
+
 ---
 
-## Entidad
+# 👤 Entidades
 
-Es un elemento concreto creado por el usuario.
+Las entidades constituyen el núcleo principal de OmniMerge.
 
-Ejemplos:
+Una Entidad puede almacenar información como:
+
+* propietario;
+* tipo;
+* código interno;
+* nombre;
+* slug;
+* descripción;
+* imagen;
+* estado;
+* visibilidad;
+* configuración de clonación;
+* métricas comunitarias;
+* metadata;
+* atributos;
+* colecciones;
+* versiones.
+
+Ejemplo:
 
 ```text
 Naruto Uzumaki
-Perú
-Dragón Arcano
-Espada Legendaria
-Planeta Tierra
+├── Tipo: Personaje
+├── Código: ENT000001
+├── Estado: ACTIVE
+├── Visibilidad: PUBLIC
+├── Imagen
+├── Descripción
+├── Características
+├── Colecciones
+└── Versiones
 ```
 
 ---
 
-## Atributo
+# 🗂️ Biblioteca de Entidades
 
-Representa una característica que puede asignarse a una entidad.
+La biblioteca permite administrar las entidades pertenecientes al usuario.
+
+Dispone de diferentes formas de visualización:
+
+* galería;
+* cuadrícula;
+* lista;
+* tabla.
+
+También incluye herramientas para:
+
+* búsqueda;
+* ordenamiento;
+* filtros;
+* estado;
+* visibilidad;
+* tipo;
+* presencia de imagen;
+* selección;
+* navegación hacia edición o detalle.
+
+La imagen utilizada puede resolverse mediante la **Base activa de la Entidad**, manteniendo el nombre y demás datos originales cuando corresponde.
+
+---
+
+# 🧰 Edición masiva
+
+OmniMerge dispone de funcionalidades para trabajar con múltiples entidades.
+
+La edición masiva permite seleccionar varias Entidades y ejecutar determinadas operaciones sobre el conjunto.
+
+Entre las operaciones contempladas se encuentran:
+
+* modificación de propiedades compartidas;
+* cambios de estado;
+* archivado;
+* eliminación lógica;
+* administración grupal.
+
+Las acciones sensibles utilizan confirmaciones antes de ejecutarse.
+
+---
+
+# 🏷️ Sistema de Atributos dinámicos
+
+Uno de los componentes más importantes de OmniMerge es su sistema de atributos.
+
+El usuario puede crear atributos sin modificar la estructura de la base de datos.
 
 Ejemplos:
 
 ```text
 Anime
+Clan
+Aldea
+Naturaleza
+Sexo
+Rango Ninja
+Dōjutsu
 Elemento
-Poder
-Edad
-Fecha de nacimiento
-Color
-Puede volar
-Descripción
+País
+Región
+Ciudad
+Marca
+Categoría
 ```
+
+Los atributos pueden disponer de:
+
+* nombre;
+* código;
+* descripción;
+* tipo de dato;
+* imagen;
+* icono;
+* ayuda;
+* placeholder;
+* orden;
+* visibilidad;
+* obligatoriedad;
+* configuración;
+* jerarquía;
+* catálogo de opciones.
 
 ---
 
-## Opción de atributo
+# 🔢 Tipos de datos
 
-Es un valor perteneciente a un catálogo.
+El sistema está preparado para manejar diferentes tipos de valores.
+
+Entre ellos:
+
+```text
+TEXT
+NUMBER
+BOOLEAN
+DATE
+OPTION
+```
+
+Los atributos de tipo `OPTION` pueden trabajar mediante catálogos definidos por el usuario.
+
+---
+
+# 📚 Catálogos y opciones
+
+Los catálogos permiten evitar texto libre cuando los valores pertenecen a un conjunto conocido.
 
 Ejemplo:
 
@@ -482,498 +363,1114 @@ Ejemplo:
 Atributo:
 Anime
 
-Opciones:
+Catálogo:
 ├── Naruto
 ├── One Piece
+├── Bleach
 ├── Dragon Ball
-└── Bleach
+└── Attack on Titan
 ```
 
-Cada opción puede almacenar:
-
-* Nombre.
-* Código.
-* Descripción.
-* Imagen.
-* Icono.
-* Color.
-* Valor numérico.
-* Opción padre.
-* Metadatos.
-* Estado.
-
----
-
-## Grupo de atributos
-
-Permite organizar atributos visualmente.
-
-Ejemplos:
+Otro ejemplo:
 
 ```text
-Información general
-Apariencia
-Personalidad
-Combate
-Historia
-Poderes
-Información geográfica
+Atributo:
+Naturaleza de Chakra
+
+Opciones:
+├── Fuego
+├── Agua
+├── Viento
+├── Tierra
+└── Rayo
 ```
+
+Cada opción puede disponer de:
+
+* nombre;
+* descripción;
+* imagen;
+* código;
+* estado;
+* orden;
+* relaciones;
+* jerarquía.
 
 ---
 
-## Colección
+# 🌳 Jerarquía de opciones
 
-Permite agrupar entidades.
+Las opciones pertenecientes al mismo catálogo pueden relacionarse mediante una estructura padre-hijo.
 
 Ejemplo:
 
 ```text
-Colección:
-Protagonistas de anime
+Perú
+├── Tacna
+│   ├── Tacna
+│   ├── Pocollay
+│   └── Gregorio Albarracín
+│
+├── Lima
+│   ├── Miraflores
+│   └── San Isidro
+│
+└── Arequipa
+```
 
-Entidades:
-├── Naruto Uzumaki
-├── Monkey D. Luffy
-└── Son Goku
+La relación se construye mediante:
+
+```text
+parent_option_id
+```
+
+Esto permite representar estructuras jerárquicas dentro de un mismo atributo.
+
+---
+
+# 🧠 Contextos y dependencias de Atributos
+
+OmniMerge dispone de un sistema destinado a determinar cuándo determinados atributos son relevantes.
+
+Ejemplo:
+
+```text
+Anime = Naruto
+        ↓
+Mostrar:
+├── Aldea Ninja
+├── Clan
+├── Rango Ninja
+└── Naturaleza de Chakra
+```
+
+Mientras que:
+
+```text
+Anime = One Piece
+        ↓
+Mostrar:
+├── Haki
+├── Tripulación
+└── Fruta del Diablo
+```
+
+De esta manera un usuario puede mantener una biblioteca genérica sin llenar formularios con atributos irrelevantes.
+
+---
+
+## Acciones contextuales
+
+Las reglas pueden utilizar conceptos como:
+
+```text
+SHOW
+HIDE
+REQUIRE
+```
+
+y modos lógicos:
+
+```text
+ALL
+ANY
+```
+
+Ejemplo:
+
+```text
+Mostrar Rango Ninja si:
+
+Anime = Naruto
+AND
+Tipo de Personaje = Ninja
 ```
 
 ---
 
-## Biblioteca
+## Operadores
 
-Es el repositorio personal del usuario.
+Las condiciones contemplan operadores como:
 
-Contiene las piezas que posteriormente podrán utilizarse dentro de otros módulos.
-
----
-
-## Hub
-
-Es el centro general de OmniMerge.
-
-No administra directamente las estructuras complejas de las entidades.
-
-Su trabajo es conectar los diferentes módulos.
+```text
+EQUALS
+NOT_EQUALS
+EXISTS
+NOT_EXISTS
+```
 
 ---
 
-# ✨ Características implementadas
+# 🔗 Relaciones entre opciones de diferentes catálogos
+
+Además de las jerarquías internas, OmniMerge permite relacionar opciones pertenecientes a diferentes atributos.
+
+Ejemplo:
+
+```text
+País = Perú
+        ↓
+Región permitida:
+├── Tacna
+├── Lima
+└── Arequipa
+```
+
+Otro ejemplo:
+
+```text
+Anime = Naruto
+        ↓
+Aldea:
+├── Konoha
+├── Suna
+├── Kiri
+├── Kumo
+└── Iwa
+```
+
+Estas dependencias permiten crear formularios mucho más inteligentes.
+
+---
+
+# 🗃️ Grupos de Atributos
+
+Los atributos pueden organizarse visualmente mediante grupos.
+
+Ejemplo:
+
+```text
+IDENTIDAD
+├── Nombre
+├── Sexo
+└── Edad
+
+ORIGEN
+├── País
+├── Aldea
+└── Clan
+
+HABILIDADES
+├── Naturaleza
+├── Dōjutsu
+└── Especialidad
+```
+
+Los grupos son principalmente una herramienta de organización visual y no deben confundirse con las dependencias contextuales.
+
+---
+
+# 🗂️ Colecciones
+
+Las Entidades pueden organizarse mediante Colecciones.
+
+Ejemplos:
+
+```text
+Personajes de Naruto
+Hokages
+Akatsuki
+Equipo 7
+Personajes favoritos
+Vehículos japoneses
+Países de Sudamérica
+```
+
+Una Entidad puede formar parte de distintas Colecciones.
+
+Las Colecciones pueden almacenar información como:
+
+* propietario;
+* nombre;
+* descripción;
+* imagen;
+* visibilidad;
+* orden;
+* elementos asociados.
+
+---
+
+# 🔄 Sistema de Versiones
+
+OmniMerge permite que una misma Entidad posea múltiples representaciones.
+
+Esto evita crear una Entidad independiente cada vez que un elemento cambia de época, transformación, edad, vestimenta o estado.
+
+Ejemplo:
+
+```text
+Naruto Uzumaki
+│
+├── Naruto Niño
+├── Naruto Shippuden
+├── Naruto Modo Sabio
+├── Naruto Modo Kurama
+├── Naruto Adulto
+└── Naruto Hokage
+```
+
+Todas continúan perteneciendo a:
+
+```text
+Naruto Uzumaki
+```
+
+---
+
+# 🧬 Version
+
+`Version` representa la definición reutilizable del contexto.
+
+Ejemplos:
+
+```text
+Shippuden
+Boruto
+Niño
+Adulto
+Modo Sabio
+Modo Kurama
+Hokage
+```
+
+---
+
+# 🧍 EntityVersion
+
+`EntityVersion` representa la aplicación de una Version concreta a una Entidad.
+
+Ejemplo:
+
+```text
+Version:
+Shippuden
+
+EntityVersion:
+Naruto Uzumaki — Shippuden
+```
+
+---
+
+# 🧭 Tipos de Version
+
+Las Versiones pueden clasificarse según su naturaleza.
+
+Entre los tipos contemplados se encuentran:
+
+```text
+ERA
+AGE
+FORM
+TRANSFORMATION
+OUTFIT
+TIMELINE
+OTHER
+```
+
+Esto permite modelar diferentes clases de cambios.
+
+---
+
+# 🌲 Jerarquía de EntityVersions
+
+Una EntityVersion puede depender de otra.
+
+Ejemplo:
+
+```text
+Naruto
+│
+└── Shippuden
+    │
+    ├── Modo Sabio
+    │
+    └── Modo Kurama
+```
+
+Esto permite construir cadenas de herencia.
+
+---
+
+# 🧠 Atributos efectivos
+
+Una Version puede heredar información y posteriormente sobrescribir atributos concretos.
+
+Conceptualmente:
+
+```text
+Entidad original
+       ↓
+Version padre
+       ↓
+Version hija
+       ↓
+Resultado efectivo
+```
+
+Ejemplo:
+
+```text
+Naruto Original
+├── Anime = Naruto
+├── Aldea = Konoha
+└── Clan = Uzumaki
+
+Naruto Shippuden
+├── Edad = 16
+└── Rango = Genin
+
+Modo Sabio
+└── Modo = Sennin
+```
+
+El resultado efectivo puede combinar los valores según la cadena de Versiones.
+
+---
+
+# ⚡ Version Resolver
+
+OmniMerge dispone de un servicio encargado de resolver qué Version utilizar y cuáles son sus atributos efectivos.
+
+El Resolver contempla:
+
+* Version explícita;
+* vínculos con catálogos;
+* resolución automática;
+* fallback;
+* `EntityVersion` predeterminada;
+* cadena de padres;
+* herencia de atributos;
+* sobrescrituras.
+
+---
+
+# ⚡ Default del Resolver
+
+Una `EntityVersion` puede marcarse mediante:
+
+```text
+is_default = true
+```
+
+Este concepto significa:
+
+> Version utilizada como fallback del sistema de resolución cuando no existe otro contexto más específico.
+
+No debe confundirse con la Base activa.
+
+Visualmente puede identificarse como:
+
+```text
+⚡ RESOLVER
+```
+
+---
+
+# ⭐ Base activa
+
+OmniMerge permite seleccionar una `EntityVersion` como **Base activa** de una Entidad.
+
+Ejemplo:
+
+```text
+Entidad original:
+Naruto Uzumaki
+
+Versiones:
+├── Naruto Niño
+├── Naruto Shippuden      ★ BASE ACTIVA
+├── Naruto Boruto
+└── Naruto Baryon
+```
+
+La Entidad original continúa existiendo y nunca se reemplaza físicamente.
+
+La Base activa funciona como la representación principal utilizada en determinadas vistas de trabajo.
+
+---
+
+## Base original
+
+Si no existe ninguna Base activa personalizada:
+
+```text
+Entidad original
+        ↓
+Base utilizada
+```
+
+Si existe:
+
+```text
+Entidad original
+        ↓
+se conserva
+
+EntityVersion seleccionada
+        ↓
+★ Base activa
+```
+
+El usuario puede restaurar la Base original cuando lo necesite.
+
+---
+
+# 🖼️ Imagen según Base activa
+
+En determinadas vistas de OmniMerge, como la Biblioteca y Comunidad, puede utilizarse la imagen procedente de la Base activa.
+
+Prioridad:
+
+```text
+¿Existe Base activa?
+        │
+        ├── Sí
+        │    ↓
+        │  ¿Tiene imagen?
+        │    ├── Sí → usar imagen de la Version
+        │    └── No → usar imagen original
+        │
+        └── No
+             ↓
+          imagen original
+```
+
+Este comportamiento puede cambiar únicamente la imagen sin reemplazar obligatoriamente:
+
+* nombre;
+* descripción;
+* código;
+* metadata;
+* demás información de la Entidad.
+
+---
+
+# ◎ Presentación pública
+
+OmniMerge también dispone de un concepto separado para decidir cómo debe presentarse una Entidad públicamente.
+
+Esto permite diferenciar:
+
+```text
+Entidad original
+Base activa
+Default del Resolver
+Presentación pública
+```
+
+Son conceptos independientes.
+
+---
+
+## Modos de Presentación
+
+La presentación puede trabajar conceptualmente con modos como:
+
+```text
+BASE
+VERSION_PRIMARY
+VERSION_MEDIA
+```
+
+Permitiendo escoger:
+
+* Entidad original;
+* imagen principal de una Version;
+* elemento multimedia específico.
+
+---
+
+# 🧩 Diferencia entre los cuatro conceptos
+
+Esta separación es importante dentro de OmniMerge.
+
+```text
+ENTITY ORIGINAL
+│
+│ Datos canónicos.
+│ Nunca desaparece al seleccionar otra representación.
+│
+├── ★ BASE ACTIVA
+│      Representación principal para determinadas
+│      vistas de trabajo.
+│
+├── ⚡ DEFAULT RESOLVER
+│      Fallback técnico utilizado durante
+│      resolución automática.
+│
+└── ◎ PRESENTACIÓN PÚBLICA
+       Representación destinada a Comunidad.
+```
+
+Una misma EntityVersion puede cumplir varios roles.
+
+Ejemplo:
+
+```text
+Naruto Shippuden
+★ BASE
+◎ PÚBLICA
+
+Naruto Boruto
+⚡ RESOLVER
+```
+
+o:
+
+```text
+Naruto Shippuden
+★ BASE
+⚡ RESOLVER
+◎ PÚBLICA
+```
+
+---
+
+# 🖼️ Multimedia de Versiones
+
+Las `EntityVersion` disponen de soporte para contenido multimedia.
+
+Esto permite tener:
+
+```text
+Naruto Modo Sabio
+│
+├── Imagen principal
+│
+└── Galería
+    ├── Imagen 1
+    ├── Imagen 2
+    └── Imagen 3
+```
+
+La galería puede utilizarse posteriormente para elegir imágenes específicas en la presentación pública.
+
+---
+
+# 🌐 Comunidad
+
+OmniMerge posee un módulo de Comunidad donde los usuarios pueden descubrir contenido público creado por otros usuarios.
+
+Permite explorar distintos tipos de recursos, incluyendo:
+
+* Entidades;
+* Colecciones;
+* Atributos;
+* Catálogos;
+* creadores.
+
+---
+
+# 🔎 Explorador
+
+El módulo de Comunidad dispone de herramientas para:
+
+* búsqueda;
+* filtrado;
+* tarjetas;
+* detalle de contenido;
+* navegación por creadores;
+* consulta de Colecciones;
+* descubrimiento de Entidades.
+
+---
+
+# 📥 Clonación
+
+Una de las ideas centrales de OmniMerge es la reutilización.
+
+Un usuario puede encontrar contenido público creado por otra persona y crear una copia independiente dentro de su propia Biblioteca.
+
+Conceptualmente:
+
+```text
+Usuario A
+   ↓
+crea una Entidad pública
+   ↓
+Comunidad
+   ↓
+Usuario B
+   ↓
+Clonar
+   ↓
+Copia privada e independiente
+```
+
+La creación original no debe modificarse.
+
+---
+
+# 👁️ Visibilidad
+
+Los recursos pueden disponer de diferentes niveles de visibilidad.
+
+Ejemplo:
+
+```text
+PRIVATE
+PUBLIC
+```
+
+Esto permite separar:
+
+```text
+Biblioteca personal
+        ↓
+Contenido privado
+
+Comunidad
+        ↓
+Contenido público
+```
+
+---
+
+# 🗑️ Eliminación lógica
+
+Diversos recursos del sistema utilizan `SoftDeletes`.
+
+Esto significa que una eliminación puede marcar un registro mediante:
+
+```text
+deleted_at
+```
+
+sin eliminarlo inmediatamente de forma física.
+
+Este enfoque facilita:
+
+* recuperación futura;
+* auditoría;
+* conservación de relaciones;
+* mayor seguridad sobre los datos.
+
+---
+
+# 🎨 Interfaz
+
+OmniMerge utiliza una interfaz personalizada construida principalmente con:
+
+* Blade;
+* Tailwind CSS;
+* Alpine.js.
+
+La interfaz incorpora:
+
+* tarjetas;
+* modales;
+* buscadores;
+* selectores;
+* vistas múltiples;
+* previews de imágenes;
+* galerías;
+* formularios dinámicos;
+* paneles;
+* badges;
+* navegación contextual;
+* drag/drop en determinadas cargas;
+* componentes reutilizables.
+
+---
+
+# ✅ Sistema de confirmaciones OmniMerge
+
+Las operaciones delicadas están evolucionando desde los diálogos nativos del navegador:
+
+```javascript
+confirm(...)
+```
+
+hacia un componente visual global propio.
+
+Ejemplo:
+
+```text
+┌──────────────────────────────────┐
+│ ★  Cambiar Base activa           │
+│                                  │
+│ Naruto Shippuden                 │
+│                                  │
+│ Esta Version pasará a utilizarse │
+│ como Base principal.             │
+│                                  │
+│ [Cancelar]      [Usar como Base] │
+└──────────────────────────────────┘
+```
+
+El sistema permite distintas variantes:
+
+```text
+danger
+warning
+primary
+violet
+success
+```
+
+y puede mostrar:
+
+* icono;
+* título;
+* mensaje;
+* detalle;
+* imagen;
+* recurso afectado;
+* botón de acción;
+* estado `Procesando...`.
+
+---
+
+# 🖼️ Componentes de carga de imágenes
+
+OmniMerge dispone de componentes reutilizables para mejorar la experiencia de carga de imágenes.
+
+Entre sus características se encuentran:
+
+* selección mediante clic;
+* drag & drop;
+* preview antes de guardar;
+* validación visual;
+* eliminación;
+* restauración;
+* visualización de nombre y tamaño;
+* múltiples imágenes para galerías.
+
+---
+
+# 🏗️ Arquitectura general
+
+OmniMerge está desarrollado utilizando una arquitectura Laravel tradicional organizada en distintas capas.
+
+```text
+Request
+   ↓
+Route
+   ↓
+Controller
+   ↓
+Form Request / Policy
+   ↓
+Service
+   ↓
+Model
+   ↓
+Database
+   ↓
+Blade View
+```
+
+En funcionalidades más complejas se utilizan Services para evitar colocar toda la lógica dentro de los Controllers.
+
+Ejemplos:
+
+```text
+EntityBuilderService
+VersionResolverService
+EntityVersionService
+EntityPresentationService
+EntityBaseVersionService
+AttributeContextService
+```
+
+---
+
+# 🛠️ Tecnologías
+
+## Backend
+
+* PHP 8.2+
+* Laravel 12
+* Eloquent ORM
+* Laravel Policies
+* Form Requests
+* Services
+* Blade
+
+## Base de datos
+
+* MySQL
+
+## Frontend
+
+* Blade
+* Tailwind CSS
+* Alpine.js
+* JavaScript
+* Vite
+
+## Desarrollo
+
+* Composer
+* Node.js
+* npm
+* Git
+* GitHub
+
+---
+
+# 🗄️ Modelo conceptual de datos
+
+La plataforma contiene diferentes grupos de tablas.
 
 ## Usuarios
 
-* Registro.
-* Username único.
-* Correo único.
-* Inicio de sesión.
-* Cierre de sesión.
-* Estado del usuario.
-* Roles.
-* Registro de último acceso.
-* Recuperación de contraseña.
-
----
-
-## Tipos de entidad
-
-* Crear.
-* Listar.
-* Mostrar.
-* Editar.
-* Eliminar.
-* Código personalizado.
-* Nombre.
-* Descripción.
-* Icono.
-* Color.
-* Estado.
-* Orden.
+```text
+users
+```
 
 ---
 
 ## Entidades
 
-* CRUD completo.
-* Tipo de entidad.
-* Código.
-* Nombre.
-* Slug.
-* Descripción.
-* Imagen.
-* Estado.
-* Visibilidad.
-* Publicación.
-* Clonación.
-* Metadatos.
-* Atributos dinámicos.
-* Colecciones.
-
----
-
-## Atributos dinámicos
-
-Tipos de datos contemplados:
-
 ```text
-TEXT
-LONG_TEXT
-INTEGER
-DECIMAL
-BOOLEAN
-DATE
-COLOR
-OPTION
-```
-
-Orígenes de valores:
-
-```text
-FREE
-CATALOG
-MIXED
-```
-
-Presentaciones posibles:
-
-```text
-TEXTBOX
-TEXTAREA
-NUMBER
-SELECT
-MULTISELECT
-RADIO
-CHECKBOX
-TAGS
-SLIDER
-COLOR_PICKER
-DATE_PICKER
-```
-
-Configuraciones:
-
-* Obligatorio.
-* Visible.
-* Destacado.
-* Filtrable.
-* Comparable.
-* Buscable.
-* Multivalor.
-* Valores personalizados.
-* Valores mínimos y máximos.
-* Unidad.
-* Longitud.
-* Configuración JSON.
-
----
-
-## Opciones
-
-* Crear opciones.
-* Editar.
-* Eliminar.
-* Buscar.
-* Filtrar.
-* Imagen.
-* Icono.
-* Color.
-* Descripción.
-* Valor numérico.
-* Orden.
-* Jerarquía padre/hijo.
-* Metadatos.
-
----
-
-## Multiselección
-
-Un atributo puede permitir múltiples opciones.
-
-Ejemplo:
-
-```text
-Elemento:
-├── Fuego
-├── Viento
-└── Luz
+entity_types
+entities
 ```
 
 ---
 
-## Grupos de atributos
-
-Permiten organizar características.
-
-Diseños contemplados:
+## Atributos
 
 ```text
-LIST
-GRID
-CARDS
-TABLE
-COMPACT
+attributes
+attribute_options
+entity_attributes
+entity_attribute_values
+attribute_groups
+attribute_group_attribute
+```
+
+---
+
+## Contextos
+
+```text
+attribute_relationships
+attribute_context_rules
+attribute_context_rule_conditions
+attribute_option_relationships
 ```
 
 ---
 
 ## Colecciones
 
-* CRUD.
-* Portada.
-* Icono.
-* Color.
-* Visibilidad.
-* Estado.
-* Publicación.
-* Clonación.
-* Asociación de múltiples entidades.
-* Orden de entidades.
-
----
-
-## Comunidad
-
-* Contenido público.
-* Búsqueda.
-* Filtros.
-* Ordenamiento.
-* Estadísticas.
-* Detalles públicos.
-* Vistas.
-* Clonaciones.
-* Procedencia.
-* Copias independientes.
-
----
-
-# 🛠 Stack tecnológico
-
-## Backend
-
 ```text
-PHP 8.2+
-Laravel 12
-Eloquent ORM
-Laravel Breeze
-Laravel Policies
-Form Requests
-Services
-Migrations
-```
-
-## Frontend
-
-```text
-Blade
-Tailwind CSS
-Alpine.js
-JavaScript
-Axios
-Vite
-```
-
-## Base de datos
-
-```text
-MySQL
-```
-
-## Desarrollo
-
-```text
-Composer
-Node.js
-NPM
-Git
-GitHub
-PHPUnit
-Laravel Pint
-Visual Studio Code
+collections
+collection_entity
 ```
 
 ---
 
-# 🧱 Arquitectura Laravel
-
-OmniMerge utiliza MVC complementado con otras capas.
+## Versiones
 
 ```text
-Solicitud HTTP
-      │
-      ▼
-    Route
-      │
-      ▼
-  Middleware
-      │
-      ▼
- Controller
-      │
- ┌────┼──────────────┐
- │    │              │
- ▼    ▼              ▼
-Request Policy      Service
- │    │              │
- └────┴──────┬───────┘
-             ▼
-           Model
-             │
-             ▼
-          MySQL
-             │
-             ▼
-        Blade View
-             │
-             ▼
-        Navegador
+versions
+entity_versions
+version_catalog_links
+entity_version_attributes
+entity_version_attribute_values
+entity_version_images
 ```
 
 ---
 
-# 📦 Responsabilidad de cada capa
-
-## Migration
-
-Define la estructura de la base de datos.
+## Representación de Entidades
 
 ```text
-database/migrations/
+entity_presentations
+entity_base_versions
 ```
 
 ---
 
-## Model
+# 🔗 Relaciones principales
 
-Representa los datos y relaciones.
+De forma simplificada:
 
 ```text
-app/Models/
+User
+│
+├── EntityType
+│
+├── Entity
+│   │
+│   ├── EntityAttribute
+│   │   └── EntityAttributeValue
+│   │
+│   ├── Collection
+│   │
+│   ├── EntityVersion
+│   │   ├── EntityVersionAttribute
+│   │   ├── EntityVersionAttributeValue
+│   │   └── EntityVersionImage
+│   │
+│   ├── EntityBaseVersion
+│   │
+│   └── EntityPresentation
+│
+├── Attribute
+│   ├── AttributeOption
+│   ├── AttributeGroup
+│   └── Context Rules
+│
+└── Version
 ```
 
 ---
 
-## Form Request
+# 🧭 Flujo recomendado de creación
 
-Valida y normaliza información.
+Una manera natural de trabajar con OmniMerge es la siguiente.
+
+## Paso 1 — Crear Tipo de Entidad
 
 ```text
-app/Http/Requests/
+Personaje
 ```
+
+## Paso 2 — Crear Atributos
+
+```text
+Anime
+Clan
+Aldea
+Naturaleza
+Rango Ninja
+```
+
+## Paso 3 — Crear Catálogos
+
+```text
+Anime
+├── Naruto
+├── One Piece
+└── Bleach
+```
+
+## Paso 4 — Crear dependencias
+
+```text
+Anime = Naruto
+        ↓
+Mostrar Clan
+Mostrar Aldea
+Mostrar Rango Ninja
+```
+
+## Paso 5 — Crear Entidad
+
+```text
+Naruto Uzumaki
+```
+
+## Paso 6 — Asignar características
+
+```text
+Anime = Naruto
+Clan = Uzumaki
+Aldea = Konoha
+Naturaleza = Viento
+```
+
+## Paso 7 — Crear Versiones
+
+```text
+Naruto Niño
+Naruto Shippuden
+Naruto Modo Sabio
+Naruto Hokage
+```
+
+## Paso 8 — Configurar Base
+
+```text
+Naruto Shippuden
+★ BASE ACTIVA
+```
+
+## Paso 9 — Crear Colecciones
+
+```text
+Equipo 7
+Hokages
+Personajes de Naruto
+```
+
+## Paso 10 — Publicar
+
+```text
+PUBLIC
+```
+
+permitiendo que aparezca en Comunidad.
 
 ---
 
-## Policy
+# 🌀 Ejemplo completo: Universo Naruto
 
-Controla permisos.
+OmniMerge puede utilizarse para representar información de una franquicia completa.
 
 ```text
-app/Policies/
+Naruto
+│
+├── Atributos
+│   ├── Anime
+│   ├── Clan
+│   ├── Aldea
+│   ├── Naturaleza
+│   ├── Rango Ninja
+│   ├── Dōjutsu
+│   ├── Afiliación
+│   ├── Jinchūriki
+│   └── Bijū
+│
+├── Entidades
+│   ├── Naruto Uzumaki
+│   ├── Sasuke Uchiha
+│   ├── Sakura Haruno
+│   └── Kakashi Hatake
+│
+├── Versiones
+│   └── Naruto Uzumaki
+│       ├── Niño
+│       ├── Shippuden
+│       ├── Modo Sabio
+│       ├── Modo Kurama
+│       ├── Adulto
+│       └── Hokage
+│
+└── Colecciones
+    ├── Equipo 7
+    ├── Hokages
+    ├── Akatsuki
+    └── Jinchūrikis
 ```
+
+El mismo motor puede utilizarse para cualquier otro dominio.
 
 ---
 
-## Controller
-
-Coordina solicitudes.
-
-```text
-app/Http/Controllers/
-```
-
----
-
-## Service
-
-Contiene lógica compleja.
-
-```text
-app/Services/
-```
-
----
-
-## Route
-
-Define URLs.
-
-```text
-routes/
-```
-
----
-
-## Blade
-
-Genera la interfaz.
-
-```text
-resources/views/
-```
-
----
-
-## Test
-
-Comprueba el comportamiento esperado.
-
-```text
-tests/
-```
-
----
-
-# 📁 Estructura del proyecto
+# 📂 Estructura principal del proyecto
 
 ```text
 OmniMerge/
 │
 ├── app/
+│   │
 │   ├── Http/
 │   │   ├── Controllers/
-│   │   │   ├── Auth/
-│   │   │   ├── Attributes/
-│   │   │   ├── Collections/
-│   │   │   ├── Community/
-│   │   │   ├── Dashboard/
-│   │   │   ├── Entities/
-│   │   │   ├── EntityTypes/
-│   │   │   ├── Hub/
-│   │   │   ├── Controller.php
-│   │   │   └── ProfileController.php
-│   │   │
 │   │   └── Requests/
-│   │       ├── Auth/
-│   │       ├── Attributes/
-│   │       ├── Collections/
-│   │       ├── Entities/
-│   │       └── EntityTypes/
 │   │
 │   ├── Models/
-│   │   ├── Attribute.php
-│   │   ├── AttributeGroup.php
-│   │   ├── AttributeOption.php
-│   │   ├── Collection.php
-│   │   ├── Entity.php
-│   │   ├── EntityAttribute.php
-│   │   ├── EntityAttributeValue.php
-│   │   ├── EntityType.php
-│   │   └── User.php
-│   │
 │   ├── Policies/
-│   │   ├── AttributeGroupPolicy.php
-│   │   ├── AttributeOptionPolicy.php
-│   │   ├── AttributePolicy.php
-│   │   ├── CollectionPolicy.php
-│   │   ├── EntityPolicy.php
-│   │   └── EntityTypePolicy.php
-│   │
 │   ├── Providers/
 │   │
 │   └── Services/
-│       ├── Community/
-│       │   └── CommunityCloneService.php
-│       │
-│       └── Entities/
-│           └── EntityAttributeValueService.php
+│       ├── Attributes/
+│       ├── Entities/
+│       └── Versions/
 │
 ├── bootstrap/
 │
@@ -984,995 +1481,66 @@ OmniMerge/
 │   ├── migrations/
 │   └── seeders/
 │
-├── docs/
-│   ├── arquitectura/
-│   ├── desarrollo/
-│   ├── modulos/
-│   ├── manuales/
-│   └── pdf/
-│
 ├── public/
 │
 ├── resources/
 │   ├── css/
 │   ├── js/
-│   │
 │   └── views/
-│       ├── auth/
+│       ├── attributes/
 │       ├── attribute-groups/
 │       ├── attribute-options/
-│       ├── attributes/
 │       ├── collections/
 │       ├── community/
 │       ├── components/
-│       ├── dashboard/
 │       ├── entities/
 │       ├── entity-types/
-│       ├── hub/
+│       ├── entity-versions/
 │       ├── layouts/
-│       ├── partials/
-│       ├── profile/
-│       └── welcome.blade.php
+│       └── versions/
 │
 ├── routes/
-│   ├── auth.php
-│   ├── console.php
 │   └── web.php
 │
 ├── storage/
 │
 ├── tests/
 │
-├── .env.example
-├── .gitignore
 ├── artisan
 ├── composer.json
-├── composer.lock
 ├── package.json
-├── package-lock.json
-├── phpunit.xml
-├── tailwind.config.js
 ├── vite.config.js
 └── README.md
 ```
 
-> `docs/` es la carpeta recomendada para conservar la documentación técnica del proyecto.
-
 ---
 
-# 🖼 Estructura de vistas
+# ⚙️ Requisitos
 
-```text
-resources/views/
-│
-├── auth/
-│   ├── login.blade.php
-│   ├── register.blade.php
-│   └── ...
-│
-├── attributes/
-│   ├── partials/
-│   │   └── form.blade.php
-│   ├── index.blade.php
-│   ├── create.blade.php
-│   ├── show.blade.php
-│   └── edit.blade.php
-│
-├── attribute-options/
-│   ├── partials/
-│   │   └── form.blade.php
-│   ├── index.blade.php
-│   ├── create.blade.php
-│   ├── show.blade.php
-│   └── edit.blade.php
-│
-├── attribute-groups/
-│
-├── collections/
-│
-├── community/
-│   ├── partials/
-│   │   ├── filters.blade.php
-│   │   ├── entity-card.blade.php
-│   │   ├── attribute-card.blade.php
-│   │   └── collection-card.blade.php
-│   ├── index.blade.php
-│   ├── entity.blade.php
-│   ├── attribute.blade.php
-│   └── collection.blade.php
-│
-├── dashboard/
-│   └── index.blade.php
-│
-├── entities/
-│
-├── entity-types/
-│
-├── hub/
-│   └── index.blade.php
-│
-├── layouts/
-│   ├── app.blade.php
-│   ├── guest.blade.php
-│   └── hub.blade.php
-│
-├── partials/
-│   ├── sidebar.blade.php
-│   └── header.blade.php
-│
-└── welcome.blade.php
-```
-
----
-
-# 🗄 Modelo de datos
-
-## `users`
-
-Usuarios de OmniMerge.
-
-Principales datos:
-
-```text
-id
-name
-username
-email
-password
-role
-status
-last_login_at
-timestamps
-deleted_at
-```
-
----
-
-## `entity_types`
-
-Tipos definidos por los usuarios.
-
-Ejemplos:
-
-```text
-Personaje
-País
-Objeto
-Criatura
-```
-
----
-
-## `entities`
-
-Entidades principales.
-
-Contempla:
-
-```text
-user_id
-entity_type_id
-source_entity_id
-code
-name
-slug
-description
-image
-visibility
-status
-allow_cloning
-views_count
-clones_count
-published_at
-metadata
-```
-
----
-
-## `attributes`
-
-Características dinámicas.
-
-Incluye información como:
-
-```text
-user_id
-source_attribute_id
-code
-name
-slug
-description
-image
-icon
-color
-data_type
-value_source
-display_style
-allows_multiple
-allows_custom_values
-is_required
-is_filterable
-is_comparable
-is_searchable
-is_visible
-is_featured
-unit
-scope
-status
-allow_cloning
-views_count
-clones_count
-published_at
-```
-
----
-
-## `attribute_options`
-
-Opciones seleccionables.
-
-Ejemplo:
-
-```text
-Attribute:
-Anime
-
-Options:
-Naruto
-One Piece
-Dragon Ball
-```
-
----
-
-## `attribute_groups`
-
-Agrupación visual de atributos.
-
----
-
-## `attribute_group_attribute`
-
-Relación muchos a muchos entre:
-
-```text
-AttributeGroup
-↕
-Attribute
-```
-
----
-
-## `entity_attributes`
-
-Relaciona:
-
-```text
-Entity
-↓
-Attribute
-```
-
-Permite almacenar configuración específica de ese atributo dentro de una entidad.
-
----
-
-## `entity_attribute_values`
-
-Almacena valores concretos.
-
-Puede manejar:
-
-```text
-text_value
-integer_value
-decimal_value
-boolean_value
-date_value
-color_value
-attribute_option_id
-custom_value
-json_value
-```
-
----
-
-## `collections`
-
-Agrupa entidades.
-
----
-
-## `collection_entity`
-
-Tabla intermedia entre:
-
-```text
-Collection
-↕
-Entity
-```
-
----
-
-## `community_interactions`
-
-Registra actividad comunitaria.
-
-Tipos contemplados:
-
-```text
-VIEW
-CLONE
-FAVORITE
-```
-
-Contenido:
-
-```text
-ENTITY
-COLLECTION
-ATTRIBUTE
-```
-
----
-
-# 🔗 Relaciones principales
-
-```text
-User
-│
-├── hasMany EntityType
-├── hasMany Entity
-├── hasMany Attribute
-├── hasMany AttributeGroup
-└── hasMany Collection
-```
-
-```text
-EntityType
-│
-├── belongsTo User
-└── hasMany Entity
-```
-
-```text
-Entity
-│
-├── belongsTo User
-├── belongsTo EntityType
-├── hasMany EntityAttribute
-├── belongsToMany Collection
-├── belongsTo source Entity
-└── hasMany cloned Entities
-```
-
-```text
-Attribute
-│
-├── belongsTo User
-├── hasMany AttributeOption
-├── hasMany EntityAttribute
-├── belongsToMany AttributeGroup
-├── belongsTo source Attribute
-└── hasMany cloned Attributes
-```
-
-```text
-AttributeOption
-│
-├── belongsTo Attribute
-├── belongsTo parent AttributeOption
-├── hasMany child AttributeOption
-└── hasMany EntityAttributeValue
-```
-
-```text
-Collection
-│
-├── belongsTo User
-├── belongsToMany Entity
-├── belongsTo source Collection
-└── hasMany cloned Collections
-```
-
----
-
-# 🧭 Rutas principales
-
-## Página pública
-
-```text
-GET /
-```
-
----
-
-## Autenticación
-
-```text
-GET  /login
-POST /login
-
-GET  /register
-POST /register
-
-POST /logout
-```
-
-También existen las rutas de recuperación y cambio de contraseña proporcionadas por Breeze.
-
----
-
-## Centro OmniMerge
-
-```text
-GET /hub
-```
-
-Nombre:
-
-```text
-hub
-```
-
----
-
-## Biblioteca
-
-```text
-GET /dashboard
-```
-
-Nombre:
-
-```text
-dashboard
-```
-
----
-
-## Tipos de entidad
-
-```text
-GET    /entity-types
-GET    /entity-types/create
-POST   /entity-types
-GET    /entity-types/{entity_type}
-GET    /entity-types/{entity_type}/edit
-PUT    /entity-types/{entity_type}
-DELETE /entity-types/{entity_type}
-```
-
----
-
-## Entidades
-
-```text
-GET    /entities
-GET    /entities/create
-POST   /entities
-GET    /entities/{entity}
-GET    /entities/{entity}/edit
-PUT    /entities/{entity}
-DELETE /entities/{entity}
-```
-
----
-
-## Atributos de entidad
-
-```text
-GET /entities/{entity}/attributes
-PUT /entities/{entity}/attributes
-```
-
----
-
-## Atributos
-
-```text
-GET    /attributes
-GET    /attributes/create
-POST   /attributes
-GET    /attributes/{attribute}
-GET    /attributes/{attribute}/edit
-PUT    /attributes/{attribute}
-DELETE /attributes/{attribute}
-```
-
----
-
-## Opciones
-
-```text
-GET    /attribute-options
-GET    /attribute-options/create
-GET    /attribute-options/{attributeOption}
-GET    /attribute-options/{attributeOption}/edit
-
-POST   /attributes/{attribute}/options
-PUT    /attributes/{attribute}/options/{option}
-
-DELETE /attribute-options/{attributeOption}
-```
-
----
-
-## Grupos
-
-```text
-GET    /attribute-groups
-GET    /attribute-groups/create
-POST   /attribute-groups
-GET    /attribute-groups/{attribute_group}
-GET    /attribute-groups/{attribute_group}/edit
-PUT    /attribute-groups/{attribute_group}
-DELETE /attribute-groups/{attribute_group}
-```
-
----
-
-## Colecciones
-
-```text
-GET    /collections
-GET    /collections/create
-POST   /collections
-GET    /collections/{collection}
-GET    /collections/{collection}/edit
-PUT    /collections/{collection}
-DELETE /collections/{collection}
-```
-
----
-
-## Comunidad
-
-```text
-GET /explore
-
-GET /explore/entities/{entity}
-GET /explore/collections/{collection}
-GET /explore/attributes/{attribute}
-
-POST /explore/entities/{entity}/clone
-POST /explore/collections/{collection}/clone
-POST /explore/attributes/{attribute}/clone
-```
-
----
-
-## Perfil
-
-```text
-GET    /profile
-PATCH  /profile
-DELETE /profile
-```
-
----
-
-# 🔐 Autenticación
-
-La autenticación está basada en Laravel Breeze.
-
-## Registro
-
-Solicita:
-
-```text
-Nombre
-Username
-Email
-Contraseña
-Confirmar contraseña
-```
-
-El flujo es:
-
-```text
-POST /register
-↓
-Validación
-↓
-Creación del usuario
-↓
-Asignación de rol USER
-↓
-Estado ACTIVE
-↓
-Inicio automático de sesión
-↓
-/hub
-```
-
----
-
-## Login
-
-Solicita:
-
-```text
-Email
-Contraseña
-Recordarme
-```
-
-Incluye:
-
-* Validación.
-* Rate limiting.
-* Comprobación de credenciales.
-* Validación del estado del usuario.
-* Actualización del último login.
-* Regeneración de sesión.
-
-Flujo:
-
-```text
-POST /login
-↓
-LoginRequest
-↓
-authenticate()
-↓
-session()->regenerate()
-↓
-/hub
-```
-
----
-
-# 🏠 Centro OmniMerge — Hub
-
-El Hub es la principal modificación arquitectónica reciente.
-
-Antes:
-
-```text
-Login
-↓
-Dashboard
-↓
-Todo el sistema
-```
-
-Ahora:
-
-```text
-Login
-↓
-Hub
-↓
-Seleccionar área de trabajo
-```
-
-El Hub puede mostrar:
-
-```text
-📚 Biblioteca
-🌐 Comunidad
-👤 Perfil
-🌌 Universos
-🏆 Torneos
-📊 Rankings
-```
-
-Los módulos que todavía no existen aparecen como:
-
-```text
-Próximamente
-```
-
-y no deben tener rutas falsas.
-
----
-
-# 📊 Estadísticas del Hub
-
-Actualmente puede mostrar:
-
-```text
-Número de entidades
-Número de atributos
-Número de colecciones
-Contenido público
-```
-
-También combina actividad reciente de:
-
-```text
-Entidades
-Atributos
-Colecciones
-```
-
-para producir una vista general de la cuenta.
-
----
-
-# 📚 Biblioteca
-
-La Biblioteca contiene todos los componentes destinados a construir los recursos de OmniMerge.
-
-Su sidebar se limita a:
-
-```text
-← Centro OmniMerge
-
-BIBLIOTECA
-
-Dashboard
-
-ENTIDADES
-├── Tipos de entidad
-└── Entidades
-
-CARACTERÍSTICAS
-├── Atributos
-├── Valores y opciones
-└── Grupos de atributos
-
-ORGANIZACIÓN
-└── Colecciones
-```
-
-La Comunidad, los Universos y los Torneos no forman parte de este sidebar.
-
----
-
-# 🌐 Comunidad
-
-La Comunidad es un módulo global.
-
-El principio es:
-
-> Los usuarios no modifican directamente el contenido de otras personas.
-
-Cuando se permite reutilización, se genera una copia independiente.
-
----
-
-# 📋 Clonación
-
-## Entidad
-
-Puede copiar:
-
-```text
-Datos
-Tipo
-Imagen
-Atributos
-Opciones
-Valores
-Metadatos
-```
-
----
-
-## Atributo
-
-Puede copiar:
-
-```text
-Definición
-Configuración
-Imagen
-Opciones
-Jerarquías de opciones
-```
-
----
-
-## Colección
-
-Puede copiar:
-
-```text
-Datos
-Portada
-Entidades públicas y clonables
-Orden
-```
-
----
-
-## Procedencia
-
-Se conserva mediante campos como:
-
-```text
-source_entity_id
-source_attribute_id
-source_collection_id
-```
-
-Esto permite saber de qué recurso provino una copia.
-
----
-
-# 🔒 Visibilidad
-
-Entidades y colecciones pueden manejar:
-
-```text
-PRIVATE
-PUBLIC
-UNLISTED
-```
-
-Los atributos utilizan un concepto equivalente mediante `scope`.
-
----
-
-# 🌐 Publicación comunitaria
-
-El contenido que aparece en Comunidad debe ser:
-
-```text
-PUBLIC
-ACTIVE
-publicado
-```
-
-y, para poder copiarlo:
-
-```text
-allow_cloning = true
-```
-
----
-
-# 🖼 Gestión de imágenes
-
-Los archivos cargados se almacenan utilizando el disco público.
-
-Estructura típica:
-
-```text
-storage/app/public/
-│
-├── entities/
-├── attributes/
-├── attribute-options/
-└── collections/
-```
-
-Para exponerlos públicamente:
-
-```bash
-php artisan storage:link
-```
-
-Esto crea:
-
-```text
-public/storage
-```
-
-Los formularios con archivos deben utilizar:
-
-```html
-enctype="multipart/form-data"
-```
-
----
-
-# 🔐 Seguridad
-
-OmniMerge sigue varios niveles de seguridad.
-
-## Autenticación
-
-Las rutas privadas utilizan:
-
-```php
-Route::middleware('auth')
-```
-
----
-
-## Policies
-
-Controlan quién puede modificar recursos.
-
-Regla típica:
-
-```text
-user_id del recurso
-=
-id del usuario autenticado
-```
-
----
-
-## Form Requests
-
-Validan toda información antes de enviarla a la lógica de negocio.
-
----
-
-## Propiedad de relaciones
-
-Cuando un formulario permite elegir entidades, atributos u otros registros, los IDs deben pertenecer al mismo usuario.
-
----
-
-## CSRF
-
-Los formularios utilizan:
-
-```blade
-@csrf
-```
-
----
-
-## Mass Assignment
-
-Los modelos utilizan `$fillable`.
-
-No se recomienda:
-
-```php
-Model::create($request->all());
-```
-
-Se recomienda utilizar:
-
-```php
-Model::create($request->validated());
-```
-
----
-
-## Salida HTML
-
-Blade debe utilizar normalmente:
-
-```blade
-{{ $value }}
-```
-
-para escapar contenido.
-
-Evitar utilizar HTML sin escapar salvo que sea realmente necesario.
-
----
-
-# 📌 Requisitos
-
-Para ejecutar OmniMerge se necesita:
+Antes de instalar OmniMerge se recomienda disponer de:
 
 ```text
 PHP 8.2+
 Composer
-Node.js
-NPM
 MySQL
+Node.js
+npm
 Git
-```
-
-Comprobar:
-
-```bash
-php -v
-composer --version
-node -v
-npm -v
-git --version
 ```
 
 ---
 
 # 🚀 Instalación
 
-## 1. Clonar el proyecto
+## 1. Clonar repositorio
 
 ```bash
-git clone <URL_DEL_REPOSITORIO>
+git clone https://github.com/grverlearner/OmniMerge.git
+```
+
+Entrar al proyecto:
+
+```bash
 cd OmniMerge
 ```
 
@@ -1992,7 +1560,7 @@ composer install
 npm install
 ```
 
-En PowerShell, si existe un problema con `npm.ps1`:
+En PowerShell, si existe una restricción de ejecución sobre `npm.ps1`, puede utilizarse:
 
 ```powershell
 npm.cmd install
@@ -2002,21 +1570,27 @@ npm.cmd install
 
 ## 4. Crear `.env`
 
-Windows PowerShell:
+En Windows:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Linux/macOS:
+o manualmente copiar:
 
-```bash
-cp .env.example .env
+```text
+.env.example
+```
+
+como:
+
+```text
+.env
 ```
 
 ---
 
-## 5. Generar clave
+## 5. Generar APP_KEY
 
 ```bash
 php artisan key:generate
@@ -2024,9 +1598,20 @@ php artisan key:generate
 
 ---
 
-## 6. Crear base de datos
+# 🗄️ Configurar MySQL
 
-Ejemplo:
+Ejemplo de configuración en `.env`:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=omnimerge
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+Crear previamente la base de datos:
 
 ```sql
 CREATE DATABASE omnimerge
@@ -2036,49 +1621,27 @@ COLLATE utf8mb4_unicode_ci;
 
 ---
 
-## 7. Configurar `.env`
-
-Ejemplo:
-
-```env
-APP_NAME=OmniMerge
-APP_ENV=local
-APP_DEBUG=true
-APP_URL=http://127.0.0.1:8000
-
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=omnimerge
-DB_USERNAME=root
-DB_PASSWORD=
-
-SESSION_DRIVER=database
-CACHE_STORE=database
-QUEUE_CONNECTION=database
-```
-
-> Nunca publiques tu `.env` real en GitHub.
-
----
-
-## 8. Ejecutar migraciones
+# 📦 Ejecutar migraciones
 
 ```bash
 php artisan migrate
 ```
 
-Para reconstrucción completa únicamente durante desarrollo:
+Para consultar el estado:
 
 ```bash
-php artisan migrate:fresh
+php artisan migrate:status
 ```
 
-⚠️ `migrate:fresh` elimina los datos existentes.
+> ⚠️ Durante el desarrollo normal se recomienda utilizar `php artisan migrate`.
+>
+> `php artisan migrate:fresh` elimina todas las tablas y todos los datos existentes, por lo que no debe utilizarse sobre una base con información importante.
 
 ---
 
-## 9. Crear enlace de Storage
+# 🖼️ Storage público
+
+Para permitir acceso a imágenes almacenadas mediante Laravel:
 
 ```bash
 php artisan storage:link
@@ -2086,1097 +1649,700 @@ php artisan storage:link
 
 ---
 
-## 10. Compilar frontend
+# 🎨 Compilar frontend
+
+Producción:
 
 ```bash
 npm run build
 ```
 
-PowerShell:
+En PowerShell también puede utilizarse:
 
 ```powershell
 npm.cmd run build
-```
-
----
-
-# ▶️ Ejecución
-
-Terminal 1:
-
-```bash
-php artisan serve
-```
-
-Terminal 2:
-
-```bash
-npm run dev
-```
-
-PowerShell:
-
-```powershell
-npm.cmd run dev
-```
-
-La aplicación estará disponible normalmente en:
-
-```text
-127.0.0.1:8000
-```
-
----
-
-# ⚡ Comandos útiles
-
-## Servidor
-
-```bash
-php artisan serve
-```
-
-## Frontend
-
-```bash
-npm run dev
-npm run build
-```
-
-PowerShell:
-
-```powershell
-npm.cmd run dev
-npm.cmd run build
-```
-
----
-
-## Migraciones
-
-```bash
-php artisan migrate
-php artisan migrate:status
-php artisan migrate:rollback
 ```
 
 Desarrollo:
 
 ```bash
-php artisan migrate:fresh
-php artisan migrate:fresh --seed
+npm run dev
+```
+
+o:
+
+```powershell
+npm.cmd run dev
 ```
 
 ---
 
-## Rutas
+# ▶️ Ejecutar aplicación
 
 ```bash
-php artisan route:list
+php artisan serve
 ```
 
-Buscar Hub:
+La aplicación estará disponible normalmente en:
 
-```bash
-php artisan route:list --name=hub
-```
-
-Buscar Biblioteca:
-
-```bash
-php artisan route:list --name=dashboard
-```
-
-Buscar Comunidad:
-
-```bash
-php artisan route:list --name=community
+```text
+http://127.0.0.1:8000
 ```
 
 ---
 
-## Caché
+# 🧹 Limpiar cachés
+
+Durante el desarrollo pueden utilizarse:
 
 ```bash
 php artisan optimize:clear
+```
+
+o individualmente:
+
+```bash
 php artisan view:clear
 php artisan route:clear
 php artisan config:clear
-```
-
----
-
-## Storage
-
-```bash
-php artisan storage:link
-```
-
----
-
-## Tests
-
-```bash
-php artisan test
-```
-
-Detener en el primer error:
-
-```bash
-php artisan test --stop-on-failure
-```
-
----
-
-## Tinker
-
-```bash
-php artisan tinker
-```
-
----
-
-## Crear modelo
-
-```bash
-php artisan make:model Nombre
-```
-
-Modelo + migración + factory:
-
-```bash
-php artisan make:model Nombre -mf
-```
-
----
-
-## Crear controlador
-
-```bash
-php artisan make:controller NombreController
-```
-
-Resource:
-
-```bash
-php artisan make:controller Carpeta/NombreController --resource --model=Nombre
-```
-
-Invokable:
-
-```bash
-php artisan make:controller Carpeta/NombreController --invokable
-```
-
----
-
-## Crear Request
-
-```bash
-php artisan make:request Carpeta/StoreNombreRequest
-```
-
----
-
-## Crear Policy
-
-```bash
-php artisan make:policy NombrePolicy --model=Nombre
-```
-
----
-
-## Crear migración
-
-```bash
-php artisan make:migration nombre_de_la_migracion
+php artisan cache:clear
 ```
 
 ---
 
 # 🧪 Pruebas
 
-Las pruebas se encuentran en:
-
-```text
-tests/
-├── Feature/
-└── Unit/
-```
-
-Deben comprobar comportamientos como:
-
-* Registro.
-* Login.
-* Redirección al Hub.
-* Seguridad de recursos.
-* Creación de entidades.
-* Creación de atributos.
-* Multiselección.
-* Subida de imágenes.
-* Colecciones.
-* Comunidad.
-* Clonación.
-* Privacidad.
-
----
-
-# 🔄 Cambio importante de tests por el Hub
-
-Los tests de autenticación que anteriormente esperaban:
-
-```text
-/dashboard
-```
-
-deben esperar:
-
-```text
-/hub
-```
-
-después de:
-
-* Login.
-* Registro.
-
----
-
-# 🌳 Git y flujo de trabajo
-
-## Ver estado
+Ejecutar:
 
 ```bash
-git status
+php artisan test
+```
+
+El conjunto de pruebas todavía requiere ampliación y mantenimiento conforme crecen los módulos del proyecto.
+
+Entre las áreas que deberían disponer progresivamente de mayor cobertura se encuentran:
+
+* atributos dinámicos;
+* contextos;
+* clonación;
+* EntityVersions;
+* herencia;
+* Base activa;
+* Resolver;
+* Presentación pública;
+* permisos;
+* operaciones masivas.
+
+---
+
+# 🔒 Seguridad y propiedad
+
+Los recursos pertenecen a usuarios concretos.
+
+Las operaciones sensibles deben validar:
+
+```text
+Usuario autenticado
+        ↓
+¿Es propietario?
+        ↓
+Sí → continuar
+No → rechazar
+```
+
+Se utilizan mecanismos como:
+
+* middleware `auth`;
+* Policies;
+* Form Requests;
+* scopes por usuario;
+* validación dentro de Services;
+* restricciones mediante claves foráneas.
+
+---
+
+# 📐 Principios de arquitectura
+
+## La Entity siempre es la identidad canónica
+
+Una Version no debe convertirse físicamente en una nueva Entity cuando únicamente representa otro estado del mismo elemento.
+
+```text
+Naruto
+├── Niño
+├── Shippuden
+├── Hokage
+└── Baryon
+```
+
+continúa siendo:
+
+```text
+1 Entity
++
+N EntityVersions
 ```
 
 ---
 
-## Crear una rama
+## Las configuraciones deben ser independientes
+
+No mezclar:
+
+```text
+Base activa
+Default Resolver
+Presentación pública
+Herencia
+```
+
+Cada concepto cumple una responsabilidad distinta.
+
+---
+
+## Los contextos no deben codificarse por dominio
+
+OmniMerge no debe contener reglas específicas como:
+
+```php
+if ($anime === 'Naruto') {
+    mostrarAldeaNinja();
+}
+```
+
+Las relaciones deben almacenarse como datos configurables.
+
+Así el mismo sistema puede funcionar para:
+
+```text
+Anime
+Geografía
+Vehículos
+Animales
+Juegos
+Empresas
+Historia
+Universos ficticios
+```
+
+---
+
+## Evitar consultas N+1
+
+Cuando una vista muestra muchas Entidades con información relacionada, se utiliza `eager loading`.
+
+Ejemplo conceptual:
+
+```php
+Entity::with([
+    'entityType',
+    'baseVersionSetting.entityVersion',
+]);
+```
+
+en vez de consultar la Base de cada Entidad individualmente.
+
+---
+
+# 📊 Estado general del proyecto
+
+| Módulo                         | Estado                            |
+| ------------------------------ | --------------------------------- |
+| Autenticación                  | ✅ Implementado                    |
+| Perfil                         | ✅ Implementado                    |
+| Tipos de Entidad               | ✅ Implementado                    |
+| Entidades                      | ✅ Implementado                    |
+| Biblioteca de Entidades        | ✅ Implementado                    |
+| Edición masiva                 | ✅ Implementado                    |
+| Atributos dinámicos            | ✅ Implementado                    |
+| Catálogos                      | ✅ Implementado                    |
+| Jerarquía de opciones          | ✅ Implementado                    |
+| Grupos de Atributos            | ✅ Implementado                    |
+| Colecciones                    | ✅ Implementado                    |
+| Comunidad                      | ✅ Implementado                    |
+| Clonación                      | ✅ Implementado                    |
+| Versiones                      | ✅ Implementado                    |
+| EntityVersions                 | ✅ Implementado                    |
+| Herencia de Versiones          | ✅ Implementado                    |
+| Atributos por Version          | ✅ Implementado                    |
+| Resolver de Versiones          | ✅ Implementado                    |
+| Multimedia de Versiones        | ✅ Implementado                    |
+| Presentación pública           | 🟡 Implementado / en refinamiento |
+| Base activa                    | 🟡 Implementación reciente        |
+| Contextos de Atributos         | 🟡 Implementado / en refinamiento |
+| Relaciones entre Catálogos     | 🟡 Implementado / en refinamiento |
+| Componentes globales de imagen | 🟡 En integración                 |
+| OmniConfirm                    | 🟡 En integración                 |
+| Tests automatizados            | 🟡 Cobertura parcial              |
+| Universos                      | ⏳ Pendiente                       |
+| Torneos                        | ⏳ Pendiente                       |
+| Simulaciones                   | ⏳ Pendiente                       |
+| Motor de interacciones         | ⏳ Pendiente                       |
+| Estadísticas avanzadas         | ⏳ Pendiente                       |
+| Historial de simulaciones      | ⏳ Pendiente                       |
+
+---
+
+# 🚧 Trabajo pendiente
+
+Aunque OmniMerge ya posee buena parte de su infraestructura de datos, todavía existen módulos importantes por desarrollar.
+
+## 🌌 Universos
+
+Los Universos serán espacios independientes donde podrán agruparse:
+
+* Entidades;
+* Colecciones;
+* reglas;
+* configuraciones;
+* relaciones;
+* escenarios.
 
 Ejemplo:
 
-```bash
-git checkout -b feat/nombre-funcionalidad
-```
-
----
-
-## Revisar cambios
-
-```bash
-git diff
-```
-
----
-
-## Preparar
-
-```bash
-git add .
-```
-
----
-
-## Revisar staged
-
-```bash
-git diff --cached
-```
-
----
-
-## Commit
-
-```bash
-git commit -m "feat: descripcion del cambio"
-```
-
----
-
-## Push
-
-```bash
-git push origin main
-```
-
-Para una rama nueva:
-
-```bash
-git push -u origin feat/nombre-funcionalidad
-```
-
----
-
-# 📝 Convención recomendada de commits
-
 ```text
-feat: nueva funcionalidad
-fix: corrección de error
-docs: documentación
-refactor: reorganización interna
-test: pruebas
-style: cambios visuales
-chore: mantenimiento
-security: seguridad
-```
-
-Ejemplos:
-
-```text
-feat(auth): personalizar login y registro
-
-feat(hub): agregar centro general de OmniMerge
-
-feat(community): implementar explorador comunitario
-
-feat(attributes): implementar atributos dinamicos
-
-fix(storage): corregir acceso a imagenes
-
-docs: actualizar README del proyecto
-```
-
----
-
-# 📚 Documentación
-
-Además de este README, se recomienda utilizar:
-
-```text
-docs/
-│
-├── arquitectura/
-├── desarrollo/
-├── modulos/
-├── manuales/
-└── pdf/
-```
-
-Ejemplo:
-
-```text
-docs/
-│
-├── arquitectura/
-│   ├── ARQUITECTURA_GENERAL.md
-│   ├── HUB_Y_NAVEGACION.md
-│   └── BASE_DE_DATOS.md
-│
-├── desarrollo/
-│   ├── MANUAL_DESARROLLO.md
-│   ├── GUIA_MANTENIMIENTO.md
-│   └── INSTALACION.md
-│
-├── modulos/
-│   ├── BIBLIOTECA.md
-│   ├── ENTIDADES.md
-│   ├── ATRIBUTOS.md
-│   ├── COLECCIONES.md
-│   └── COMUNIDAD.md
-│
-├── manuales/
-│   ├── GUIA_LARAVEL.md
-│   └── GUIA_GIT_GITHUB.md
-│
-└── pdf/
-    └── versiones finales de documentos
-```
-
-Los archivos Markdown son recomendables porque Git puede mostrar exactamente qué partes cambiaron.
-
-Los PDF pueden conservarse como versiones finales o documentos de presentación.
-
----
-
-# 📈 Estado del desarrollo
-
-## ✅ Fase 0 — Configuración
-
-* [x] Laravel 12.
-* [x] PHP 8.2+.
-* [x] MySQL.
-* [x] Composer.
-* [x] NPM.
-* [x] Vite.
-* [x] Git.
-* [x] GitHub.
-
----
-
-## ✅ Fase 1 — Autenticación
-
-* [x] Laravel Breeze.
-* [x] Registro.
-* [x] Username.
-* [x] Login.
-* [x] Logout.
-* [x] Estado del usuario.
-* [x] Perfil básico.
-* [x] Rediseño visual de login.
-* [x] Rediseño visual de registro.
-* [x] Redirección al Hub.
-
----
-
-## ✅ Fase 2 — Interfaz general
-
-* [x] Landing pública.
-* [x] Identidad visual OmniMerge.
-* [x] Logo personalizado.
-* [x] Layout interno.
-* [x] Sidebar.
-* [x] Header.
-* [x] Diseño responsive.
-
----
-
-## ✅ Fase 3 — Centro OmniMerge
-
-* [x] Hub general.
-* [x] Layout exclusivo.
-* [x] Estadísticas generales.
-* [x] Actividad reciente.
-* [x] Accesos rápidos.
-* [x] Biblioteca desde Hub.
-* [x] Comunidad desde Hub.
-* [x] Perfil desde Hub.
-* [x] Módulos futuros como placeholders.
-* [x] Navegación de regreso al Hub.
-
----
-
-## ✅ Fase 4 — Biblioteca básica
-
-* [x] Dashboard.
-* [x] Tipos de entidad.
-* [x] Entidades.
-* [x] Policies.
-* [x] Imágenes.
-* [x] Visibilidad.
-* [x] Estados.
-
----
-
-## ✅ Fase 5 — Atributos dinámicos
-
-* [x] Atributos.
-* [x] Diferentes tipos de datos.
-* [x] Opciones seleccionables.
-* [x] Multiselección.
-* [x] Valores tipados.
-* [x] Grupos de atributos.
-* [x] Configuración de atributos en entidades.
-
----
-
-## ✅ Fase 6 — Organización
-
-* [x] Colecciones.
-* [x] Imágenes de colección.
-* [x] Relación colección-entidad.
-* [x] Estados.
-* [x] Visibilidad.
-
----
-
-## 🚧 Fase 7 — Comunidad
-
-* [x] Explorador.
-* [x] Entidades públicas.
-* [x] Colecciones públicas.
-* [x] Atributos públicos.
-* [x] Búsqueda.
-* [x] Filtros.
-* [x] Vistas.
-* [x] Clonación.
-* [x] Procedencia.
-* [ ] Favoritos.
-* [ ] Comentarios.
-* [ ] Valoraciones.
-* [ ] Seguimiento de usuarios.
-* [ ] Moderación.
-
----
-
-# 🗺 Roadmap
-
-## 🔗 Relaciones y condiciones
-
-Planeado:
-
-```text
-attribute_relationships
-attribute_conditions
-attribute_option_relationships
-```
-
-Objetivos:
-
-* Dependencias entre atributos.
-* Opciones dependientes.
-* Mostrar campos condicionalmente.
-* Ocultar campos.
-* Hacer obligatorios ciertos atributos.
-* AND / OR.
-* Reglas por opciones.
-
----
-
-# 🌌 Universos
-
-El módulo estará separado de Biblioteca.
-
-Conceptualmente:
-
-```text
-Universos
-│
-├── Dashboard
-├── Mis universos
-├── Crear universo
-├── Entidades
-├── Reglas
-├── Temporadas
-├── Eventos
-└── Historial
-```
-
-Posibles tablas:
-
-```text
-universes
-universe_entities
-seasons
-season_entities
+Universo Naruto
+├── Personajes
+├── Aldeas
+├── Equipos
+├── Akatsuki
+└── Reglas
 ```
 
 ---
 
 # 🏆 Torneos
 
-Conceptualmente:
-
-```text
-Torneos
-│
-├── Dashboard
-├── Mis torneos
-├── Crear torneo
-├── Participantes
-├── Rondas
-├── Enfrentamientos
-├── Resultados
-└── Rankings
-```
-
-Posibles tablas:
-
-```text
-tournaments
-tournament_participants
-tournament_rounds
-tournament_matches
-match_results
-```
-
----
-
-# ⚡ Simulación
-
-Planeado:
-
-* Motor de reglas.
-* Fórmulas.
-* Pesos.
-* Probabilidades.
-* Ventajas.
-* Desventajas.
-* Aleatoriedad controlada.
-* Eventos.
-* Resultados persistentes.
-
----
-
-# 📊 Rankings y analítica
-
-Planeado:
-
-* Victorias.
-* Derrotas.
-* Rendimiento.
-* Historial.
-* Evolución.
-* Comparaciones.
-* Estadísticas.
-* Tendencias.
-* Gráficos.
-
----
-
-# 🌐 Comunidad avanzada
-
-Planeado:
-
-* Favoritos.
-* Comentarios.
-* Valoraciones.
-* Perfiles públicos.
-* Seguidores.
-* Creadores.
-* Reportes.
-* Moderación.
-* Notificaciones.
-
----
-
-# 👤 Cuenta y configuración
-
-Actualmente:
-
-```text
-/profile
-```
-
-Futuro:
-
-```text
-/profile
-
-/settings
-/settings/security
-/settings/privacy
-/settings/appearance
-/settings/notifications
-```
-
----
-
-# 🐛 Solución de problemas
-
-## `View [...] not found`
-
-Verificar que exista la vista.
+El sistema de Torneos permitirá seleccionar Entidades utilizando filtros y características.
 
 Ejemplo:
 
 ```text
-resources/views/collections/index.blade.php
+Participantes:
+
+Anime = Naruto
+AND
+Aldea = Konoha
+AND
+Rango = Jōnin
 ```
 
-Después:
-
-```bash
-php artisan view:clear
-php artisan optimize:clear
-```
-
----
-
-## `Route [...] not defined`
-
-Ejecutar:
-
-```bash
-php artisan route:list
-```
-
-Revisar:
+Posteriormente podrían organizarse en estructuras como:
 
 ```text
-routes/web.php
-routes/auth.php
+Octavos
+↓
+Cuartos
+↓
+Semifinal
+↓
+Final
 ```
 
 ---
 
-## `Undefined method authorize`
+# 🎲 Simulaciones
 
-El controlador base debe utilizar:
+Las simulaciones constituyen uno de los objetivos principales a largo plazo.
 
-```php
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+La idea es que OmniMerge pueda utilizar:
 
-abstract class Controller
-{
-    use AuthorizesRequests;
-}
-```
+* Entidades;
+* Versiones;
+* atributos;
+* reglas;
+* relaciones;
+* contexto;
+* historial;
 
----
-
-## `Undefined method url`
-
-Al utilizar Storage puede tiparse el adapter:
-
-```php
-/** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-$disk = Storage::disk('public');
-
-return $disk->url($path);
-```
+para generar resultados derivados de interacciones.
 
 ---
 
-## `Undefined method user`
+# 📜 Historial
 
-Comprobar que se importe:
-
-```php
-use Illuminate\Http\Request;
-```
-
-y no el Request de Symfony.
-
-Cuando sea necesario:
-
-```php
-/** @var User $user */
-$user = $request->user();
-```
-
----
-
-## Imagen no visible
-
-Ejecutar:
-
-```bash
-php artisan storage:link
-```
-
-Comprobar:
+Las simulaciones futuras deberían poder conservar:
 
 ```text
-storage/app/public/
-public/storage/
+Universo
+Participantes
+Version utilizada
+Contexto
+Resultado
+Fecha
+Eventos
+Cambios
 ```
 
-y que el formulario use:
-
-```html
-enctype="multipart/form-data"
-```
+para permitir revisar escenarios anteriores.
 
 ---
 
-## `MassAssignmentException`
+# 📈 Estadísticas
 
-Revisar:
+Posteriormente podrán generarse estadísticas como:
 
-```php
-protected $fillable = [
-    ...
-];
-```
-
----
-
-## `Unknown column`
-
-Revisar:
-
-```bash
-php artisan migrate:status
-php artisan migrate
-```
+* participaciones;
+* victorias;
+* derrotas;
+* resultados;
+* popularidad;
+* frecuencia de uso;
+* versiones más utilizadas;
+* Entidades más clonadas;
+* Entidades más vistas;
+* rendimiento dentro de Torneos.
 
 ---
 
-## Los cambios Blade no aparecen
+# 🗺️ Roadmap propuesto
 
-```bash
-php artisan view:clear
-php artisan optimize:clear
-```
-
-y mantener Vite ejecutándose:
-
-```bash
-npm run dev
-```
-
----
-
-## Cambios CSS no aparecen
-
-```bash
-npm run build
-```
-
-o:
-
-```bash
-npm run dev
-```
-
----
-
-## Error 403
-
-Revisar:
+## Fase actual — Consolidación del núcleo
 
 ```text
-Policy
-authorize()
-user_id
-estado del usuario
+✓ Entidades
+✓ Atributos
+✓ Catálogos
+✓ Colecciones
+✓ Comunidad
+✓ Versiones
+✓ Multimedia
+✓ Resolver
+
+→ Refinar Base activa
+→ Refinar Presentación pública
+→ Refinar Contextos
+→ Uniformizar interfaz
+→ Ampliar tests
 ```
 
 ---
 
-## Después del login sigo llegando a `/dashboard`
-
-Revisar:
+## Próxima fase — Relaciones y Universos
 
 ```text
-AuthenticatedSessionController.php
-```
-
-La redirección debe apuntar a:
-
-```text
-hub
-```
-
----
-
-# ⚠️ Carpetas que no deben modificarse manualmente
-
-Evitar modificaciones directas en:
-
-```text
-vendor/
-node_modules/
-bootstrap/cache/
-storage/framework/
-public/build/
-```
-
-Estas carpetas contienen dependencias o archivos generados.
-
----
-
-# 🔒 Archivos privados
-
-Nunca publicar:
-
-```text
-.env
-```
-
-Puede contener:
-
-* Contraseñas.
-* Credenciales.
-* Tokens.
-* Claves.
-* Configuración privada.
-
----
-
-# 📌 Principios del proyecto
-
-## 1. OmniMerge es la plataforma
-
-```text
-OmniMerge
-≠
-Gestor de entidades
+Universos
+↓
+Entidades dentro de Universos
+↓
+Reglas por Universo
+↓
+Relaciones entre Entidades
+↓
+Configuraciones reutilizables
 ```
 
 ---
 
-## 2. Biblioteca es un módulo
+## Fase posterior — Torneos
 
 ```text
-OmniMerge
+Filtros
+↓
+Participantes
+↓
+Llaves
+↓
+Rondas
+↓
+Resultados
+↓
+Historial
+```
+
+---
+
+## Fase avanzada — Simulaciones
+
+```text
+Universo
++
+Entidades
++
+Versiones
++
+Atributos
++
+Contexto
++
+Reglas
+
+        ↓
+
+Motor de simulación
+
+        ↓
+
+Eventos
+Resultados
+Historial
+Estadísticas
+```
+
+---
+
+# 🔧 Deuda técnica y mejoras recomendadas
+
+Entre las áreas que deben seguir mejorándose se encuentran:
+
+### Testing
+
+Aumentar cobertura en:
+
+```text
+Feature Tests
+Unit Tests
+Services
+Policies
+Context Resolver
+Version Resolver
+Cloning
+```
+
+### Controllers grandes
+
+Algunos Controllers han crecido considerablemente.
+
+Se recomienda continuar trasladando lógica hacia:
+
+```text
+Services
+Queries
+Actions
+DTOs
+```
+
+cuando sea necesario.
+
+### JavaScript
+
+Continuar centralizando comportamientos globales como:
+
+* confirmaciones;
+* previews;
+* formularios interactivos;
+* selección masiva;
+* notificaciones.
+
+### Toasts
+
+Implementar un sistema global para mensajes:
+
+```text
+success
+error
+warning
+info
+```
+
+en lugar de depender únicamente de alertas estáticas.
+
+### Documentación técnica
+
+Mantener sincronizados:
+
+```text
+README.md
+docs/
+migraciones
+modelo de datos
+roadmap
+```
+
+cada vez que se realicen cambios arquitectónicos importantes.
+
+---
+
+# 📝 Convenciones conceptuales
+
+Dentro del proyecto se utilizan los siguientes términos:
+
+### Entity
+
+Identidad principal y canónica de un elemento.
+
+### EntityType
+
+Clasificación general de una Entity.
+
+### Attribute
+
+Propiedad dinámica definida por un usuario.
+
+### AttributeOption
+
+Valor perteneciente al catálogo de un Attribute.
+
+### AttributeGroup
+
+Agrupación visual de Attributes.
+
+### EntityAttribute
+
+Asignación de un Attribute a una Entity.
+
+### EntityAttributeValue
+
+Valor concreto del Attribute asignado.
+
+### Collection
+
+Agrupación reutilizable de Entities.
+
+### Version
+
+Definición reutilizable de una etapa, forma, época o transformación.
+
+### EntityVersion
+
+Aplicación concreta de una Version sobre una Entity.
+
+### Base original
+
+Datos almacenados directamente en `Entity`.
+
+### Base activa
+
+`EntityVersion` seleccionada como representación principal de trabajo.
+
+### Default Resolver
+
+`EntityVersion` utilizada como fallback técnico durante resolución automática.
+
+### Presentación pública
+
+Configuración utilizada para controlar cómo se muestra la Entity hacia Comunidad.
+
+### Context Rule
+
+Regla que determina la aplicabilidad de Attributes dependiendo de otros valores.
+
+---
+
+# 🔍 Ejemplo conceptual completo
+
+```text
+USER
+│
 └── Biblioteca
+    │
+    ├── Tipo
+    │   └── Personaje
+    │
+    ├── Atributos
+    │   ├── Anime
+    │   ├── Aldea
+    │   └── Clan
+    │
+    ├── Catálogos
+    │   ├── Anime
+    │   │   ├── Naruto
+    │   │   └── One Piece
+    │   │
+    │   └── Aldea
+    │       ├── Konoha
+    │       └── Suna
+    │
+    ├── Contextos
+    │   └── Anime = Naruto
+    │       └── Mostrar Aldea
+    │
+    └── Entidad
+        └── Naruto Uzumaki
+            │
+            ├── Anime = Naruto
+            ├── Aldea = Konoha
+            │
+            ├── Versiones
+            │   ├── Niño
+            │   ├── Shippuden ★
+            │   └── Hokage
+            │
+            ├── Colecciones
+            │   ├── Equipo 7
+            │   └── Konoha
+            │
+            └── Comunidad
+                └── PUBLIC
 ```
-
-La Biblioteca construye los recursos base.
 
 ---
 
-## 3. Hub es la entrada general
+# 💡 Objetivo a largo plazo
+
+El objetivo de OmniMerge no es solamente almacenar fichas.
+
+La plataforma pretende evolucionar desde:
 
 ```text
-Login
-↓
-Hub
-↓
-Módulos
+Crear información
 ```
 
----
-
-## 4. Los módulos deben mantenerse separados
+hacia:
 
 ```text
-Hub
-├── Biblioteca
-├── Comunidad
-├── Universos
-├── Torneos
-└── Cuenta
+Crear
+↓
+Organizar
+↓
+Relacionar
+↓
+Versionar
+↓
+Compartir
+↓
+Reutilizar
+↓
+Construir Universos
+↓
+Simular
+↓
+Registrar resultados
 ```
 
-Evitar un único sidebar con absolutamente todas las funcionalidades.
+La misma infraestructura debe ser suficientemente flexible para trabajar con distintos dominios sin rediseñar la aplicación para cada uno.
 
 ---
 
-## 5. Las entidades deben ser reutilizables
-
-Una entidad creada una vez podrá utilizarse posteriormente en distintos contextos.
-
----
-
-## 6. Las copias comunitarias deben ser independientes
-
-Editar una copia nunca debe modificar el original.
-
----
-
-## 7. La seguridad se aplica en backend
-
-Ocultar un botón no sustituye:
+# 🔗 Repositorio
 
 ```text
-Policy
-Request
-Consulta segura
-Middleware
+https://github.com/grverlearner/OmniMerge
 ```
 
 ---
 
-## 8. La base de datos se modifica mediante migraciones
+# 📌 Estado del desarrollo
 
-No realizar cambios estructurales manualmente en MySQL sin registrar una migración equivalente.
+**OmniMerge se encuentra actualmente en desarrollo activo.**
 
----
-
-## 9. La lógica compleja debe salir de los controladores
-
-Utilizar Services cuando una operación involucre muchas reglas o tablas.
-
----
-
-## 10. Todo módulo importante debe poder probarse
-
-Cada nueva funcionalidad debe considerar:
+El núcleo relacionado con:
 
 ```text
-Migración
-Modelo
-Request
-Policy
-Controller
-Service
-Route
-View
-Test
+Entidades
+Atributos
+Catálogos
+Colecciones
+Versiones
+Comunidad
 ```
 
----
+ya dispone de una implementación funcional considerable.
 
-# 🧠 Idea central de OmniMerge
-
-La arquitectura actual puede resumirse de esta manera:
+La prioridad inmediata consiste en consolidar y refinar estas bases antes de comenzar los grandes módulos futuros:
 
 ```text
-OMNIMERGE
-=
-Plataforma completa
-
-
-HUB
-=
-Centro de navegación
-
-
-BIBLIOTECA
-=
-Construcción de recursos
-
-
-COMUNIDAD
-=
-Descubrimiento y reutilización
-
-
-UNIVERSOS
-=
-Contextos donde existirán las entidades
-
-
-TORNEOS
-=
-Contextos competitivos
-
-
-SIMULACIÓN
-=
-Motor que determina acontecimientos
-
-
-RANKINGS
-=
-Análisis de resultados
+Universos
+Torneos
+Simulaciones
 ```
-
----
-
-# 🚀 Estado actual resumido
-
-OmniMerge ya dispone de una base funcional que permite:
-
-```text
-Usuario
-↓
-Registrarse
-↓
-Entrar al Hub
-↓
-Acceder a Biblioteca
-↓
-Crear tipos
-↓
-Crear entidades
-↓
-Crear atributos
-↓
-Crear opciones
-↓
-Asignar valores
-↓
-Crear colecciones
-↓
-Publicar contenido
-↓
-Explorar Comunidad
-↓
-Clonar contenido
-```
-
-La siguiente evolución del proyecto se concentrará en convertir esas piezas en elementos capaces de formar parte de **universos, torneos y simulaciones**.
-
----
-
-# 📄 Licencia
-
-Actualmente el proyecto se encuentra en desarrollo.
-
-Antes de distribuirlo formalmente como proyecto de código abierto debe definirse y añadirse un archivo de licencia explícito al repositorio.
 
 ---
 
 <div align="center">
 
-# 🌌 OmniMerge
+## 🌌 OmniMerge
 
-### Crea cualquier entidad. Define sus características. Organiza tus ideas. Conecta tus universos.
-
-**Create · Connect · Evolve**
+**Create anything. Connect everything. Build your universe.**
 
 </div>
