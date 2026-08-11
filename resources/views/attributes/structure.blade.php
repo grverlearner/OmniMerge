@@ -484,8 +484,7 @@
             ">
 
             {{-- BUILDER --}}
-            <form method="POST"
-                action="{{ route('attributes.structure.rules.store') }}"
+            <form method="POST" action="{{ route('attributes.structure.rules.store') }}"
                 class="
                     rounded-3xl
                     border
@@ -731,8 +730,7 @@
                                     p-3
                                 ">
 
-                                <select
-                                    :name="`conditions[${index}][source_attribute_id]`"
+                                <select :name="`conditions[${index}][source_attribute_id]`"
                                     x-model="
                                         condition.source_attribute_id
                                     "
@@ -756,8 +754,7 @@
                                         "
                                         :key="attribute.id">
 
-                                        <option
-                                            :value="attribute.id"
+                                        <option :value="attribute.id"
                                             x-text="
                                                 attribute.name
                                             ">
@@ -776,8 +773,7 @@
                                         sm:grid-cols-2
                                     ">
 
-                                    <select
-                                        :name="`conditions[${index}][operator]`"
+                                    <select :name="`conditions[${index}][operator]`"
                                         x-model="
                                             condition.operator
                                         "
@@ -838,8 +834,7 @@
                                             "
                                             :key="option.id">
 
-                                            <option
-                                                :value="option.id"
+                                            <option :value="option.id"
                                                 x-text="
                                                     option.name
                                                 ">
@@ -1013,11 +1008,18 @@
 
                                 <form method="POST"
                                     action="{{ route('attributes.structure.rules.destroy', $rule) }}"
-                                    onsubmit="
-                                        return confirm(
-                                            '¿Eliminar esta regla?'
-                                        );
-                                    ">
+                                    data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                    data-confirm-title="Eliminar regla contextual"
+                                    data-confirm-message="
+        La dependencia dejará
+        de aplicarse a las Entidades.
+    "
+                                    data-confirm-subject="{{ $rule->name ?: $rule->targetAttribute?->name ?? 'Regla contextual' }}"
+                                    data-confirm-detail="
+        Los Atributos y sus valores
+        no serán eliminados.
+    "
+                                    data-confirm-action="Eliminar regla">
 
                                     @csrf
                                     @method('DELETE')
@@ -1123,8 +1125,7 @@
                 xl:grid-cols-[430px_minmax(0,1fr)]
             ">
 
-            <form method="POST"
-                action="{{ route('attributes.structure.options.store') }}"
+            <form method="POST" action="{{ route('attributes.structure.options.store') }}"
                 class="
                     rounded-3xl
                     border
@@ -1207,8 +1208,7 @@
                             "
                             :key="attribute.id">
 
-                            <option
-                                :value="attribute.id"
+                            <option :value="attribute.id"
                                 x-text="
                                     attribute.name
                                 ">
@@ -1242,8 +1242,7 @@
                             "
                             :key="option.id">
 
-                            <option
-                                :value="option.id"
+                            <option :value="option.id"
                                 x-text="
                                     option.name
                                 ">
@@ -1303,8 +1302,7 @@
                             "
                             :key="attribute.id">
 
-                            <option
-                                :value="attribute.id"
+                            <option :value="attribute.id"
                                 x-text="
                                     attribute.name
                                 ">
@@ -1338,8 +1336,7 @@
                             "
                             :key="option.id">
 
-                            <option
-                                :value="option.id"
+                            <option :value="option.id"
                                 x-text="
                                     option.name
                                 ">
@@ -1499,7 +1496,19 @@
 
 
                             <form method="POST"
-                                action="{{ route('attributes.structure.options.destroy', $relationship) }}">
+                                action="{{ route('attributes.structure.options.destroy', $relationship) }}"
+                                data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                data-confirm-title="Eliminar dependencia de Catálogo"
+                                data-confirm-message="
+        Esta relación entre elementos
+        dejará de aplicarse.
+    "
+                                data-confirm-subject="{{ ($relationship->sourceOption?->name ?? 'Origen') . ' → ' . ($relationship->targetOption?->name ?? 'Destino') }}"
+                                data-confirm-detail="
+        Los elementos de Catálogo
+        no serán eliminados.
+    "
+                                data-confirm-action="Eliminar dependencia">
 
                                 @csrf
                                 @method('DELETE')
@@ -1557,8 +1566,7 @@
 
                 tab: 'STRUCTURE',
 
-                attributes: config.attributes ??
-                    [],
+                attributes: config.attributes ?? [],
 
                 conditions: [{
                     key: `${Date.now()}-1`,
@@ -1622,8 +1630,7 @@
                             String(item.id) ===
                             String(attributeId)
                         )
-                        ?.options ??
-                        [];
+                        ?.options ?? [];
                 },
 
 

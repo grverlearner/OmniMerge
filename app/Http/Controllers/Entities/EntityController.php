@@ -231,7 +231,8 @@ class EntityController extends Controller
         $query = Entity::query()
             ->ownedBy($user)
             ->with(
-                'entityType'
+                'entityType',
+                'baseVersionSetting.entityVersion',
             )
             ->withCount([
                 'entityAttributes',
@@ -298,20 +299,74 @@ class EntityController extends Controller
                 )
             )
 
+            /*
+            |--------------------------------------------------------------------------
+            | Imagen visible
+            |--------------------------------------------------------------------------
+            |
+            | Una Entidad cuenta como "con imagen" si:
+            |
+            | - su Entity original tiene imagen;
+            | O
+            | - su Base activa ACTIVE tiene imagen.
+            |
+            */
+
             ->when(
                 $image === 'yes',
-                fn($query) =>
-                $query->whereNotNull(
-                    'image'
-                )
+
+                function ($query) {
+
+                    $query->where(
+                        function ($imageQuery) {
+
+                            $imageQuery
+                                ->whereNotNull(
+                                    'image'
+                                )
+
+                                ->orWhereHas(
+                                    'baseVersionSetting.entityVersion',
+
+                                    fn($versionQuery) =>
+                                    $versionQuery
+                                        ->where(
+                                            'status',
+                                            'ACTIVE'
+                                        )
+                                        ->whereNotNull(
+                                            'image'
+                                        )
+                                );
+                        }
+                    );
+                }
             )
 
             ->when(
                 $image === 'no',
-                fn($query) =>
-                $query->whereNull(
-                    'image'
-                )
+
+                function ($query) {
+
+                    $query
+                        ->whereNull(
+                            'image'
+                        )
+
+                        ->whereDoesntHave(
+                            'baseVersionSetting.entityVersion',
+
+                            fn($versionQuery) =>
+                            $versionQuery
+                                ->where(
+                                    'status',
+                                    'ACTIVE'
+                                )
+                                ->whereNotNull(
+                                    'image'
+                                )
+                        );
+                }
             )
 
             ->when(

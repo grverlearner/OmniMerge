@@ -2,7 +2,7 @@
 
     if ($itemType === 'entity') {
         $title = $item->name;
-        $imageUrl = $item->image_url;
+        $imageUrl = $item->base_display_image_url;
         $icon = $item->entityType?->icon ?: '✦';
         $url = route('community.entities.show', $item);
     } elseif ($itemType === 'collection') {

@@ -7,7 +7,7 @@
 
         $subtitle = $item->entityType?->name ?? 'Sin tipo';
 
-        $imageUrl = $item->image_url;
+        $imageUrl = $item->base_display_image_url;
 
         $icon = $item->entityType?->icon ?: '✦';
 

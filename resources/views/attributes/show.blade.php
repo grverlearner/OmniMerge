@@ -322,12 +322,22 @@
 
 
                         @if ($attribute->options_count === 0 && $attribute->entity_attributes_count === 0)
-                            <form method="POST" action="{{ route('attributes.destroy', $attribute) }}"
-                                onsubmit="
-                                    return confirm(
-                                        '¿Eliminar este atributo definitivamente?'
-                                    )
-                                ">
+                            <form method="POST"
+                                action="{{ route('attributes.destroy', $attribute) }}"
+                                data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                data-confirm-title="Eliminar Atributo"
+                                data-confirm-message="
+        Este Atributo será eliminado
+        de tu Biblioteca.
+    "
+                                data-confirm-subject="{{ $attribute->name }}"
+                                data-confirm-detail="
+        Esta acción solamente está disponible
+        cuando el Atributo no tiene Catálogo
+        ni valores asignados.
+    "
+                                data-confirm-action="Eliminar Atributo"
+                                data-confirm-image="{{ $attribute->image_url ?? '' }}">
 
                                 @csrf
                                 @method('DELETE')

@@ -3,7 +3,7 @@
     if ($itemType === 'entity') {
         $title = $item->name;
         $subtitle = $item->entityType?->name ?? 'Sin tipo';
-        $imageUrl = $item->image_url;
+        $imageUrl = $item->base_display_image_url;
         $icon = $item->entityType?->icon ?: '✦';
         $creatorObject = $item->creator;
         $url = route('community.entities.show', $item);

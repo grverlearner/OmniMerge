@@ -228,11 +228,18 @@
 
                         <form method="POST"
                             action="{{ route('attribute-groups.destroy', $attributeGroup) }}"
-                            onsubmit="
-                                return confirm(
-                                    '¿Eliminar este grupo? Los atributos NO serán eliminados.'
-                                )
-                            ">
+                            data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                            data-confirm-title="Eliminar Grupo"
+                            data-confirm-message="
+        Este Grupo será eliminado
+        de tu organización de Atributos.
+    "
+                            data-confirm-subject="{{ $attributeGroup->name }}"
+                            data-confirm-detail="
+        Los Atributos contenidos en el Grupo
+        NO serán eliminados.
+    "
+                            data-confirm-action="Eliminar Grupo">
 
                             @csrf
                             @method('DELETE')

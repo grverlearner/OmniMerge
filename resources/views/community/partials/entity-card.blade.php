@@ -2,8 +2,8 @@
     class="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
     <a href="{{ route('community.entities.show', $entity) }}" class="block">
         <div class="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-indigo-50 to-violet-100">
-            @if ($entity->public_image_url)
-                <img src="{{ $entity->public_image_url }}" alt="{{ $entity->public_display_name }}"
+            @if ($entity->base_display_image_url)
+                <img src="{{ $entity->base_display_image_url }}" alt="{{ $entity->public_display_name }}"
                     class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
             @else
                 <div class="flex h-full items-center justify-center text-6xl text-indigo-400">

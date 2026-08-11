@@ -17,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Illuminate\Contracts\Auth\Guard;
 
 class ExploreController extends Controller
 {
@@ -709,7 +710,7 @@ class ExploreController extends Controller
                             ?? 'Sin tipo',
 
                         'image' =>
-                        $entity->public_image_url,
+                        $entity->base_display_image_url,
 
                         'icon' =>
                         $entity->entityType?->icon
@@ -877,6 +878,7 @@ class ExploreController extends Controller
         $entity->load([
             'creator',
             'entityType',
+            'baseVersionSetting.entityVersion',
             'entityAttributes.attribute',
             'entityAttributes.values.option',
             'presentation.entityVersion.version',
@@ -1002,7 +1004,8 @@ class ExploreController extends Controller
                     'entities.published_at'
                 )
                 ->with(
-                    'entityType'
+                    'entityType',
+                    'baseVersionSetting.entityVersion',
                 ),
         ]);
 
@@ -1384,12 +1387,12 @@ class ExploreController extends Controller
                 'entityType',
                 'presentation.entityVersion.version',
                 'presentation.mediaImage',
-
+                'baseVersionSetting.entityVersion',
                 'clones' =>
                 fn($query) =>
                 $query->where(
                     'user_id',
-                    auth()->id()
+                    $this->authenticatedUserId()
                 ),
             ])
             ->withCount([
@@ -1554,19 +1557,58 @@ class ExploreController extends Controller
             ->when(
                 $image === 'yes',
 
-                fn($query) =>
-                $query->whereNotNull(
-                    'image'
-                )
+                function ($query) {
+
+                    $query->where(
+                        function ($imageQuery) {
+
+                            $imageQuery
+                                ->whereNotNull(
+                                    'image'
+                                )
+
+                                ->orWhereHas(
+                                    'baseVersionSetting.entityVersion',
+
+                                    fn($versionQuery) =>
+                                    $versionQuery
+                                        ->where(
+                                            'status',
+                                            'ACTIVE'
+                                        )
+                                        ->whereNotNull(
+                                            'image'
+                                        )
+                                );
+                        }
+                    );
+                }
             )
 
             ->when(
                 $image === 'no',
 
-                fn($query) =>
-                $query->whereNull(
-                    'image'
-                )
+                function ($query) {
+
+                    $query
+                        ->whereNull(
+                            'image'
+                        )
+
+                        ->whereDoesntHave(
+                            'baseVersionSetting.entityVersion',
+
+                            fn($versionQuery) =>
+                            $versionQuery
+                                ->where(
+                                    'status',
+                                    'ACTIVE'
+                                )
+                                ->whereNotNull(
+                                    'image'
+                                )
+                        );
+                }
             )
 
             ->when(
@@ -1681,7 +1723,7 @@ class ExploreController extends Controller
                 fn($query) =>
                 $query->where(
                     'user_id',
-                    auth()->id()
+                    $this->authenticatedUserId()
                 ),
             ])
             ->withCount(
@@ -1904,7 +1946,7 @@ class ExploreController extends Controller
                 fn($query) =>
                 $query->where(
                     'user_id',
-                    auth()->id()
+                    $this->authenticatedUserId()
                 ),
             ])
             ->withCount([
@@ -2151,7 +2193,7 @@ class ExploreController extends Controller
                 fn($query) =>
                 $query->where(
                     'user_id',
-                    auth()->id()
+                    $this->authenticatedUserId()
                 ),
             ])
             ->withCount([
@@ -2806,5 +2848,19 @@ class ExploreController extends Controller
                 'updated_at' =>
                 now(),
             ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Usuario autenticado
+    |--------------------------------------------------------------------------
+    */
+
+    private function authenticatedUserId(): int|string|null
+    {
+        /** @var Guard $guard */
+        $guard = auth()->guard();
+
+        return $guard->id();
     }
 }

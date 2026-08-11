@@ -61,8 +61,21 @@
 
                 <div class="flex shrink-0 flex-wrap gap-2">
                     @if ($collection->allow_cloning && $collection->user_id !== auth()->id())
-                        <form method="POST" action="{{ route('community.collections.clone', $collection) }}"
-                            onsubmit="return confirm('Se copiará la colección y sus entidades a tu biblioteca. ¿Continuar?')">
+                        <form method="POST"
+                            action="{{ route('community.collections.clone', $collection) }}"
+                            data-omni-confirm data-confirm-variant="primary" data-confirm-icon="⧉"
+                            data-confirm-title="Copiar Colección completa"
+                            data-confirm-message="
+        Se creará una copia privada
+        de esta Colección y sus Entidades.
+    "
+                            data-confirm-subject="{{ $collection->name }}"
+                            data-confirm-detail="
+        La Colección original continuará
+        perteneciendo a su creador y no será modificada.
+    "
+                            data-confirm-action="Copiar Colección"
+                            data-confirm-image="{{ $collection->image_url ?? '' }}">
                             @csrf
 
                             <button type="submit"
@@ -150,8 +163,8 @@
                 <a href="{{ route('community.entities.show', $entity) }}"
                     class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
                     <div class="aspect-[16/9] bg-slate-100">
-                        @if ($entity->image_url)
-                            <img src="{{ $entity->image_url }}" alt="{{ $entity->name }}"
+                        @if ($entity->base_display_image_url)
+                            <img src="{{ $entity->base_display_image_url }}" alt="{{ $entity->name }}"
                                 class="h-full w-full object-cover">
                         @else
                             <div class="flex h-full items-center justify-center text-5xl text-indigo-400">

@@ -49,8 +49,7 @@
             <span>›</span>
 
 
-            <a href="{{ route('attributes.show', $attributeOption->attribute) }}"
-                class="hover:text-violet-600">
+            <a href="{{ route('attributes.show', $attributeOption->attribute) }}" class="hover:text-violet-600">
                 {{ $attributeOption->attribute->name }}
             </a>
 
@@ -59,8 +58,7 @@
                 <span>›</span>
 
 
-                <a href="{{ route('attribute-options.show', $ancestor) }}"
-                    class="hover:text-violet-600">
+                <a href="{{ route('attribute-options.show', $ancestor) }}" class="hover:text-violet-600">
                     {{ $ancestor->name }}
                 </a>
             @endforeach
@@ -242,11 +240,19 @@
                         @if ($attributeOption->values_count === 0 && $attributeOption->children_count === 0)
                             <form method="POST"
                                 action="{{ route('attribute-options.destroy', $attributeOption) }}"
-                                onsubmit="
-                                    return confirm(
-                                        '¿Eliminar definitivamente este elemento?'
-                                    )
-                                ">
+                                data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                data-confirm-title="Eliminar elemento de Catálogo"
+                                data-confirm-message="
+        Este elemento será eliminado
+        de su Catálogo.
+    "
+                                data-confirm-subject="{{ $attributeOption->name }}"
+                                data-confirm-detail="
+        El elemento solamente puede eliminarse
+        cuando no tiene usos ni subelementos.
+    "
+                                data-confirm-action="Eliminar elemento"
+                                data-confirm-image="{{ $attributeOption->image_url ?? '' }}">
 
                                 @csrf
                                 @method('DELETE')

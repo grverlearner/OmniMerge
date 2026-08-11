@@ -947,8 +947,7 @@
                                             "
                                             :key="attribute.id">
 
-                                            <option
-                                                :value="attribute.id"
+                                            <option :value="attribute.id"
                                                 x-text="
                                                     attribute.name
                                                 ">
@@ -1089,8 +1088,7 @@
                                                 "
                                                 :key="option.id">
 
-                                                <option
-                                                    :value="option.id"
+                                                <option :value="option.id"
                                                     x-text="
                                                         option.name
                                                     ">
@@ -1149,8 +1147,7 @@
                                                 x-model="
                                                     rule.value2
                                                 "
-                                                :name="`attribute_filters[${index}][value2]`"
-                                                placeholder="Hasta"
+                                                :name="`attribute_filters[${index}][value2]`" placeholder="Hasta"
                                                 class="
                                                     w-full
                                                     min-w-0
@@ -1433,8 +1430,7 @@
                                 "
                                 :key="`group-1-${attribute.id}`">
 
-                                <option
-                                    :value="`attribute:${attribute.id}`"
+                                <option :value="`attribute:${attribute.id}`"
                                     x-text="
                                         `Atributo · ${attribute.name}`
                                     ">
@@ -1505,8 +1501,7 @@
                                 "
                                 :key="`group-2-${attribute.id}`">
 
-                                <option
-                                    :value="`attribute:${attribute.id}`"
+                                <option :value="`attribute:${attribute.id}`"
                                     x-text="
                                         `Atributo · ${attribute.name}`
                                     ">
@@ -2313,8 +2308,7 @@
                                 in selectedIds
                             "
                             :key="`type-${id}`">
-                            <input type="hidden" name="entity_ids[]"
-                                :value="id">
+                            <input type="hidden" name="entity_ids[]" :value="id">
                         </template>
 
 
@@ -2391,8 +2385,7 @@
                                 in selectedIds
                             "
                             :key="`desc-${id}`">
-                            <input type="hidden" name="entity_ids[]"
-                                :value="id">
+                            <input type="hidden" name="entity_ids[]" :value="id">
                         </template>
 
 
@@ -2553,8 +2546,7 @@
                                 "
                                 :key="`matrix-option-${attribute.id}`">
 
-                                <option
-                                    :value="attribute.id"
+                                <option :value="attribute.id"
                                     x-text="
                                         `${attribute.name} · ${attribute.data_type_label}`
                                     ">
@@ -2595,8 +2587,7 @@
                         in selectedIds
                     "
                     :key="`matrix-id-${id}`">
-                    <input type="hidden" name="entity_ids[]"
-                        :value="id">
+                    <input type="hidden" name="entity_ids[]" :value="id">
                 </template>
 
 
@@ -2851,8 +2842,7 @@
                                                 "
                                                 :key="type.id">
 
-                                                <option
-                                                    :value="type.id"
+                                                <option :value="type.id"
                                                     x-text="
                                                         type.name
                                                     ">
@@ -2979,8 +2969,7 @@
                                                         "
                                                         :key="option.id">
 
-                                                        <option
-                                                            :value="option.id"
+                                                        <option :value="option.id"
                                                             x-text="
                                                                 option.name
                                                             ">
@@ -3022,8 +3011,7 @@
                                                         "
                                                         :key="option.id">
 
-                                                        <option
-                                                            :value="option.id"
+                                                        <option :value="option.id"
                                                             x-text="
                                                                 option.name
                                                             ">
@@ -3271,17 +3259,14 @@
                         in selectedIds
                     "
                     :key="`attribute-op-${id}`">
-                    <input type="hidden" name="entity_ids[]"
-                        :value="id">
+                    <input type="hidden" name="entity_ids[]" :value="id">
                 </template>
 
 
-                <input type="hidden" name="operation"
-                    :value="attributeOperation">
+                <input type="hidden" name="operation" :value="attributeOperation">
 
 
-                <input type="hidden" name="attribute_id"
-                    :value="selectedAttributeId">
+                <input type="hidden" name="attribute_id" :value="selectedAttributeId">
 
 
                 <input type="hidden" name="attribute_value_json"
@@ -3389,8 +3374,7 @@
                                 "
                                 :key="attribute.id">
 
-                                <option
-                                    :value="attribute.id"
+                                <option :value="attribute.id"
                                     x-text="
                                         `${attribute.name} · ${attribute.data_type_label}`
                                     ">
@@ -3459,8 +3443,7 @@
                                     "
                                     :key="option.id">
 
-                                    <option
-                                        :value="option.id"
+                                    <option :value="option.id"
                                         x-text="
                                             option.name
                                         ">
@@ -3502,8 +3485,7 @@
                                     "
                                     :key="option.id">
 
-                                    <option
-                                        :value="option.id"
+                                    <option :value="option.id"
                                         x-text="
                                             option.name
                                         ">
@@ -3800,8 +3782,7 @@
                             in selectedIds
                         "
                         :key="`add-col-${id}`">
-                        <input type="hidden" name="entity_ids[]"
-                            :value="id">
+                        <input type="hidden" name="entity_ids[]" :value="id">
                     </template>
 
 
@@ -3887,8 +3868,7 @@
                             in selectedIds
                         "
                         :key="`remove-col-${id}`">
-                        <input type="hidden" name="entity_ids[]"
-                            :value="id">
+                        <input type="hidden" name="entity_ids[]" :value="id">
                     </template>
 
 
@@ -3974,8 +3954,7 @@
                             in selectedIds
                         "
                         :key="`set-col-${id}`">
-                        <input type="hidden" name="entity_ids[]"
-                            :value="id">
+                        <input type="hidden" name="entity_ids[]" :value="id">
                     </template>
 
 
@@ -4077,8 +4056,7 @@
                         in selectedIds
                     "
                     :key="`presentation-${id}`">
-                    <input type="hidden" name="entity_ids[]"
-                        :value="id">
+                    <input type="hidden" name="entity_ids[]" :value="id">
                 </template>
 
 
@@ -4364,8 +4342,7 @@
                         in selectedIds
                     "
                     :key="`order-entity-${id}`">
-                    <input type="hidden" name="entity_ids[]"
-                        :value="id">
+                    <input type="hidden" name="entity_ids[]" :value="id">
                 </template>
 
 
@@ -4375,8 +4352,7 @@
                         in orderAttributeIds
                     "
                     :key="`order-attribute-${id}`">
-                    <input type="hidden" name="attribute_order[]"
-                        :value="id">
+                    <input type="hidden" name="attribute_order[]" :value="id">
                 </template>
 
 
@@ -4623,8 +4599,7 @@
                         in selectedIds
                     "
                     :key="`publication-${id}`">
-                    <input type="hidden" name="entity_ids[]"
-                        :value="id">
+                    <input type="hidden" name="entity_ids[]" :value="id">
                 </template>
 
 
@@ -4853,19 +4828,29 @@
                 ">
 
                 {{-- ARCHIVE --}}
-                <form method="POST" action="{{ route('entities.bulk-edit.update') }}"
-                    onsubmit="
-                        return confirm(
-                            '¿Archivar las Entidades seleccionadas?'
-                        )
-                    "
+                <form method="POST" action="{{ route('entities.bulk-edit.update') }}" data-omni-confirm
+                    data-confirm-variant="warning" data-confirm-icon="!" data-confirm-title="Archivar Entidades"
+                    data-confirm-message="
+        Las Entidades seleccionadas pasarán
+        al estado Archivado.
+    "
+                    :data-confirm-subject="`${selectedCount} ${
+                                                    selectedCount === 1
+                                                        ? 'Entidad seleccionada'
+                                                        : 'Entidades seleccionadas'
+                                                }`"
+                    data-confirm-detail="
+        Las Entidades no serán eliminadas.
+        Podrás conservar sus datos y administrarlas posteriormente.
+    "
+                    data-confirm-action="Archivar seleccionadas"
                     class="
-                        rounded-2xl
-                        border
-                        border-amber-200
-                        bg-amber-50
-                        p-5
-                    ">
+        rounded-2xl
+        border
+        border-amber-200
+        bg-amber-50
+        p-5
+    ">
 
                     @csrf
 
@@ -4878,8 +4863,7 @@
                             in selectedIds
                         "
                         :key="`archive-${id}`">
-                        <input type="hidden" name="entity_ids[]"
-                            :value="id">
+                        <input type="hidden" name="entity_ids[]" :value="id">
                     </template>
 
 
@@ -4923,11 +4907,22 @@
 
                 {{-- DELETE --}}
                 <form method="POST" action="{{ route('entities.bulk-edit.update') }}"
-                    onsubmit="
-                        return confirm(
-                            '¿Seguro que deseas eliminar todas las Entidades seleccionadas? Se aplicará Soft Delete.'
-                        )
-                    "
+                    data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                    data-confirm-title="Eliminar Entidades"
+                    data-confirm-message="
+        Vas a eliminar todas las Entidades
+        actualmente seleccionadas.
+    "
+                    :data-confirm-subject="`${selectedCount} ${
+                                selectedCount === 1
+                                    ? 'Entidad seleccionada'
+                                    : 'Entidades seleccionadas'
+                            }`"
+                    data-confirm-detail="
+        OmniMerge utilizará eliminación lógica.
+        Esta operación afectará a todas las Entidades seleccionadas.
+    "
+                    data-confirm-action="Sí, eliminar seleccionadas"
                     class="
                         rounded-2xl
                         border
@@ -4947,8 +4942,7 @@
                             in selectedIds
                         "
                         :key="`delete-${id}`">
-                        <input type="hidden" name="entity_ids[]"
-                            :value="id">
+                        <input type="hidden" name="entity_ids[]" :value="id">
                     </template>
 
 
@@ -5087,17 +5081,13 @@
                     |--------------------------------------------------------------------------
                     */
 
-                    entities: config.entities ??
-                        [],
+                    entities: config.entities ?? [],
 
-                    attributes: config.attributes ??
-                        [],
+                    attributes: config.attributes ?? [],
 
-                    entityTypes: config.entityTypes ??
-                        [],
+                    entityTypes: config.entityTypes ?? [],
 
-                    collections: config.collections ??
-                        [],
+                    collections: config.collections ?? [],
 
 
                     /*
@@ -5207,8 +5197,7 @@
 
                                         attribute_values: JSON.parse(
                                             JSON.stringify(
-                                                entity.attribute_values ??
-                                                {}
+                                                entity.attribute_values ?? {}
                                             )
                                         ),
                                     };
@@ -5267,8 +5256,7 @@
                         */
 
                         const oldRules =
-                            config.initialRules ??
-                            [];
+                            config.initialRules ?? [];
 
 
                         if (
@@ -5291,8 +5279,7 @@
                                         attribute_id: rule.attribute_id ?
                                             String(
                                                 rule.attribute_id
-                                            ) :
-                                            '',
+                                            ) : '',
 
                                         operator: rule.operator ??
                                             'eq',
@@ -5797,8 +5784,7 @@
                                 entity => {
 
                                     (
-                                        entity.attribute_ids ??
-                                        []
+                                        entity.attribute_ids ?? []
                                     )
                                     .forEach(
                                         id =>

@@ -421,8 +421,8 @@
 
                             <div class="aspect-square bg-slate-100">
 
-                                @if ($entity->image_url)
-                                    <img src="{{ $entity->image_url }}"
+                                @if ($entity->base_display_image_url)
+                                    <img src="{{ $entity->base_display_image_url }}"
                                         class="
                                             h-full
                                             w-full

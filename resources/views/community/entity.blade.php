@@ -12,8 +12,8 @@
 
     <article class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div class="relative min-h-72 bg-gradient-to-br from-indigo-500 to-violet-600 sm:min-h-[420px]">
-            @if ($entity->public_image_url)
-                <img src="{{ $entity->public_image_url }}" alt="{{ $entity->public_display_name }}"
+            @if ($entity->base_display_image_url)
+                <img src="{{ $entity->base_display_image_url }}" alt="{{ $entity->public_display_name }}"
                     class="absolute inset-0 h-full w-full object-cover">
 
                 <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent"></div>
@@ -372,10 +372,21 @@
                     </div>
 
                     @if ($entity->allow_cloning && $entity->user_id !== auth()->id())
-                        <form method="POST" action="{{ route('community.entities.clone', $entity) }}"
-                            onsubmit="return confirm(
-                                'Se creará una copia privada e independiente en tu biblioteca. ¿Continuar?'
-                            )">
+                        <form method="POST"
+                            action="{{ route('community.entities.clone', $entity) }}"
+                            data-omni-confirm data-confirm-variant="primary" data-confirm-icon="⧉"
+                            data-confirm-title="Copiar a mi Biblioteca"
+                            data-confirm-message="
+        Se creará una copia privada
+        e independiente de esta Entidad.
+    "
+                            data-confirm-subject="{{ $entity->public_display_name }}"
+                            data-confirm-detail="
+        La creación original y los datos
+        de su autor no serán modificados.
+    "
+                            data-confirm-action="Copiar Entidad"
+                            data-confirm-image="{{ $entity->base_display_image_url ?? '' }}">
                             @csrf
 
                             <button type="submit"

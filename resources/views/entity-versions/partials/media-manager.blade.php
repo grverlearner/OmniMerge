@@ -511,12 +511,22 @@
 
 
                                 {{-- DELETE --}}
-                                <form method="POST" :action="item.delete_url"
-                                    onsubmit="
-                                        return confirm(
-                                            '¿Eliminar esta imagen?'
-                                        );
-                                    ">
+                                <form method="POST" :action="item.delete_url" data-omni-confirm
+                                    data-confirm-variant="danger" data-confirm-icon="×"
+                                    data-confirm-title="Eliminar imagen"
+                                    data-confirm-message="
+        Esta imagen será eliminada
+        de la galería de la Version.
+    "
+                                    :data-confirm-subject="item.caption ||
+                                        item.type_label ||
+                                        'Imagen multimedia'"
+                                    data-confirm-detail="
+        La imagen principal de la Version
+        no será eliminada con esta acción.
+    "
+                                    data-confirm-action="Eliminar imagen"
+                                    :data-confirm-image="item.image_url">
 
                                     @csrf
                                     @method('DELETE')
@@ -538,8 +548,7 @@
 
                                 </form>
 
-                                <form method="POST"
-                                    action="{{ route('entities.presentation.update', $entity) }}">
+                                <form method="POST" action="{{ route('entities.presentation.update', $entity) }}">
 
                                     @csrf
                                     @method('PUT')
@@ -602,7 +611,8 @@
 
                 <template x-for="
                         item in items
-                    " :key="`order-${item.id}`">
+                    "
+                    :key="`order-${item.id}`">
 
                     <input type="hidden" name="ordered_ids[]" :value="item.id">
 

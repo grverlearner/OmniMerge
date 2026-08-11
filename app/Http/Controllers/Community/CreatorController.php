@@ -121,6 +121,7 @@ class CreatorController extends Controller
             ->with([
                 'creator',
                 'entityType',
+                'baseVersionSetting.entityVersion',
             ])
             ->latest('published_at')
             ->limit(6)

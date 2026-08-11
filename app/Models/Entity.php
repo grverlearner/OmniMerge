@@ -165,15 +165,20 @@ class Entity extends Model
             ->exists();
     }
 
-
     /*
-    |--------------------------------------------------------------------------
-    | Obtener EntityVersion utilizada como Base
-    |--------------------------------------------------------------------------
-    */
+|--------------------------------------------------------------------------
+| Obtener EntityVersion utilizada como Base activa
+|--------------------------------------------------------------------------
+*/
 
     public function activeBaseVersion(): ?EntityVersion
     {
+        /*
+        |--------------------------------------------------------------------------
+        | Si ya fue cargada mediante eager loading
+        |--------------------------------------------------------------------------
+        */
+
         if (
             $this->relationLoaded(
                 'baseVersionSetting'
@@ -186,21 +191,82 @@ class Entity extends Model
                 ?->entityVersion;
 
 
-            return $entityVersion
+            /*
+         * Solamente una Version ACTIVE
+         * puede funcionar visualmente como Base.
+         */
+            return
+                $entityVersion
                 &&
                 $entityVersion->status === 'ACTIVE'
+
                 ? $entityVersion
                 : null;
         }
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | Fallback cuando la relación todavía no fue cargada
+        |--------------------------------------------------------------------------
+        */
+
         return $this
             ->baseVersionSetting()
-            ->with(
-                'entityVersion'
+            ->whereHas(
+                'entityVersion',
+                fn($query) =>
+                $query->where(
+                    'status',
+                    'ACTIVE'
+                )
             )
+            ->with([
+                'entityVersion' =>
+                fn($query) =>
+                $query->where(
+                    'status',
+                    'ACTIVE'
+                ),
+            ])
             ->first()
             ?->entityVersion;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Imagen visible según la Base activa
+    |--------------------------------------------------------------------------
+    |
+    | Prioridad:
+    |
+    | 1. Imagen de la EntityVersion utilizada como Base activa.
+    | 2. Imagen original de la Entity.
+    |
+    | IMPORTANTE:
+    | Esto NO modifica la Presentación pública,
+    | el nombre, descripción ni el Resolver.
+    |
+    */
+
+    public function getBaseDisplayImageUrlAttribute(): ?string
+    {
+        $activeBaseVersion =
+            $this->activeBaseVersion();
+
+
+        if (
+            $activeBaseVersion
+            &&
+            $activeBaseVersion->image_url
+        ) {
+
+            return $activeBaseVersion
+                ->image_url;
+        }
+
+
+        return $this->image_url;
     }
 
     /*

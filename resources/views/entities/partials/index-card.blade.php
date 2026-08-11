@@ -27,8 +27,8 @@
             'h-60': density === 'large'
         }">
 
-        @if ($entity->image_url)
-            <img src="{{ $entity->image_url }}" alt="{{ $entity->name }}"
+        @if ($entity->base_display_image_url)
+            <img src="{{ $entity->base_display_image_url }}" alt="{{ $entity->name }}"
                 class="
                     h-full
                     w-full

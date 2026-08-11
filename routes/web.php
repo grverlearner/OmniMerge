@@ -381,22 +381,11 @@ Route::middleware('auth')->group(function () {
         'entity-versions.images.destroy'
     );
 
-
-    Route::delete(
-        'entities/{entity}/versions/{entityVersion}/images/{image}',
-        [
-            EntityVersionController::class,
-            'destroyImage',
-        ]
-    )->name(
-        'entity-versions.images.destroy'
-    );
-
     /*
-|--------------------------------------------------------------------------
-| Presentación pública de Entidades
-|--------------------------------------------------------------------------
-*/
+    |--------------------------------------------------------------------------
+    | Presentación pública de Entidades
+    |--------------------------------------------------------------------------
+    */
 
     Route::get(
         'entities/{entity}/presentation',

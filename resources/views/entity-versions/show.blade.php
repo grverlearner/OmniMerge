@@ -359,11 +359,20 @@
                         </a>
                         @if ($entityVersion->baseSetting)
                             <form method="POST" action="{{ route('entities.base-version.destroy', $entity) }}"
-                                onsubmit="
-                                    return confirm(
-                                        'Esta Version es la Base activa. ¿Volver a la Base original?'
-                                    );
-                                ">
+                                data-omni-confirm data-confirm-variant="primary" data-confirm-icon="◇"
+                                data-confirm-title="Restaurar Base original"
+                                data-confirm-message="
+        Esta Version dejará de ser la
+        Base activa de la Entidad.
+    "
+                                data-confirm-subject="{{ $entityVersion->name }}"
+                                data-confirm-detail="
+        La Version seguirá existiendo.
+        Solamente cambia cuál representación
+        funciona como Base principal.
+    "
+                                data-confirm-action="Volver a Base original"
+                                data-confirm-image="{{ $entity->image_url ?? '' }}">
 
                                 @csrf
                                 @method('DELETE')
@@ -386,12 +395,21 @@
 
                             </form>
                         @else
-                            <form method="POST" action="{{ route('entities.base-version.update', $entity) }}"
-                                onsubmit="
-                                    return confirm(
-                                        '¿Convertir esta Version en la Base activa de la Entidad?'
-                                    );
-                                ">
+                            <form method="POST"
+                                action="{{ route('entities.base-version.update', $entity) }}"
+                                data-omni-confirm data-confirm-variant="violet" data-confirm-icon="★"
+                                data-confirm-title="Cambiar Base activa"
+                                data-confirm-message="
+        Esta Version pasará a funcionar
+        como la Base principal de la Entidad.
+    "
+                                data-confirm-subject="{{ $entityVersion->name }}"
+                                data-confirm-detail="
+        La Entidad original continuará guardada
+        y el Default del Resolver no será modificado.
+    "
+                                data-confirm-action="Usar como Base"
+                                data-confirm-image="{{ $entityVersion->image_url ?? '' }}">
 
                                 @csrf
                                 @method('PUT')

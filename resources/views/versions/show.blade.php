@@ -1259,11 +1259,19 @@
 
 
             <form method="POST" action="{{ route('versions.destroy', $version) }}"
-                onsubmit="
-                    return confirm(
-                        '¿Seguro que deseas eliminar esta Versión?'
-                    );
-                ">
+                data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                data-confirm-title="Eliminar definición de Version"
+                data-confirm-message="
+        Esta definición de Version dejará
+        de estar disponible normalmente.
+    "
+                data-confirm-subject="{{ $version->name }}"
+                data-confirm-detail="
+        OmniMerge utiliza eliminación lógica
+        para las Versiones. Revisa sus
+        asociaciones antes de continuar.
+    "
+                data-confirm-action="Eliminar Version" data-confirm-image="{{ $version->image_url ?? '' }}">
 
                 @csrf
                 @method('DELETE')

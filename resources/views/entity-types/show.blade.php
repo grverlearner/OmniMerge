@@ -208,11 +208,19 @@
                     @if ($entityType->entities_count === 0)
                         <form method="POST"
                             action="{{ route('entity-types.destroy', $entityType) }}"
-                            onsubmit="
-                                return confirm(
-                                    '¿Eliminar definitivamente este tipo de entidad?'
-                                )
-                            ">
+                            data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                            data-confirm-title="Eliminar Tipo de Entidad"
+                            data-confirm-message="
+        Este Tipo dejará de estar
+        disponible en tu Biblioteca.
+    "
+                            data-confirm-subject="{{ $entityType->name }}"
+                            data-confirm-detail="
+        Solo puede eliminarse cuando
+        no tiene Entidades asociadas.
+    "
+                            data-confirm-action="Eliminar Tipo"
+                            data-confirm-image="{{ $entityType->image_url ?? '' }}">
 
                             @csrf
                             @method('DELETE')
@@ -565,8 +573,8 @@
                             to-violet-100
                         ">
 
-                        @if ($entity->image_url)
-                            <img src="{{ $entity->image_url }}" alt="{{ $entity->name }}"
+                        @if ($entity->base_display_image_url)
+                            <img src="{{ $entity->base_display_image_url }}" alt="{{ $entity->name }}"
                                 class="
                                     h-full
                                     w-full

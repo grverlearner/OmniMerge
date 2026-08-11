@@ -417,11 +417,11 @@
                     </option>
 
                     <option value="yes" @selected($image === 'yes')>
-                        Con imagen
+                        Con imagen visible
                     </option>
 
                     <option value="no" @selected($image === 'no')>
-                        Sin imagen
+                        Sin imagen visible
                     </option>
                 </select>
 
@@ -936,8 +936,8 @@
                                                     bg-slate-100
                                                 ">
 
-                                                @if ($entity->image_url)
-                                                    <img src="{{ $entity->image_url }}"
+                                                @if ($entity->base_display_image_url)
+                                                    <img src="{{ $entity->base_display_image_url }}"
                                                         class="
                                                             h-full
                                                             w-full

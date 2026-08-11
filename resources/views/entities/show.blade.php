@@ -363,12 +363,21 @@
                         {{-- DELETE ENTIDAD --}}
                         {{-- ===================================================== --}}
 
-                        <form method="POST" action="{{ route('entities.destroy', $entity) }}"
-                            onsubmit="
-                                return confirm(
-                                    '¿Eliminar esta entidad?'
-                                );
-                            ">
+                        <form method="POST"
+                            action="{{ route('entities.destroy', $entity) }}"
+                            data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                            data-confirm-title="Eliminar Entidad"
+                            data-confirm-message="
+                                Esta Entidad dejará de estar disponible
+                                en tu Biblioteca.
+                            "
+                            data-confirm-subject="{{ $entity->name }}"
+                            data-confirm-detail="
+                                Verifica que realmente deseas eliminar
+                                esta Entidad antes de continuar.
+                            "
+                            data-confirm-action="Sí, eliminar Entidad"
+                            data-confirm-image="{{ $entity->base_display_image_url ?? '' }}">
 
                             @csrf
                             @method('DELETE')

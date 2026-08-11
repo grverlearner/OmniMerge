@@ -486,13 +486,21 @@
 
 
                                 @if ($currentBase)
-                                    <form method="POST"
-                                        action="{{ route('entities.base-version.destroy', $entity) }}"
-                                        onsubmit="
-                                            return confirm(
-                                                '¿Volver a utilizar la Base original?'
-                                            );
-                                        ">
+                                    <form method="POST" action="{{ route('entities.base-version.destroy', $entity) }}"
+                                        data-omni-confirm data-confirm-variant="primary" data-confirm-icon="◇"
+                                        data-confirm-title="Volver a la Base original"
+                                        data-confirm-message="
+                                            La Entidad volverá a utilizar su
+                                            representación original como Base.
+                                        "
+                                        data-confirm-subject="{{ $entity->name }}"
+                                        data-confirm-detail="
+                                            La Version que utilizas actualmente
+                                            no será eliminada. Podrás volver a
+                                            seleccionarla cuando quieras.
+                                        "
+                                        data-confirm-action="Usar Base original"
+                                        data-confirm-image="{{ $entity->image_url ?? '' }}">
 
                                         @csrf
                                         @method('DELETE')
@@ -665,11 +673,19 @@
                                     @else
                                         <form method="POST"
                                             action="{{ route('entities.base-version.update', $entity) }}"
-                                            onsubmit="
-                                                return confirm(
-                                                    '¿Usar {{ addslashes($versionItem->name) }} como Base activa?'
-                                                );
-                                            ">
+                                            data-omni-confirm data-confirm-variant="violet" data-confirm-icon="★"
+                                            data-confirm-title="Cambiar Base activa"
+                                            data-confirm-message="
+        Esta Version pasará a ser la
+        representación principal de la Entidad.
+    "
+                                            data-confirm-subject="{{ $versionItem->name }}"
+                                            data-confirm-detail="
+        La Base original no se elimina
+        y el Default del Resolver no cambiará.
+    "
+                                            data-confirm-action="Sí, usar como Base"
+                                            data-confirm-image="{{ $versionItem->image_url ?? '' }}">
 
                                             @csrf
                                             @method('PUT')
