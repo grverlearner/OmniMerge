@@ -4,511 +4,242 @@
         Dashboard de Torneos
     </x-slot>
 
-
-    {{-- ========================================================= --}}
     {{-- HERO --}}
-    {{-- ========================================================= --}}
 
     <section
-        class="
-            relative
-            overflow-hidden
-            rounded-[32px]
-            bg-gradient-to-br
-            from-slate-950
-            via-amber-950
-            to-orange-950
-            p-7
-            text-white
-            shadow-2xl
-            shadow-amber-950/20
-            sm:p-9
-        ">
+        class="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-slate-950 via-amber-950 to-orange-950 p-7 text-white shadow-2xl shadow-amber-950/20 sm:p-9">
 
-        <div
-            class="
-                pointer-events-none
-                absolute
-                -right-24
-                -top-24
-                h-80
-                w-80
-                rounded-full
-                bg-amber-400/15
-                blur-3xl
-            ">
+        <div class="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-amber-400/15 blur-3xl">
         </div>
 
+        <div class="relative flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
 
-        <div
-            class="
-                pointer-events-none
-                absolute
-                -bottom-24
-                left-1/3
-                h-64
-                w-64
-                rounded-full
-                bg-orange-500/10
-                blur-3xl
-            ">
-        </div>
-
-
-        <div
-            class="
-                relative
-                flex
-                flex-col
-                justify-between
-                gap-8
-                lg:flex-row
-                lg:items-end
-            ">
-
-            <div class="
-                    max-w-3xl
-                ">
-
+            <div class="max-w-3xl">
                 <div
-                    class="
-                        inline-flex
-                        items-center
-                        gap-2
-                        rounded-full
-                        border
-                        border-amber-300/20
-                        bg-amber-400/10
-                        px-4
-                        py-2
-                        text-[10px]
-                        font-black
-                        uppercase
-                        tracking-[0.18em]
-                        text-amber-300
-                    ">
-                    🏆 Competition Designer
+                    class="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">
+                    🏆 Tournament & Phase Designer
                 </div>
 
-
-                <h2
-                    class="
-                        mt-5
-                        text-3xl
-                        font-black
-                        tracking-tight
-                        sm:text-4xl
-                    ">
-                    Diseña cómo funciona
-                    una competición.
+                <h2 class="mt-5 text-3xl font-black tracking-tight sm:text-4xl">
+                    Construye el lenguaje
+                    de tus competiciones.
                 </h2>
 
-
-                <p
-                    class="
-                        mt-4
-                        max-w-2xl
-                        text-sm
-                        leading-7
-                        text-slate-300
-                    ">
-                    Crea estructuras reutilizables con fases,
-                    participantes, formatos y reglas. Más adelante
-                    estas plantillas podrán utilizarse dentro de
-                    Universos y compartirse mediante Comunidad.
+                <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
+                    Las Fases definen qué ocurre dentro de cada etapa.
+                    Los Torneos serán los encargados de conectarlas
+                    para formar recorridos, bifurcaciones, repechajes
+                    y caminos competitivos completos.
                 </p>
-
             </div>
 
-
-            <div
-                class="
-                    flex
-                    flex-wrap
-                    gap-3
-                ">
+            <div class="flex flex-wrap gap-3">
 
                 <a href="{{ route('tournaments.templates.index') }}"
-                    class="
-                        rounded-xl
-                        border
-                        border-white/15
-                        bg-white/10
-                        px-5
-                        py-3
-                        text-sm
-                        font-black
-                        text-white
-                        backdrop-blur
-                        transition
-                        hover:bg-white/15
-                    ">
-                    Mis plantillas
+                    class="rounded-xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-black text-white transition hover:bg-white/15">
+                    🏆 Torneos
                 </a>
 
-
-                <a href="{{ route('tournaments.templates.create') }}"
-                    class="
-                        rounded-xl
-                        bg-amber-400
-                        px-5
-                        py-3
-                        text-sm
-                        font-black
-                        text-slate-950
-                        shadow-lg
-                        shadow-amber-500/20
-                        transition
-                        hover:bg-amber-300
-                    ">
-                    + Nueva plantilla
+                <a href="{{ route('tournaments.phase-templates.index') }}"
+                    class="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-slate-950 shadow-lg shadow-amber-500/20 transition hover:bg-amber-300">
+                    ⌘ Fases
                 </a>
-
             </div>
 
         </div>
-
     </section>
 
-
-    {{-- ========================================================= --}}
     {{-- STATS --}}
-    {{-- ========================================================= --}}
 
-    <section
-        class="
-            mt-6
-            grid
-            grid-cols-2
-            gap-3
-            lg:grid-cols-5
-        ">
+    <section class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
 
-        @foreach ([
-        [
-            'label' => 'Plantillas',
-            'value' => $statistics['total'],
-            'icon' => '🏆',
-        ],
-        [
-            'label' => 'Activas',
-            'value' => $statistics['active'],
-            'icon' => '●',
-        ],
-        [
-            'label' => 'Borradores',
-            'value' => $statistics['draft'],
-            'icon' => '✎',
-        ],
-        [
-            'label' => 'Públicas',
-            'value' => $statistics['public'],
-            'icon' => '◎',
-        ],
-        [
-            'label' => 'Fases',
-            'value' => $statistics['phases'],
-            'icon' => '⌘',
-        ],
-    ] as $stat)
-            <article
-                class="
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-white
-                    p-5
-                ">
-
-                <div
-                    class="
-                        flex
-                        items-center
-                        justify-between
-                    ">
-
+        @foreach ([['Torneos', $statistics['tournaments'], '🏆'], ['Torneos activos', $statistics['active_tournaments'], '●'], ['Fases', $statistics['phases'], '⌘'], ['Fases activas', $statistics['active_phases'], '◆'], ['Fases públicas', $statistics['public_phases'], '◎'], ['Puertas', $statistics['phase_exits'], '→']] as [$label, $value, $icon])
+            <article class="rounded-2xl border border-slate-200 bg-white p-5">
+                <div class="flex items-center justify-between gap-3">
                     <div>
-
-                        <p
-                            class="
-                                text-[9px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-slate-400
-                            ">
-                            {{ $stat['label'] }}
+                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                            {{ $label }}
                         </p>
 
-
-                        <p
-                            class="
-                                mt-2
-                                text-3xl
-                                font-black
-                                text-slate-900
-                            ">
-                            {{ number_format($stat['value']) }}
+                        <p class="mt-2 text-3xl font-black text-slate-900">
+                            {{ number_format($value) }}
                         </p>
-
                     </div>
-
 
                     <div
-                        class="
-                            flex
-                            h-11
-                            w-11
-                            items-center
-                            justify-center
-                            rounded-xl
-                            bg-amber-50
-                            text-lg
-                            text-amber-700
-                        ">
-                        {{ $stat['icon'] }}
+                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                        {{ $icon }}
                     </div>
-
                 </div>
-
             </article>
         @endforeach
 
     </section>
 
+    {{-- DOMINIOS --}}
 
-    {{-- ========================================================= --}}
-    {{-- PLANTILLAS RECIENTES --}}
-    {{-- ========================================================= --}}
+    <section class="mt-8 grid gap-5 lg:grid-cols-2">
 
-    <section class="
-            mt-8
-        ">
+        {{-- TORNEOS --}}
 
-        <div
-            class="
-                flex
-                items-end
-                justify-between
-                gap-4
-            ">
+        <article class="rounded-3xl border border-slate-200 bg-white p-6">
 
-            <div>
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs font-black uppercase tracking-[0.18em] text-amber-600">
+                        Orquestación
+                    </p>
 
-                <p
-                    class="
-                        text-xs
-                        font-black
-                        uppercase
-                        tracking-wider
-                        text-amber-600
-                    ">
-                    Tu trabajo
-                </p>
-
-
-                <h3
-                    class="
-                        mt-2
-                        text-2xl
-                        font-black
-                        text-slate-900
-                    ">
-                    Plantillas recientes
-                </h3>
-
-            </div>
-
-
-            <a href="{{ route('tournaments.templates.index') }}"
-                class="
-                    text-sm
-                    font-black
-                    text-amber-600
-                ">
-                Ver todas →
-            </a>
-
-        </div>
-
-
-        @if ($recentTemplates->isEmpty())
-
-            <div
-                class="
-                    mt-5
-                    rounded-3xl
-                    border
-                    border-dashed
-                    border-amber-300
-                    bg-amber-50/50
-                    p-10
-                    text-center
-                ">
-
-                <div class="
-                        text-5xl
-                    ">
-                    🏆
+                    <h3 class="mt-2 text-2xl font-black text-slate-900">
+                        🏆 Torneos
+                    </h3>
                 </div>
 
-
-                <h4
-                    class="
-                        mt-4
-                        text-xl
-                        font-black
-                        text-slate-900
-                    ">
-                    Todavía no tienes plantillas
-                </h4>
-
-
-                <p
-                    class="
-                        mx-auto
-                        mt-2
-                        max-w-lg
-                        text-sm
-                        leading-6
-                        text-slate-500
-                    ">
-                    Crea la primera estructura competitiva
-                    de OmniMerge. Empezaremos con eliminación
-                    directa y progresivamente añadiremos más formatos.
-                </p>
-
-
-                <a href="{{ route('tournaments.templates.create') }}"
-                    class="
-                        mt-6
-                        inline-flex
-                        rounded-xl
-                        bg-amber-500
-                        px-5
-                        py-3
-                        text-sm
-                        font-black
-                        text-white
-                    ">
-                    Crear primera plantilla
+                <a href="{{ route('tournaments.templates.index') }}" class="text-xs font-black text-amber-600">
+                    Abrir →
                 </a>
-
-            </div>
-        @else
-            <div
-                class="
-                    mt-5
-                    grid
-                    gap-5
-                    sm:grid-cols-2
-                    lg:grid-cols-3
-                ">
-
-                @foreach ($recentTemplates as $template)
-                    @include('tournaments.partials.template-card', [
-                        'template' => $template,
-                    ])
-                @endforeach
-
             </div>
 
-        @endif
+            <p class="mt-3 text-sm leading-6 text-slate-500">
+                Los Torneos definirán el camino competitivo.
+                El grafo de Nodes y conexiones se construirá
+                después de estabilizar la Biblioteca de Fases.
+            </p>
+
+            <div class="mt-6 space-y-2">
+
+                @forelse ($recentTemplates as $template)
+                    <a href="{{ route('tournaments.templates.show', $template) }}"
+                        class="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4 transition hover:bg-amber-50">
+
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-black text-slate-800">
+                                {{ $template->name }}
+                            </p>
+
+                            <p class="mt-1 font-mono text-[9px] text-slate-400">
+                                {{ $template->code }}
+                            </p>
+                        </div>
+
+                        <span class="text-amber-600">→</span>
+                    </a>
+
+                @empty
+
+                    <div
+                        class="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-400">
+                        Todavía no tienes Torneos.
+                    </div>
+                @endforelse
+
+            </div>
+        </article>
+
+        {{-- FASES --}}
+
+        <article class="rounded-3xl border border-amber-200 bg-gradient-to-br from-white to-amber-50/60 p-6">
+
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs font-black uppercase tracking-[0.18em] text-amber-600">
+                        Phase Library
+                    </p>
+
+                    <h3 class="mt-2 text-2xl font-black text-slate-900">
+                        ⌘ Fases
+                    </h3>
+                </div>
+
+                <a href="{{ route('tournaments.phase-templates.index') }}" class="text-xs font-black text-amber-600">
+                    Abrir →
+                </a>
+            </div>
+
+            <p class="mt-3 text-sm leading-6 text-slate-500">
+                Cada Fase es un mecanismo competitivo reutilizable
+                con contrato de entrada y puertas de salida.
+            </p>
+
+            <div class="mt-6 space-y-2">
+
+                @forelse ($recentPhases as $phase)
+                    <a href="{{ route('tournaments.phase-templates.show', $phase) }}"
+                        class="flex items-center justify-between gap-4 rounded-2xl bg-white p-4 shadow-sm transition hover:shadow-md">
+
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-black text-slate-800">
+                                {{ $phase->name }}
+                            </p>
+
+                            <p class="mt-1 text-[10px] font-semibold text-slate-400">
+                                {{ $phase->type_label }}
+                                ·
+                                {{ $phase->exits_count }} salidas
+                            </p>
+                        </div>
+
+                        <span class="text-amber-600">→</span>
+                    </a>
+
+                @empty
+
+                    <div class="rounded-2xl border border-dashed border-amber-300 bg-white/70 p-5 text-center">
+
+                        <p class="text-sm font-black text-slate-700">
+                            Crea tu primera Fase reutilizable
+                        </p>
+
+                        <a href="{{ route('tournaments.phase-templates.create') }}"
+                            class="mt-3 inline-flex rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-black text-white">
+                            + Nueva Fase
+                        </a>
+                    </div>
+                @endforelse
+
+            </div>
+        </article>
 
     </section>
 
+    {{-- ROADMAP --}}
 
-    {{-- ========================================================= --}}
-    {{-- SIGUIENTES CAPACIDADES --}}
-    {{-- ========================================================= --}}
+    <section class="mt-8 rounded-3xl border border-slate-200 bg-white p-6">
 
-    <section class="
-            mt-10
-            grid
-            gap-4
-            lg:grid-cols-3
-        ">
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-amber-600">
+            Arquitectura
+        </p>
 
-        @foreach ([
-        [
-            'icon' => '⌘',
-            'title' => 'Constructor de fases',
-            'text' => 'La base ya permitirá definir las etapas que componen una plantilla.',
-            'state' => 'Disponible',
-        ],
-        [
-            'icon' => '⚗',
-            'title' => 'Competition Lab',
-            'text' => 'Espacio temporal para probar plantillas sin generar historial oficial.',
-            'state' => 'Preparado',
-        ],
-        [
-            'icon' => '🌌',
-            'title' => 'Integración con Universos',
-            'text' => 'Después del motor competitivo, los Universos consumirán estas plantillas.',
-            'state' => 'Futuro',
-        ],
-    ] as $item)
-            <article
-                class="
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-white
-                    p-5
-                ">
+        <h3 class="mt-2 text-xl font-black text-slate-900">
+            Camino del sistema competitivo
+        </h3>
 
-                <div
-                    class="
-                        flex
-                        h-11
-                        w-11
-                        items-center
-                        justify-center
-                        rounded-xl
-                        bg-slate-950
-                        text-lg
-                        text-amber-300
-                    ">
-                    {{ $item['icon'] }}
-                </div>
+        <div class="mt-6 grid gap-3 md:grid-cols-5">
 
+            @foreach ([['⌘', 'PhaseTemplate', 'Define la etapa.', true], ['→', 'PhaseExit', 'Define quién sale.', true], ['◆', 'Phase Node', 'Usa la Fase.', false], ['⇢', 'Connection', 'Define el destino.', false], ['⚗', 'Competition Lab', 'Ejecuta pruebas.', false]] as [$icon, $title, $text, $done])
+                <article
+                    class="{{ $done ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50' }}
+                    rounded-2xl border p-4">
 
-                <h4
-                    class="
-                        mt-4
-                        font-black
-                        text-slate-900
-                    ">
-                    {{ $item['title'] }}
-                </h4>
+                    <span class="text-xl">{{ $icon }}</span>
 
+                    <p class="mt-3 text-sm font-black text-slate-800">
+                        {{ $title }}
+                    </p>
 
-                <p
-                    class="
-                        mt-2
-                        text-sm
-                        leading-6
-                        text-slate-500
-                    ">
-                    {{ $item['text'] }}
-                </p>
+                    <p class="mt-1 text-xs text-slate-500">
+                        {{ $text }}
+                    </p>
 
+                    <span
+                        class="{{ $done ? 'text-emerald-600' : 'text-slate-400' }}
+                        mt-3 inline-flex text-[9px] font-black uppercase">
 
-                <p
-                    class="
-                        mt-4
-                        text-[9px]
-                        font-black
-                        uppercase
-                        tracking-wider
-                        text-amber-600
-                    ">
-                    {{ $item['state'] }}
-                </p>
-
-            </article>
-        @endforeach
+                        {{ $done ? 'Sprint actual' : 'Próximo' }}
+                    </span>
+                </article>
+            @endforeach
+        </div>
 
     </section>
 

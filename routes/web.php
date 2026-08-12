@@ -33,6 +33,9 @@ use App\Http\Controllers\Tournaments\TournamentTemplateController;
 use App\Http\Controllers\Tournaments\TournamentPhaseController;
 use App\Http\Controllers\Tournaments\TournamentLabController;
 
+use App\Http\Controllers\Tournaments\PhaseTemplateController;
+use App\Http\Controllers\Tournaments\PhaseExitController;
+
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')
@@ -110,6 +113,142 @@ Route::middleware('auth')->group(function () {
                     ->name(
                         'lab.index'
                     );
+
+                /*
+|--------------------------------------------------------------------------
+| Biblioteca de Fases
+|--------------------------------------------------------------------------
+|
+| Estas Fases son reutilizables.
+| NO pertenecen todavía a un TournamentTemplate.
+|
+*/
+
+                Route::get(
+                    '/phases',
+                    [
+                        PhaseTemplateController::class,
+                        'index',
+                    ]
+                )->name(
+                    'phase-templates.index'
+                );
+
+                Route::get(
+                    '/phases/create',
+                    [
+                        PhaseTemplateController::class,
+                        'create',
+                    ]
+                )->name(
+                    'phase-templates.create'
+                );
+
+                Route::post(
+                    '/phases',
+                    [
+                        PhaseTemplateController::class,
+                        'store',
+                    ]
+                )->name(
+                    'phase-templates.store'
+                );
+
+                Route::get(
+                    '/phases/{phaseTemplate}',
+                    [
+                        PhaseTemplateController::class,
+                        'show',
+                    ]
+                )->name(
+                    'phase-templates.show'
+                );
+
+                Route::get(
+                    '/phases/{phaseTemplate}/edit',
+                    [
+                        PhaseTemplateController::class,
+                        'edit',
+                    ]
+                )->name(
+                    'phase-templates.edit'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}',
+                    [
+                        PhaseTemplateController::class,
+                        'update',
+                    ]
+                )->name(
+                    'phase-templates.update'
+                );
+
+                Route::post(
+                    '/phases/{phaseTemplate}/duplicate',
+                    [
+                        PhaseTemplateController::class,
+                        'duplicate',
+                    ]
+                )->name(
+                    'phase-templates.duplicate'
+                );
+
+                Route::patch(
+                    '/phases/{phaseTemplate}/archive',
+                    [
+                        PhaseTemplateController::class,
+                        'archive',
+                    ]
+                )->name(
+                    'phase-templates.archive'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}',
+                    [
+                        PhaseTemplateController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'phase-templates.destroy'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| Puertas de salida
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/phases/{phaseTemplate}/exits',
+                    [
+                        PhaseExitController::class,
+                        'store',
+                    ]
+                )->name(
+                    'phase-exits.store'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/exits/{phaseExit}',
+                    [
+                        PhaseExitController::class,
+                        'update',
+                    ]
+                )->name(
+                    'phase-exits.update'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/exits/{phaseExit}',
+                    [
+                        PhaseExitController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'phase-exits.destroy'
+                );
 
 
                 /*

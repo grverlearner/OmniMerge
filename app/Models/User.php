@@ -224,4 +224,11 @@ class User extends Authenticatable
             TournamentTemplate::class
         );
     }
+
+    public function phaseTemplates(): HasMany
+    {
+        return $this->hasMany(
+            PhaseTemplate::class
+        );
+    }
 }

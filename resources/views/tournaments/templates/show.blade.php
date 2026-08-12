@@ -169,8 +169,7 @@
                     </a>
 
 
-                    <form method="POST"
-                        action="{{ route('tournaments.templates.duplicate', $tournamentTemplate) }}">
+                    <form method="POST" action="{{ route('tournaments.templates.duplicate', $tournamentTemplate) }}">
 
                         @csrf
 
@@ -246,8 +245,8 @@
             'value' => $tournamentTemplate->participant_range_label,
         ],
         [
-            'label' => 'Fases',
-            'value' => $tournamentTemplate->phases_count,
+            'label' => 'Camino',
+            'value' => 'Pendiente',
         ],
         [
             'label' => 'BYE',
@@ -294,209 +293,73 @@
 
     </section>
 
+    {{-- ========================================================= --}}
+    {{-- CAMINO COMPETITIVO --}}
+    {{-- ========================================================= --}}
 
-    {{-- FASES --}}
+    <section class="mt-8 rounded-3xl border border-amber-200 bg-gradient-to-br from-white to-amber-50/60 p-7">
 
-    <section class="
-            mt-8
-        ">
+        <div class="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
 
-        <div
-            class="
-                flex
-                items-end
-                justify-between
-                gap-4
-            ">
+            <div class="max-w-3xl">
 
-            <div>
-
-                <p
-                    class="
-                        text-xs
-                        font-black
-                        uppercase
-                        tracking-wider
-                        text-amber-600
-                    ">
-                    Estructura
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-amber-600">
+                    Tournament Graph
                 </p>
 
-
-                <h3
-                    class="
-                        mt-2
-                        text-2xl
-                        font-black
-                        text-slate-900
-                    ">
-                    Fases del torneo
+                <h3 class="mt-2 text-2xl font-black text-slate-900">
+                    El camino del Torneo se construirá con Fases reutilizables
                 </h3>
 
+                <p class="mt-3 text-sm leading-7 text-slate-500">
+                    El sistema anterior donde cada Fase pertenecía directamente
+                    al Torneo está siendo reemplazado por una arquitectura
+                    reutilizable. Primero crea tus PhaseTemplates y sus puertas
+                    de salida. En el siguiente Sprint podrás colocarlas como
+                    Nodes y conectar cada salida con otra Fase.
+                </p>
+
+                <div class="mt-5 flex flex-wrap items-center gap-2 text-xs font-black">
+
+                    <span class="rounded-xl bg-white px-3 py-2 text-slate-600 shadow-sm">
+                        PhaseTemplate
+                    </span>
+
+                    <span class="text-amber-500">→</span>
+
+                    <span class="rounded-xl bg-white px-3 py-2 text-slate-600 shadow-sm">
+                        PhaseNode
+                    </span>
+
+                    <span class="text-amber-500">→</span>
+
+                    <span class="rounded-xl bg-white px-3 py-2 text-slate-600 shadow-sm">
+                        Connection
+                    </span>
+
+                    <span class="text-amber-500">→</span>
+
+                    <span class="rounded-xl bg-white px-3 py-2 text-slate-600 shadow-sm">
+                        Tournament Graph
+                    </span>
+                </div>
             </div>
 
+            <div class="flex shrink-0 flex-col gap-3">
 
-            <a href="{{ route('tournaments.phases.index', $tournamentTemplate) }}"
-                class="
-                    text-sm
-                    font-black
-                    text-amber-600
-                ">
-                Administrar fases →
-            </a>
-
-        </div>
-
-
-        @if ($tournamentTemplate->phases->isEmpty())
-
-            <div
-                class="
-                    mt-5
-                    rounded-3xl
-                    border
-                    border-dashed
-                    border-amber-300
-                    bg-amber-50/50
-                    p-8
-                    text-center
-                ">
-
-                <div class="
-                        text-4xl
-                    ">
-                    ⌘
-                </div>
-
-
-                <h4
-                    class="
-                        mt-3
-                        font-black
-                        text-slate-900
-                    ">
-                    La plantilla todavía no tiene fases
-                </h4>
-
-
-                <a href="{{ route('tournaments.phases.create', $tournamentTemplate) }}"
-                    class="
-                        mt-5
-                        inline-flex
-                        rounded-xl
-                        bg-amber-500
-                        px-4
-                        py-2.5
-                        text-xs
-                        font-black
-                        text-white
-                    ">
-                    + Crear primera fase
+                <a href="{{ route('tournaments.phase-templates.index') }}"
+                    class="rounded-xl bg-amber-500 px-5 py-3 text-center text-sm font-black text-white">
+                    ⌘ Ver Fases
                 </a>
 
-            </div>
-        @else
-            <div class="
-                    mt-5
-                    space-y-3
-                ">
-
-                @foreach ($tournamentTemplate->phases as $phase)
-                    <article
-                        class="
-                            flex
-                            flex-col
-                            gap-4
-                            rounded-2xl
-                            border
-                            border-slate-200
-                            bg-white
-                            p-5
-                            sm:flex-row
-                            sm:items-center
-                        ">
-
-                        <div
-                            class="
-                                flex
-                                h-12
-                                w-12
-                                shrink-0
-                                items-center
-                                justify-center
-                                rounded-xl
-                                bg-amber-100
-                                text-lg
-                                font-black
-                                text-amber-700
-                            ">
-                            {{ $loop->iteration }}
-                        </div>
-
-
-                        <div
-                            class="
-                                min-w-0
-                                flex-1
-                            ">
-
-                            <p
-                                class="
-                                    text-sm
-                                    font-black
-                                    text-slate-900
-                                ">
-                                {{ $phase->name }}
-                            </p>
-
-
-                            <p
-                                class="
-                                    mt-1
-                                    text-xs
-                                    text-slate-500
-                                ">
-                                {{ $phase->type_label }}
-
-                                ·
-
-                                {{ $phase->input_participants ?: '?' }}
-
-                                participantes
-
-                                →
-
-                                {{ $phase->qualifiers_count ?: '?' }}
-
-                                clasifican
-                            </p>
-
-                        </div>
-
-
-                        <span
-                            class="
-                                rounded-full
-                                bg-slate-100
-                                px-3
-                                py-1
-                                font-mono
-                                text-[9px]
-                                font-black
-                                text-slate-500
-                            ">
-                            {{ $phase->code }}
-                        </span>
-
-                    </article>
-                @endforeach
-
+                <a href="{{ route('tournaments.phase-templates.create') }}"
+                    class="rounded-xl border border-amber-200 bg-white px-5 py-3 text-center text-sm font-black text-amber-700">
+                    + Crear Fase
+                </a>
             </div>
 
-        @endif
-
+        </div>
     </section>
-
 
     {{-- DANGER ZONE --}}
 
@@ -621,8 +484,7 @@
                 </button>
 
 
-                <form method="POST"
-                    action="{{ route('tournaments.templates.destroy', $tournamentTemplate) }}">
+                <form method="POST" action="{{ route('tournaments.templates.destroy', $tournamentTemplate) }}">
 
                     @csrf
 
