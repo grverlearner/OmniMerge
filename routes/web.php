@@ -28,6 +28,11 @@ use App\Http\Controllers\Attributes\AttributeStructureController;
 use App\Http\Controllers\Entities\EntityPresentationController;
 use App\Http\Controllers\Entities\EntityBaseVersionController;
 
+use App\Http\Controllers\Tournaments\TournamentDashboardController;
+use App\Http\Controllers\Tournaments\TournamentTemplateController;
+use App\Http\Controllers\Tournaments\TournamentPhaseController;
+use App\Http\Controllers\Tournaments\TournamentLabController;
+
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')
@@ -52,6 +57,255 @@ Route::middleware('auth')->group(function () {
         '/dashboard',
         DashboardController::class
     )->name('dashboard');;
+
+    /*
+    |--------------------------------------------------------------------------
+    | TORNEOS
+    |--------------------------------------------------------------------------
+    */
+
+
+    Route::prefix(
+        'tournaments'
+    )
+        ->name(
+            'tournaments.'
+        )
+        ->group(
+            function () {
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Dashboard
+                |--------------------------------------------------------------------------
+                */
+
+
+                Route::get(
+                    '/',
+                    TournamentDashboardController::class
+                )
+                    ->name(
+                        'dashboard'
+                    );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Competition Lab
+                |--------------------------------------------------------------------------
+                |
+                | La ruta estática debe ir antes de:
+                |
+                | templates/{tournamentTemplate}
+                |
+                */
+
+
+                Route::get(
+                    '/lab',
+                    TournamentLabController::class
+                )
+                    ->name(
+                        'lab.index'
+                    );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Plantillas
+                |--------------------------------------------------------------------------
+                */
+
+
+                Route::get(
+                    '/templates',
+                    [
+                        TournamentTemplateController::class,
+                        'index',
+                    ]
+                )
+                    ->name(
+                        'templates.index'
+                    );
+
+
+                Route::get(
+                    '/templates/create',
+                    [
+                        TournamentTemplateController::class,
+                        'create',
+                    ]
+                )
+                    ->name(
+                        'templates.create'
+                    );
+
+
+                Route::post(
+                    '/templates',
+                    [
+                        TournamentTemplateController::class,
+                        'store',
+                    ]
+                )
+                    ->name(
+                        'templates.store'
+                    );
+
+
+                Route::get(
+                    '/templates/{tournamentTemplate}',
+                    [
+                        TournamentTemplateController::class,
+                        'show',
+                    ]
+                )
+                    ->name(
+                        'templates.show'
+                    );
+
+
+                Route::get(
+                    '/templates/{tournamentTemplate}/edit',
+                    [
+                        TournamentTemplateController::class,
+                        'edit',
+                    ]
+                )
+                    ->name(
+                        'templates.edit'
+                    );
+
+
+                Route::put(
+                    '/templates/{tournamentTemplate}',
+                    [
+                        TournamentTemplateController::class,
+                        'update',
+                    ]
+                )
+                    ->name(
+                        'templates.update'
+                    );
+
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/duplicate',
+                    [
+                        TournamentTemplateController::class,
+                        'duplicate',
+                    ]
+                )
+                    ->name(
+                        'templates.duplicate'
+                    );
+
+
+                Route::patch(
+                    '/templates/{tournamentTemplate}/archive',
+                    [
+                        TournamentTemplateController::class,
+                        'archive',
+                    ]
+                )
+                    ->name(
+                        'templates.archive'
+                    );
+
+
+                Route::delete(
+                    '/templates/{tournamentTemplate}',
+                    [
+                        TournamentTemplateController::class,
+                        'destroy',
+                    ]
+                )
+                    ->name(
+                        'templates.destroy'
+                    );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Fases
+                |--------------------------------------------------------------------------
+                */
+
+
+                Route::get(
+                    '/templates/{tournamentTemplate}/phases',
+                    [
+                        TournamentPhaseController::class,
+                        'index',
+                    ]
+                )
+                    ->name(
+                        'phases.index'
+                    );
+
+
+                Route::get(
+                    '/templates/{tournamentTemplate}/phases/create',
+                    [
+                        TournamentPhaseController::class,
+                        'create',
+                    ]
+                )
+                    ->name(
+                        'phases.create'
+                    );
+
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/phases',
+                    [
+                        TournamentPhaseController::class,
+                        'store',
+                    ]
+                )
+                    ->name(
+                        'phases.store'
+                    );
+
+
+                Route::get(
+                    '/templates/{tournamentTemplate}/phases/{phase}/edit',
+                    [
+                        TournamentPhaseController::class,
+                        'edit',
+                    ]
+                )
+                    ->name(
+                        'phases.edit'
+                    );
+
+
+                Route::put(
+                    '/templates/{tournamentTemplate}/phases/{phase}',
+                    [
+                        TournamentPhaseController::class,
+                        'update',
+                    ]
+                )
+                    ->name(
+                        'phases.update'
+                    );
+
+
+                Route::delete(
+                    '/templates/{tournamentTemplate}/phases/{phase}',
+                    [
+                        TournamentPhaseController::class,
+                        'destroy',
+                    ]
+                )
+                    ->name(
+                        'phases.destroy'
+                    );
+            }
+        );
 
     Route::resource(
         'entity-types',

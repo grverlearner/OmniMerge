@@ -6,139 +6,272 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
+
 class HubController extends Controller
 {
-    public function __invoke(Request $request): View
-    {
-        $user = $request->user();
+    public function __invoke(
+        Request $request
+    ): View {
+
+        $user =
+            $request->user();
+
 
         /*
         |--------------------------------------------------------------------------
         | Estadísticas generales
         |--------------------------------------------------------------------------
-        |
-        | Estas estadísticas resumen actualmente la Biblioteca del usuario.
-        | Más adelante podremos agregar universos, torneos, simulaciones, etc.
-        |
         */
 
+
         $publicContent =
+
             $user->entities()
-            ->where('visibility', 'PUBLIC')
+            ->where(
+                'visibility',
+                'PUBLIC'
+            )
             ->count()
+
             +
+
             $user->collections()
-            ->where('visibility', 'PUBLIC')
+            ->where(
+                'visibility',
+                'PUBLIC'
+            )
             ->count()
+
             +
+
             $user->attributes()
-            ->where('scope', 'PUBLIC')
+            ->where(
+                'scope',
+                'PUBLIC'
+            )
             ->count();
 
+
         $statistics = [
-            'entities' => $user->entities()->count(),
 
-            'attributes' => $user->attributes()->count(),
+            'entities' =>
+            $user->entities()
+                ->count(),
 
-            'collections' => $user->collections()->count(),
+            'attributes' =>
+            $user->attributes()
+                ->count(),
 
-            'public_content' => $publicContent,
+            'collections' =>
+            $user->collections()
+                ->count(),
+
+            'tournaments' =>
+            $user->tournamentTemplates()
+                ->count(),
+
+            /*
+             * Todavía no incluimos TournamentTemplates
+             * en public_content porque Comunidad de
+             * Torneos aún no ha sido implementada.
+             */
+            'public_content' =>
+            $publicContent,
         ];
 
 
         /*
         |--------------------------------------------------------------------------
-        | Actividad reciente
+        | Entidades recientes
         |--------------------------------------------------------------------------
-        |
-        | Tomamos las últimas entidades, atributos y colecciones creadas y las
-        | combinamos en una sola lista.
-        |
         */
 
-        $recentEntities = $user->entities()
+
+        $recentEntities =
+            $user->entities()
             ->latest()
             ->limit(4)
             ->get()
-            ->map(function ($entity) {
-                return [
-                    'type' => 'Entidad',
+            ->map(
+                function ($entity) {
 
-                    'name' => $entity->name,
+                    return [
 
-                    'icon' => '✦',
+                        'type' =>
+                        'Entidad',
 
-                    'description' =>
-                    'Entidad creada en tu biblioteca.',
+                        'name' =>
+                        $entity->name,
 
-                    'url' => route(
-                        'entities.show',
-                        $entity
-                    ),
+                        'icon' =>
+                        '✦',
 
-                    'created_at' =>
-                    $entity->created_at,
-                ];
-            });
+                        'description' =>
+                        'Entidad creada en tu biblioteca.',
+
+                        'url' =>
+                        route(
+                            'entities.show',
+                            $entity
+                        ),
+
+                        'created_at' =>
+                        $entity->created_at,
+                    ];
+                }
+            );
 
 
-        $recentAttributes = $user->attributes()
+        /*
+        |--------------------------------------------------------------------------
+        | Atributos recientes
+        |--------------------------------------------------------------------------
+        */
+
+
+        $recentAttributes =
+            $user->attributes()
             ->latest()
             ->limit(4)
             ->get()
-            ->map(function ($attribute) {
-                return [
-                    'type' => 'Atributo',
+            ->map(
+                function ($attribute) {
 
-                    'name' => $attribute->name,
+                    return [
 
-                    'icon' => '☷',
+                        'type' =>
+                        'Atributo',
 
-                    'description' =>
-                    'Atributo disponible para tus entidades.',
+                        'name' =>
+                        $attribute->name,
 
-                    'url' => route(
-                        'attributes.show',
-                        $attribute
-                    ),
+                        'icon' =>
+                        '☷',
 
-                    'created_at' =>
-                    $attribute->created_at,
-                ];
-            });
+                        'description' =>
+                        'Atributo disponible para tus entidades.',
+
+                        'url' =>
+                        route(
+                            'attributes.show',
+                            $attribute
+                        ),
+
+                        'created_at' =>
+                        $attribute->created_at,
+                    ];
+                }
+            );
 
 
-        $recentCollections = $user->collections()
+        /*
+        |--------------------------------------------------------------------------
+        | Colecciones recientes
+        |--------------------------------------------------------------------------
+        */
+
+
+        $recentCollections =
+            $user->collections()
             ->latest()
             ->limit(4)
             ->get()
-            ->map(function ($collection) {
-                return [
-                    'type' => 'Colección',
+            ->map(
+                function ($collection) {
 
-                    'name' => $collection->name,
+                    return [
 
-                    'icon' => '▤',
+                        'type' =>
+                        'Colección',
 
-                    'description' =>
-                    'Colección creada para organizar entidades.',
+                        'name' =>
+                        $collection->name,
 
-                    'url' => route(
-                        'collections.show',
-                        $collection
-                    ),
+                        'icon' =>
+                        '▤',
 
-                    'created_at' =>
-                    $collection->created_at,
-                ];
-            });
+                        'description' =>
+                        'Colección creada para organizar entidades.',
+
+                        'url' =>
+                        route(
+                            'collections.show',
+                            $collection
+                        ),
+
+                        'created_at' =>
+                        $collection->created_at,
+                    ];
+                }
+            );
 
 
-        $recentActivity = collect()
-            ->concat($recentEntities)
-            ->concat($recentAttributes)
-            ->concat($recentCollections)
-            ->sortByDesc('created_at')
+        /*
+        |--------------------------------------------------------------------------
+        | Plantillas de Torneo recientes
+        |--------------------------------------------------------------------------
+        */
+
+
+        $recentTournamentTemplates =
+            $user->tournamentTemplates()
+            ->latest()
+            ->limit(4)
+            ->get()
+            ->map(
+                function ($template) {
+
+                    return [
+
+                        'type' =>
+                        'Torneo',
+
+                        'name' =>
+                        $template->name,
+
+                        'icon' =>
+                        '🏆',
+
+                        'description' =>
+                        'Plantilla competitiva creada en Tournament Designer.',
+
+                        'url' =>
+                        route(
+                            'tournaments.templates.show',
+                            $template
+                        ),
+
+                        'created_at' =>
+                        $template->created_at,
+                    ];
+                }
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Actividad combinada
+        |--------------------------------------------------------------------------
+        */
+
+
+        $recentActivity =
+            collect()
+            ->concat(
+                $recentEntities
+            )
+            ->concat(
+                $recentAttributes
+            )
+            ->concat(
+                $recentCollections
+            )
+            ->concat(
+                $recentTournamentTemplates
+            )
+            ->sortByDesc(
+                'created_at'
+            )
             ->take(6)
             ->values();
 

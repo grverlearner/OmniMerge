@@ -210,4 +210,18 @@ class User extends Authenticatable
             EntityVersion::class
         );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Plantillas de Torneos
+    |--------------------------------------------------------------------------
+    */
+
+
+    public function tournamentTemplates(): HasMany
+    {
+        return $this->hasMany(
+            TournamentTemplate::class
+        );
+    }
 }
