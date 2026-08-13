@@ -37,6 +37,8 @@ use App\Http\Controllers\Tournaments\PhaseTemplateController;
 use App\Http\Controllers\Tournaments\PhaseExitController;
 use App\Http\Controllers\Tournaments\SingleEliminationController;
 use App\Http\Controllers\Tournaments\SingleEliminationRoundRuleController;
+use App\Http\Controllers\Tournaments\RoundRobinController;
+use App\Http\Controllers\Tournaments\RoundRobinTiebreakerController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -312,6 +314,88 @@ Route::middleware('auth')->group(function () {
                     ]
                 )->name(
                     'single-elimination.round-rules.destroy'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| ROUND ROBIN ENGINE
+|--------------------------------------------------------------------------
+*/
+
+                Route::get(
+                    '/phases/{phaseTemplate}/round-robin',
+                    [
+                        RoundRobinController::class,
+                        'show',
+                    ]
+                )->name(
+                    'round-robin.show'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/round-robin',
+                    [
+                        RoundRobinController::class,
+                        'update',
+                    ]
+                )->name(
+                    'round-robin.update'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| Round Robin — Tiebreakers
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/phases/{phaseTemplate}/round-robin/tiebreakers',
+                    [
+                        RoundRobinTiebreakerController::class,
+                        'store',
+                    ]
+                )->name(
+                    'round-robin.tiebreakers.store'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/round-robin/tiebreakers/{tiebreaker}',
+                    [
+                        RoundRobinTiebreakerController::class,
+                        'update',
+                    ]
+                )->name(
+                    'round-robin.tiebreakers.update'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/round-robin/tiebreakers/{tiebreaker}',
+                    [
+                        RoundRobinTiebreakerController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'round-robin.tiebreakers.destroy'
+                );
+
+                Route::patch(
+                    '/phases/{phaseTemplate}/round-robin/tiebreakers/{tiebreaker}/move-up',
+                    [
+                        RoundRobinTiebreakerController::class,
+                        'moveUp',
+                    ]
+                )->name(
+                    'round-robin.tiebreakers.move-up'
+                );
+
+                Route::patch(
+                    '/phases/{phaseTemplate}/round-robin/tiebreakers/{tiebreaker}/move-down',
+                    [
+                        RoundRobinTiebreakerController::class,
+                        'moveDown',
+                    ]
+                )->name(
+                    'round-robin.tiebreakers.move-down'
                 );
 
 

@@ -121,6 +121,23 @@ class PhaseTemplate extends Model
             );
     }
 
+    public function roundRobinSetting(): HasOne
+    {
+        return $this->hasOne(
+            PhaseRoundRobinSetting::class
+        );
+    }
+
+    public function roundRobinTiebreakers(): HasMany
+    {
+        return $this
+            ->hasMany(
+                PhaseRoundRobinTiebreaker::class
+            )
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Scopes

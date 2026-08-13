@@ -692,16 +692,35 @@
 
                                 </div>
                             @elseif ($phaseTemplate->phase_type === 'ROUND_ROBIN')
-                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <div
+                                    class="rounded-2xl border border-cyan-200 bg-gradient-to-br from-cyan-50 to-emerald-50 p-5">
 
-                                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                                        Próxima evolución
-                                    </p>
+                                    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
 
-                                    <p class="mt-2 text-xs leading-5 text-slate-600">
-                                        Esta Fase recibirá puntuación, ranking,
-                                        enfrentamientos y criterios de desempate.
-                                    </p>
+                                        <div>
+
+                                            <p class="text-[9px] font-black uppercase tracking-wider text-cyan-700">
+                                                Round Robin Engine
+                                            </p>
+
+                                            <p class="mt-2 text-sm font-black text-cyan-950">
+                                                Motor disponible
+                                            </p>
+
+                                            <p class="mt-1 max-w-xl text-xs leading-5 text-cyan-800/80">
+                                                Configura ciclos, calendario, empates,
+                                                puntuación, Best of, clasificación,
+                                                criterios de desempate y preview de jornadas.
+                                            </p>
+
+                                        </div>
+
+                                        <a href="{{ route('tournaments.round-robin.show', $phaseTemplate) }}"
+                                            class="shrink-0 rounded-xl bg-cyan-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-cyan-600/20">
+                                            ↻ Configurar Engine
+                                        </a>
+
+                                    </div>
 
                                 </div>
                             @elseif ($phaseTemplate->phase_type === 'GROUP_STAGE')

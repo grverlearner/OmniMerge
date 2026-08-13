@@ -186,6 +186,30 @@ class PhaseTemplateService
                                 $phaseTemplate->best_of,
                             ]);
                     }
+
+                    /*
+|--------------------------------------------------------------------------
+| Mantener T1 y T3 sincronizados
+|--------------------------------------------------------------------------
+*/
+
+                    if (
+                        $phaseTemplate->phase_type
+                        ===
+                        'ROUND_ROBIN'
+                        &&
+                        $phaseTemplate
+                        ->roundRobinSetting()
+                        ->exists()
+                    ) {
+                        $phaseTemplate
+                            ->roundRobinSetting()
+                            ->update([
+                                'default_best_of' =>
+                                (int)
+                                $phaseTemplate->best_of,
+                            ]);
+                    }
                 }
             );
         } catch (Throwable $exception) {
@@ -232,8 +256,12 @@ class PhaseTemplateService
     ): PhaseTemplate {
         $source->load([
             'exits',
+
             'singleEliminationSetting',
             'singleEliminationRoundRules',
+
+            'roundRobinSetting',
+            'roundRobinTiebreakers',
         ]);
 
         $duplicatedImage =
@@ -355,11 +383,17 @@ class PhaseTemplateService
                                 'selector_type' =>
                                 $exit->selector_type,
 
+                                'exit_timing' =>
+                                $exit->exit_timing,
+
                                 'selector_from' =>
                                 $exit->selector_from,
 
                                 'selector_to' =>
                                 $exit->selector_to,
+
+                                'selector_round_size' =>
+                                $exit->selector_round_size,
 
                                 'priority' =>
                                 $exit->priority,
@@ -420,10 +454,10 @@ class PhaseTemplateService
                             ]);
 
                         /*
-    |--------------------------------------------------------------------------
-    | Overrides de ronda
-    |--------------------------------------------------------------------------
-    */
+                        |--------------------------------------------------------------------------
+                        | Overrides de ronda
+                        |--------------------------------------------------------------------------
+                        */
 
                         foreach (
                             $source->singleEliminationRoundRules
@@ -444,6 +478,85 @@ class PhaseTemplateService
 
                                     'settings' =>
                                     $roundRule->settings,
+                                ]);
+                        }
+                    }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Configuración ROUND ROBIN
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (
+                        $source->phase_type
+                        ===
+                        'ROUND_ROBIN'
+                        &&
+                        $source->roundRobinSetting
+                    ) {
+                        $sourceSettings =
+                            $source->roundRobinSetting;
+
+                        $copy
+                            ->roundRobinSetting()
+                            ->create([
+                                'cycles' =>
+                                $sourceSettings->cycles,
+
+                                'initial_order_mode' =>
+                                $sourceSettings->initial_order_mode,
+
+                                'schedule_mode' =>
+                                $sourceSettings->schedule_mode,
+
+                                'allow_draws' =>
+                                $sourceSettings->allow_draws,
+
+                                'win_points' =>
+                                $sourceSettings->win_points,
+
+                                'draw_points' =>
+                                $sourceSettings->draw_points,
+
+                                'loss_points' =>
+                                $sourceSettings->loss_points,
+
+                                'default_best_of' =>
+                                $sourceSettings->default_best_of,
+
+                                'cutoff_tie_policy' =>
+                                $sourceSettings->cutoff_tie_policy,
+
+                                'settings' =>
+                                $sourceSettings->settings,
+                            ]);
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Tiebreakers
+                        |--------------------------------------------------------------------------
+                        */
+
+                        foreach (
+                            $source->roundRobinTiebreakers
+                            as
+                            $tiebreaker
+                        ) {
+                            $copy
+                                ->roundRobinTiebreakers()
+                                ->create([
+                                    'criterion' =>
+                                    $tiebreaker->criterion,
+
+                                    'direction' =>
+                                    $tiebreaker->direction,
+
+                                    'sort_order' =>
+                                    $tiebreaker->sort_order,
+
+                                    'settings' =>
+                                    $tiebreaker->settings,
                                 ]);
                         }
                     }
