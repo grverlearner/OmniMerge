@@ -14,77 +14,224 @@
         @method('PUT')
     @endif
 
+    {{-- NAME --}}
+
     <div>
-        <label class="text-xs font-black uppercase text-slate-500">Nombre *</label>
+
+        <label class="text-xs font-black uppercase text-slate-500">
+            Nombre *
+        </label>
 
         <input type="text" name="name" value="{{ old('name', $editingExit ? $phaseExit->name : '') }}"
-            placeholder="Ej. Ganadores"
+            placeholder="Ej. Clasificados"
             class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
+
+        <x-input-error :messages="$errors->get('name')" class="mt-2" />
+
     </div>
+
+    {{-- DESCRIPTION --}}
 
     <div>
-        <label class="text-xs font-black uppercase text-slate-500">Descripción</label>
 
-        <textarea name="description" rows="3" placeholder="Explica quiénes deben salir por esta puerta..."
+        <label class="text-xs font-black uppercase text-slate-500">
+            Descripción
+        </label>
+
+        <textarea name="description" rows="3" placeholder="Explica quiénes salen por esta puerta..."
             class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">{{ old('description', $editingExit ? $phaseExit->description : '') }}</textarea>
+
     </div>
 
+    {{-- SELECTOR --}}
+
     <div x-data="{
-        selector: @js(old('selector_type', $editingExit ? $phaseExit->selector_type : 'MATCH_WINNERS'))
+        selector: @js(old('selector_type', $editingExit ? $phaseExit->selector_type : ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION' ? 'SURVIVORS' : 'MATCH_WINNERS'))),
+    
+        timing: @js(old('exit_timing', $editingExit ? $phaseExit->exit_timing : 'PHASE_END'))
     }">
 
-        <label class="text-xs font-black uppercase text-slate-500">¿Quién sale por aquí?</label>
+        <label class="text-xs font-black uppercase text-slate-500">
+            ¿Quién sale por aquí?
+        </label>
 
         <select name="selector_type" x-model="selector"
             class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
 
-            <option value="MATCH_WINNERS">Ganadores de enfrentamientos</option>
-            <option value="MATCH_LOSERS">Perdedores de enfrentamientos</option>
-            <option value="TOP_N">Mejores N</option>
-            <option value="BOTTOM_N">Últimos N</option>
-            <option value="RANK_POSITION">Posición específica</option>
-            <option value="RANK_RANGE">Rango de posiciones</option>
-            <option value="ALL">Todos</option>
-            <option value="REMAINING">Restantes</option>
+            @if ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION')
+                <optgroup label="Eliminación directa">
+
+                    <option value="SURVIVORS">
+                        Supervivientes al finalizar
+                    </option>
+
+                    <option value="ELIMINATED">
+                        Todos los eliminados
+                    </option>
+
+                    <option value="ELIMINATED_IN_ROUND">
+                        Eliminados en una ronda específica
+                    </option>
+
+                </optgroup>
+            @endif
+
+            <optgroup label="Selectores generales">
+
+                <option value="MATCH_WINNERS">
+                    Ganadores de enfrentamientos
+                </option>
+
+                <option value="MATCH_LOSERS">
+                    Perdedores de enfrentamientos
+                </option>
+
+                <option value="TOP_N">
+                    Mejores N
+                </option>
+
+                <option value="BOTTOM_N">
+                    Últimos N
+                </option>
+
+                <option value="RANK_POSITION">
+                    Posición específica
+                </option>
+
+                <option value="RANK_RANGE">
+                    Rango de posiciones
+                </option>
+
+                <option value="ALL">
+                    Todos
+                </option>
+
+                <option value="REMAINING">
+                    Restantes
+                </option>
+
+            </optgroup>
+
         </select>
+
+        {{-- GENERIC SELECTOR FROM --}}
 
         <div x-show="['TOP_N', 'BOTTOM_N', 'RANK_POSITION', 'RANK_RANGE'].includes(selector)" class="mt-4">
 
             <label class="text-xs font-black uppercase text-slate-500"
-                x-text="selector === 'RANK_RANGE'
-                    ? 'Desde posición'
-                    : selector === 'RANK_POSITION'
-                        ? 'Posición'
-                        : 'Cantidad'">
+                x-text="
+                    selector === 'RANK_RANGE'
+                        ? 'Desde posición'
+                        : selector === 'RANK_POSITION'
+                            ? 'Posición'
+                            : 'Cantidad'
+                ">
             </label>
 
             <input type="number" name="selector_from" min="1" max="512"
                 value="{{ old('selector_from', $editingExit ? $phaseExit->selector_from : '') }}"
                 class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
+
         </div>
 
+        {{-- RANGE TO --}}
+
         <div x-show="selector === 'RANK_RANGE'" class="mt-4">
-            <label class="text-xs font-black uppercase text-slate-500">Hasta posición</label>
+
+            <label class="text-xs font-black uppercase text-slate-500">
+                Hasta posición
+            </label>
 
             <input type="number" name="selector_to" min="1" max="512"
                 value="{{ old('selector_to', $editingExit ? $phaseExit->selector_to : '') }}"
                 class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
+
+        </div>
+
+        {{-- ELIMINATION ROUND --}}
+
+        <div x-show="selector === 'ELIMINATED_IN_ROUND'" class="mt-4">
+
+            <label class="text-xs font-black uppercase text-slate-500">
+                ¿En qué ronda?
+            </label>
+
+            <select name="selector_round_size"
+                class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
+
+                @foreach ([
+        2 => 'Final',
+        4 => 'Semifinal',
+        8 => 'Cuartos de final',
+        16 => 'Ronda de 16',
+        32 => 'Ronda de 32',
+        64 => 'Ronda de 64',
+        128 => 'Ronda de 128',
+        256 => 'Ronda de 256',
+        512 => 'Ronda de 512',
+    ] as $value => $label)
+                    <option value="{{ $value }}" @selected((int) old('selector_round_size', $editingExit ? $phaseExit->selector_round_size : 4) === $value)>
+                        {{ $label }}
+                    </option>
+                @endforeach
+
+            </select>
+
+            <p class="mt-2 text-[11px] leading-4 text-violet-600">
+                Ejemplo: los eliminados en Semifinal pueden
+                utilizarse después para una Fase de tercer puesto.
+            </p>
+
+        </div>
+
+        {{-- TIMING --}}
+
+        <div class="mt-4">
+
+            <label class="text-xs font-black uppercase text-slate-500">
+                Momento de salida
+            </label>
+
+            <select name="exit_timing" x-model="timing" :disabled="selector === 'ELIMINATED_IN_ROUND'"
+                class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
+
+                <option value="PHASE_END">
+                    Al finalizar la Fase
+                </option>
+
+                <option value="ON_ELIMINATION">
+                    Al producirse la eliminación
+                </option>
+
+            </select>
+
+            <input x-show="selector === 'ELIMINATED_IN_ROUND'" type="hidden" name="exit_timing" value="ON_ELIMINATION">
+
         </div>
 
     </div>
 
+    {{-- PRIORITY + STATUS --}}
+
     <div class="grid grid-cols-2 gap-3">
 
         <div>
-            <label class="text-xs font-black uppercase text-slate-500">Prioridad</label>
+
+            <label class="text-xs font-black uppercase text-slate-500">
+                Prioridad
+            </label>
 
             <input type="number" name="priority" min="1" max="999"
                 value="{{ old('priority', $editingExit ? $phaseExit->priority : 10) }}"
                 class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
+
         </div>
 
         <div>
-            <label class="text-xs font-black uppercase text-slate-500">Estado</label>
+
+            <label class="text-xs font-black uppercase text-slate-500">
+                Estado
+            </label>
 
             <select name="status"
                 class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
@@ -96,7 +243,9 @@
                 <option value="INACTIVE" @selected(old('status', $editingExit ? $phaseExit->status : 'ACTIVE') === 'INACTIVE')>
                     Inactiva
                 </option>
+
             </select>
+
         </div>
 
     </div>

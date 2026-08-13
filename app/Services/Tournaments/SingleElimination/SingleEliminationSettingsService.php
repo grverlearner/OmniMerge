@@ -1,0 +1,160 @@
+<?php
+
+namespace App\Services\Tournaments\SingleElimination;
+
+use App\Models\PhaseSingleEliminationSetting;
+use App\Models\PhaseTemplate;
+use Illuminate\Support\Facades\DB;
+
+class SingleEliminationSettingsService
+{
+    /*
+    |--------------------------------------------------------------------------
+    | Obtener o crear
+    |--------------------------------------------------------------------------
+    */
+
+    public function ensure(
+        PhaseTemplate $phaseTemplate
+    ): PhaseSingleEliminationSetting {
+        $this->ensureCorrectType(
+            $phaseTemplate
+        );
+
+        return $phaseTemplate
+            ->singleEliminationSetting()
+            ->firstOrCreate(
+                [],
+                [
+                    'completion_mode' =>
+                    'WINNER',
+
+                    'target_survivors' =>
+                    1,
+
+                    'seeding_mode' =>
+                    'INPUT_ORDER',
+
+                    'pairing_mode' =>
+                    'STANDARD_SEEDED',
+
+                    'bye_assignment' =>
+                    'TOP_SEEDS',
+
+                    'reseed_each_round' =>
+                    false,
+
+                    /*
+                     * Conservamos compatibilidad
+                     * con T1.
+                     */
+                    'default_best_of' =>
+                    $phaseTemplate->best_of
+                        ?: 1,
+                ]
+            );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Actualizar
+    |--------------------------------------------------------------------------
+    */
+
+    public function update(
+        PhaseTemplate $phaseTemplate,
+        array $data
+    ): PhaseSingleEliminationSetting {
+        $this->ensureCorrectType(
+            $phaseTemplate
+        );
+
+        return DB::transaction(
+            function () use (
+                $phaseTemplate,
+                $data
+            ) {
+                $lockedPhase =
+                    PhaseTemplate::query()
+                    ->whereKey(
+                        $phaseTemplate->id
+                    )
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $settings =
+                    $lockedPhase
+                    ->singleEliminationSetting()
+                    ->firstOrCreate(
+                        [],
+                        [
+                            'completion_mode' =>
+                            'WINNER',
+
+                            'target_survivors' =>
+                            1,
+
+                            'seeding_mode' =>
+                            'INPUT_ORDER',
+
+                            'pairing_mode' =>
+                            'STANDARD_SEEDED',
+
+                            'bye_assignment' =>
+                            'TOP_SEEDS',
+
+                            'reseed_each_round' =>
+                            false,
+
+                            'default_best_of' =>
+                            $lockedPhase->best_of
+                                ?: 1,
+                        ]
+                    );
+
+                /*
+                |--------------------------------------------------------------------------
+                | WINNER siempre significa 1
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $data['completion_mode']
+                    ===
+                    'WINNER'
+                ) {
+                    $data['target_survivors'] =
+                        1;
+                }
+
+                $settings->update(
+                    $data
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | Mantener best_of de T1 sincronizado
+                |--------------------------------------------------------------------------
+                */
+
+                $lockedPhase->update([
+                    'best_of' =>
+                    $data['default_best_of'],
+                ]);
+
+                return $settings->fresh();
+            }
+        );
+    }
+
+    private function ensureCorrectType(
+        PhaseTemplate $phaseTemplate
+    ): void {
+        abort_unless(
+            $phaseTemplate->phase_type
+                ===
+                'SINGLE_ELIMINATION',
+            404
+        );
+    }
+}

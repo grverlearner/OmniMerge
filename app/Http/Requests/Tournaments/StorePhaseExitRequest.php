@@ -11,35 +11,76 @@ class StorePhaseExitRequest extends FormRequest
     public function authorize(): bool
     {
         $phaseTemplate =
-            $this->route('phaseTemplate');
+            $this->route(
+                'phaseTemplate'
+            );
 
-        return $phaseTemplate
+        return
+            $phaseTemplate
             instanceof PhaseTemplate
+
             &&
             (
                 $this->user()
                 ?->can(
                     'update',
                     $phaseTemplate
-                ) ?? false
+                )
+                ?? false
             );
     }
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
-            'name' => trim(
-                (string) $this->input('name')
-            ),
-
-            'selector_type' => strtoupper(
-                (string) $this->input(
+        $selectorType =
+            strtoupper(
+                (string)
+                $this->input(
                     'selector_type'
+                )
+            );
+
+        $exitTiming =
+            strtoupper(
+                (string)
+                $this->input(
+                    'exit_timing',
+                    'PHASE_END'
+                )
+            );
+
+        /*
+         * Esta salida necesariamente ocurre
+         * al producirse la eliminación.
+         */
+        if (
+            $selectorType
+            ===
+            'ELIMINATED_IN_ROUND'
+        ) {
+            $exitTiming =
+                'ON_ELIMINATION';
+        }
+
+        $this->merge([
+            'name' =>
+            trim(
+                (string)
+                $this->input(
+                    'name'
                 )
             ),
 
-            'status' => strtoupper(
-                (string) $this->input(
+            'selector_type' =>
+            $selectorType,
+
+            'exit_timing' =>
+            $exitTiming,
+
+            'status' =>
+            strtoupper(
+                (string)
+                $this->input(
                     'status',
                     'ACTIVE'
                 )
@@ -62,9 +103,26 @@ class StorePhaseExitRequest extends FormRequest
                 'max:2000',
             ],
 
+            /*
+            |--------------------------------------------------------------------------
+            | Selector
+            |--------------------------------------------------------------------------
+            */
+
             'selector_type' => [
                 'required',
+
                 Rule::in([
+                    /*
+                     * Single Elimination
+                     */
+                    'SURVIVORS',
+                    'ELIMINATED',
+                    'ELIMINATED_IN_ROUND',
+
+                    /*
+                     * Genéricos
+                     */
                     'MATCH_WINNERS',
                     'MATCH_LOSERS',
                     'TOP_N',
@@ -76,11 +134,34 @@ class StorePhaseExitRequest extends FormRequest
                 ]),
             ],
 
+            /*
+            |--------------------------------------------------------------------------
+            | Timing
+            |--------------------------------------------------------------------------
+            */
+
+            'exit_timing' => [
+                'required',
+
+                Rule::in([
+                    'PHASE_END',
+                    'ON_ELIMINATION',
+                ]),
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Selectores genéricos
+            |--------------------------------------------------------------------------
+            */
+
             'selector_from' => [
                 Rule::requiredIf(
                     fn() =>
                     in_array(
-                        $this->input('selector_type'),
+                        $this->input(
+                            'selector_type'
+                        ),
                         [
                             'TOP_N',
                             'BOTTOM_N',
@@ -90,6 +171,7 @@ class StorePhaseExitRequest extends FormRequest
                         true
                     )
                 ),
+
                 'nullable',
                 'integer',
                 'min:1',
@@ -99,16 +181,57 @@ class StorePhaseExitRequest extends FormRequest
             'selector_to' => [
                 Rule::requiredIf(
                     fn() =>
-                    $this->input('selector_type')
+                    $this->input(
+                        'selector_type'
+                    )
                         ===
                         'RANK_RANGE'
                 ),
+
                 'nullable',
                 'integer',
                 'min:1',
                 'max:512',
+
                 'gte:selector_from',
             ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Single Elimination — ronda
+            |--------------------------------------------------------------------------
+            */
+
+            'selector_round_size' => [
+                Rule::requiredIf(
+                    fn() =>
+                    $this->input(
+                        'selector_type'
+                    )
+                        ===
+                        'ELIMINATED_IN_ROUND'
+                ),
+
+                'nullable',
+
+                Rule::in([
+                    2,
+                    4,
+                    8,
+                    16,
+                    32,
+                    64,
+                    128,
+                    256,
+                    512,
+                ]),
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Prioridad
+            |--------------------------------------------------------------------------
+            */
 
             'priority' => [
                 'required',
@@ -119,11 +242,23 @@ class StorePhaseExitRequest extends FormRequest
 
             'status' => [
                 'required',
+
                 Rule::in([
                     'ACTIVE',
                     'INACTIVE',
                 ]),
             ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'selector_round_size.required' =>
+            'Selecciona la ronda cuya eliminación utilizará esta puerta.',
+
+            'selector_round_size.in' =>
+            'La ronda seleccionada no es válida.',
         ];
     }
 }

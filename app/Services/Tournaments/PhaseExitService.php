@@ -37,8 +37,12 @@ class PhaseExitService
                                 'phase_template_id',
                                 $phaseTemplate->id
                             )
-                            ->max('sort_order')
-                    ) + 10;
+                            ->max(
+                                'sort_order'
+                            )
+                    )
+                    +
+                    10;
 
                 $data =
                     $this->normalizeSelector(
@@ -58,7 +62,9 @@ class PhaseExitService
 
                 return $phaseTemplate
                     ->exits()
-                    ->create($data);
+                    ->create(
+                        $data
+                    );
             }
         );
     }
@@ -95,15 +101,31 @@ class PhaseExitService
                     'phase_template_id',
                     $phaseTemplate->id
                 )
-                ->max('sequence_number')
-        ) + 1;
+                ->max(
+                    'sequence_number'
+                )
+        )
+            +
+            1;
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Normalización
+    |--------------------------------------------------------------------------
+    */
 
     private function normalizeSelector(
         array $data
     ): array {
         $type =
             $data['selector_type'];
+
+        /*
+        |--------------------------------------------------------------------------
+        | selector_from
+        |--------------------------------------------------------------------------
+        */
 
         if (
             ! in_array(
@@ -121,9 +143,63 @@ class PhaseExitService
                 null;
         }
 
-        if ($type !== 'RANK_RANGE') {
+        /*
+        |--------------------------------------------------------------------------
+        | selector_to
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $type
+            !==
+            'RANK_RANGE'
+        ) {
             $data['selector_to'] =
                 null;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Ronda
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $type
+            !==
+            'ELIMINATED_IN_ROUND'
+        ) {
+            $data['selector_round_size'] =
+                null;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Timing obligatorio
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $type
+            ===
+            'ELIMINATED_IN_ROUND'
+        ) {
+            $data['exit_timing'] =
+                'ON_ELIMINATION';
+        }
+
+        if (
+            in_array(
+                $type,
+                [
+                    'SURVIVORS',
+                    'ELIMINATED',
+                ],
+                true
+            )
+        ) {
+            $data['exit_timing'] =
+                'PHASE_END';
         }
 
         return $data;

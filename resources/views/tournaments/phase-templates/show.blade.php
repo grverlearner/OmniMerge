@@ -62,7 +62,11 @@
         };
 
         $suggestedExits = match ($phaseTemplate->phase_type) {
-            'SINGLE_ELIMINATION' => [['Ganadores', 'MATCH_WINNERS'], ['Perdedores', 'MATCH_LOSERS']],
+            'SINGLE_ELIMINATION' => [
+                ['Supervivientes', 'SURVIVORS'],
+                ['Eliminados', 'ELIMINATED'],
+                ['Eliminados por ronda', 'ELIMINATED_IN_ROUND'],
+            ],
 
             'ROUND_ROBIN' => [['Clasificados', 'TOP_N'], ['Eliminados', 'REMAINING']],
 
@@ -656,23 +660,98 @@
                         <p class="mt-2 text-xs leading-5 text-amber-900/70">
 
                             @if ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION')
-                                Esta Fase recibirá configuración de bracket,
-                                seeding, rondas automáticas y distribución de BYEs.
+                                <div
+                                    class="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-5">
+
+                                    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+
+                                        <div>
+
+                                            <p class="text-[9px] font-black uppercase tracking-wider text-amber-700">
+                                                Single Elimination Engine
+                                            </p>
+
+                                            <p class="mt-2 text-sm font-black text-amber-950">
+                                                Motor disponible
+                                            </p>
+
+                                            <p class="mt-1 max-w-xl text-xs leading-5 text-amber-800/80">
+                                                Configura objetivo, seeding, pairing,
+                                                BYEs, Best of, reglas por ronda y
+                                                previsualiza automáticamente el bracket.
+                                            </p>
+
+                                        </div>
+
+                                        <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
+                                            class="shrink-0 rounded-xl bg-amber-500 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-amber-500/20">
+                                            ⚔ Configurar Engine
+                                        </a>
+
+                                    </div>
+
+                                </div>
                             @elseif ($phaseTemplate->phase_type === 'ROUND_ROBIN')
-                                Esta Fase recibirá puntuación, ranking,
-                                enfrentamientos y criterios de desempate.
+                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
+                                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                        Próxima evolución
+                                    </p>
+
+                                    <p class="mt-2 text-xs leading-5 text-slate-600">
+                                        Esta Fase recibirá puntuación, ranking,
+                                        enfrentamientos y criterios de desempate.
+                                    </p>
+
+                                </div>
                             @elseif ($phaseTemplate->phase_type === 'GROUP_STAGE')
-                                Esta Fase recibirá cantidad de grupos,
-                                tamaño, distribución y clasificación interna.
+                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
+                                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                        Próxima evolución
+                                    </p>
+
+                                    <p class="mt-2 text-xs leading-5 text-slate-600">
+                                        Esta Fase recibirá cantidad de grupos,
+                                        tamaño, distribución y clasificación interna.
+                                    </p>
+
+                                </div>
                             @elseif ($phaseTemplate->phase_type === 'LEAGUE')
-                                Esta Fase recibirá sistema de puntos,
-                                ascensos, permanencias y descensos.
+                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
+                                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                        Próxima evolución
+                                    </p>
+
+                                    <p class="mt-2 text-xs leading-5 text-slate-600">
+                                        Esta Fase recibirá sistema de puntos,
+                                        ascensos, permanencias y descensos.
+                                    </p>
+
+                                </div>
                             @elseif ($phaseTemplate->phase_type === 'SWISS')
-                                Esta Fase recibirá rondas, emparejamientos,
-                                historial de rivales y desempates avanzados.
+                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
+                                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                        Próxima evolución
+                                    </p>
+
+                                    <p class="mt-2 text-xs leading-5 text-slate-600">
+                                        Esta Fase recibirá rondas, emparejamientos,
+                                        historial de rivales y desempates avanzados.
+                                    </p>
+
+                                </div>
                             @else
-                                La configuración avanzada se añadirá
-                                progresivamente al Phase Designer.
+                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
+                                    <p class="text-xs leading-5 text-slate-500">
+                                        La configuración avanzada se añadirá
+                                        progresivamente al Phase Designer.
+                                    </p>
+
+                                </div>
                             @endif
 
                         </p>
@@ -795,6 +874,9 @@
                             @php
 
                                 $exitIcon = match ($phaseExit->selector_type) {
+                                    'SURVIVORS' => '★',
+                                    'ELIMINATED' => '×',
+                                    'ELIMINATED_IN_ROUND' => '⌁',
                                     'MATCH_WINNERS' => '▲',
                                     'MATCH_LOSERS' => '▼',
                                     'TOP_N' => '↑',

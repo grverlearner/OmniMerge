@@ -14,16 +14,27 @@ class PhaseExit extends Model
 
     protected $fillable = [
         'phase_template_id',
+
         'sequence_number',
         'code',
+
         'name',
         'description',
+
         'selector_type',
+
+        'exit_timing',
+
         'selector_from',
         'selector_to',
+
+        'selector_round_size',
+
         'priority',
         'sort_order',
+
         'status',
+
         'settings',
     ];
 
@@ -31,10 +42,15 @@ class PhaseExit extends Model
     {
         return [
             'sequence_number' => 'integer',
+
             'selector_from' => 'integer',
             'selector_to' => 'integer',
+
+            'selector_round_size' => 'integer',
+
             'priority' => 'integer',
             'sort_order' => 'integer',
+
             'settings' => 'array',
         ];
     }
@@ -69,28 +85,84 @@ class PhaseExit extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | Etiquetas
+    | Selector
     |--------------------------------------------------------------------------
     */
 
     public function getSelectorLabelAttribute(): string
     {
         return match ($this->selector_type) {
-            'MATCH_WINNERS' => 'Ganadores',
-            'MATCH_LOSERS' => 'Perdedores',
-            'TOP_N' => 'Mejores N',
-            'BOTTOM_N' => 'Últimos N',
-            'RANK_POSITION' => 'Posición específica',
-            'RANK_RANGE' => 'Rango de posiciones',
-            'ALL' => 'Todos',
-            'REMAINING' => 'Restantes',
-            default => $this->selector_type,
+            /*
+             * SINGLE ELIMINATION
+             */
+            'SURVIVORS' =>
+            'Supervivientes',
+
+            'ELIMINATED' =>
+            'Eliminados',
+
+            'ELIMINATED_IN_ROUND' =>
+            'Eliminados en una ronda',
+
+            /*
+             * GENÉRICOS
+             */
+            'MATCH_WINNERS' =>
+            'Ganadores',
+
+            'MATCH_LOSERS' =>
+            'Perdedores',
+
+            'TOP_N' =>
+            'Mejores N',
+
+            'BOTTOM_N' =>
+            'Últimos N',
+
+            'RANK_POSITION' =>
+            'Posición específica',
+
+            'RANK_RANGE' =>
+            'Rango de posiciones',
+
+            'ALL' =>
+            'Todos',
+
+            'REMAINING' =>
+            'Restantes',
+
+            default =>
+            $this->selector_type,
         };
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Resumen
+    |--------------------------------------------------------------------------
+    */
 
     public function getSelectionSummaryAttribute(): string
     {
         return match ($this->selector_type) {
+            /*
+             * SINGLE ELIMINATION
+             */
+            'SURVIVORS' =>
+            'Competidores que permanecen al finalizar la Fase',
+
+            'ELIMINATED' =>
+            'Todos los competidores eliminados durante la Fase',
+
+            'ELIMINATED_IN_ROUND' =>
+            'Competidores eliminados en '
+                . $this->roundLabel(
+                    $this->selector_round_size
+                ),
+
+            /*
+             * GENÉRICOS
+             */
             'MATCH_WINNERS' =>
             'Ganadores de los enfrentamientos',
 
@@ -123,6 +195,72 @@ class PhaseExit extends Model
 
             default =>
             'Selector personalizado',
+        };
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Timing
+    |--------------------------------------------------------------------------
+    */
+
+    public function getTimingLabelAttribute(): string
+    {
+        return match ($this->exit_timing) {
+            'PHASE_END' =>
+            'Al finalizar la Fase',
+
+            'ON_ELIMINATION' =>
+            'Al producirse la eliminación',
+
+            default =>
+            $this->exit_timing,
+        };
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helpers
+    |--------------------------------------------------------------------------
+    */
+
+    private function roundLabel(
+        ?int $roundSize
+    ): string {
+        return match ($roundSize) {
+            2 =>
+            'la Final',
+
+            4 =>
+            'la Semifinal',
+
+            8 =>
+            'los Cuartos de final',
+
+            16 =>
+            'la Ronda de 16',
+
+            32 =>
+            'la Ronda de 32',
+
+            64 =>
+            'la Ronda de 64',
+
+            128 =>
+            'la Ronda de 128',
+
+            256 =>
+            'la Ronda de 256',
+
+            512 =>
+            'la Ronda de 512',
+
+            null =>
+            'una ronda específica',
+
+            default =>
+            'la ronda de '
+                . $roundSize,
         };
     }
 }

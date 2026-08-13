@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
@@ -100,6 +101,24 @@ class PhaseTemplate extends Model
             ->orderBy('sort_order')
             ->orderBy('priority')
             ->orderBy('id');
+    }
+
+    public function singleEliminationSetting(): HasOne
+    {
+        return $this->hasOne(
+            PhaseSingleEliminationSetting::class
+        );
+    }
+
+    public function singleEliminationRoundRules(): HasMany
+    {
+        return $this
+            ->hasMany(
+                PhaseSingleEliminationRoundRule::class
+            )
+            ->orderByDesc(
+                'participants_in_round'
+            );
     }
 
     /*

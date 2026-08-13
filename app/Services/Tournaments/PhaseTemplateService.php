@@ -155,10 +155,38 @@ class PhaseTemplateService
 
         try {
             DB::transaction(
-                fn() =>
-                $phaseTemplate->update(
+                function () use (
+                    $phaseTemplate,
                     $data
-                )
+                ) {
+                    $phaseTemplate->update(
+                        $data
+                    );
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Mantener T1 y T2 sincronizados
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (
+                        $phaseTemplate->phase_type
+                        ===
+                        'SINGLE_ELIMINATION'
+                        &&
+                        $phaseTemplate
+                        ->singleEliminationSetting()
+                        ->exists()
+                    ) {
+                        $phaseTemplate
+                            ->singleEliminationSetting()
+                            ->update([
+                                'default_best_of' =>
+                                (int)
+                                $phaseTemplate->best_of,
+                            ]);
+                    }
+                }
             );
         } catch (Throwable $exception) {
             if ($newImage) {
@@ -202,7 +230,11 @@ class PhaseTemplateService
         User $user,
         PhaseTemplate $source
     ): PhaseTemplate {
-        $source->load('exits');
+        $source->load([
+            'exits',
+            'singleEliminationSetting',
+            'singleEliminationRoundRules',
+        ]);
 
         $duplicatedImage =
             $this->duplicateImage(
@@ -341,6 +373,79 @@ class PhaseTemplateService
                                 'settings' =>
                                 $exit->settings,
                             ]);
+                    }
+
+                    /*
+|--------------------------------------------------------------------------
+| Configuración SINGLE ELIMINATION
+|--------------------------------------------------------------------------
+*/
+
+                    if (
+                        $source->phase_type
+                        ===
+                        'SINGLE_ELIMINATION'
+                        &&
+                        $source->singleEliminationSetting
+                    ) {
+                        $sourceSettings =
+                            $source->singleEliminationSetting;
+
+                        $copy
+                            ->singleEliminationSetting()
+                            ->create([
+                                'completion_mode' =>
+                                $sourceSettings->completion_mode,
+
+                                'target_survivors' =>
+                                $sourceSettings->target_survivors,
+
+                                'seeding_mode' =>
+                                $sourceSettings->seeding_mode,
+
+                                'pairing_mode' =>
+                                $sourceSettings->pairing_mode,
+
+                                'bye_assignment' =>
+                                $sourceSettings->bye_assignment,
+
+                                'reseed_each_round' =>
+                                $sourceSettings->reseed_each_round,
+
+                                'default_best_of' =>
+                                $sourceSettings->default_best_of,
+
+                                'settings' =>
+                                $sourceSettings->settings,
+                            ]);
+
+                        /*
+    |--------------------------------------------------------------------------
+    | Overrides de ronda
+    |--------------------------------------------------------------------------
+    */
+
+                        foreach (
+                            $source->singleEliminationRoundRules
+                            as
+                            $roundRule
+                        ) {
+                            $copy
+                                ->singleEliminationRoundRules()
+                                ->create([
+                                    'participants_in_round' =>
+                                    $roundRule->participants_in_round,
+
+                                    'best_of' =>
+                                    $roundRule->best_of,
+
+                                    'sort_order' =>
+                                    $roundRule->sort_order,
+
+                                    'settings' =>
+                                    $roundRule->settings,
+                                ]);
+                        }
                     }
 
                     return $copy;

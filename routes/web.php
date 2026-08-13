@@ -35,6 +35,8 @@ use App\Http\Controllers\Tournaments\TournamentLabController;
 
 use App\Http\Controllers\Tournaments\PhaseTemplateController;
 use App\Http\Controllers\Tournaments\PhaseExitController;
+use App\Http\Controllers\Tournaments\SingleEliminationController;
+use App\Http\Controllers\Tournaments\SingleEliminationRoundRuleController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -248,6 +250,68 @@ Route::middleware('auth')->group(function () {
                     ]
                 )->name(
                     'phase-exits.destroy'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| SINGLE ELIMINATION ENGINE
+|--------------------------------------------------------------------------
+*/
+
+                Route::get(
+                    '/phases/{phaseTemplate}/single-elimination',
+                    [
+                        SingleEliminationController::class,
+                        'show',
+                    ]
+                )->name(
+                    'single-elimination.show'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/single-elimination',
+                    [
+                        SingleEliminationController::class,
+                        'update',
+                    ]
+                )->name(
+                    'single-elimination.update'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| Reglas por ronda
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/round-rules',
+                    [
+                        SingleEliminationRoundRuleController::class,
+                        'store',
+                    ]
+                )->name(
+                    'single-elimination.round-rules.store'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/single-elimination/round-rules/{roundRule}',
+                    [
+                        SingleEliminationRoundRuleController::class,
+                        'update',
+                    ]
+                )->name(
+                    'single-elimination.round-rules.update'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/single-elimination/round-rules/{roundRule}',
+                    [
+                        SingleEliminationRoundRuleController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'single-elimination.round-rules.destroy'
                 );
 
 
