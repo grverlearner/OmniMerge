@@ -39,6 +39,10 @@ use App\Http\Controllers\Tournaments\SingleEliminationController;
 use App\Http\Controllers\Tournaments\SingleEliminationRoundRuleController;
 use App\Http\Controllers\Tournaments\RoundRobinController;
 use App\Http\Controllers\Tournaments\RoundRobinTiebreakerController;
+use App\Http\Controllers\Tournaments\GroupStageController;
+use App\Http\Controllers\Tournaments\GroupStageGroupController;
+use App\Http\Controllers\Tournaments\GroupStageAdvancementRuleController;
+use App\Http\Controllers\Tournaments\GroupStageTiebreakerController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -396,6 +400,180 @@ Route::middleware('auth')->group(function () {
                     ]
                 )->name(
                     'round-robin.tiebreakers.move-down'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| GROUP STAGE ENGINE
+|--------------------------------------------------------------------------
+*/
+
+                Route::get(
+                    '/phases/{phaseTemplate}/group-stage',
+                    [
+                        GroupStageController::class,
+                        'show',
+                    ]
+                )->name(
+                    'group-stage.show'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/group-stage',
+                    [
+                        GroupStageController::class,
+                        'update',
+                    ]
+                )->name(
+                    'group-stage.update'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| Group Definitions
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/phases/{phaseTemplate}/group-stage/groups',
+                    [
+                        GroupStageGroupController::class,
+                        'store',
+                    ]
+                )->name(
+                    'group-stage.groups.store'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/group-stage/groups/{group}',
+                    [
+                        GroupStageGroupController::class,
+                        'update',
+                    ]
+                )->name(
+                    'group-stage.groups.update'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/group-stage/groups/{group}',
+                    [
+                        GroupStageGroupController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'group-stage.groups.destroy'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| Advancement Rules
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/phases/{phaseTemplate}/group-stage/advancement-rules',
+                    [
+                        GroupStageAdvancementRuleController::class,
+                        'store',
+                    ]
+                )->name(
+                    'group-stage.advancement-rules.store'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/group-stage/advancement-rules/{advancementRule}',
+                    [
+                        GroupStageAdvancementRuleController::class,
+                        'update',
+                    ]
+                )->name(
+                    'group-stage.advancement-rules.update'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/group-stage/advancement-rules/{advancementRule}',
+                    [
+                        GroupStageAdvancementRuleController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'group-stage.advancement-rules.destroy'
+                );
+
+                Route::patch(
+                    '/phases/{phaseTemplate}/group-stage/advancement-rules/{advancementRule}/move-up',
+                    [
+                        GroupStageAdvancementRuleController::class,
+                        'moveUp',
+                    ]
+                )->name(
+                    'group-stage.advancement-rules.move-up'
+                );
+
+                Route::patch(
+                    '/phases/{phaseTemplate}/group-stage/advancement-rules/{advancementRule}/move-down',
+                    [
+                        GroupStageAdvancementRuleController::class,
+                        'moveDown',
+                    ]
+                )->name(
+                    'group-stage.advancement-rules.move-down'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| Cross Group Tiebreakers
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/phases/{phaseTemplate}/group-stage/tiebreakers',
+                    [
+                        GroupStageTiebreakerController::class,
+                        'store',
+                    ]
+                )->name(
+                    'group-stage.tiebreakers.store'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/group-stage/tiebreakers/{tiebreaker}',
+                    [
+                        GroupStageTiebreakerController::class,
+                        'update',
+                    ]
+                )->name(
+                    'group-stage.tiebreakers.update'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/group-stage/tiebreakers/{tiebreaker}',
+                    [
+                        GroupStageTiebreakerController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'group-stage.tiebreakers.destroy'
+                );
+
+                Route::patch(
+                    '/phases/{phaseTemplate}/group-stage/tiebreakers/{tiebreaker}/move-up',
+                    [
+                        GroupStageTiebreakerController::class,
+                        'moveUp',
+                    ]
+                )->name(
+                    'group-stage.tiebreakers.move-up'
+                );
+
+                Route::patch(
+                    '/phases/{phaseTemplate}/group-stage/tiebreakers/{tiebreaker}/move-down',
+                    [
+                        GroupStageTiebreakerController::class,
+                        'moveDown',
+                    ]
+                )->name(
+                    'group-stage.tiebreakers.move-down'
                 );
 
 

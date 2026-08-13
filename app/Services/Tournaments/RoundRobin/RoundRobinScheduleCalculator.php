@@ -12,6 +12,175 @@ class RoundRobinScheduleCalculator
         RoundRobinValidator $validator
     ) {}
 
+    /*
+|--------------------------------------------------------------------------
+| Estructura reutilizable
+|--------------------------------------------------------------------------
+|
+| Permite que motores contenedores como GROUP_STAGE utilicen
+| el algoritmo Round Robin sin necesitar una PhaseTemplate
+| de tipo ROUND_ROBIN.
+|
+*/
+
+    public function calculateStructure(
+        int $participants,
+        int $cycles = 1,
+        int $bestOf = 1,
+        bool $allowDraws = true,
+        int $previewRoundLimit = 6
+    ): array {
+        if ($participants < 2) {
+            return [
+                'valid' => false,
+
+                'errors' => [
+                    'Round Robin necesita al menos 2 participantes.',
+                ],
+            ];
+        }
+
+        if (
+            $cycles < 1
+            ||
+            $cycles > 10
+        ) {
+            return [
+                'valid' => false,
+
+                'errors' => [
+                    'La cantidad de ciclos debe estar entre 1 y 10.',
+                ],
+            ];
+        }
+
+        if (
+            ! in_array(
+                $bestOf,
+                [
+                    1,
+                    3,
+                    5,
+                    7,
+                    9,
+                ],
+                true
+            )
+        ) {
+            return [
+                'valid' => false,
+
+                'errors' => [
+                    'El Best of debe ser 1, 3, 5, 7 o 9.',
+                ],
+            ];
+        }
+
+        $isOdd =
+            $participants % 2 !== 0;
+
+        $roundsPerCycle =
+            $isOdd
+            ? $participants
+            : $participants - 1;
+
+        $seriesPerCycle =
+            intdiv(
+                $participants
+                    *
+                    ($participants - 1),
+                2
+            );
+
+        $totalRounds =
+            $roundsPerCycle
+            *
+            $cycles;
+
+        $totalSeries =
+            $seriesPerCycle
+            *
+            $cycles;
+
+        $seriesPerRound =
+            intdiv(
+                $participants,
+                2
+            );
+
+        $restsPerRound =
+            $isOdd
+            ? 1
+            : 0;
+
+        $totalRestAssignments =
+            $isOdd
+            ? $participants
+            *
+            $cycles
+            : 0;
+
+        $rounds =
+            $this->generatePreviewRounds(
+                $participants,
+                $cycles,
+                $previewRoundLimit
+            );
+
+        return [
+            'valid' =>
+            true,
+
+            'errors' =>
+            [],
+
+            'participants' =>
+            $participants,
+
+            'cycles' =>
+            $cycles,
+
+            'is_odd' =>
+            $isOdd,
+
+            'rounds_per_cycle' =>
+            $roundsPerCycle,
+
+            'total_rounds' =>
+            $totalRounds,
+
+            'series_per_cycle' =>
+            $seriesPerCycle,
+
+            'total_series' =>
+            $totalSeries,
+
+            'series_per_round' =>
+            $seriesPerRound,
+
+            'rests_per_round' =>
+            $restsPerRound,
+
+            'total_rest_assignments' =>
+            $totalRestAssignments,
+
+            'default_best_of' =>
+            $bestOf,
+
+            'wins_required' =>
+            intdiv(
+                $bestOf,
+                2
+            ) + 1,
+
+            'allow_draws' =>
+            $allowDraws,
+
+            'rounds' =>
+            $rounds,
+        ];
+    }
+
     public function calculate(
         PhaseTemplate $phaseTemplate,
         PhaseRoundRobinSetting $settings,

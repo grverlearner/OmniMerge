@@ -210,6 +210,30 @@ class PhaseTemplateService
                                 $phaseTemplate->best_of,
                             ]);
                     }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Mantener T1 y T4 sincronizados
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (
+                        $phaseTemplate->phase_type
+                        ===
+                        'GROUP_STAGE'
+                        &&
+                        $phaseTemplate
+                        ->groupStageSetting()
+                        ->exists()
+                    ) {
+                        $phaseTemplate
+                            ->groupStageSetting()
+                            ->update([
+                                'internal_best_of' =>
+                                (int)
+                                $phaseTemplate->best_of,
+                            ]);
+                    }
                 }
             );
         } catch (Throwable $exception) {
@@ -262,6 +286,11 @@ class PhaseTemplateService
 
             'roundRobinSetting',
             'roundRobinTiebreakers',
+
+            'groupStageSetting',
+            'groupStageGroups',
+            'groupStageAdvancementRules',
+            'groupStageTiebreakers',
         ]);
 
         $duplicatedImage =
@@ -361,12 +390,16 @@ class PhaseTemplateService
                             $source->metadata,
                         ]);
 
+                    $exitIdMap = [];
+
                     foreach (
                         $source->exits
                         as
                         $exit
                     ) {
-                        $copy->exits()
+                        $newExit =
+                            $copy
+                            ->exits()
                             ->create([
                                 'sequence_number' =>
                                 $exit->sequence_number,
@@ -407,6 +440,8 @@ class PhaseTemplateService
                                 'settings' =>
                                 $exit->settings,
                             ]);
+                        $exitIdMap[$exit->id] =
+                            $newExit->id;
                     }
 
                     /*
@@ -557,6 +592,216 @@ class PhaseTemplateService
 
                                     'settings' =>
                                     $tiebreaker->settings,
+                                ]);
+                        }
+                    }
+
+                    /*
+|--------------------------------------------------------------------------
+| Configuración GROUP STAGE
+|--------------------------------------------------------------------------
+*/
+
+                    if (
+                        $source->phase_type
+                        ===
+                        'GROUP_STAGE'
+                        &&
+                        $source->groupStageSetting
+                    ) {
+                        $sourceSettings =
+                            $source->groupStageSetting;
+
+                        $copy
+                            ->groupStageSetting()
+                            ->create([
+                                'group_count_mode' =>
+                                $sourceSettings->group_count_mode,
+
+                                'group_count' =>
+                                $sourceSettings->group_count,
+
+                                'target_group_size' =>
+                                $sourceSettings->target_group_size,
+
+                                'min_group_size' =>
+                                $sourceSettings->min_group_size,
+
+                                'max_group_size' =>
+                                $sourceSettings->max_group_size,
+
+                                'remainder_policy' =>
+                                $sourceSettings->remainder_policy,
+
+                                'distribution_mode' =>
+                                $sourceSettings->distribution_mode,
+
+                                'pot_count' =>
+                                $sourceSettings->pot_count,
+
+                                'internal_engine_type' =>
+                                $sourceSettings->internal_engine_type,
+
+                                'internal_cycles' =>
+                                $sourceSettings->internal_cycles,
+
+                                'internal_schedule_mode' =>
+                                $sourceSettings->internal_schedule_mode,
+
+                                'internal_allow_draws' =>
+                                $sourceSettings->internal_allow_draws,
+
+                                'internal_win_points' =>
+                                $sourceSettings->internal_win_points,
+
+                                'internal_draw_points' =>
+                                $sourceSettings->internal_draw_points,
+
+                                'internal_loss_points' =>
+                                $sourceSettings->internal_loss_points,
+
+                                'internal_best_of' =>
+                                $sourceSettings->internal_best_of,
+
+                                'cross_group_normalization' =>
+                                $sourceSettings->cross_group_normalization,
+
+                                'cutoff_tie_policy' =>
+                                $sourceSettings->cutoff_tie_policy,
+
+                                'completion_mode' =>
+                                $sourceSettings->completion_mode,
+
+                                'settings' =>
+                                $sourceSettings->settings,
+                            ]);
+
+                        /*
+    |--------------------------------------------------------------------------
+    | Group Definitions
+    |--------------------------------------------------------------------------
+    */
+
+                        $groupIdMap = [];
+
+                        foreach (
+                            $source->groupStageGroups
+                            as
+                            $group
+                        ) {
+                            $newGroup =
+                                $copy
+                                ->groupStageGroups()
+                                ->create([
+                                    'sequence_number' =>
+                                    $group->sequence_number,
+
+                                    'code' =>
+                                    $group->code,
+
+                                    'name' =>
+                                    $group->name,
+
+                                    'capacity' =>
+                                    $group->capacity,
+
+                                    'is_active' =>
+                                    $group->is_active,
+
+                                    'sort_order' =>
+                                    $group->sort_order,
+
+                                    'settings' =>
+                                    $group->settings,
+                                ]);
+
+                            $groupIdMap[$group->id] =
+                                $newGroup->id;
+                        }
+
+                        /*
+    |--------------------------------------------------------------------------
+    | Cross Group Tiebreakers
+    |--------------------------------------------------------------------------
+    */
+
+                        foreach (
+                            $source->groupStageTiebreakers
+                            as
+                            $tiebreaker
+                        ) {
+                            $copy
+                                ->groupStageTiebreakers()
+                                ->create([
+                                    'criterion' =>
+                                    $tiebreaker->criterion,
+
+                                    'normalization' =>
+                                    $tiebreaker->normalization,
+
+                                    'direction' =>
+                                    $tiebreaker->direction,
+
+                                    'sort_order' =>
+                                    $tiebreaker->sort_order,
+
+                                    'settings' =>
+                                    $tiebreaker->settings,
+                                ]);
+                        }
+
+                        /*
+    |--------------------------------------------------------------------------
+    | Advancement Rules
+    |--------------------------------------------------------------------------
+    */
+
+                        foreach (
+                            $source->groupStageAdvancementRules
+                            as
+                            $rule
+                        ) {
+                            $copy
+                                ->groupStageAdvancementRules()
+                                ->create([
+                                    'phase_exit_id' =>
+                                    $rule->phase_exit_id
+                                        ? (
+                                            $exitIdMap[$rule->phase_exit_id]
+                                            ??
+                                            null
+                                        )
+                                        : null,
+
+                                    'phase_group_stage_group_id' =>
+                                    $rule->phase_group_stage_group_id
+                                        ? (
+                                            $groupIdMap[$rule->phase_group_stage_group_id]
+                                            ??
+                                            null
+                                        )
+                                        : null,
+
+                                    'rule_type' =>
+                                    $rule->rule_type,
+
+                                    'position_from' =>
+                                    $rule->position_from,
+
+                                    'position_to' =>
+                                    $rule->position_to,
+
+                                    'take' =>
+                                    $rule->take,
+
+                                    'sort_order' =>
+                                    $rule->sort_order,
+
+                                    'status' =>
+                                    $rule->status,
+
+                                    'settings' =>
+                                    $rule->settings,
                                 ]);
                         }
                     }

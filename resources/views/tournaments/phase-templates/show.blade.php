@@ -70,7 +70,11 @@
 
             'ROUND_ROBIN' => [['Clasificados', 'TOP_N'], ['Eliminados', 'REMAINING']],
 
-            'GROUP_STAGE' => [['Clasificados', 'TOP_N'], ['Repechaje', 'RANK_POSITION'], ['Eliminados', 'REMAINING']],
+            'GROUP_STAGE' => [
+                ['Clasificados', 'ENGINE_RULES'],
+                ['Clasificación secundaria', 'ENGINE_RULES'],
+                ['Eliminados', 'ENGINE_RULES'],
+            ],
 
             'LEAGUE' => [['Ascenso', 'TOP_N'], ['Descenso', 'BOTTOM_N'], ['Permanencia', 'REMAINING']],
 
@@ -724,16 +728,33 @@
 
                                 </div>
                             @elseif ($phaseTemplate->phase_type === 'GROUP_STAGE')
-                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <div
+                                    class="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-5">
 
-                                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                                        Próxima evolución
-                                    </p>
+                                    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
 
-                                    <p class="mt-2 text-xs leading-5 text-slate-600">
-                                        Esta Fase recibirá cantidad de grupos,
-                                        tamaño, distribución y clasificación interna.
-                                    </p>
+                                        <div>
+                                            <p class="text-[9px] font-black uppercase tracking-wider text-indigo-700">
+                                                Group Stage Engine
+                                            </p>
+
+                                            <p class="mt-2 text-sm font-black text-indigo-950">
+                                                Motor disponible
+                                            </p>
+
+                                            <p class="mt-1 max-w-xl text-xs leading-5 text-indigo-800/80">
+                                                Configura grupos, tamaños, Snake Seeding,
+                                                Pots, Round Robin interno, comparación entre
+                                                grupos y reglas avanzadas de clasificación.
+                                            </p>
+                                        </div>
+
+                                        <a href="{{ route('tournaments.group-stage.show', $phaseTemplate) }}"
+                                            class="shrink-0 rounded-xl bg-indigo-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-indigo-600/20">
+                                            ▦ Configurar Engine
+                                        </a>
+
+                                    </div>
 
                                 </div>
                             @elseif ($phaseTemplate->phase_type === 'LEAGUE')

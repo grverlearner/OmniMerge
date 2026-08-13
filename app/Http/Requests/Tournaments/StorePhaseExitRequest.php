@@ -121,6 +121,11 @@ class StorePhaseExitRequest extends FormRequest
                     'ELIMINATED_IN_ROUND',
 
                     /*
+                    * Engines complejos
+                    */
+                    'ENGINE_RULES',
+
+                    /*
                      * Genéricos
                      */
                     'MATCH_WINNERS',

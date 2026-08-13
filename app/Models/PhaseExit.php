@@ -104,6 +104,9 @@ class PhaseExit extends Model
             'ELIMINATED_IN_ROUND' =>
             'Eliminados en una ronda',
 
+            'ENGINE_RULES' =>
+            'Reglas del Engine',
+
             /*
              * GENÉRICOS
              */

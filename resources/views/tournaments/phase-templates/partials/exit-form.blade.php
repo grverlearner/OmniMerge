@@ -46,7 +46,7 @@
     {{-- SELECTOR --}}
 
     <div x-data="{
-        selector: @js(old('selector_type', $editingExit ? $phaseExit->selector_type : ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION' ? 'SURVIVORS' : 'MATCH_WINNERS'))),
+        selector: @js(old('selector_type', $editingExit ? $phaseExit->selector_type : ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION' ? 'SURVIVORS' : ($phaseTemplate->phase_type === 'GROUP_STAGE' ? 'ENGINE_RULES' : 'MATCH_WINNERS')))),
     
         timing: @js(old('exit_timing', $editingExit ? $phaseExit->exit_timing : 'PHASE_END'))
     }">
@@ -71,6 +71,16 @@
 
                     <option value="ELIMINATED_IN_ROUND">
                         Eliminados en una ronda específica
+                    </option>
+
+                </optgroup>
+            @endif
+
+            @if ($phaseTemplate->phase_type === 'GROUP_STAGE')
+                <optgroup label="Fase de grupos">
+
+                    <option value="ENGINE_RULES">
+                        Definida por reglas del Group Stage Engine
                     </option>
 
                 </optgroup>

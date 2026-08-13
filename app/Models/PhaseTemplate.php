@@ -138,6 +138,44 @@ class PhaseTemplate extends Model
             ->orderBy('id');
     }
 
+    public function groupStageSetting(): HasOne
+    {
+        return $this->hasOne(
+            PhaseGroupStageSetting::class
+        );
+    }
+
+    public function groupStageGroups(): HasMany
+    {
+        return $this
+            ->hasMany(
+                PhaseGroupStageGroup::class
+            )
+            ->orderBy('sort_order')
+            ->orderBy('sequence_number')
+            ->orderBy('id');
+    }
+
+    public function groupStageAdvancementRules(): HasMany
+    {
+        return $this
+            ->hasMany(
+                PhaseGroupStageAdvancementRule::class
+            )
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
+    public function groupStageTiebreakers(): HasMany
+    {
+        return $this
+            ->hasMany(
+                PhaseGroupStageTiebreaker::class
+            )
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Scopes
