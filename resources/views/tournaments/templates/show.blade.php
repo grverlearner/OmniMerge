@@ -245,8 +245,8 @@
             'value' => $tournamentTemplate->participant_range_label,
         ],
         [
-            'label' => 'Camino',
-            'value' => 'Pendiente',
+            'label' => 'Tournament Graph',
+            'value' => $tournamentTemplate->graph_nodes_count . ' ' . ($tournamentTemplate->graph_nodes_count === 1 ? 'Node' : 'Nodes') . ' · ' . $tournamentTemplate->graph_connections_count . ' conexiones',
         ],
         [
             'label' => 'BYE',
@@ -294,71 +294,126 @@
     </section>
 
     {{-- ========================================================= --}}
-    {{-- CAMINO COMPETITIVO --}}
+    {{-- TOURNAMENT GRAPH --}}
     {{-- ========================================================= --}}
 
-    <section class="mt-8 rounded-3xl border border-amber-200 bg-gradient-to-br from-white to-amber-50/60 p-7">
+    <section
+        class="mt-8 overflow-hidden rounded-3xl border border-amber-200 bg-gradient-to-br from-white to-amber-50/60">
 
-        <div class="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+        <div class="grid lg:grid-cols-[1fr_360px]">
 
-            <div class="max-w-3xl">
+            <div class="p-7">
 
                 <p class="text-xs font-black uppercase tracking-[0.18em] text-amber-600">
-                    Tournament Graph
+                    Tournament Graph Foundation
                 </p>
 
                 <h3 class="mt-2 text-2xl font-black text-slate-900">
-                    El camino del Torneo se construirá con Fases reutilizables
+                    Construye el camino competitivo
                 </h3>
 
-                <p class="mt-3 text-sm leading-7 text-slate-500">
-                    El sistema anterior donde cada Fase pertenecía directamente
-                    al Torneo está siendo reemplazado por una arquitectura
-                    reutilizable. Primero crea tus PhaseTemplates y sus puertas
-                    de salida. En el siguiente Sprint podrás colocarlas como
-                    Nodes y conectar cada salida con otra Fase.
+                <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
+                    Coloca tus PhaseTemplates como Nodes, conecta puertas de salida
+                    con entradas de otras Fases, crea bifurcaciones, convergencias,
+                    repechajes y múltiples destinos finales.
                 </p>
 
-                <div class="mt-5 flex flex-wrap items-center gap-2 text-xs font-black">
 
-                    <span class="rounded-xl bg-white px-3 py-2 text-slate-600 shadow-sm">
-                        PhaseTemplate
+                <div class="mt-6 flex flex-wrap items-center gap-2 text-xs font-black">
+
+                    <span class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
+                        Start
                     </span>
 
-                    <span class="text-amber-500">→</span>
+                    <span class="text-amber-500">
+                        →
+                    </span>
+
+                    <span class="rounded-xl bg-white px-3 py-2 text-slate-600 shadow-sm">
+                        EntryPort
+                    </span>
+
+                    <span class="text-amber-500">
+                        →
+                    </span>
 
                     <span class="rounded-xl bg-white px-3 py-2 text-slate-600 shadow-sm">
                         PhaseNode
                     </span>
 
-                    <span class="text-amber-500">→</span>
+                    <span class="text-amber-500">
+                        →
+                    </span>
 
                     <span class="rounded-xl bg-white px-3 py-2 text-slate-600 shadow-sm">
+                        PhaseExit
+                    </span>
+
+                    <span class="text-amber-500">
+                        →
+                    </span>
+
+                    <span class="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-violet-700">
                         Connection
                     </span>
 
-                    <span class="text-amber-500">→</span>
-
-                    <span class="rounded-xl bg-white px-3 py-2 text-slate-600 shadow-sm">
-                        Tournament Graph
+                    <span class="text-amber-500">
+                        →
                     </span>
+
+                    <span class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-red-700">
+                        Terminal
+                    </span>
+
                 </div>
+
             </div>
 
-            <div class="flex shrink-0 flex-col gap-3">
 
-                <a href="{{ route('tournaments.phase-templates.index') }}"
-                    class="rounded-xl bg-amber-500 px-5 py-3 text-center text-sm font-black text-white">
-                    ⌘ Ver Fases
+            <div
+                class="flex flex-col justify-center border-t border-amber-100 bg-white/70 p-6 lg:border-l lg:border-t-0">
+
+                <div class="grid grid-cols-2 gap-3">
+
+                    <div class="rounded-2xl bg-slate-950 p-4 text-white">
+
+                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                            Nodes
+                        </p>
+
+                        <p class="mt-2 text-2xl font-black">
+                            {{ $tournamentTemplate->graph_nodes_count }}
+                        </p>
+
+                    </div>
+
+
+                    <div class="rounded-2xl bg-violet-600 p-4 text-white">
+
+                        <p class="text-[9px] font-black uppercase tracking-wider text-violet-200">
+                            Connections
+                        </p>
+
+                        <p class="mt-2 text-2xl font-black">
+                            {{ $tournamentTemplate->graph_connections_count }}
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <a href="{{ route('tournaments.graph.show', $tournamentTemplate) }}"
+                    class="mt-4 rounded-xl bg-amber-500 px-5 py-3.5 text-center text-sm font-black text-white shadow-lg shadow-amber-500/20">
+
+                    ◇ Abrir Tournament Graph
+
                 </a>
 
-                <a href="{{ route('tournaments.phase-templates.create') }}"
-                    class="rounded-xl border border-amber-200 bg-white px-5 py-3 text-center text-sm font-black text-amber-700">
-                    + Crear Fase
-                </a>
             </div>
 
         </div>
+
     </section>
 
     {{-- DANGER ZONE --}}

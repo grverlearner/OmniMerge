@@ -280,9 +280,17 @@ class TournamentTemplateService
         TournamentTemplate $source
     ): TournamentTemplate {
 
-        $source->load(
-            'phases'
-        );
+        $source->load([
+            'phases',
+
+            'graphNodes.entryPorts',
+
+            'graphStarts',
+
+            'graphTerminals',
+
+            'graphConnections',
+        ]);
 
 
         $duplicatedImage =
@@ -445,6 +453,379 @@ class TournamentTemplateService
                             ]);
                     }
 
+                    /*
+|--------------------------------------------------------------------------
+| TOURNAMENT GRAPH
+|--------------------------------------------------------------------------
+*/
+
+                    $nodeIdMap = [];
+                    $entryPortIdMap = [];
+                    $startIdMap = [];
+                    $terminalIdMap = [];
+
+
+                    /*
+|--------------------------------------------------------------------------
+| Nodes + Entry Ports
+|--------------------------------------------------------------------------
+*/
+
+                    foreach (
+                        $source->graphNodes
+                        as
+                        $sourceNode
+                    ) {
+                        $newNode =
+                            $copy
+                            ->graphNodes()
+                            ->create([
+                                'phase_template_id' =>
+                                $sourceNode
+                                    ->phase_template_id,
+
+                                'sequence_number' =>
+                                $sourceNode
+                                    ->sequence_number,
+
+                                'code' =>
+                                $sourceNode->code,
+
+                                'name' =>
+                                $sourceNode->name,
+
+                                'description' =>
+                                $sourceNode
+                                    ->description,
+
+                                'x_position' =>
+                                $sourceNode
+                                    ->x_position,
+
+                                'y_position' =>
+                                $sourceNode
+                                    ->y_position,
+
+                                'status' =>
+                                $sourceNode->status,
+
+                                'settings' =>
+                                $sourceNode
+                                    ->settings,
+                            ]);
+
+
+                        $nodeIdMap[$sourceNode->id] =
+                            $newNode->id;
+
+
+                        foreach (
+                            $sourceNode->entryPorts
+                            as
+                            $sourceEntry
+                        ) {
+                            $newEntry =
+                                $newNode
+                                ->entryPorts()
+                                ->create([
+                                    'sequence_number' =>
+                                    $sourceEntry
+                                        ->sequence_number,
+
+                                    'code' =>
+                                    $sourceEntry->code,
+
+                                    'name' =>
+                                    $sourceEntry->name,
+
+                                    'description' =>
+                                    $sourceEntry
+                                        ->description,
+
+                                    'merge_policy' =>
+                                    $sourceEntry
+                                        ->merge_policy,
+
+                                    'is_required' =>
+                                    $sourceEntry
+                                        ->is_required,
+
+                                    'accepts_multiple_connections' =>
+                                    $sourceEntry
+                                        ->accepts_multiple_connections,
+
+                                    'min_participants' =>
+                                    $sourceEntry
+                                        ->min_participants,
+
+                                    'max_participants' =>
+                                    $sourceEntry
+                                        ->max_participants,
+
+                                    'exact_participants' =>
+                                    $sourceEntry
+                                        ->exact_participants,
+
+                                    'sort_order' =>
+                                    $sourceEntry
+                                        ->sort_order,
+
+                                    'status' =>
+                                    $sourceEntry
+                                        ->status,
+
+                                    'settings' =>
+                                    $sourceEntry
+                                        ->settings,
+                                ]);
+
+
+                            $entryPortIdMap[$sourceEntry->id] =
+                                $newEntry->id;
+                        }
+                    }
+
+
+                    /*
+|--------------------------------------------------------------------------
+| Starts
+|--------------------------------------------------------------------------
+*/
+
+                    foreach (
+                        $source->graphStarts
+                        as
+                        $sourceStart
+                    ) {
+                        $newStart =
+                            $copy
+                            ->graphStarts()
+                            ->create([
+                                'sequence_number' =>
+                                $sourceStart
+                                    ->sequence_number,
+
+                                'code' =>
+                                $sourceStart->code,
+
+                                'name' =>
+                                $sourceStart->name,
+
+                                'description' =>
+                                $sourceStart
+                                    ->description,
+
+                                'source_type' =>
+                                $sourceStart
+                                    ->source_type,
+
+                                'expected_participants' =>
+                                $sourceStart
+                                    ->expected_participants,
+
+                                'x_position' =>
+                                $sourceStart
+                                    ->x_position,
+
+                                'y_position' =>
+                                $sourceStart
+                                    ->y_position,
+
+                                'status' =>
+                                $sourceStart
+                                    ->status,
+
+                                'settings' =>
+                                $sourceStart
+                                    ->settings,
+                            ]);
+
+
+                        $startIdMap[$sourceStart->id] =
+                            $newStart->id;
+                    }
+
+
+                    /*
+|--------------------------------------------------------------------------
+| Terminals
+|--------------------------------------------------------------------------
+*/
+
+                    foreach (
+                        $source->graphTerminals
+                        as
+                        $sourceTerminal
+                    ) {
+                        $newTerminal =
+                            $copy
+                            ->graphTerminals()
+                            ->create([
+                                'sequence_number' =>
+                                $sourceTerminal
+                                    ->sequence_number,
+
+                                'code' =>
+                                $sourceTerminal->code,
+
+                                'name' =>
+                                $sourceTerminal->name,
+
+                                'description' =>
+                                $sourceTerminal
+                                    ->description,
+
+                                'terminal_type' =>
+                                $sourceTerminal
+                                    ->terminal_type,
+
+                                'expected_participants' =>
+                                $sourceTerminal
+                                    ->expected_participants,
+
+                                'x_position' =>
+                                $sourceTerminal
+                                    ->x_position,
+
+                                'y_position' =>
+                                $sourceTerminal
+                                    ->y_position,
+
+                                'status' =>
+                                $sourceTerminal
+                                    ->status,
+
+                                'settings' =>
+                                $sourceTerminal
+                                    ->settings,
+                            ]);
+
+
+                        $terminalIdMap[$sourceTerminal->id] =
+                            $newTerminal->id;
+                    }
+
+
+                    /*
+|--------------------------------------------------------------------------
+| Connections
+|--------------------------------------------------------------------------
+*/
+
+                    foreach (
+                        $source->graphConnections
+                        as
+                        $sourceConnection
+                    ) {
+                        $copy
+                            ->graphConnections()
+                            ->create([
+                                'sequence_number' =>
+                                $sourceConnection
+                                    ->sequence_number,
+
+                                'code' =>
+                                $sourceConnection
+                                    ->code,
+
+                                'label' =>
+                                $sourceConnection
+                                    ->label,
+
+                                'description' =>
+                                $sourceConnection
+                                    ->description,
+
+                                'source_type' =>
+                                $sourceConnection
+                                    ->source_type,
+
+                                'source_start_id' =>
+                                $sourceConnection
+                                    ->source_start_id
+                                    ?
+                                    (
+                                        $startIdMap[$sourceConnection
+                                            ->source_start_id]
+                                        ??
+                                        null
+                                    )
+                                    :
+                                    null,
+
+                                'source_node_id' =>
+                                $sourceConnection
+                                    ->source_node_id
+                                    ?
+                                    (
+                                        $nodeIdMap[$sourceConnection
+                                            ->source_node_id]
+                                        ??
+                                        null
+                                    )
+                                    :
+                                    null,
+
+                                /*
+             * PhaseExit pertenece al PhaseTemplate reutilizable,
+             * por tanto conserva el mismo ID.
+             */
+                                'source_phase_exit_id' =>
+                                $sourceConnection
+                                    ->source_phase_exit_id,
+
+                                'target_type' =>
+                                $sourceConnection
+                                    ->target_type,
+
+                                'target_entry_port_id' =>
+                                $sourceConnection
+                                    ->target_entry_port_id
+                                    ?
+                                    (
+                                        $entryPortIdMap[$sourceConnection
+                                            ->target_entry_port_id]
+                                        ??
+                                        null
+                                    )
+                                    :
+                                    null,
+
+                                'target_terminal_id' =>
+                                $sourceConnection
+                                    ->target_terminal_id
+                                    ?
+                                    (
+                                        $terminalIdMap[$sourceConnection
+                                            ->target_terminal_id]
+                                        ??
+                                        null
+                                    )
+                                    :
+                                    null,
+
+                                'allocation_mode' =>
+                                $sourceConnection
+                                    ->allocation_mode,
+
+                                'allocation_value' =>
+                                $sourceConnection
+                                    ->allocation_value,
+
+                                'priority' =>
+                                $sourceConnection
+                                    ->priority,
+
+                                'status' =>
+                                $sourceConnection
+                                    ->status,
+
+                                'settings' =>
+                                $sourceConnection
+                                    ->settings,
+                            ]);
+                    }
+
 
                     return $copy;
                 }
@@ -519,16 +900,16 @@ class TournamentTemplateService
     ): int {
 
         return (
-                (int)
-                TournamentTemplate::withTrashed()
-                    ->where(
-                        'user_id',
-                        $userId
-                    )
-                    ->max(
-                        'sequence_number'
-                    )
-            )
+            (int)
+            TournamentTemplate::withTrashed()
+                ->where(
+                    'user_id',
+                    $userId
+                )
+                ->max(
+                    'sequence_number'
+                )
+        )
             +
             1;
     }
@@ -618,10 +999,10 @@ class TournamentTemplateService
     ): bool {
 
         return (
-                $data['visibility']
-                ??
-                null
-            )
+            $data['visibility']
+            ??
+            null
+        )
             ===
             'PUBLIC'
 

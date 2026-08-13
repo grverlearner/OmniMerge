@@ -129,6 +129,13 @@ class TournamentTemplate extends Model
         );
     }
 
+    public function tournamentGraphNodes(): HasMany
+    {
+        return $this->hasMany(
+            TournamentPhaseNode::class
+        );
+    }
+
 
     public function clones(): HasMany
     {
@@ -152,6 +159,52 @@ class TournamentTemplate extends Model
                 'id'
             );
     }
+
+    public function graphNodes(): HasMany
+    {
+        return $this
+            ->hasMany(
+                TournamentPhaseNode::class
+            )
+            ->orderBy('sequence_number')
+            ->orderBy('id');
+    }
+
+
+    public function graphConnections(): HasMany
+    {
+        return $this
+            ->hasMany(
+                TournamentPhaseConnection::class
+            )
+            ->orderBy('priority')
+            ->orderBy('sequence_number')
+            ->orderBy('id');
+    }
+
+
+    public function graphStarts(): HasMany
+    {
+        return $this
+            ->hasMany(
+                TournamentStart::class
+            )
+            ->orderBy('sequence_number')
+            ->orderBy('id');
+    }
+
+
+    public function graphTerminals(): HasMany
+    {
+        return $this
+            ->hasMany(
+                TournamentTerminal::class
+            )
+            ->orderBy('sequence_number')
+            ->orderBy('id');
+    }
+
+
 
 
     /*

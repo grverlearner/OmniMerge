@@ -48,6 +48,13 @@ use App\Http\Controllers\Tournaments\SwissTiebreakerController;
 use App\Http\Controllers\Tournaments\SwissRoundRuleController;
 use App\Http\Controllers\Tournaments\SwissAdvancementRuleController;
 
+use App\Http\Controllers\Tournaments\TournamentGraphController;
+use App\Http\Controllers\Tournaments\TournamentPhaseNodeController;
+use App\Http\Controllers\Tournaments\PhaseEntryPortController;
+use App\Http\Controllers\Tournaments\TournamentStartController;
+use App\Http\Controllers\Tournaments\TournamentTerminalController;
+use App\Http\Controllers\Tournaments\TournamentPhaseConnectionController;
+
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')
@@ -127,14 +134,14 @@ Route::middleware('auth')->group(function () {
                     );
 
                 /*
-|--------------------------------------------------------------------------
-| Biblioteca de Fases
-|--------------------------------------------------------------------------
-|
-| Estas Fases son reutilizables.
-| NO pertenecen todavía a un TournamentTemplate.
-|
-*/
+                |--------------------------------------------------------------------------
+                | Biblioteca de Fases
+                |--------------------------------------------------------------------------
+                |
+                | Estas Fases son reutilizables.
+                | NO pertenecen todavía a un TournamentTemplate.
+                |
+                */
 
                 Route::get(
                     '/phases',
@@ -227,10 +234,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| Puertas de salida
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | Puertas de salida
+                |--------------------------------------------------------------------------
+                */
 
                 Route::post(
                     '/phases/{phaseTemplate}/exits',
@@ -263,10 +270,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| SINGLE ELIMINATION ENGINE
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | SINGLE ELIMINATION ENGINE
+                |--------------------------------------------------------------------------
+                */
 
                 Route::get(
                     '/phases/{phaseTemplate}/single-elimination',
@@ -289,10 +296,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| Reglas por ronda
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | Reglas por ronda
+                |--------------------------------------------------------------------------
+                */
 
                 Route::post(
                     '/phases/{phaseTemplate}/single-elimination/round-rules',
@@ -325,10 +332,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| ROUND ROBIN ENGINE
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | ROUND ROBIN ENGINE
+                |--------------------------------------------------------------------------
+                */
 
                 Route::get(
                     '/phases/{phaseTemplate}/round-robin',
@@ -351,10 +358,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| Round Robin — Tiebreakers
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | Round Robin — Tiebreakers
+                |--------------------------------------------------------------------------
+                */
 
                 Route::post(
                     '/phases/{phaseTemplate}/round-robin/tiebreakers',
@@ -407,10 +414,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| GROUP STAGE ENGINE
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | GROUP STAGE ENGINE
+                |--------------------------------------------------------------------------
+                */
 
                 Route::get(
                     '/phases/{phaseTemplate}/group-stage',
@@ -433,10 +440,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| Group Definitions
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | Group Definitions
+                |--------------------------------------------------------------------------
+                */
 
                 Route::post(
                     '/phases/{phaseTemplate}/group-stage/groups',
@@ -469,10 +476,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| Advancement Rules
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | Advancement Rules
+                |--------------------------------------------------------------------------
+                */
 
                 Route::post(
                     '/phases/{phaseTemplate}/group-stage/advancement-rules',
@@ -525,10 +532,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| Cross Group Tiebreakers
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | Cross Group Tiebreakers
+                |--------------------------------------------------------------------------
+                */
 
                 Route::post(
                     '/phases/{phaseTemplate}/group-stage/tiebreakers',
@@ -581,10 +588,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| SWISS ENGINE
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | SWISS ENGINE
+                |--------------------------------------------------------------------------
+                */
 
                 Route::get(
                     '/phases/{phaseTemplate}/swiss',
@@ -607,10 +614,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| Swiss — Tiebreakers
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | Swiss — Tiebreakers
+                |--------------------------------------------------------------------------
+                */
 
                 Route::post(
                     '/phases/{phaseTemplate}/swiss/tiebreakers',
@@ -663,10 +670,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| Swiss — Match / Round Rules
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | Swiss — Match / Round Rules
+                |--------------------------------------------------------------------------
+                */
 
                 Route::post(
                     '/phases/{phaseTemplate}/swiss/round-rules',
@@ -699,10 +706,10 @@ Route::middleware('auth')->group(function () {
                 );
 
                 /*
-|--------------------------------------------------------------------------
-| Swiss — Advancement Rules
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | Swiss — Advancement Rules
+                |--------------------------------------------------------------------------
+                */
 
                 Route::post(
                     '/phases/{phaseTemplate}/swiss/advancement-rules',
@@ -868,6 +875,283 @@ Route::middleware('auth')->group(function () {
                     ->name(
                         'templates.destroy'
                     );
+
+                /*
+|--------------------------------------------------------------------------
+| TOURNAMENT GRAPH FOUNDATION
+|--------------------------------------------------------------------------
+*/
+
+                Route::get(
+                    '/templates/{tournamentTemplate}/graph',
+                    [
+                        TournamentGraphController::class,
+                        'show',
+                    ]
+                )->name(
+                    'graph.show'
+                );
+
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/graph/validate',
+                    [
+                        TournamentGraphController::class,
+                        'validateGraph',
+                    ]
+                )->name(
+                    'graph.validate'
+                );
+
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/graph/auto-layout',
+                    [
+                        TournamentGraphController::class,
+                        'autoLayout',
+                    ]
+                )->name(
+                    'graph.auto-layout'
+                );
+
+
+                /*
+|--------------------------------------------------------------------------
+| Graph Nodes
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/graph/nodes',
+                    [
+                        TournamentPhaseNodeController::class,
+                        'store',
+                    ]
+                )->name(
+                    'graph.nodes.store'
+                );
+
+
+                Route::put(
+                    '/templates/{tournamentTemplate}/graph/nodes/{node}',
+                    [
+                        TournamentPhaseNodeController::class,
+                        'update',
+                    ]
+                )->name(
+                    'graph.nodes.update'
+                );
+
+
+                Route::patch(
+                    '/templates/{tournamentTemplate}/graph/nodes/{node}/position',
+                    [
+                        TournamentPhaseNodeController::class,
+                        'position',
+                    ]
+                )->name(
+                    'graph.nodes.position'
+                );
+
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/graph/nodes/{node}/duplicate',
+                    [
+                        TournamentPhaseNodeController::class,
+                        'duplicate',
+                    ]
+                )->name(
+                    'graph.nodes.duplicate'
+                );
+
+
+                Route::delete(
+                    '/templates/{tournamentTemplate}/graph/nodes/{node}',
+                    [
+                        TournamentPhaseNodeController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'graph.nodes.destroy'
+                );
+
+
+                /*
+|--------------------------------------------------------------------------
+| Entry Ports
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/graph/nodes/{node}/entry-ports',
+                    [
+                        PhaseEntryPortController::class,
+                        'store',
+                    ]
+                )->name(
+                    'graph.entry-ports.store'
+                );
+
+
+                Route::put(
+                    '/templates/{tournamentTemplate}/graph/nodes/{node}/entry-ports/{entryPort}',
+                    [
+                        PhaseEntryPortController::class,
+                        'update',
+                    ]
+                )->name(
+                    'graph.entry-ports.update'
+                );
+
+
+                Route::delete(
+                    '/templates/{tournamentTemplate}/graph/nodes/{node}/entry-ports/{entryPort}',
+                    [
+                        PhaseEntryPortController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'graph.entry-ports.destroy'
+                );
+
+
+                /*
+|--------------------------------------------------------------------------
+| Starts
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/graph/starts',
+                    [
+                        TournamentStartController::class,
+                        'store',
+                    ]
+                )->name(
+                    'graph.starts.store'
+                );
+
+
+                Route::put(
+                    '/templates/{tournamentTemplate}/graph/starts/{start}',
+                    [
+                        TournamentStartController::class,
+                        'update',
+                    ]
+                )->name(
+                    'graph.starts.update'
+                );
+
+
+                Route::patch(
+                    '/templates/{tournamentTemplate}/graph/starts/{start}/position',
+                    [
+                        TournamentStartController::class,
+                        'position',
+                    ]
+                )->name(
+                    'graph.starts.position'
+                );
+
+
+                Route::delete(
+                    '/templates/{tournamentTemplate}/graph/starts/{start}',
+                    [
+                        TournamentStartController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'graph.starts.destroy'
+                );
+
+
+                /*
+|--------------------------------------------------------------------------
+| Terminals
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/graph/terminals',
+                    [
+                        TournamentTerminalController::class,
+                        'store',
+                    ]
+                )->name(
+                    'graph.terminals.store'
+                );
+
+
+                Route::put(
+                    '/templates/{tournamentTemplate}/graph/terminals/{terminal}',
+                    [
+                        TournamentTerminalController::class,
+                        'update',
+                    ]
+                )->name(
+                    'graph.terminals.update'
+                );
+
+
+                Route::patch(
+                    '/templates/{tournamentTemplate}/graph/terminals/{terminal}/position',
+                    [
+                        TournamentTerminalController::class,
+                        'position',
+                    ]
+                )->name(
+                    'graph.terminals.position'
+                );
+
+
+                Route::delete(
+                    '/templates/{tournamentTemplate}/graph/terminals/{terminal}',
+                    [
+                        TournamentTerminalController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'graph.terminals.destroy'
+                );
+
+
+                /*
+|--------------------------------------------------------------------------
+| Connections
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/graph/connections',
+                    [
+                        TournamentPhaseConnectionController::class,
+                        'store',
+                    ]
+                )->name(
+                    'graph.connections.store'
+                );
+
+
+                Route::put(
+                    '/templates/{tournamentTemplate}/graph/connections/{connection}',
+                    [
+                        TournamentPhaseConnectionController::class,
+                        'update',
+                    ]
+                )->name(
+                    'graph.connections.update'
+                );
+
+
+                Route::delete(
+                    '/templates/{tournamentTemplate}/graph/connections/{connection}',
+                    [
+                        TournamentPhaseConnectionController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'graph.connections.destroy'
+                );
 
 
                 /*

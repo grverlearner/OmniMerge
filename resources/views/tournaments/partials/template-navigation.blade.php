@@ -10,9 +10,15 @@
             Resumen
         </a>
 
-        <span class="cursor-not-allowed rounded-xl px-4 py-2.5 text-xs font-black text-slate-300">
-            Camino · Próximo
-        </span>
+        <a href="{{ route('tournaments.graph.show', $tournamentTemplate) }}"
+            class="{{ request()->routeIs('tournaments.graph.*')
+                ? 'bg-amber-500 text-white'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900' }}
+                rounded-xl px-4 py-2.5 text-xs font-black transition">
+
+            ◇ Camino
+
+        </a>
 
         <a href="{{ route('tournaments.phase-templates.index') }}"
             class="rounded-xl px-4 py-2.5 text-xs font-black text-slate-500 transition hover:bg-slate-100 hover:text-amber-700">

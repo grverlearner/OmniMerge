@@ -310,10 +310,24 @@ class TournamentTemplateController extends Controller
         $tournamentTemplate
             ->load([
                 'phases',
+
+                'graphNodes',
+
+                'graphStarts',
+
+                'graphTerminals',
             ])
-            ->loadCount(
-                'phases'
-            );
+            ->loadCount([
+                'phases',
+
+                'graphNodes',
+
+                'graphConnections',
+
+                'graphStarts',
+
+                'graphTerminals',
+            ]);
 
 
         return view(
