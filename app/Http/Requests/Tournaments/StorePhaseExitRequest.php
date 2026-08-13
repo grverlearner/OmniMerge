@@ -151,6 +151,7 @@ class StorePhaseExitRequest extends FormRequest
                 Rule::in([
                     'PHASE_END',
                     'ON_ELIMINATION',
+                    'ON_RULE_TRIGGER',
                 ]),
             ],
 

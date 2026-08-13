@@ -43,6 +43,10 @@ use App\Http\Controllers\Tournaments\GroupStageController;
 use App\Http\Controllers\Tournaments\GroupStageGroupController;
 use App\Http\Controllers\Tournaments\GroupStageAdvancementRuleController;
 use App\Http\Controllers\Tournaments\GroupStageTiebreakerController;
+use App\Http\Controllers\Tournaments\SwissController;
+use App\Http\Controllers\Tournaments\SwissTiebreakerController;
+use App\Http\Controllers\Tournaments\SwissRoundRuleController;
+use App\Http\Controllers\Tournaments\SwissAdvancementRuleController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -574,6 +578,180 @@ Route::middleware('auth')->group(function () {
                     ]
                 )->name(
                     'group-stage.tiebreakers.move-down'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| SWISS ENGINE
+|--------------------------------------------------------------------------
+*/
+
+                Route::get(
+                    '/phases/{phaseTemplate}/swiss',
+                    [
+                        SwissController::class,
+                        'show',
+                    ]
+                )->name(
+                    'swiss.show'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/swiss',
+                    [
+                        SwissController::class,
+                        'update',
+                    ]
+                )->name(
+                    'swiss.update'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| Swiss — Tiebreakers
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/phases/{phaseTemplate}/swiss/tiebreakers',
+                    [
+                        SwissTiebreakerController::class,
+                        'store',
+                    ]
+                )->name(
+                    'swiss.tiebreakers.store'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/swiss/tiebreakers/{tiebreaker}',
+                    [
+                        SwissTiebreakerController::class,
+                        'update',
+                    ]
+                )->name(
+                    'swiss.tiebreakers.update'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/swiss/tiebreakers/{tiebreaker}',
+                    [
+                        SwissTiebreakerController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'swiss.tiebreakers.destroy'
+                );
+
+                Route::patch(
+                    '/phases/{phaseTemplate}/swiss/tiebreakers/{tiebreaker}/move-up',
+                    [
+                        SwissTiebreakerController::class,
+                        'moveUp',
+                    ]
+                )->name(
+                    'swiss.tiebreakers.move-up'
+                );
+
+                Route::patch(
+                    '/phases/{phaseTemplate}/swiss/tiebreakers/{tiebreaker}/move-down',
+                    [
+                        SwissTiebreakerController::class,
+                        'moveDown',
+                    ]
+                )->name(
+                    'swiss.tiebreakers.move-down'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| Swiss — Match / Round Rules
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/phases/{phaseTemplate}/swiss/round-rules',
+                    [
+                        SwissRoundRuleController::class,
+                        'store',
+                    ]
+                )->name(
+                    'swiss.round-rules.store'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/swiss/round-rules/{roundRule}',
+                    [
+                        SwissRoundRuleController::class,
+                        'update',
+                    ]
+                )->name(
+                    'swiss.round-rules.update'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/swiss/round-rules/{roundRule}',
+                    [
+                        SwissRoundRuleController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'swiss.round-rules.destroy'
+                );
+
+                /*
+|--------------------------------------------------------------------------
+| Swiss — Advancement Rules
+|--------------------------------------------------------------------------
+*/
+
+                Route::post(
+                    '/phases/{phaseTemplate}/swiss/advancement-rules',
+                    [
+                        SwissAdvancementRuleController::class,
+                        'store',
+                    ]
+                )->name(
+                    'swiss.advancement-rules.store'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/swiss/advancement-rules/{advancementRule}',
+                    [
+                        SwissAdvancementRuleController::class,
+                        'update',
+                    ]
+                )->name(
+                    'swiss.advancement-rules.update'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/swiss/advancement-rules/{advancementRule}',
+                    [
+                        SwissAdvancementRuleController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'swiss.advancement-rules.destroy'
+                );
+
+                Route::patch(
+                    '/phases/{phaseTemplate}/swiss/advancement-rules/{advancementRule}/move-up',
+                    [
+                        SwissAdvancementRuleController::class,
+                        'moveUp',
+                    ]
+                )->name(
+                    'swiss.advancement-rules.move-up'
+                );
+
+                Route::patch(
+                    '/phases/{phaseTemplate}/swiss/advancement-rules/{advancementRule}/move-down',
+                    [
+                        SwissAdvancementRuleController::class,
+                        'moveDown',
+                    ]
+                )->name(
+                    'swiss.advancement-rules.move-down'
                 );
 
 

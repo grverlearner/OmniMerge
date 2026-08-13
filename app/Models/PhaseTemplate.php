@@ -176,6 +176,43 @@ class PhaseTemplate extends Model
             ->orderBy('id');
     }
 
+    public function swissSetting(): HasOne
+    {
+        return $this->hasOne(
+            PhaseSwissSetting::class
+        );
+    }
+
+    public function swissTiebreakers(): HasMany
+    {
+        return $this
+            ->hasMany(
+                PhaseSwissTiebreaker::class
+            )
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
+    public function swissRoundRules(): HasMany
+    {
+        return $this
+            ->hasMany(
+                PhaseSwissRoundRule::class
+            )
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
+    public function swissAdvancementRules(): HasMany
+    {
+        return $this
+            ->hasMany(
+                PhaseSwissAdvancementRule::class
+            )
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Scopes

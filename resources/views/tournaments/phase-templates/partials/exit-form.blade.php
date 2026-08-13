@@ -46,7 +46,7 @@
     {{-- SELECTOR --}}
 
     <div x-data="{
-        selector: @js(old('selector_type', $editingExit ? $phaseExit->selector_type : ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION' ? 'SURVIVORS' : ($phaseTemplate->phase_type === 'GROUP_STAGE' ? 'ENGINE_RULES' : 'MATCH_WINNERS')))),
+        selector: @js(old('selector_type', $editingExit ? $phaseExit->selector_type : ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION' ? 'SURVIVORS' : (in_array($phaseTemplate->phase_type, ['GROUP_STAGE', 'SWISS'], true) ? 'ENGINE_RULES' : 'MATCH_WINNERS')))),
     
         timing: @js(old('exit_timing', $editingExit ? $phaseExit->exit_timing : 'PHASE_END'))
     }">
@@ -81,6 +81,16 @@
 
                     <option value="ENGINE_RULES">
                         Definida por reglas del Group Stage Engine
+                    </option>
+
+                </optgroup>
+            @endif
+
+            @if ($phaseTemplate->phase_type === 'SWISS')
+                <optgroup label="Sistema Suizo">
+
+                    <option value="ENGINE_RULES">
+                        Definida por reglas del Swiss Engine
                     </option>
 
                 </optgroup>
@@ -211,6 +221,10 @@
 
                 <option value="ON_ELIMINATION">
                     Al producirse la eliminación
+                </option>
+
+                <option value="ON_RULE_TRIGGER">
+                    Al activarse una regla del Engine
                 </option>
 
             </select>

@@ -234,6 +234,46 @@ class PhaseTemplateService
                                 $phaseTemplate->best_of,
                             ]);
                     }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Mantener T1 y T5 sincronizados
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (
+                        $phaseTemplate->phase_type
+                        ===
+                        'SWISS'
+                        &&
+                        $phaseTemplate
+                        ->swissSetting()
+                        ->exists()
+                    ) {
+                        $swissSetting =
+                            $phaseTemplate
+                            ->swissSetting()
+                            ->first();
+
+                        $phaseTemplate
+                            ->swissSetting()
+                            ->update([
+                                'default_best_of' =>
+                                (int)
+                                $phaseTemplate->best_of,
+
+                                'bye_policy' =>
+                                $phaseTemplate->allow_byes
+                                    ? (
+                                        $swissSetting->bye_policy
+                                        ===
+                                        'DISABLED'
+                                        ? 'LOWEST_STANDING_WITHOUT_BYE'
+                                        : $swissSetting->bye_policy
+                                    )
+                                    : 'DISABLED',
+                            ]);
+                    }
                 }
             );
         } catch (Throwable $exception) {
@@ -291,6 +331,11 @@ class PhaseTemplateService
             'groupStageGroups',
             'groupStageAdvancementRules',
             'groupStageTiebreakers',
+
+            'swissSetting',
+            'swissTiebreakers',
+            'swissRoundRules',
+            'swissAdvancementRules',
         ]);
 
         $duplicatedImage =
@@ -597,10 +642,10 @@ class PhaseTemplateService
                     }
 
                     /*
-|--------------------------------------------------------------------------
-| Configuración GROUP STAGE
-|--------------------------------------------------------------------------
-*/
+                    |--------------------------------------------------------------------------
+                    | Configuración GROUP STAGE
+                    |--------------------------------------------------------------------------
+                    */
 
                     if (
                         $source->phase_type
@@ -790,6 +835,246 @@ class PhaseTemplateService
 
                                     'position_to' =>
                                     $rule->position_to,
+
+                                    'take' =>
+                                    $rule->take,
+
+                                    'sort_order' =>
+                                    $rule->sort_order,
+
+                                    'status' =>
+                                    $rule->status,
+
+                                    'settings' =>
+                                    $rule->settings,
+                                ]);
+                        }
+                    }
+
+                    /*
+|--------------------------------------------------------------------------
+| Configuración SWISS
+|--------------------------------------------------------------------------
+*/
+
+                    if (
+                        $source->phase_type
+                        ===
+                        'SWISS'
+                        &&
+                        $source->swissSetting
+                    ) {
+                        $sourceSettings =
+                            $source->swissSetting;
+
+                        $copy
+                            ->swissSetting()
+                            ->create([
+                                'completion_mode' =>
+                                $sourceSettings->completion_mode,
+
+                                'fixed_rounds' =>
+                                $sourceSettings->fixed_rounds,
+
+                                'qualification_wins' =>
+                                $sourceSettings->qualification_wins,
+
+                                'elimination_losses' =>
+                                $sourceSettings->elimination_losses,
+
+                                'max_rounds' =>
+                                $sourceSettings->max_rounds,
+
+                                'pairing_algorithm' =>
+                                $sourceSettings->pairing_algorithm,
+
+                                'pairing_basis' =>
+                                $sourceSettings->pairing_basis,
+
+                                'first_round_mode' =>
+                                $sourceSettings->first_round_mode,
+
+                                'rematch_policy' =>
+                                $sourceSettings->rematch_policy,
+
+                                'floater_policy' =>
+                                $sourceSettings->floater_policy,
+
+                                'side_balance_policy' =>
+                                $sourceSettings->side_balance_policy,
+
+                                'allow_draws' =>
+                                $sourceSettings->allow_draws,
+
+                                'win_points' =>
+                                $sourceSettings->win_points,
+
+                                'draw_points' =>
+                                $sourceSettings->draw_points,
+
+                                'loss_points' =>
+                                $sourceSettings->loss_points,
+
+                                'default_best_of' =>
+                                $sourceSettings->default_best_of,
+
+                                'bye_policy' =>
+                                $sourceSettings->bye_policy,
+
+                                'bye_points' =>
+                                $sourceSettings->bye_points,
+
+                                'max_byes_per_participant' =>
+                                $sourceSettings->max_byes_per_participant,
+
+                                'initial_pairing_score_mode' =>
+                                $sourceSettings->initial_pairing_score_mode,
+
+                                'acceleration_mode' =>
+                                $sourceSettings->acceleration_mode,
+
+                                'acceleration_rounds' =>
+                                $sourceSettings->acceleration_rounds,
+
+                                'acceleration_seed_count' =>
+                                $sourceSettings->acceleration_seed_count,
+
+                                'acceleration_virtual_points' =>
+                                $sourceSettings->acceleration_virtual_points,
+
+                                'cutoff_tie_policy' =>
+                                $sourceSettings->cutoff_tie_policy,
+
+                                'fallback_policy' =>
+                                $sourceSettings->fallback_policy,
+
+                                'settings' =>
+                                $sourceSettings->settings,
+                            ]);
+
+                        /*
+    |--------------------------------------------------------------------------
+    | Swiss Tiebreakers
+    |--------------------------------------------------------------------------
+    */
+
+                        foreach (
+                            $source->swissTiebreakers
+                            as
+                            $tiebreaker
+                        ) {
+                            $copy
+                                ->swissTiebreakers()
+                                ->create([
+                                    'criterion' =>
+                                    $tiebreaker->criterion,
+
+                                    'parameter_int' =>
+                                    $tiebreaker->parameter_int,
+
+                                    'direction' =>
+                                    $tiebreaker->direction,
+
+                                    'sort_order' =>
+                                    $tiebreaker->sort_order,
+
+                                    'settings' =>
+                                    $tiebreaker->settings,
+                                ]);
+                        }
+
+                        /*
+    |--------------------------------------------------------------------------
+    | Swiss Round Rules
+    |--------------------------------------------------------------------------
+    */
+
+                        foreach (
+                            $source->swissRoundRules
+                            as
+                            $roundRule
+                        ) {
+                            $copy
+                                ->swissRoundRules()
+                                ->create([
+                                    'trigger_type' =>
+                                    $roundRule->trigger_type,
+
+                                    'round_number' =>
+                                    $roundRule->round_number,
+
+                                    'record_wins' =>
+                                    $roundRule->record_wins,
+
+                                    'record_draws' =>
+                                    $roundRule->record_draws,
+
+                                    'record_losses' =>
+                                    $roundRule->record_losses,
+
+                                    'best_of' =>
+                                    $roundRule->best_of,
+
+                                    'allow_draws_override' =>
+                                    $roundRule->allow_draws_override,
+
+                                    'sort_order' =>
+                                    $roundRule->sort_order,
+
+                                    'status' =>
+                                    $roundRule->status,
+
+                                    'settings' =>
+                                    $roundRule->settings,
+                                ]);
+                        }
+
+                        /*
+    |--------------------------------------------------------------------------
+    | Swiss Advancement Rules
+    |--------------------------------------------------------------------------
+    */
+
+                        foreach (
+                            $source->swissAdvancementRules
+                            as
+                            $rule
+                        ) {
+                            $copy
+                                ->swissAdvancementRules()
+                                ->create([
+                                    'phase_exit_id' =>
+                                    $rule->phase_exit_id
+                                        ? (
+                                            $exitIdMap[$rule->phase_exit_id]
+                                            ??
+                                            null
+                                        )
+                                        : null,
+
+                                    'rule_type' =>
+                                    $rule->rule_type,
+
+                                    'threshold_wins' =>
+                                    $rule->threshold_wins,
+
+                                    'threshold_losses' =>
+                                    $rule->threshold_losses,
+
+                                    'record_wins' =>
+                                    $rule->record_wins,
+
+                                    'record_draws' =>
+                                    $rule->record_draws,
+
+                                    'record_losses' =>
+                                    $rule->record_losses,
+
+                                    'rank_from' =>
+                                    $rule->rank_from,
+
+                                    'rank_to' =>
+                                    $rule->rank_to,
 
                                     'take' =>
                                     $rule->take,

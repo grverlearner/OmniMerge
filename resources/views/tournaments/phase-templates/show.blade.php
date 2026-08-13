@@ -78,7 +78,11 @@
 
             'LEAGUE' => [['Ascenso', 'TOP_N'], ['Descenso', 'BOTTOM_N'], ['Permanencia', 'REMAINING']],
 
-            'SWISS' => [['Clasificados', 'TOP_N'], ['Eliminados', 'REMAINING']],
+            'SWISS' => [
+                ['Clasificados', 'ENGINE_RULES'],
+                ['Clasificación secundaria', 'ENGINE_RULES'],
+                ['Eliminados', 'ENGINE_RULES'],
+            ],
 
             default => [],
         };
@@ -771,16 +775,38 @@
 
                                 </div>
                             @elseif ($phaseTemplate->phase_type === 'SWISS')
-                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <div
+                                    class="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-fuchsia-50 p-5">
 
-                                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                                        Próxima evolución
-                                    </p>
+                                    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
 
-                                    <p class="mt-2 text-xs leading-5 text-slate-600">
-                                        Esta Fase recibirá rondas, emparejamientos,
-                                        historial de rivales y desempates avanzados.
-                                    </p>
+                                        <div>
+
+                                            <p class="text-[9px] font-black uppercase tracking-wider text-violet-700">
+                                                Swiss Engine
+                                            </p>
+
+                                            <p class="mt-2 text-sm font-black text-violet-950">
+                                                Motor disponible
+                                            </p>
+
+                                            <p class="mt-1 max-w-xl text-xs leading-5 text-violet-800/80">
+                                                Configura rondas fijas o thresholds,
+                                                score groups, rematches, BYEs, scoring,
+                                                Best Of por contexto, desempates avanzados
+                                                y reglas dinámicas de clasificación.
+                                            </p>
+
+                                        </div>
+
+                                        <a href="{{ route('tournaments.swiss.show', $phaseTemplate) }}"
+                                            class="shrink-0 rounded-xl bg-violet-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-violet-600/20">
+
+                                            ◆ Configurar Engine
+
+                                        </a>
+
+                                    </div>
 
                                 </div>
                             @else

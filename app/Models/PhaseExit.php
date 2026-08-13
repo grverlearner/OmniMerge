@@ -162,6 +162,8 @@ class PhaseExit extends Model
                 . $this->roundLabel(
                     $this->selector_round_size
                 ),
+            'ENGINE_RULES' =>
+            'La selección se define mediante las reglas específicas del Engine',
 
             /*
              * GENÉRICOS
@@ -206,7 +208,6 @@ class PhaseExit extends Model
     | Timing
     |--------------------------------------------------------------------------
     */
-
     public function getTimingLabelAttribute(): string
     {
         return match ($this->exit_timing) {
@@ -216,11 +217,13 @@ class PhaseExit extends Model
             'ON_ELIMINATION' =>
             'Al producirse la eliminación',
 
+            'ON_RULE_TRIGGER' =>
+            'Al activarse una regla del Engine',
+
             default =>
             $this->exit_timing,
         };
     }
-
     /*
     |--------------------------------------------------------------------------
     | Helpers
