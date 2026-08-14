@@ -1,6 +1,9 @@
 import './bootstrap';
-
 import Alpine from 'alpinejs';
+import tournamentFlowBuilder from './tournaments/graph/flow-builder';
+
+window.Alpine = Alpine;
+window.tournamentFlowBuilder = tournamentFlowBuilder;
 
 
 window.Alpine =
@@ -71,6 +74,10 @@ document.addEventListener(
     'alpine:init',
 
     () => {
+        Alpine.data(
+            'tournamentFlowBuilder',
+            tournamentFlowBuilder
+        );
 
         Alpine.data(
             'omniConfirmModal',

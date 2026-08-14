@@ -54,6 +54,7 @@ use App\Http\Controllers\Tournaments\PhaseEntryPortController;
 use App\Http\Controllers\Tournaments\TournamentStartController;
 use App\Http\Controllers\Tournaments\TournamentTerminalController;
 use App\Http\Controllers\Tournaments\TournamentPhaseConnectionController;
+use App\Http\Controllers\Tournaments\TournamentGraphPresetController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -914,12 +915,22 @@ Route::middleware('auth')->group(function () {
                     'graph.auto-layout'
                 );
 
+                Route::post(
+                    '/templates/{tournamentTemplate}/graph/presets',
+                    [
+                        TournamentGraphPresetController::class,
+                        'store',
+                    ]
+                )->name(
+                    'graph.presets.store'
+                );
+
 
                 /*
-|--------------------------------------------------------------------------
-| Graph Nodes
-|--------------------------------------------------------------------------
-*/
+                |--------------------------------------------------------------------------
+                | Graph Nodes
+                |--------------------------------------------------------------------------
+                */
 
                 Route::post(
                     '/templates/{tournamentTemplate}/graph/nodes',

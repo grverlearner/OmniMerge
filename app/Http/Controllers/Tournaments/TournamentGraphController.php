@@ -7,6 +7,9 @@ use App\Models\PhaseTemplate;
 use App\Models\TournamentTemplate;
 use App\Services\Tournaments\Graph\TournamentGraphLayoutService;
 use App\Services\Tournaments\Graph\TournamentGraphValidationService;
+use App\Services\Tournaments\Graph\Flow\TournamentGraphFlowAnalysisService;
+use App\Services\Tournaments\Graph\Flow\TournamentGraphPayloadService;
+use App\Services\Tournaments\Graph\Flow\TournamentGraphFlowValidationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -19,9 +22,17 @@ extends Controller
         TournamentGraphValidationService $validationService,
 
         private readonly
-        TournamentGraphLayoutService $layoutService
-    ) {}
+        TournamentGraphLayoutService $layoutService,
 
+        private readonly
+        TournamentGraphFlowAnalysisService $flowAnalysisService,
+
+        private readonly
+        TournamentGraphPayloadService $payloadService,
+
+        private readonly
+        TournamentGraphFlowValidationService $flowValidationService
+    ) {}
 
     public function show(
         Request $request,
@@ -32,20 +43,16 @@ extends Controller
             $tournamentTemplate
         );
 
-
         $tournamentTemplate->load([
             'graphNodes.phaseTemplate.exits' =>
             fn($query) =>
-            $query->where(
-                'status',
-                'ACTIVE'
-            ),
+            $query->where('status', 'ACTIVE'),
 
-            'graphNodes.entryPorts',
+            'graphNodes.entryPorts.incomingConnections',
 
-            'graphStarts',
+            'graphStarts.outgoingConnections',
 
-            'graphTerminals',
+            'graphTerminals.incomingConnections',
 
             'graphConnections.sourceStart',
 
@@ -58,18 +65,9 @@ extends Controller
             'graphConnections.targetTerminal',
         ]);
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Fases disponibles
-        |--------------------------------------------------------------------------
-        */
-
         $availablePhaseTemplates =
             PhaseTemplate::query()
-            ->ownedBy(
-                $request->user()
-            )
+            ->ownedBy($request->user())
             ->active()
             ->with([
                 'exits' =>
@@ -82,407 +80,144 @@ extends Controller
             ->orderBy('name')
             ->get();
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Validation
-        |--------------------------------------------------------------------------
-        */
-
         $graphValidation =
-            $this
-            ->validationService
-            ->validate(
+            $this->validationService->validate(
                 $tournamentTemplate
             );
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Graph Payload
-        |--------------------------------------------------------------------------
-        */
-
-        $graphPayload = [
-            'nodes' =>
-            $tournamentTemplate
-                ->graphNodes
-                ->map(
-                    fn($node) => [
-                        'id' =>
-                        $node->id,
-
-                        'code' =>
-                        $node->code,
-
-                        'name' =>
-                        $node->name,
-
-                        'phase_type' =>
-                        $node
-                            ->phaseTemplate
-                            ->phase_type,
-
-                        'phase_type_label' =>
-                        $node
-                            ->phaseTemplate
-                            ->type_label,
-
-                        'phase_template_name' =>
-                        $node
-                            ->phaseTemplate
-                            ->name,
-
-                        'contract' =>
-                        $node
-                            ->phaseTemplate
-                            ->participant_contract_label,
-
-                        'status' =>
-                        $node->status,
-
-                        'x' =>
-                        $node->x_position,
-
-                        'y' =>
-                        $node->y_position,
-
-                        'entries' =>
-                        $node
-                            ->entryPorts
-                            ->map(
-                                fn($port) => [
-                                    'id' =>
-                                    $port->id,
-
-                                    'code' =>
-                                    $port->code,
-
-                                    'name' =>
-                                    $port->name,
-
-                                    'required' =>
-                                    $port
-                                        ->is_required,
-
-                                    'multiple' =>
-                                    $port
-                                        ->accepts_multiple_connections,
-
-                                    'merge_policy' =>
-                                    $port
-                                        ->merge_policy,
-
-                                    'merge_label' =>
-                                    $port
-                                        ->merge_policy_label,
-
-                                    'contract' =>
-                                    $port
-                                        ->contract_label,
-
-                                    'delete_url' =>
-                                    route(
-                                        'tournaments.graph.entry-ports.destroy',
-                                        [
-                                            $tournamentTemplate,
-                                            $node,
-                                            $port,
-                                        ]
-                                    ),
-                                ]
-                            )
-                            ->values()
-                            ->all(),
-
-                        'exits' =>
-                        $node
-                            ->phaseTemplate
-                            ->exits
-                            ->map(
-                                fn($exit) => [
-                                    'id' =>
-                                    $exit->id,
-
-                                    'code' =>
-                                    $exit->code,
-
-                                    'name' =>
-                                    $exit->name,
-
-                                    'selector' =>
-                                    $exit
-                                        ->selector_label,
-
-                                    'timing' =>
-                                    $exit
-                                        ->timing_label,
-                                ]
-                            )
-                            ->values()
-                            ->all(),
-
-                        'position_url' =>
-                        route(
-                            'tournaments.graph.nodes.position',
-                            [
-                                $tournamentTemplate,
-                                $node,
-                            ]
-                        ),
-
-                        'duplicate_url' =>
-                        route(
-                            'tournaments.graph.nodes.duplicate',
-                            [
-                                $tournamentTemplate,
-                                $node,
-                            ]
-                        ),
-
-                        'delete_url' =>
-                        route(
-                            'tournaments.graph.nodes.destroy',
-                            [
-                                $tournamentTemplate,
-                                $node,
-                            ]
-                        ),
-
-                        'entry_store_url' =>
-                        route(
-                            'tournaments.graph.entry-ports.store',
-                            [
-                                $tournamentTemplate,
-                                $node,
-                            ]
-                        ),
-                    ]
-                )
-                ->values()
-                ->all(),
-
-
-            'starts' =>
-            $tournamentTemplate
-                ->graphStarts
-                ->map(
-                    fn($start) => [
-                        'id' =>
-                        $start->id,
-
-                        'code' =>
-                        $start->code,
-
-                        'name' =>
-                        $start->name,
-
-                        'type' =>
-                        $start
-                            ->source_type_label,
-
-                        'expected' =>
-                        $start
-                            ->expected_participants,
-
-                        'status' =>
-                        $start->status,
-
-                        'x' =>
-                        $start->x_position,
-
-                        'y' =>
-                        $start->y_position,
-
-                        'position_url' =>
-                        route(
-                            'tournaments.graph.starts.position',
-                            [
-                                $tournamentTemplate,
-                                $start,
-                            ]
-                        ),
-
-                        'delete_url' =>
-                        route(
-                            'tournaments.graph.starts.destroy',
-                            [
-                                $tournamentTemplate,
-                                $start,
-                            ]
-                        ),
-                    ]
-                )
-                ->values()
-                ->all(),
-
-
-            'terminals' =>
-            $tournamentTemplate
-                ->graphTerminals
-                ->map(
-                    fn($terminal) => [
-                        'id' =>
-                        $terminal->id,
-
-                        'code' =>
-                        $terminal->code,
-
-                        'name' =>
-                        $terminal->name,
-
-                        'type' =>
-                        $terminal
-                            ->terminal_type_label,
-
-                        'expected' =>
-                        $terminal
-                            ->expected_participants,
-
-                        'status' =>
-                        $terminal->status,
-
-                        'x' =>
-                        $terminal->x_position,
-
-                        'y' =>
-                        $terminal->y_position,
-
-                        'position_url' =>
-                        route(
-                            'tournaments.graph.terminals.position',
-                            [
-                                $tournamentTemplate,
-                                $terminal,
-                            ]
-                        ),
-
-                        'delete_url' =>
-                        route(
-                            'tournaments.graph.terminals.destroy',
-                            [
-                                $tournamentTemplate,
-                                $terminal,
-                            ]
-                        ),
-                    ]
-                )
-                ->values()
-                ->all(),
-
-
-            'connections' =>
-            $tournamentTemplate
-                ->graphConnections
-                ->map(
-                    fn($connection) => [
-                        'id' =>
-                        $connection->id,
-
-                        'code' =>
-                        $connection->code,
-
-                        'label' =>
-                        $connection->label,
-
-                        'source_type' =>
-                        $connection
-                            ->source_type,
-
-                        'source_start_id' =>
-                        $connection
-                            ->source_start_id,
-
-                        'source_node_id' =>
-                        $connection
-                            ->source_node_id,
-
-                        'source_phase_exit_id' =>
-                        $connection
-                            ->source_phase_exit_id,
-
-                        'target_type' =>
-                        $connection
-                            ->target_type,
-
-                        'target_entry_port_id' =>
-                        $connection
-                            ->target_entry_port_id,
-
-                        'target_terminal_id' =>
-                        $connection
-                            ->target_terminal_id,
-
-                        'source_label' =>
-                        $connection
-                            ->source_label,
-
-                        'target_label' =>
-                        $connection
-                            ->target_label,
-
-                        'allocation_mode' =>
-                        $connection
-                            ->allocation_mode,
-
-                        'allocation_value' =>
-                        $connection
-                            ->allocation_value,
-
-                        'allocation_label' =>
-                        $connection
-                            ->allocation_label,
-
-                        'priority' =>
-                        $connection
-                            ->priority,
-
-                        'status' =>
-                        $connection
-                            ->status,
-
-                        'update_url' =>
-                        route(
-                            'tournaments.graph.connections.update',
-                            [
-                                $tournamentTemplate,
-                                $connection,
-                            ]
-                        ),
-
-                        'delete_url' =>
-                        route(
-                            'tournaments.graph.connections.destroy',
-                            [
-                                $tournamentTemplate,
-                                $connection,
-                            ]
-                        ),
-                    ]
-                )
-                ->values()
-                ->all(),
-
-            'connection_store_url' =>
-            route(
-                'tournaments.graph.connections.store',
+        $flowAnalysis =
+            $this->flowAnalysisService->analyze(
                 $tournamentTemplate
-            ),
+            );
+
+        $flowValidation =
+            $this->flowValidationService->validate(
+                $tournamentTemplate,
+                $flowAnalysis
+            );
+
+        $graphValidation = [
+            'valid' =>
+            $graphValidation['valid']
+                &&
+                $flowValidation['valid'],
+
+            'errors' =>
+            collect(
+                $graphValidation['errors']
+            )
+                ->merge(
+                    $flowValidation['errors']
+                )
+                ->unique(
+                    fn(array $problem) =>
+                    $problem['code']
+                        .
+                        ':'
+                        .
+                        $problem['message']
+                )
+                ->values()
+                ->all(),
+
+            'warnings' =>
+            collect(
+                $graphValidation['warnings']
+            )
+                ->merge(
+                    $flowValidation['warnings']
+                )
+                ->unique(
+                    fn(array $problem) =>
+                    $problem['code']
+                        .
+                        ':'
+                        .
+                        $problem['message']
+                )
+                ->values()
+                ->all(),
+
+            'information' =>
+            $flowValidation['information'],
+
+            'forecasts' =>
+            $flowValidation['forecasts'],
+
+            'stats' => [
+                'starts' =>
+                $graphValidation['stats']['starts'],
+
+                'nodes' =>
+                $graphValidation['stats']['nodes'],
+
+                'connections' =>
+                $graphValidation['stats']['connections'],
+
+                'terminals' =>
+                $graphValidation['stats']['terminals'],
+
+                'errors' =>
+                count(
+                    collect(
+                        $graphValidation['errors']
+                    )
+                        ->merge(
+                            $flowValidation['errors']
+                        )
+                        ->unique(
+                            fn(array $problem) =>
+                            $problem['code']
+                                .
+                                ':'
+                                .
+                                $problem['message']
+                        )
+                ),
+
+                'warnings' =>
+                count(
+                    collect(
+                        $graphValidation['warnings']
+                    )
+                        ->merge(
+                            $flowValidation['warnings']
+                        )
+                        ->unique(
+                            fn(array $problem) =>
+                            $problem['code']
+                                .
+                                ':'
+                                .
+                                $problem['message']
+                        )
+                ),
+
+                'information' =>
+                count(
+                    $flowValidation['information']
+                ),
+            ],
         ];
 
+        $graphPayload =
+            $this->payloadService->build(
+                $tournamentTemplate,
+                $flowAnalysis,
+                $graphValidation
+            );
 
         return view(
-            'tournaments.graph.show',
+            'tournaments.graph.builder',
             compact(
                 'tournamentTemplate',
                 'availablePhaseTemplates',
                 'graphValidation',
+                'flowAnalysis',
                 'graphPayload'
             )
         );
     }
-
-
     public function validateGraph(
         TournamentTemplate $tournamentTemplate
     ): RedirectResponse {
@@ -491,30 +226,85 @@ extends Controller
             $tournamentTemplate
         );
 
-
-        $validation =
-            $this
-            ->validationService
+        $structuralValidation =
+            $this->validationService
             ->validate(
                 $tournamentTemplate
             );
 
+        $flowAnalysis =
+            $this->flowAnalysisService
+            ->analyze(
+                $tournamentTemplate
+            );
 
-        if (
-            $validation['valid']
-        ) {
+        $flowValidation =
+            $this->flowValidationService
+            ->validate(
+                $tournamentTemplate,
+                $flowAnalysis
+            );
+
+        $errors =
+            collect(
+                $structuralValidation['errors']
+            )
+            ->merge(
+                $flowValidation['errors']
+            )
+            ->unique(
+                fn(array $problem) =>
+                $problem['code']
+                    .
+                    ':'
+                    .
+                    $problem['message']
+            )
+            ->count();
+
+        $warnings =
+            collect(
+                $structuralValidation['warnings']
+            )
+            ->merge(
+                $flowValidation['warnings']
+            )
+            ->unique(
+                fn(array $problem) =>
+                $problem['code']
+                    .
+                    ':'
+                    .
+                    $problem['message']
+            )
+            ->count();
+
+        if ($errors === 0) {
             return back()
                 ->with(
                     'success',
-                    'El Tournament Graph es estructuralmente válido.'
+                    $warnings > 0
+                        ? 'El flujo es ejecutable, pero conserva '
+                        .
+                        $warnings
+                        .
+                        ' advertencias.'
+                        : 'El Tournament Flow es estructuralmente válido y sus capacidades son compatibles.'
                 );
         }
-
 
         return back()
             ->with(
                 'warning',
-                'El Tournament Graph todavía contiene problemas estructurales.'
+                'El Tournament Flow contiene '
+                    .
+                    $errors
+                    .
+                    ' problemas bloqueantes y '
+                    .
+                    $warnings
+                    .
+                    ' advertencias.'
             );
     }
 
