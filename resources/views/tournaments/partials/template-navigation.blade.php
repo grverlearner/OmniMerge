@@ -50,11 +50,14 @@
             Premios · Próximo
         </span>
 
-        <a href="{{ route('tournaments.lab.index', [
-            'template' => $tournamentTemplate->id,
-        ]) }}"
-            class="rounded-xl px-4 py-2.5 text-xs font-black text-slate-500 transition hover:bg-slate-100 hover:text-amber-700">
-            ⚗ Probar
+        <a href="{{ route('tournaments.lab.show', $tournamentTemplate) }}"
+            class="{{ request()->routeIs('tournaments.lab.*')
+                ? 'bg-violet-600 text-white'
+                : 'text-slate-500 hover:bg-violet-50 hover:text-violet-700' }}
+        rounded-xl px-4 py-2.5 text-xs font-black transition">
+
+            ⚗ Competition Lab
+
         </a>
 
     </div>

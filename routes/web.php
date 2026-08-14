@@ -129,11 +129,43 @@ Route::middleware('auth')->group(function () {
 
                 Route::get(
                     '/lab',
-                    TournamentLabController::class
-                )
-                    ->name(
-                        'lab.index'
-                    );
+                    [
+                        TournamentLabController::class,
+                        'index',
+                    ]
+                )->name(
+                    'lab.index'
+                );
+
+                Route::get(
+                    '/templates/{tournamentTemplate}/lab',
+                    [
+                        TournamentLabController::class,
+                        'show',
+                    ]
+                )->name(
+                    'lab.show'
+                );
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/lab/initialize',
+                    [
+                        TournamentLabController::class,
+                        'initialize',
+                    ]
+                )->name(
+                    'lab.initialize'
+                );
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/lab/action',
+                    [
+                        TournamentLabController::class,
+                        'action',
+                    ]
+                )->name(
+                    'lab.action'
+                );
 
                 /*
                 |--------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 import './bootstrap';
 import Alpine from 'alpinejs';
 import tournamentFlowBuilder from './tournaments/graph/flow-builder';
+import competitionLab from './tournaments/lab/competition-lab';
 
 window.Alpine = Alpine;
 window.tournamentFlowBuilder = tournamentFlowBuilder;
@@ -77,6 +78,10 @@ document.addEventListener(
         Alpine.data(
             'tournamentFlowBuilder',
             tournamentFlowBuilder
+        );
+        Alpine.data(
+            'competitionLab',
+            competitionLab
         );
 
         Alpine.data(
