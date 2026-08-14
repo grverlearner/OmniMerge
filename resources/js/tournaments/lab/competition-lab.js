@@ -1,20 +1,57 @@
 export default function competitionLab(config) {
     return {
-        state: config.initialState ?? null,
-        stateToken: config.initialToken ?? null,
-        actionUrl: config.actionUrl,
-        storageKey: config.storageKey,
+        state:
+            config.initialState
+            ??
+            null,
 
-        loading: false,
-        error: '',
-        selectedParticipantId: null,
-        selectedNodeId: null,
-        selectedForEngine: [],
-        resultForms: {},
+        stateToken:
+            config.initialToken
+            ??
+            null,
+
+        actionUrl:
+            config.actionUrl,
+
+        storageKey:
+            config.storageKey,
+
+        loading:
+            false,
+
+        error:
+            '',
+
+        labMode:
+            null,
+
+        selectedParticipantId:
+            null,
+
+        selectedNodeId:
+            null,
+
+        selectedGroupId:
+            null,
+
+        selectedForEngine:
+            [],
+
+        resultForms:
+            {},
+
+        expandedRounds:
+            [],
 
         init() {
-            if (this.state && this.stateToken) {
+            if (
+                this.state
+                &&
+                this.stateToken
+            ) {
                 this.persist();
+                this.afterStateChange();
+
                 return;
             }
 
@@ -29,13 +66,27 @@ export default function competitionLab(config) {
 
             try {
                 const payload =
-                    JSON.parse(stored);
+                    JSON.parse(
+                        stored
+                    );
 
                 this.state =
                     payload.state;
 
                 this.stateToken =
                     payload.stateToken;
+
+                this.labMode =
+                    payload.labMode
+                    ??
+                    (
+                        this.state
+                            ?.graph_runtime
+                            ? 'AUTOMATIC'
+                            : null
+                    );
+
+                this.afterStateChange();
             } catch {
                 sessionStorage.removeItem(
                     this.storageKey
@@ -44,39 +95,60 @@ export default function competitionLab(config) {
         },
 
         persist() {
-            if (!this.state || !this.stateToken) {
+            if (
+                !this.state
+                ||
+                !this.stateToken
+            ) {
                 return;
             }
 
             sessionStorage.setItem(
                 this.storageKey,
                 JSON.stringify({
-                    state: this.state,
-                    stateToken: this.stateToken,
+                    state:
+                        this.state,
+
+                    stateToken:
+                        this.stateToken,
+
+                    labMode:
+                        this.labMode,
                 })
             );
         },
 
-        async execute(action, data = {}) {
-            if (!this.stateToken || this.loading) {
+        async execute(
+            action,
+            data = {}
+        ) {
+            if (
+                !this.stateToken
+                ||
+                this.loading
+            ) {
                 return;
             }
 
-            this.loading = true;
-            this.error = '';
+            this.loading =
+                true;
+
+            this.error =
+                '';
 
             try {
                 const response =
                     await fetch(
                         this.actionUrl,
                         {
-                            method: 'POST',
+                            method:
+                                'POST',
 
                             headers: {
                                 'Content-Type':
                                     'application/json',
 
-                                'Accept':
+                                Accept:
                                     'application/json',
 
                                 'X-CSRF-TOKEN':
@@ -85,15 +157,19 @@ export default function competitionLab(config) {
                                             'meta[name="csrf-token"]'
                                         )
                                         ?.content
-                                    ?? '',
+                                    ??
+                                    '',
                             },
 
-                            body: JSON.stringify({
-                                action,
-                                state_token:
-                                    this.stateToken,
-                                ...data,
-                            }),
+                            body:
+                                JSON.stringify({
+                                    action,
+
+                                    state_token:
+                                        this.stateToken,
+
+                                    ...data,
+                                }),
                         }
                     );
 
@@ -107,7 +183,10 @@ export default function competitionLab(config) {
                         {};
 
                     this.error =
-                        Object.values(errors)
+                        Object
+                            .values(
+                                errors
+                            )
                             .flat()
                             .join(' ')
                         ||
@@ -124,23 +203,155 @@ export default function competitionLab(config) {
                 this.stateToken =
                     payload.state_token;
 
-                this.resultForms = {};
+                this.resultForms =
+                    {};
 
+                this.afterStateChange();
                 this.persist();
-
-                /*
-                |--------------------------------------------------------------------------
-                | Esperar el render inmediato de Alpine
-                |--------------------------------------------------------------------------
-                */
 
                 await this.$nextTick();
             } catch {
                 this.error =
                     'No fue posible comunicarse con el Competition Lab.';
             } finally {
-                this.loading = false;
+                this.loading =
+                    false;
             }
+        },
+
+        afterStateChange() {
+            if (
+                this.state
+                    ?.graph_runtime
+            ) {
+                this.labMode =
+                    'AUTOMATIC';
+            }
+
+            const activeNode =
+                this.activeNode();
+
+            if (activeNode) {
+                this.selectedNodeId =
+                    String(
+                        activeNode.id
+                    );
+
+                if (
+                    activeNode
+                        ?.runtime
+                        ?.engine
+                    ===
+                    'GROUP_STAGE'
+                ) {
+                    this.selectedGroupId =
+                        Object.keys(
+                            activeNode.runtime.groups
+                            ??
+                            {}
+                        )[0]
+                        ??
+                        null;
+                }
+            }
+        },
+
+        chooseMode(mode) {
+            this.labMode =
+                mode;
+
+            this.error =
+                '';
+
+            this.persist();
+        },
+
+        leaveMode() {
+            if (
+                this.state
+                    ?.graph_runtime
+            ) {
+                return;
+            }
+
+            this.labMode =
+                null;
+
+            this.selectedNodeId =
+                null;
+
+            this.selectedForEngine =
+                [];
+
+            this.persist();
+        },
+
+        async startManualMode() {
+            this.labMode =
+                'MANUAL';
+
+            await this.execute(
+                'START'
+            );
+        },
+
+        async startTournament() {
+            this.labMode =
+                'AUTOMATIC';
+
+            await this.execute(
+                'START_TOURNAMENT'
+            );
+        },
+
+        async stepRuntime() {
+            await this.execute(
+                'STEP_RUNTIME'
+            );
+        },
+
+        async runTournament() {
+            await this.execute(
+                'RUN_TOURNAMENT',
+                {
+                    maximum_operations:
+                        1000,
+                }
+            );
+        },
+
+        async resetLab() {
+            if (
+                !confirm(
+                    '¿Reiniciar completamente el Competition Lab? Se eliminarán todos los resultados temporales.'
+                )
+            ) {
+                return;
+            }
+
+            await this.execute(
+                'RESET'
+            );
+
+            this.labMode =
+                null;
+
+            this.selectedNodeId =
+                null;
+
+            this.selectedParticipantId =
+                null;
+
+            this.selectedGroupId =
+                null;
+
+            this.selectedForEngine =
+                [];
+
+            this.expandedRounds =
+                [];
+
+            this.persist();
         },
 
         removeLocalState() {
@@ -148,35 +359,47 @@ export default function competitionLab(config) {
                 this.storageKey
             );
 
-            this.state = null;
-            this.stateToken = null;
-            this.selectedParticipantId = null;
+            this.state =
+                null;
+
+            this.stateToken =
+                null;
+
+            this.labMode =
+                null;
+
+            this.selectedParticipantId =
+                null;
+
+            this.selectedNodeId =
+                null;
         },
 
-        selectParticipant(id) {
-            this.selectedParticipantId = id;
-        },
-
-        selectedParticipant() {
-            if (
-                !this.state
-                ||
-                !this.selectedParticipantId
-            ) {
-                return null;
-            }
-
+        graphRuntime() {
             return this.state
-                .participants[
-                this.selectedParticipantId
-            ]
+                ?.graph_runtime
                 ??
                 null;
         },
 
+        runtimeDiagnostics() {
+            return this.graphRuntime()
+                ?.diagnostics
+                ??
+                [];
+        },
+
+        runtimeQueue() {
+            return this.graphRuntime()
+                ?.operation_queue
+                ??
+                [];
+        },
+
         participants() {
             return Object.values(
-                this.state?.participants
+                this.state
+                    ?.participants
                 ??
                 {}
             );
@@ -184,7 +407,8 @@ export default function competitionLab(config) {
 
         starts() {
             return Object.values(
-                this.state?.starts
+                this.state
+                    ?.starts
                 ??
                 {}
             );
@@ -192,7 +416,8 @@ export default function competitionLab(config) {
 
         nodes() {
             return Object.values(
-                this.state?.nodes
+                this.state
+                    ?.nodes
                 ??
                 {}
             );
@@ -200,26 +425,60 @@ export default function competitionLab(config) {
 
         terminals() {
             return Object.values(
-                this.state?.terminals
+                this.state
+                    ?.terminals
                 ??
                 {}
             );
         },
-        engineNodes() {
-            return this.nodes().filter(
-                node =>
-                    [
-                        'SINGLE_ELIMINATION',
-                        'ROUND_ROBIN',
-                        'GROUP_STAGE',
-                        'SWISS',
-                    ].includes(
-                        node.phase_type
-                    )
+
+        connections() {
+            return Object.values(
+                this.state
+                    ?.connections
+                ??
+                {}
             );
         },
 
+        engineNodes() {
+            return this.nodes()
+                .filter(
+                    node =>
+                        [
+                            'SINGLE_ELIMINATION',
+                            'ROUND_ROBIN',
+                            'GROUP_STAGE',
+                            'SWISS',
+                        ].includes(
+                            node.phase_type
+                        )
+                );
+        },
+
+        activeNode() {
+            return this.nodes()
+                .find(
+                    node =>
+                        [
+                            'RUNNING',
+                            'READY',
+                            'COMPLETED',
+                        ].includes(
+                            node.status
+                        )
+                )
+                ??
+                null;
+        },
+
         selectedNode() {
+            if (
+                !this.selectedNodeId
+            ) {
+                return null;
+            }
+
             return this.state
                 ?.nodes
                 ?.[this.selectedNodeId]
@@ -227,20 +486,104 @@ export default function competitionLab(config) {
                 null;
         },
 
+        selectNode(id) {
+            this.selectedNodeId =
+                String(id);
+
+            const node =
+                this.selectedNode();
+
+            if (
+                node
+                    ?.runtime
+                    ?.engine
+                ===
+                'GROUP_STAGE'
+            ) {
+                this.selectedGroupId =
+                    Object.keys(
+                        node.runtime.groups
+                        ??
+                        {}
+                    )[0]
+                    ??
+                    null;
+            }
+        },
+
+        selectParticipant(id) {
+            this.selectedParticipantId =
+                id;
+        },
+
+        selectedParticipant() {
+            if (
+                !this.selectedParticipantId
+            ) {
+                return null;
+            }
+
+            return this.state
+                ?.participants
+                ?.[
+                this.selectedParticipantId
+            ]
+                ??
+                null;
+        },
+
         toggleEngineParticipant(id) {
             this.selectedForEngine =
-                this.selectedForEngine.includes(id)
-                    ? this.selectedForEngine.filter(
-                        item =>
-                            item !== id
-                    )
+                this.selectedForEngine
+                    .includes(id)
+                    ? this.selectedForEngine
+                        .filter(
+                            participantId =>
+                                participantId
+                                !==
+                                id
+                        )
                     : [
                         ...this.selectedForEngine,
                         id,
                     ];
         },
 
+        selectAllAvailableParticipants() {
+            this.selectedForEngine =
+                this.participants()
+                    .filter(
+                        participant =>
+                            [
+                                'ACTIVE',
+                                'WAITING',
+                            ].includes(
+                                participant.status
+                            )
+                    )
+                    .map(
+                        participant =>
+                            participant.lab_id
+                    );
+        },
+
+        clearParticipantSelection() {
+            this.selectedForEngine =
+                [];
+        },
+
         async prepareSelectedNode() {
+            if (
+                !this.selectedNodeId
+                ||
+                this.selectedForEngine.length < 2
+            ) {
+                this.error =
+                    'Selecciona una fase y al menos dos participantes.';
+
+                return;
+            }
+
             await this.execute(
                 'PREPARE_NODE',
                 {
@@ -263,12 +606,89 @@ export default function competitionLab(config) {
                 [];
         },
 
-        standings() {
-            return this.selectedNode()
-                ?.runtime
-                ?.standings
+        visibleRounds() {
+            const node =
+                this.selectedNode();
+
+            if (
+                !node
+                    ?.runtime
+            ) {
+                return [];
+            }
+
+            if (
+                node.runtime.engine
+                ===
+                'GROUP_STAGE'
+                &&
+                this.selectedGroupId
+            ) {
+                return this.rounds()
+                    .filter(
+                        round =>
+                            round.group_id
+                            ===
+                            this.selectedGroupId
+                    );
+            }
+
+            return this.rounds();
+        },
+
+        pendingRound() {
+            return this.rounds()
+                .find(
+                    round =>
+                        round.matches
+                            ?.some(
+                                match =>
+                                    match.status
+                                    ===
+                                    'PENDING'
+                            )
+                )
                 ??
-                [];
+                null;
+        },
+
+        roundIsExpanded(round) {
+            return (
+                round.status
+                !==
+                'COMPLETED'
+                ||
+                this.expandedRounds
+                    .includes(
+                        this.roundKey(
+                            round
+                        )
+                    )
+            );
+        },
+
+        toggleRound(round) {
+            const key =
+                this.roundKey(
+                    round
+                );
+
+            this.expandedRounds =
+                this.expandedRounds
+                    .includes(key)
+                    ? this.expandedRounds
+                        .filter(
+                            item =>
+                                item !== key
+                        )
+                    : [
+                        ...this.expandedRounds,
+                        key,
+                    ];
+        },
+
+        roundKey(round) {
+            return `${round.group_id ?? 'PHASE'}-${round.number}`;
         },
 
         groups() {
@@ -281,10 +701,43 @@ export default function competitionLab(config) {
             );
         },
 
+        standings() {
+            const runtime =
+                this.selectedNode()
+                    ?.runtime;
+
+            if (!runtime) {
+                return [];
+            }
+
+            if (
+                runtime.engine
+                ===
+                'GROUP_STAGE'
+                &&
+                this.selectedGroupId
+            ) {
+                return runtime
+                    .groups
+                    ?.[this.selectedGroupId]
+                    ?.standings
+                    ??
+                    [];
+            }
+
+            return runtime.standings
+                ??
+                [];
+        },
+
         outcomes() {
             return this.selectedNode()
                 ?.runtime
-                ?.outcomes
+                ?.normalized_outcomes
+                ??
+                this.selectedNode()
+                    ?.runtime
+                    ?.outcomes
                 ??
                 [];
         },
@@ -295,119 +748,6 @@ export default function competitionLab(config) {
                 ?.warnings
                 ??
                 [];
-        },
-
-        graphRuntime() {
-            return this.state
-                ?.graph_runtime
-                ??
-                null;
-        },
-
-        runtimeDiagnostics() {
-            return this.graphRuntime()
-                ?.diagnostics
-                ??
-                [];
-        },
-
-        connections() {
-            return Object.values(
-                this.state
-                    ?.connections
-                ??
-                {}
-            );
-        },
-
-        runtimeQueue() {
-            return this.graphRuntime()
-                ?.operation_queue
-                ??
-                [];
-        },
-
-        async startTournament() {
-            await this.execute(
-                'START_TOURNAMENT'
-            );
-        },
-
-        async stepRuntime() {
-            await this.execute(
-                'STEP_RUNTIME'
-            );
-        },
-
-        async runTournament() {
-            await this.execute(
-                'RUN_TOURNAMENT',
-                {
-                    maximum_operations:
-                        1000,
-                }
-            );
-        },
-
-        recordLabel(row) {
-            if (
-                this.selectedNode()
-                    ?.runtime
-                    ?.engine
-                !==
-                'SWISS'
-            ) {
-                return null;
-            }
-
-            return `${row.wins}W · ${row.draws}D · ${row.losses}L`;
-        },
-
-        statusClass(status) {
-            return {
-                ACTIVE:
-                    'bg-sky-100 text-sky-700',
-
-                RUNNING:
-                    'bg-sky-100 text-sky-700',
-
-                QUALIFIED:
-                    'bg-emerald-100 text-emerald-700',
-
-                COMPLETED:
-                    'bg-emerald-100 text-emerald-700',
-
-                ELIMINATED:
-                    'bg-red-100 text-red-700',
-
-                PENDING:
-                    'bg-slate-100 text-slate-600',
-                WAITING_INPUTS:
-                    'bg-sky-100 text-sky-700',
-
-                ROUTED:
-                    'bg-emerald-100 text-emerald-700',
-
-                DISPATCHED:
-                    'bg-emerald-100 text-emerald-700',
-
-                FINISHED:
-                    'bg-emerald-100 text-emerald-700',
-
-                BLOCKED:
-                    'bg-red-100 text-red-700',
-
-                STRANDED:
-                    'bg-red-100 text-red-700',
-
-                CLOSED_EMPTY:
-                    'bg-slate-100 text-slate-500',
-
-                OVER_CAPACITY:
-                    'bg-red-100 text-red-700',
-            }[status]
-                ??
-                'bg-slate-100 text-slate-600';
         },
 
         participantName(id) {
@@ -424,10 +764,7 @@ export default function competitionLab(config) {
         },
 
         resultForm(match) {
-            const matchId =
-                match.id;
-
-            this.resultForms[matchId] ??= {
+            this.resultForms[match.id] ??= {
                 score_a:
                     match.score_a
                     ??
@@ -440,7 +777,7 @@ export default function competitionLab(config) {
             };
 
             return this.resultForms[
-                matchId
+                match.id
             ];
         },
 
@@ -472,6 +809,250 @@ export default function competitionLab(config) {
                         ),
                 }
             );
+        },
+
+        async simulateMatch(match) {
+            await this.execute(
+                'SIMULATE_MATCH',
+                {
+                    node_id:
+                        Number(
+                            this.selectedNodeId
+                        ),
+
+                    match_id:
+                        match.id,
+                }
+            );
+        },
+
+        async simulatePendingRound() {
+            if (
+                !this.selectedNodeId
+            ) {
+                this.error =
+                    'Selecciona una fase.';
+
+                return;
+            }
+
+            await this.execute(
+                'SIMULATE_ROUND',
+                {
+                    node_id:
+                        Number(
+                            this.selectedNodeId
+                        ),
+                }
+            );
+        },
+
+        recordLabel(row) {
+            return `${row.wins ?? 0}W · ${row.draws ?? 0}D · ${row.losses ?? 0}L`;
+        },
+
+        runtimeProgress() {
+            const total =
+                Number(
+                    this.state
+                        ?.summary
+                        ?.matches
+                    ??
+                    0
+                );
+
+            const completed =
+                Number(
+                    this.state
+                        ?.summary
+                        ?.completed_matches
+                    ??
+                    0
+                );
+
+            if (total < 1) {
+                const routed =
+                    this.connections()
+                        .filter(
+                            connection =>
+                                [
+                                    'ROUTED',
+                                    'CLOSED_EMPTY',
+                                ].includes(
+                                    connection.status
+                                )
+                        )
+                        .length;
+
+                const connections =
+                    this.connections()
+                        .length;
+
+                return connections > 0
+                    ? Math.round(
+                        routed
+                        /
+                        connections
+                        *
+                        100
+                    )
+                    : 0;
+            }
+
+            return Math.min(
+                100,
+                Math.round(
+                    completed
+                    /
+                    total
+                    *
+                    100
+                )
+            );
+        },
+
+        nextOperationLabel() {
+            const operation =
+                this.runtimeQueue()[0];
+
+            if (!operation) {
+                const node =
+                    this.activeNode();
+
+                return node
+                    ? `Ejecutar ${node.name}`
+                    : 'Comprobar finalización';
+            }
+
+            return {
+                DISPATCH_START:
+                    'Despachar participantes desde un Start',
+
+                EVALUATE_NODE:
+                    'Comprobar si una fase puede comenzar',
+
+                ROUTE_NODE:
+                    'Enviar clasificados por las conexiones',
+            }[operation.type]
+                ??
+                operation.type;
+        },
+
+        statusLabel(status) {
+            return {
+                READY:
+                    'Preparado',
+
+                ACTIVE:
+                    'Activo',
+
+                WAITING:
+                    'Esperando',
+
+                WAITING_INPUTS:
+                    'Esperando entradas',
+
+                RUNNING:
+                    'En ejecución',
+
+                COMPLETED:
+                    'Completado',
+
+                ROUTED:
+                    'Enrutado',
+
+                DISPATCHED:
+                    'Despachado',
+
+                FINISHED:
+                    'Finalizado',
+
+                BLOCKED:
+                    'Bloqueado',
+
+                STRANDED:
+                    'Sin ruta',
+
+                PENDING:
+                    'Pendiente',
+
+                CLOSED:
+                    'Cerrado',
+
+                CLOSED_EMPTY:
+                    'Cerrado sin participantes',
+
+                OVER_CAPACITY:
+                    'Capacidad excedida',
+
+                SKIPPED:
+                    'Omitido',
+
+                EMPTY:
+                    'Vacío',
+
+                RECEIVING:
+                    'Recibiendo',
+            }[status]
+                ??
+                status;
+        },
+
+        statusClass(status) {
+            return {
+                READY:
+                    'bg-violet-100 text-violet-700',
+
+                ACTIVE:
+                    'bg-sky-100 text-sky-700',
+
+                WAITING:
+                    'bg-slate-100 text-slate-600',
+
+                WAITING_INPUTS:
+                    'bg-sky-100 text-sky-700',
+
+                RUNNING:
+                    'bg-amber-100 text-amber-700',
+
+                COMPLETED:
+                    'bg-emerald-100 text-emerald-700',
+
+                ROUTED:
+                    'bg-emerald-100 text-emerald-700',
+
+                DISPATCHED:
+                    'bg-emerald-100 text-emerald-700',
+
+                FINISHED:
+                    'bg-emerald-100 text-emerald-700',
+
+                QUALIFIED:
+                    'bg-emerald-100 text-emerald-700',
+
+                BLOCKED:
+                    'bg-red-100 text-red-700',
+
+                ELIMINATED:
+                    'bg-red-100 text-red-700',
+
+                STRANDED:
+                    'bg-red-100 text-red-700',
+
+                OVER_CAPACITY:
+                    'bg-red-100 text-red-700',
+
+                PENDING:
+                    'bg-slate-100 text-slate-600',
+
+                CLOSED_EMPTY:
+                    'bg-slate-100 text-slate-500',
+
+                SKIPPED:
+                    'bg-slate-100 text-slate-500',
+            }[status]
+                ??
+                'bg-slate-100 text-slate-600';
         },
     };
 }

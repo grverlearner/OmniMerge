@@ -722,7 +722,7 @@ class TournamentGraphRuntimeService
                 ->graphConnections
                 ->where(
                     'source_type',
-                    'NODE_EXIT'
+                    'PHASE_EXIT'
                 )
                 ->where(
                     'source_node_id',

@@ -641,60 +641,92 @@ class CompetitionLabService
             );
         }
 
+        if (
+            ($runtime['status'] ?? null)
+            !==
+            'RUNNING'
+        ) {
+            $this->fail(
+                'La fase seleccionada ya está completada.'
+            );
+        }
+
         $round =
             collect(
                 $runtime['rounds']
+                    ??
+                    []
             )
             ->first(
                 fn($round) =>
                 collect(
                     $round['matches']
+                        ??
+                        []
                 )
                     ->contains(
-                        fn($match) =>
-                        $match['status']
+                        fn($match) => ($match['status'] ?? null)
                             ===
                             'PENDING'
                             &&
-                            $match['participant_a_id']
+                            ! empty($match['participant_a_id'])
                             &&
-                            $match['participant_b_id']
+                            ! empty($match['participant_b_id'])
                     )
             );
 
         if (! $round) {
             $this->fail(
-                'El nodo no tiene encuentros pendientes.'
+                'La fase no tiene una ronda con encuentros pendientes.'
             );
         }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Capturar IDs antes de modificar el runtime
+    |--------------------------------------------------------------------------
+    |
+    | Swiss puede crear la siguiente ronda al terminar la actual.
+    | Guardando estos IDs evitamos simular accidentalmente la nueva ronda.
+    |
+    */
 
         $pendingMatchIds =
             collect(
                 $round['matches']
             )
-            ->where(
-                'status',
-                'PENDING'
-            )
             ->filter(
-                fn($match) =>
-                $match['participant_a_id']
+                fn($match) => ($match['status'] ?? null)
+                    ===
+                    'PENDING'
                     &&
-                    $match['participant_b_id']
+                    ! empty($match['participant_a_id'])
+                    &&
+                    ! empty($match['participant_b_id'])
             )
             ->pluck('id')
+            ->values()
             ->all();
+
+        if ($pendingMatchIds === []) {
+            $this->fail(
+                'La ronda no tiene encuentros ejecutables.'
+            );
+        }
 
         foreach (
             $pendingMatchIds
             as
             $matchId
         ) {
+            $currentRuntime =
+                $state['nodes'][$nodeId]['runtime'];
+
             [
                 $scoreA,
                 $scoreB,
             ] = $this->randomScore(
-                $state['nodes'][$nodeId]['runtime']
+                $currentRuntime
             );
 
             $state =
@@ -711,12 +743,12 @@ class CompetitionLabService
         $this->addEvent(
             $state,
             'ROUND_SIMULATED',
-            'INFO',
-            'Se simuló una ronda del nodo '
+            'SUCCESS',
+            'La ronda '
                 .
-                $state['nodes'][$nodeId]['name']
+                ($round['label'] ?? '')
                 .
-                '.'
+                ' fue simulada completamente.'
         );
 
         return $state;
