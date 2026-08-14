@@ -380,8 +380,20 @@ class CompetitionLabService
             ->with([
                 'phaseTemplate.singleEliminationSetting',
                 'phaseTemplate.singleEliminationRoundRules',
+
                 'phaseTemplate.roundRobinSetting',
                 'phaseTemplate.roundRobinTiebreakers',
+
+                'phaseTemplate.groupStageSetting',
+                'phaseTemplate.groupStageGroups',
+                'phaseTemplate.groupStageTiebreakers',
+                'phaseTemplate.groupStageAdvancementRules.phaseExit',
+                'phaseTemplate.groupStageAdvancementRules.group',
+
+                'phaseTemplate.swissSetting',
+                'phaseTemplate.swissRoundRules',
+                'phaseTemplate.swissTiebreakers',
+                'phaseTemplate.swissAdvancementRules.phaseExit',
             ])
             ->find(
                 $nodeId
@@ -600,19 +612,36 @@ class CompetitionLabService
             );
         }
 
+        $pendingMatchIds =
+            collect(
+                $round['matches']
+            )
+            ->where(
+                'status',
+                'PENDING'
+            )
+            ->filter(
+                fn($match) =>
+                $match['participant_a_id']
+                    &&
+                    $match['participant_b_id']
+            )
+            ->pluck('id')
+            ->all();
+
         foreach (
-            $round['matches']
+            $pendingMatchIds
             as
-            $match
+            $matchId
         ) {
             if (
-                $match['status']
+                $matchId['status']
                 !==
                 'PENDING'
                 ||
-                ! $match['participant_a_id']
+                ! $matchId['participant_a_id']
                 ||
-                ! $match['participant_b_id']
+                ! $matchId['participant_b_id']
             ) {
                 continue;
             }
@@ -628,7 +657,7 @@ class CompetitionLabService
                 $this->applyResult(
                     $state,
                     $nodeId,
-                    $match['id'],
+                    $matchId['id'],
                     $scoreA,
                     $scoreB,
                     false
@@ -724,9 +753,15 @@ class CompetitionLabService
             $state['nodes'][$nodeId]['runtime'];
 
         if (
-            $runtime['engine']
-            ===
-            'ROUND_ROBIN'
+            in_array(
+                $runtime['engine'],
+                [
+                    'ROUND_ROBIN',
+                    'GROUP_STAGE',
+                    'SWISS',
+                ],
+                true
+            )
         ) {
             foreach (
                 $runtime['standings']

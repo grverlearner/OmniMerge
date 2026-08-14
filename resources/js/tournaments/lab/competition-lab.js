@@ -211,6 +211,8 @@ export default function competitionLab(config) {
                     [
                         'SINGLE_ELIMINATION',
                         'ROUND_ROBIN',
+                        'GROUP_STAGE',
+                        'SWISS',
                     ].includes(
                         node.phase_type
                     )
@@ -267,6 +269,70 @@ export default function competitionLab(config) {
                 ?.standings
                 ??
                 [];
+        },
+
+        groups() {
+            return Object.values(
+                this.selectedNode()
+                    ?.runtime
+                    ?.groups
+                ??
+                {}
+            );
+        },
+
+        outcomes() {
+            return this.selectedNode()
+                ?.runtime
+                ?.outcomes
+                ??
+                [];
+        },
+
+        runtimeWarnings() {
+            return this.selectedNode()
+                ?.runtime
+                ?.warnings
+                ??
+                [];
+        },
+
+        recordLabel(row) {
+            if (
+                this.selectedNode()
+                    ?.runtime
+                    ?.engine
+                !==
+                'SWISS'
+            ) {
+                return null;
+            }
+
+            return `${row.wins}W · ${row.draws}D · ${row.losses}L`;
+        },
+
+        statusClass(status) {
+            return {
+                ACTIVE:
+                    'bg-sky-100 text-sky-700',
+
+                RUNNING:
+                    'bg-sky-100 text-sky-700',
+
+                QUALIFIED:
+                    'bg-emerald-100 text-emerald-700',
+
+                COMPLETED:
+                    'bg-emerald-100 text-emerald-700',
+
+                ELIMINATED:
+                    'bg-red-100 text-red-700',
+
+                PENDING:
+                    'bg-slate-100 text-slate-600',
+            }[status]
+                ??
+                'bg-slate-100 text-slate-600';
         },
 
         participantName(id) {

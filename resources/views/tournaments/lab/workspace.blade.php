@@ -281,17 +281,18 @@
 
                     <div>
                         <p class="text-[10px] font-black uppercase tracking-[0.16em] text-violet-600">
-                            T9.2 · Phase Engines
+                            T9.3 · Four Phase Engines
                         </p>
 
                         <h2 class="mt-2 text-xl font-black text-slate-950">
-                            Single Elimination y Round Robin
+                            Single Elimination, Round Robin, Group Stage y Swiss
                         </h2>
 
                         <p class="mt-2 max-w-2xl text-xs leading-6 text-slate-500">
-                            Selecciona una fase compatible y los competidores
-                            temporales que deseas introducir. En T9.4 esta carga
-                            será realizada automáticamente por las conexiones.
+                            Selecciona cualquiera de los cuatro formatos y prueba su
+                            ejecución completa. Group Stage resuelve grupos, tablas y
+                            reglas de avance; Swiss genera emparejamientos progresivos,
+                            records, BYEs y clasificación.
                         </p>
                     </div>
 
@@ -325,8 +326,8 @@
 
                                 <button type="button"
                                     @click="toggleEngineParticipant(
-                            participant.lab_id
-                        )"
+                                        participant.lab_id
+                                    )"
                                     class="rounded-xl border px-3 py-2 text-[10px] font-black transition"
                                     :class="selectedForEngine.includes(
                                             participant.lab_id
@@ -367,11 +368,11 @@
 
                             <template
                                 x-for="[label, value] in [
-                        ['Motor', selectedNode().runtime.engine],
-                        ['Estado', selectedNode().runtime.status],
-                        ['Partidos', selectedNode().runtime.matches_total],
-                        ['Completados', selectedNode().runtime.matches_completed],
-                    ]"
+                                    ['Motor', selectedNode().runtime.engine],
+                                    ['Estado', selectedNode().runtime.status],
+                                    ['Partidos', selectedNode().runtime.matches_total],
+                                    ['Completados', selectedNode().runtime.matches_completed],
+                                ]"
                                 :key="label">
 
                                 <div class="rounded-2xl border border-violet-100 bg-white p-4">
@@ -389,16 +390,16 @@
 
                             <button type="button"
                                 @click="
-                        execute(
-                            'SIMULATE_ROUND',
-                            {
-                                node_id:
-                                    Number(
-                                        selectedNodeId
-                                    ),
-                            }
-                        )
-                    "
+                                    execute(
+                                        'SIMULATE_ROUND',
+                                        {
+                                            node_id:
+                                                Number(
+                                                    selectedNodeId
+                                                ),
+                                        }
+                                    )
+                                "
                                 :disabled="loading
                                     ||
                                     selectedNode().runtime.status === 'COMPLETED'"
@@ -409,6 +410,78 @@
                         </div>
 
                         <div class="space-y-4">
+                            {{-- RESUMEN GROUP STAGE --}}
+
+                            <div x-show="
+                                    selectedNode()
+                                        ?.runtime
+                                        ?.engine
+                                    ===
+                                    'GROUP_STAGE'
+                                "
+                                class="space-y-4">
+
+                                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+
+                                    <template x-for="group in groups()" :key="group.id">
+
+                                        <article class="rounded-2xl border p-4"
+                                            :class="group.status === 'COMPLETED' ?
+                                                'border-emerald-200 bg-emerald-50' :
+                                                'border-sky-200 bg-sky-50'">
+
+                                            <div class="flex items-start justify-between gap-3">
+
+                                                <div>
+                                                    <p class="text-[9px] font-black uppercase text-violet-600"
+                                                        x-text="group.code">
+                                                    </p>
+
+                                                    <h3 class="mt-1 font-black text-slate-950" x-text="group.name">
+                                                    </h3>
+                                                </div>
+
+                                                <span class="rounded-full px-2 py-1 text-[8px] font-black"
+                                                    :class="statusClass(group.status)" x-text="group.status">
+                                                </span>
+                                            </div>
+
+                                            <p class="mt-3 text-[10px] font-bold text-slate-500">
+                                                <span x-text="group.participant_ids.length">
+                                                </span>
+                                                participantes
+                                            </p>
+
+                                            <div class="mt-3 space-y-1">
+
+                                                <template x-for="row in group.standings" :key="row.participant_id">
+
+                                                    <div
+                                                        class="flex items-center justify-between rounded-lg bg-white px-2 py-1.5">
+
+                                                        <p
+                                                            class="min-w-0 truncate text-[9px] font-bold text-slate-700">
+
+                                                            <span x-text="row.position">
+                                                            </span>.
+
+                                                            <span
+                                                                x-text="participantName(
+                                        row.participant_id
+                                    )">
+                                                            </span>
+                                                        </p>
+
+                                                        <span class="ml-2 text-[9px] font-black text-violet-600"
+                                                            x-text="row.points">
+                                                        </span>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </article>
+                                    </template>
+                                </div>
+                            </div>
 
                             <template x-for="round in rounds()" :key="round.number">
 
@@ -423,6 +496,20 @@
                                             class="rounded-full bg-slate-100 px-3 py-1 text-[8px] font-black text-slate-600"
                                             x-text="round.status">
                                         </span>
+                                    </div>
+
+                                    <div x-show="round.bye_participant_id"
+                                        class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+
+                                        <p class="text-[9px] font-black uppercase text-amber-600">
+                                            BYE automático
+                                        </p>
+
+                                        <p class="mt-1 text-xs font-black text-amber-900"
+                                            x-text="participantName(
+                                                round.bye_participant_id
+                                            )">
+                                        </p>
                                     </div>
 
                                     <div class="mt-3 grid gap-3 xl:grid-cols-2">
@@ -507,12 +594,12 @@
                                                 </div>
 
                                                 <div x-show="
-                                            match.status === 'PENDING'
-                                            &&
-                                            match.participant_a_id
-                                            &&
-                                            match.participant_b_id
-                                        "
+                                                        match.status === 'PENDING'
+                                                        &&
+                                                        match.participant_a_id
+                                                        &&
+                                                        match.participant_b_id
+                                                    "
                                                     class="mt-3 flex justify-end gap-2">
 
                                                     <button type="button"
@@ -559,6 +646,120 @@
                             </template>
                         </div>
 
+                        {{-- RESUMEN SWISS --}}
+
+                        <div x-show="
+                                selectedNode()
+                                    ?.runtime
+                                    ?.engine
+                                ===
+                                'SWISS'
+                            "
+                            class="space-y-4">
+
+                            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+
+                                <article class="rounded-2xl border border-violet-200 bg-violet-50 p-4">
+
+                                    <p class="text-[8px] font-black uppercase text-violet-500">
+                                        Ronda actual
+                                    </p>
+
+                                    <p class="mt-2 text-xl font-black text-violet-900"
+                                        x-text="
+                                            selectedNode()
+                                                ?.runtime
+                                                ?.current_round
+                                            ??
+                                            0
+                                        ">
+                                    </p>
+                                </article>
+
+                                <article class="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+
+                                    <p class="text-[8px] font-black uppercase text-sky-500">
+                                        Activos
+                                    </p>
+
+                                    <p class="mt-2 text-xl font-black text-sky-900"
+                                        x-text="
+                                            standings().filter(
+                                                row =>
+                                                row.status === 'ACTIVE'
+                                            ).length
+                                        ">
+                                    </p>
+                                </article>
+
+                                <article class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+
+                                    <p class="text-[8px] font-black uppercase text-emerald-500">
+                                        Clasificados
+                                    </p>
+
+                                    <p class="mt-2 text-xl font-black text-emerald-900"
+                                        x-text="
+                                            standings().filter(
+                                                row =>
+                                                row.status === 'QUALIFIED'
+                                            ).length
+                                        ">
+                                    </p>
+                                </article>
+
+                                <article class="rounded-2xl border border-red-200 bg-red-50 p-4">
+
+                                    <p class="text-[8px] font-black uppercase text-red-500">
+                                        Eliminados
+                                    </p>
+
+                                    <p class="mt-2 text-xl font-black text-red-900"
+                                        x-text="
+                                            standings().filter(
+                                                row =>
+                                                row.status === 'ELIMINATED'
+                                            ).length
+                                        ">
+                                    </p>
+                                </article>
+                            </div>
+
+                            <div x-show="runtimeWarnings().length"
+                                class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+
+                                <p class="text-[9px] font-black uppercase text-amber-700">
+                                    Advertencias Swiss
+                                </p>
+
+                                <template x-for="warning in runtimeWarnings()" :key="warning">
+
+                                    <p class="mt-2 text-[10px] leading-5 text-amber-800" x-text="`• ${warning}`">
+                                    </p>
+                                </template>
+                            </div>
+
+                            <div x-show="
+                                selectedNode()
+                                    ?.runtime
+                                    ?.pairing_relaxations
+                                    ?.length
+                            "
+                                class="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+
+                                <p class="text-[9px] font-black uppercase text-orange-700">
+                                    Relajaciones de emparejamiento
+                                </p>
+
+                                <template x-for="relaxation in selectedNode().runtime.pairing_relaxations"
+                                    :key="`${relaxation.round}-${relaxation.participant_id}`">
+
+                                    <p class="mt-2 text-[10px] leading-5 text-orange-800" x-text="relaxation.message">
+                                    </p>
+                                </template>
+                            </div>
+                        </div>
+
                         <div x-show="standings().length"
                             class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
 
@@ -576,6 +777,7 @@
 
                                         <tr>
                                             <th class="p-3">#</th>
+                                            <th class="p-3">Grupo / Record</th>
                                             <th class="p-3">Participante</th>
                                             <th class="p-3">PJ</th>
                                             <th class="p-3">G</th>
@@ -583,6 +785,7 @@
                                             <th class="p-3">P</th>
                                             <th class="p-3">Pts.</th>
                                             <th class="p-3">Dif.</th>
+                                            <th class="p-3">Estado</th>
                                         </tr>
                                     </thead>
 
@@ -597,8 +800,27 @@
 
                                                 <td class="p-3 font-black"
                                                     x-text="participantName(
-                                            row.participant_id
-                                        )">
+                                                        row.participant_id
+                                                    )">
+                                                </td>
+                                                <td class="p-3">
+
+                                                    <span x-show="row.group_name"
+                                                        class="rounded-full bg-violet-100 px-2 py-1 text-[8px] font-black text-violet-700"
+                                                        x-text="row.group_name">
+                                                    </span>
+
+                                                    <span
+                                                        x-show="
+                                                            selectedNode()
+                                                                ?.runtime
+                                                                ?.engine
+                                                            ===
+                                                            'SWISS'
+                                                        "
+                                                        class="rounded-full bg-sky-100 px-2 py-1 text-[8px] font-black text-sky-700"
+                                                        x-text="recordLabel(row)">
+                                                    </span>
                                                 </td>
 
                                                 <td class="p-3" x-text="row.played ?? '-'">
@@ -618,12 +840,65 @@
 
                                                 <td class="p-3" x-text="row.score_difference ?? '-'">
                                                 </td>
+                                                <td class="p-3">
+
+                                                    <span x-show="row.status"
+                                                        class="rounded-full px-2 py-1 text-[8px] font-black"
+                                                        :class="statusClass(row.status)" x-text="row.status">
+                                                    </span>
+                                                </td>
                                             </tr>
                                         </template>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
+
+                        {{-- OUTCOMES DE LA FASE --}}
+
+                        <div x-show="outcomes().length"
+                            class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+
+                            <p class="text-[9px] font-black uppercase tracking-[0.14em] text-emerald-700">
+                                Resultados por puerta de salida
+                            </p>
+
+                            <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+
+                                <template x-for="outcome in outcomes()"
+                                    :key="outcome.exit_id ??
+                                        'NO_EXIT'">
+
+                                    <article class="rounded-2xl border border-emerald-200 bg-white p-4">
+
+                                        <p class="text-[9px] font-black text-emerald-600"
+                                            x-text="
+                                                outcome.exit_id
+                                                    ? `EXIT ${outcome.exit_id}`
+                                                    : 'SIN SALIDA'
+                                            ">
+                                        </p>
+
+                                        <h3 class="mt-1 font-black text-slate-950" x-text="outcome.exit_name">
+                                        </h3>
+
+                                        <div class="mt-3 space-y-1">
+
+                                            <template x-for="participantId in outcome.participant_ids"
+                                                :key="participantId">
+
+                                                <p class="rounded-lg bg-slate-50 px-3 py-2 text-[10px] font-bold text-slate-700"
+                                                    x-text="participantName(
+                                                        participantId
+                                                    )">
+                                                </p>
+                                            </template>
+                                        </div>
+                                    </article>
+                                </template>
+                            </div>
+                        </div>
+
                     </div>
                 </template>
             </section>

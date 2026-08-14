@@ -12,7 +12,13 @@ class LabPhaseEngineManager
         SingleEliminationLabEngine $singleElimination,
 
         private readonly
-        RoundRobinLabEngine $roundRobin
+        RoundRobinLabEngine $roundRobin,
+
+        private readonly
+        GroupStageLabEngine $groupStage,
+
+        private readonly
+        SwissLabEngine $swiss
     ) {}
 
     public function prepare(
@@ -57,8 +63,11 @@ class LabPhaseEngineManager
             [
                 $this->singleElimination,
                 $this->roundRobin,
+                $this->groupStage,
+                $this->swiss,
             ]
-            as $engine
+            as
+            $engine
         ) {
             if (
                 $engine->supports(
@@ -71,7 +80,7 @@ class LabPhaseEngineManager
 
         throw ValidationException::withMessages([
             'node_id' => [
-                'T9.2 solo puede ejecutar fases Single Elimination y Round Robin.',
+                'El Competition Lab no tiene un motor compatible con esta fase.',
             ],
         ]);
     }
