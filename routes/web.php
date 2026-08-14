@@ -55,6 +55,7 @@ use App\Http\Controllers\Tournaments\TournamentStartController;
 use App\Http\Controllers\Tournaments\TournamentTerminalController;
 use App\Http\Controllers\Tournaments\TournamentPhaseConnectionController;
 use App\Http\Controllers\Tournaments\TournamentGraphPresetController;
+use App\Http\Controllers\Tournaments\TournamentFlowPreviewController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -923,6 +924,26 @@ Route::middleware('auth')->group(function () {
                     ]
                 )->name(
                     'graph.presets.store'
+                );
+
+                Route::get(
+                    '/templates/{tournamentTemplate}/graph/preview',
+                    [
+                        TournamentFlowPreviewController::class,
+                        'show',
+                    ]
+                )->name(
+                    'graph.preview.show'
+                );
+
+                Route::post(
+                    '/templates/{tournamentTemplate}/graph/preview',
+                    [
+                        TournamentFlowPreviewController::class,
+                        'run',
+                    ]
+                )->name(
+                    'graph.preview.run'
                 );
 
 
