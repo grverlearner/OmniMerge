@@ -5,6 +5,7 @@ namespace App\Services\Tournaments\CompetitionLab;
 use App\Models\TournamentTemplate;
 use App\Models\User;
 use App\Services\Tournaments\CompetitionLab\Engines\LabPhaseEngineManager;
+use App\Services\Tournaments\CompetitionLab\Runtime\TournamentGraphRuntimeService;
 use Illuminate\Validation\ValidationException;
 
 class CompetitionLabService
@@ -17,7 +18,10 @@ class CompetitionLabService
         LabStateTokenService $tokenService,
 
         private readonly
-        LabPhaseEngineManager $engineManager
+        LabPhaseEngineManager $engineManager,
+
+        private readonly
+        TournamentGraphRuntimeService $graphRuntime
     ) {}
 
     public function initialize(
@@ -102,6 +106,33 @@ class CompetitionLabService
                     $state,
                     $payload
                 ),
+
+                'START_TOURNAMENT' =>
+                $this->graphRuntime
+                    ->initialize(
+                        $state,
+                        $template
+                    ),
+
+                'STEP_RUNTIME' =>
+                $this->graphRuntime
+                    ->step(
+                        $state,
+                        $template
+                    ),
+
+                'RUN_TOURNAMENT' =>
+                $this->graphRuntime
+                    ->run(
+                        $state,
+                        $template,
+                        (int)
+                        (
+                            $payload['maximum_operations']
+                            ??
+                            1000
+                        )
+                    ),
 
                 default =>
                 $this->fail(
@@ -263,6 +294,8 @@ class CompetitionLabService
 
                 $port['participant_ids'] =
                     [];
+                $port['received_connection_ids'] =
+                    [];
             }
 
             unset($port);
@@ -283,6 +316,29 @@ class CompetitionLabService
         }
 
         unset($terminal);
+
+        foreach (
+            $state['connections']
+                ??
+                []
+            as
+            &$connection
+        ) {
+            $connection['status'] =
+                'PENDING';
+
+            $connection['participant_ids'] =
+                [];
+
+            $connection['routed_count'] =
+                0;
+        }
+
+        unset($connection);
+
+        unset(
+            $state['graph_runtime']
+        );
 
         $state['timeline'] = [];
 
@@ -634,18 +690,6 @@ class CompetitionLabService
             as
             $matchId
         ) {
-            if (
-                $matchId['status']
-                !==
-                'PENDING'
-                ||
-                ! $matchId['participant_a_id']
-                ||
-                ! $matchId['participant_b_id']
-            ) {
-                continue;
-            }
-
             [
                 $scoreA,
                 $scoreB,
@@ -657,7 +701,7 @@ class CompetitionLabService
                 $this->applyResult(
                     $state,
                     $nodeId,
-                    $matchId['id'],
+                    $matchId,
                     $scoreA,
                     $scoreB,
                     false
@@ -732,6 +776,12 @@ class CompetitionLabService
         $this->syncSummary(
             $state
         );
+        $state =
+            $this->graphRuntime
+            ->afterNodeResult(
+                $state,
+                $nodeId
+            );
 
         if ($registerEvent) {
             $this->addEvent(

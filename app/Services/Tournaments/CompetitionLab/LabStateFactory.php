@@ -22,8 +22,14 @@ class LabStateFactory
         $template->loadMissing([
             'graphStarts',
             'graphNodes.phaseTemplate',
-            'graphNodes.entryPorts',
+            'graphNodes.phaseTemplate.exits',
+            'graphNodes.entryPorts.incomingConnections',
             'graphTerminals',
+            'graphConnections.sourceStart',
+            'graphConnections.sourceNode',
+            'graphConnections.sourcePhaseExit',
+            'graphConnections.targetEntryPort.node',
+            'graphConnections.targetTerminal',
         ]);
 
         $participants = [];
@@ -179,6 +185,43 @@ class LabStateFactory
                                         'name' =>
                                         $port->name,
 
+                                        'code' =>
+                                        $port->code,
+
+                                        'merge_policy' =>
+                                        $port->merge_policy,
+
+                                        'is_required' =>
+                                        (bool)
+                                        $port->is_required,
+
+                                        'accepts_multiple_connections' =>
+                                        (bool)
+                                        $port->accepts_multiple_connections,
+
+                                        'min_participants' =>
+                                        $port->min_participants,
+
+                                        'max_participants' =>
+                                        $port->max_participants,
+
+                                        'exact_participants' =>
+                                        $port->exact_participants,
+
+                                        'incoming_connection_ids' =>
+                                        $port
+                                            ->incomingConnections
+                                            ->pluck('id')
+                                            ->map(
+                                                fn($id) =>
+                                                (int)
+                                                $id
+                                            )
+                                            ->all(),
+
+                                        'received_connection_ids' =>
+                                        [],
+
                                         'status' =>
                                         'EMPTY',
 
@@ -216,11 +259,92 @@ class LabStateFactory
                         $terminal
                             ->terminal_type_label,
 
+                        'expected_participants' =>
+                        $terminal->expected_participants,
+
+                        'received_connection_ids' =>
+                        [],
+
                         'status' =>
                         'EMPTY',
 
                         'participant_ids' =>
                         [],
+                    ],
+                ]
+            )
+            ->all();
+
+        $connections =
+            $template
+            ->graphConnections
+            ->mapWithKeys(
+                fn($connection) => [
+                    $connection->id => [
+                        'id' =>
+                        (int)
+                        $connection->id,
+
+                        'code' =>
+                        $connection->code,
+
+                        'label' =>
+                        $connection->label,
+
+                        'source_type' =>
+                        $connection->source_type,
+
+                        'source_start_id' =>
+                        $connection->source_start_id
+                            ? (int)
+                            $connection->source_start_id
+                            : null,
+
+                        'source_node_id' =>
+                        $connection->source_node_id
+                            ? (int)
+                            $connection->source_node_id
+                            : null,
+
+                        'source_phase_exit_id' =>
+                        $connection->source_phase_exit_id
+                            ? (int)
+                            $connection->source_phase_exit_id
+                            : null,
+
+                        'target_type' =>
+                        $connection->target_type,
+
+                        'target_entry_port_id' =>
+                        $connection->target_entry_port_id
+                            ? (int)
+                            $connection->target_entry_port_id
+                            : null,
+
+                        'target_terminal_id' =>
+                        $connection->target_terminal_id
+                            ? (int)
+                            $connection->target_terminal_id
+                            : null,
+
+                        'allocation_mode' =>
+                        $connection->allocation_mode,
+
+                        'allocation_value' =>
+                        $connection->allocation_value,
+
+                        'priority' =>
+                        (int)
+                        $connection->priority,
+
+                        'status' =>
+                        'PENDING',
+
+                        'participant_ids' =>
+                        [],
+
+                        'routed_count' =>
+                        0,
                     ],
                 ]
             )
@@ -276,6 +400,9 @@ class LabStateFactory
             'nodes' =>
             $nodes,
 
+            'connections' =>
+            $connections,
+
             'terminals' =>
             $terminals,
 
@@ -319,6 +446,15 @@ class LabStateFactory
                 0,
 
                 'completed_matches' =>
+                0,
+
+                'routed_connections' =>
+                0,
+
+                'completed_terminals' =>
+                0,
+
+                'stranded' =>
                 0,
             ],
 

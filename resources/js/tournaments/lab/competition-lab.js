@@ -297,6 +297,58 @@ export default function competitionLab(config) {
                 [];
         },
 
+        graphRuntime() {
+            return this.state
+                ?.graph_runtime
+                ??
+                null;
+        },
+
+        runtimeDiagnostics() {
+            return this.graphRuntime()
+                ?.diagnostics
+                ??
+                [];
+        },
+
+        connections() {
+            return Object.values(
+                this.state
+                    ?.connections
+                ??
+                {}
+            );
+        },
+
+        runtimeQueue() {
+            return this.graphRuntime()
+                ?.operation_queue
+                ??
+                [];
+        },
+
+        async startTournament() {
+            await this.execute(
+                'START_TOURNAMENT'
+            );
+        },
+
+        async stepRuntime() {
+            await this.execute(
+                'STEP_RUNTIME'
+            );
+        },
+
+        async runTournament() {
+            await this.execute(
+                'RUN_TOURNAMENT',
+                {
+                    maximum_operations:
+                        1000,
+                }
+            );
+        },
+
         recordLabel(row) {
             if (
                 this.selectedNode()
@@ -330,6 +382,29 @@ export default function competitionLab(config) {
 
                 PENDING:
                     'bg-slate-100 text-slate-600',
+                WAITING_INPUTS:
+                    'bg-sky-100 text-sky-700',
+
+                ROUTED:
+                    'bg-emerald-100 text-emerald-700',
+
+                DISPATCHED:
+                    'bg-emerald-100 text-emerald-700',
+
+                FINISHED:
+                    'bg-emerald-100 text-emerald-700',
+
+                BLOCKED:
+                    'bg-red-100 text-red-700',
+
+                STRANDED:
+                    'bg-red-100 text-red-700',
+
+                CLOSED_EMPTY:
+                    'bg-slate-100 text-slate-500',
+
+                OVER_CAPACITY:
+                    'bg-red-100 text-red-700',
             }[status]
                 ??
                 'bg-slate-100 text-slate-600';

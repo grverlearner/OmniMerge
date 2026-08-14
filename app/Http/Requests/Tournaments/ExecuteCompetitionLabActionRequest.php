@@ -71,6 +71,9 @@ extends FormRequest
                     'SUBMIT_MATCH_RESULT',
                     'SIMULATE_MATCH',
                     'SIMULATE_ROUND',
+                    'START_TOURNAMENT',
+                    'STEP_RUNTIME',
+                    'RUN_TOURNAMENT',
                 ]),
             ],
 
@@ -117,6 +120,13 @@ extends FormRequest
                 'integer',
                 'min:0',
                 'max:999999',
+            ],
+
+            'maximum_operations' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:1000',
             ],
         ];
     }
