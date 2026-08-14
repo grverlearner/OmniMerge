@@ -11,6 +11,7 @@ use App\Services\Tournaments\Graph\Flow\TournamentGraphFlowAnalysisService;
 use App\Services\Tournaments\Graph\Flow\TournamentGraphFlowValidationService;
 use App\Services\Tournaments\Graph\TournamentGraphValidationService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -101,7 +102,7 @@ extends Controller
     public function initialize(
         InitializeCompetitionLabRequest $request,
         TournamentTemplate $tournamentTemplate
-    ): View {
+    ): View|RedirectResponse {
         $this->loadGraph(
             $tournamentTemplate
         );
@@ -112,25 +113,15 @@ extends Controller
             );
 
         if (! $validation['valid']) {
-            return view(
-                'tournaments.lab.workspace',
-                [
-                    'tournamentTemplate' =>
-                    $tournamentTemplate,
-
-                    'validation' =>
-                    $validation,
-
-                    'canInitialize' =>
-                    false,
-
-                    'labPayload' =>
-                    null,
-                ]
-            )->withErrors([
-                'graph' =>
-                'Corrige el Tournament Graph antes de iniciar el Lab.',
-            ]);
+            return redirect()
+                ->route(
+                    'tournaments.lab.show',
+                    $tournamentTemplate
+                )
+                ->withErrors([
+                    'graph' =>
+                    'Corrige el Tournament Graph antes de iniciar el Lab.',
+                ]);
         }
 
         $labPayload =
@@ -173,7 +164,12 @@ extends Controller
                 )->toString(),
                 $request->string(
                     'action'
-                )->toString()
+                )->toString(),
+
+                $request->safe()->except([
+                    'action',
+                    'state_token',
+                ])
             );
 
         return response()->json([

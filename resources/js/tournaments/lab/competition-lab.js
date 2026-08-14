@@ -8,6 +8,9 @@ export default function competitionLab(config) {
         loading: false,
         error: '',
         selectedParticipantId: null,
+        selectedNodeId: null,
+        selectedForEngine: [],
+        resultForms: {},
 
         init() {
             if (this.state && this.stateToken) {
@@ -54,7 +57,7 @@ export default function competitionLab(config) {
             );
         },
 
-        async execute(action) {
+        async execute(action, data = {}) {
             if (!this.stateToken || this.loading) {
                 return;
             }
@@ -89,6 +92,7 @@ export default function competitionLab(config) {
                                 action,
                                 state_token:
                                     this.stateToken,
+                                ...data,
                             }),
                         }
                     );
@@ -120,7 +124,17 @@ export default function competitionLab(config) {
                 this.stateToken =
                     payload.state_token;
 
+                this.resultForms = {};
+
                 this.persist();
+
+                /*
+                |--------------------------------------------------------------------------
+                | Esperar el render inmediato de Alpine
+                |--------------------------------------------------------------------------
+                */
+
+                await this.$nextTick();
             } catch {
                 this.error =
                     'No fue posible comunicarse con el Competition Lab.';
@@ -189,6 +203,133 @@ export default function competitionLab(config) {
                 this.state?.terminals
                 ??
                 {}
+            );
+        },
+        engineNodes() {
+            return this.nodes().filter(
+                node =>
+                    [
+                        'SINGLE_ELIMINATION',
+                        'ROUND_ROBIN',
+                    ].includes(
+                        node.phase_type
+                    )
+            );
+        },
+
+        selectedNode() {
+            return this.state
+                ?.nodes
+                ?.[this.selectedNodeId]
+                ??
+                null;
+        },
+
+        toggleEngineParticipant(id) {
+            this.selectedForEngine =
+                this.selectedForEngine.includes(id)
+                    ? this.selectedForEngine.filter(
+                        item =>
+                            item !== id
+                    )
+                    : [
+                        ...this.selectedForEngine,
+                        id,
+                    ];
+        },
+
+        async prepareSelectedNode() {
+            await this.execute(
+                'PREPARE_NODE',
+                {
+                    node_id:
+                        Number(
+                            this.selectedNodeId
+                        ),
+
+                    participant_ids:
+                        this.selectedForEngine,
+                }
+            );
+        },
+
+        rounds() {
+            return this.selectedNode()
+                ?.runtime
+                ?.rounds
+                ??
+                [];
+        },
+
+        standings() {
+            return this.selectedNode()
+                ?.runtime
+                ?.standings
+                ??
+                [];
+        },
+
+        participantName(id) {
+            if (!id) {
+                return 'BYE';
+            }
+
+            return this.state
+                ?.participants
+                ?.[id]
+                ?.name
+                ??
+                id;
+        },
+
+        resultForm(match) {
+            const matchId =
+                match.id;
+
+            this.resultForms[matchId] ??= {
+                score_a:
+                    match.score_a
+                    ??
+                    0,
+
+                score_b:
+                    match.score_b
+                    ??
+                    0,
+            };
+
+            return this.resultForms[
+                matchId
+            ];
+        },
+
+        async submitResult(match) {
+            const form =
+                this.resultForm(
+                    match
+                );
+
+            await this.execute(
+                'SUBMIT_MATCH_RESULT',
+                {
+                    node_id:
+                        Number(
+                            this.selectedNodeId
+                        ),
+
+                    match_id:
+                        match.id,
+
+                    score_a:
+                        Number(
+                            form.score_a
+                        ),
+
+                    score_b:
+                        Number(
+                            form.score_b
+                        ),
+                }
             );
         },
     };

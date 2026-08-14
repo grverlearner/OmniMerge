@@ -93,8 +93,7 @@
 
         <section x-show="!state" class="mt-6 grid items-start gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
 
-            <form method="POST"
-                action="{{ route('tournaments.lab.initialize', $tournamentTemplate) }}"
+            <form method="POST" action="{{ route('tournaments.lab.initialize', $tournamentTemplate) }}"
                 class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
 
                 @csrf
@@ -273,6 +272,361 @@
                     </article>
                 </template>
             </div>
+
+            {{-- T9.2 · MOTORES DE FASE --}}
+
+            <section class="rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-5">
+
+                <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.16em] text-violet-600">
+                            T9.2 · Phase Engines
+                        </p>
+
+                        <h2 class="mt-2 text-xl font-black text-slate-950">
+                            Single Elimination y Round Robin
+                        </h2>
+
+                        <p class="mt-2 max-w-2xl text-xs leading-6 text-slate-500">
+                            Selecciona una fase compatible y los competidores
+                            temporales que deseas introducir. En T9.4 esta carga
+                            será realizada automáticamente por las conexiones.
+                        </p>
+                    </div>
+
+                    <select x-model="selectedNodeId" @change="selectedForEngine = []"
+                        class="min-w-[270px] rounded-xl border-violet-200 bg-white text-sm font-bold text-slate-800">
+
+                        <option value="">
+                            Selecciona una fase
+                        </option>
+
+                        <template x-for="node in engineNodes()" :key="node.id">
+
+                            <option :value="node.id"
+                                x-text="`${node.code} · ${node.name} · ${node.phase_type_label}`">
+                            </option>
+                        </template>
+                    </select>
+                </div>
+
+                <template x-if="selectedNode() && !selectedNode().runtime">
+
+                    <div class="mt-5">
+
+                        <p class="mb-3 text-[9px] font-black uppercase text-slate-400">
+                            Participantes que entrarán en la fase
+                        </p>
+
+                        <div class="flex flex-wrap gap-2">
+
+                            <template x-for="participant in participants()" :key="participant.lab_id">
+
+                                <button type="button"
+                                    @click="toggleEngineParticipant(
+                            participant.lab_id
+                        )"
+                                    class="rounded-xl border px-3 py-2 text-[10px] font-black transition"
+                                    :class="selectedForEngine.includes(
+                                            participant.lab_id
+                                        ) ?
+                                        'border-violet-500 bg-violet-600 text-white' :
+                                        'border-slate-200 bg-white text-slate-600'"
+                                    x-text="participant.name">
+                                </button>
+                            </template>
+                        </div>
+
+                        <div class="mt-4 flex items-center justify-between gap-3">
+
+                            <p class="text-xs font-bold text-slate-500">
+                                <span x-text="selectedForEngine.length">
+                                </span>
+                                seleccionados
+                            </p>
+
+                            <button type="button" @click="prepareSelectedNode()"
+                                :disabled="loading
+                                    ||
+                                    selectedForEngine.length < 2 ||
+                                    state?.status !== 'RUNNING'"
+                                class="rounded-xl bg-violet-600 px-5 py-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">
+
+                                Preparar motor
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="selectedNode()?.runtime">
+
+                    <div class="mt-6 space-y-5">
+
+                        <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+
+                            <template
+                                x-for="[label, value] in [
+                        ['Motor', selectedNode().runtime.engine],
+                        ['Estado', selectedNode().runtime.status],
+                        ['Partidos', selectedNode().runtime.matches_total],
+                        ['Completados', selectedNode().runtime.matches_completed],
+                    ]"
+                                :key="label">
+
+                                <div class="rounded-2xl border border-violet-100 bg-white p-4">
+
+                                    <p class="text-[8px] font-black uppercase text-slate-400" x-text="label">
+                                    </p>
+
+                                    <p class="mt-2 text-sm font-black text-slate-900" x-text="value">
+                                    </p>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="flex justify-end">
+
+                            <button type="button"
+                                @click="
+                        execute(
+                            'SIMULATE_ROUND',
+                            {
+                                node_id:
+                                    Number(
+                                        selectedNodeId
+                                    ),
+                            }
+                        )
+                    "
+                                :disabled="loading
+                                    ||
+                                    selectedNode().runtime.status === 'COMPLETED'"
+                                class="rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-black text-white disabled:opacity-40">
+
+                                ⚡ Simular ronda pendiente
+                            </button>
+                        </div>
+
+                        <div class="space-y-4">
+
+                            <template x-for="round in rounds()" :key="round.number">
+
+                                <article class="rounded-2xl border border-slate-200 bg-white p-4">
+
+                                    <div class="flex items-center justify-between">
+
+                                        <h3 class="font-black text-slate-900" x-text="round.label">
+                                        </h3>
+
+                                        <span
+                                            class="rounded-full bg-slate-100 px-3 py-1 text-[8px] font-black text-slate-600"
+                                            x-text="round.status">
+                                        </span>
+                                    </div>
+
+                                    <div class="mt-3 grid gap-3 xl:grid-cols-2">
+
+                                        <template x-for="match in round.matches" :key="match.id">
+
+                                            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+
+                                                <div class="flex items-center justify-between">
+
+                                                    <span class="text-[8px] font-black text-violet-600"
+                                                        x-text="match.id">
+                                                    </span>
+
+                                                    <span class="text-[8px] font-black text-slate-400"
+                                                        x-text="match.status">
+                                                    </span>
+                                                </div>
+
+                                                <div
+                                                    class="mt-3 grid grid-cols-[minmax(0,1fr)_52px_18px_52px_minmax(0,1fr)] items-center gap-2">
+
+                                                    <p class="truncate text-right text-[10px] font-black text-slate-800"
+                                                        x-text="participantName(
+                                                            match.participant_a_id
+                                                        )">
+                                                    </p>
+
+                                                    {{-- SCORE A PENDIENTE --}}
+
+                                                    <template x-if="match.status === 'PENDING'">
+
+                                                        <input type="number" min="0"
+                                                            x-model.number="resultForm(match).score_a"
+                                                            class="rounded-lg border-slate-200 bg-white p-2 text-center text-xs font-black text-slate-900">
+                                                    </template>
+
+                                                    {{-- SCORE A COMPLETADO --}}
+
+                                                    <template x-if="match.status !== 'PENDING'">
+
+                                                        <div class="rounded-lg border border-violet-200 bg-violet-50 p-2 text-center text-xs font-black text-violet-800"
+                                                            x-text="
+                                                                match.score_a
+                                                                ??
+                                                                '—'
+                                                            ">
+                                                        </div>
+                                                    </template>
+
+                                                    <span class="text-center text-xs font-black text-slate-400">
+                                                        –
+                                                    </span>
+
+                                                    {{-- SCORE B PENDIENTE --}}
+
+                                                    <template x-if="match.status === 'PENDING'">
+
+                                                        <input type="number" min="0"
+                                                            x-model.number="resultForm(match).score_b"
+                                                            class="rounded-lg border-slate-200 bg-white p-2 text-center text-xs font-black text-slate-900">
+                                                    </template>
+
+                                                    {{-- SCORE B COMPLETADO --}}
+
+                                                    <template x-if="match.status !== 'PENDING'">
+
+                                                        <div class="rounded-lg border border-violet-200 bg-violet-50 p-2 text-center text-xs font-black text-violet-800"
+                                                            x-text="
+                                                                match.score_b
+                                                                ??
+                                                                '—'
+                                                            ">
+                                                        </div>
+                                                    </template>
+
+                                                    <p class="truncate text-[10px] font-black text-slate-800"
+                                                        x-text="participantName(
+                                                            match.participant_b_id
+                                                        )">
+                                                    </p>
+                                                </div>
+
+                                                <div x-show="
+                                            match.status === 'PENDING'
+                                            &&
+                                            match.participant_a_id
+                                            &&
+                                            match.participant_b_id
+                                        "
+                                                    class="mt-3 flex justify-end gap-2">
+
+                                                    <button type="button"
+                                                        @click="
+                                                execute(
+                                                    'SIMULATE_MATCH',
+                                                    {
+                                                        node_id:
+                                                            Number(
+                                                                selectedNodeId
+                                                            ),
+
+                                                        match_id:
+                                                            match.id,
+                                                    }
+                                                )
+                                            "
+                                                        class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[9px] font-black text-amber-700">
+
+                                                        Simular
+                                                    </button>
+
+                                                    <button type="button" @click="submitResult(match)"
+                                                        class="rounded-lg bg-violet-600 px-3 py-2 text-[9px] font-black text-white">
+
+                                                        Guardar resultado
+                                                    </button>
+                                                </div>
+
+                                                <p x-show="match.winner_id"
+                                                    class="mt-2 text-[9px] font-bold text-emerald-600">
+
+                                                    Ganador:
+                                                    <span
+                                                        x-text="participantName(
+                                                match.winner_id
+                                            )">
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </article>
+                            </template>
+                        </div>
+
+                        <div x-show="standings().length"
+                            class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+
+                            <div class="border-b border-slate-200 p-4">
+                                <h3 class="font-black text-slate-950">
+                                    Clasificación
+                                </h3>
+                            </div>
+
+                            <div class="overflow-x-auto">
+
+                                <table class="w-full text-left text-xs">
+
+                                    <thead class="bg-slate-50 text-[8px] font-black uppercase text-slate-400">
+
+                                        <tr>
+                                            <th class="p-3">#</th>
+                                            <th class="p-3">Participante</th>
+                                            <th class="p-3">PJ</th>
+                                            <th class="p-3">G</th>
+                                            <th class="p-3">E</th>
+                                            <th class="p-3">P</th>
+                                            <th class="p-3">Pts.</th>
+                                            <th class="p-3">Dif.</th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+
+                                        <template x-for="row in standings()" :key="row.participant_id">
+
+                                            <tr class="border-t border-slate-100">
+
+                                                <td class="p-3 font-black" x-text="row.position">
+                                                </td>
+
+                                                <td class="p-3 font-black"
+                                                    x-text="participantName(
+                                            row.participant_id
+                                        )">
+                                                </td>
+
+                                                <td class="p-3" x-text="row.played ?? '-'">
+                                                </td>
+
+                                                <td class="p-3" x-text="row.wins ?? '-'">
+                                                </td>
+
+                                                <td class="p-3" x-text="row.draws ?? '-'">
+                                                </td>
+
+                                                <td class="p-3" x-text="row.losses ?? '-'">
+                                                </td>
+
+                                                <td class="p-3 font-black text-violet-600" x-text="row.points ?? '-'">
+                                                </td>
+
+                                                <td class="p-3" x-text="row.score_difference ?? '-'">
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </section>
 
             <div class="grid items-start gap-5 2xl:grid-cols-[300px_minmax(0,1fr)_350px]">
 

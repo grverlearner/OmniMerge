@@ -5,6 +5,7 @@ namespace App\Http\Requests\Tournaments;
 use App\Models\TournamentTemplate;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class ExecuteCompetitionLabActionRequest
 extends FormRequest
@@ -12,14 +13,21 @@ extends FormRequest
     public function authorize(): bool
     {
         $template =
-            $this->route('tournamentTemplate');
+            $this->route(
+                'tournamentTemplate'
+            );
 
         return
-            $template instanceof TournamentTemplate
+            $template
+            instanceof
+            TournamentTemplate
             &&
             (
                 $this->user()
-                ?->can('update', $template)
+                ?->can(
+                    'update',
+                    $template
+                )
                 ??
                 false
             );
@@ -31,7 +39,8 @@ extends FormRequest
             'action' =>
             strtoupper(
                 trim(
-                    (string) $this->input(
+                    (string)
+                    $this->input(
                         'action'
                     )
                 )
@@ -39,7 +48,8 @@ extends FormRequest
 
             'state_token' =>
             trim(
-                (string) $this->input(
+                (string)
+                $this->input(
                     'state_token'
                 )
             ),
@@ -57,6 +67,10 @@ extends FormRequest
                     'PAUSE',
                     'RESUME',
                     'RESET',
+                    'PREPARE_NODE',
+                    'SUBMIT_MATCH_RESULT',
+                    'SIMULATE_MATCH',
+                    'SIMULATE_ROUND',
                 ]),
             ],
 
@@ -65,6 +79,99 @@ extends FormRequest
                 'string',
                 'max:10485760',
             ],
+
+            'node_id' => [
+                'nullable',
+                'integer',
+                'min:1',
+            ],
+
+            'participant_ids' => [
+                'nullable',
+                'array',
+                'min:2',
+                'max:512',
+            ],
+
+            'participant_ids.*' => [
+                'string',
+                'distinct',
+                'max:100',
+            ],
+
+            'match_id' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
+            'score_a' => [
+                'nullable',
+                'integer',
+                'min:0',
+                'max:999999',
+            ],
+
+            'score_b' => [
+                'nullable',
+                'integer',
+                'min:0',
+                'max:999999',
+            ],
         ];
+    }
+
+    public function withValidator(
+        Validator $validator
+    ): void {
+        $validator->sometimes(
+            [
+                'node_id',
+                'participant_ids',
+            ],
+            'required',
+            fn($input) =>
+            $input->action
+                ===
+                'PREPARE_NODE'
+        );
+
+        $validator->sometimes(
+            [
+                'node_id',
+                'match_id',
+            ],
+            'required',
+            fn($input) =>
+            in_array(
+                $input->action,
+                [
+                    'SUBMIT_MATCH_RESULT',
+                    'SIMULATE_MATCH',
+                ],
+                true
+            )
+        );
+
+        $validator->sometimes(
+            [
+                'score_a',
+                'score_b',
+            ],
+            'required',
+            fn($input) =>
+            $input->action
+                ===
+                'SUBMIT_MATCH_RESULT'
+        );
+
+        $validator->sometimes(
+            'node_id',
+            'required',
+            fn($input) =>
+            $input->action
+                ===
+                'SIMULATE_ROUND'
+        );
     }
 }

@@ -4,6 +4,7 @@ namespace App\Services\Tournaments\CompetitionLab;
 
 use App\Models\TournamentTemplate;
 use App\Models\User;
+use App\Services\Tournaments\CompetitionLab\Engines\LabPhaseEngineManager;
 use Illuminate\Validation\ValidationException;
 
 class CompetitionLabService
@@ -13,7 +14,10 @@ class CompetitionLabService
         LabStateFactory $stateFactory,
 
         private readonly
-        LabStateTokenService $tokenService
+        LabStateTokenService $tokenService,
+
+        private readonly
+        LabPhaseEngineManager $engineManager
     ) {}
 
     public function initialize(
@@ -38,7 +42,8 @@ class CompetitionLabService
         TournamentTemplate $template,
         User $user,
         string $token,
-        string $action
+        string $action,
+        array $payload = []
     ): array {
         $state =
             $this->tokenService
@@ -73,6 +78,30 @@ class CompetitionLabService
                 $this->reset(
                     $state
                 ),
+                'PREPARE_NODE' =>
+                $this->prepareNode(
+                    $state,
+                    $template,
+                    $payload
+                ),
+
+                'SUBMIT_MATCH_RESULT' =>
+                $this->submitResult(
+                    $state,
+                    $payload
+                ),
+
+                'SIMULATE_MATCH' =>
+                $this->simulateMatch(
+                    $state,
+                    $payload
+                ),
+
+                'SIMULATE_ROUND' =>
+                $this->simulateRound(
+                    $state,
+                    $payload
+                ),
 
                 default =>
                 $this->fail(
@@ -84,6 +113,7 @@ class CompetitionLabService
             $state
         );
     }
+
 
     private function start(
         array $state
@@ -219,6 +249,9 @@ class CompetitionLabService
 
             $node['participant_ids'] =
                 [];
+            unset(
+                $node['runtime']
+            );
 
             foreach (
                 $node['entry_ports']
@@ -303,6 +336,598 @@ class CompetitionLabService
         ) {
             $this->fail(
                 'El estado temporal pertenece a otra plantilla.'
+            );
+        }
+    }
+
+    private function prepareNode(
+        array $state,
+        TournamentTemplate $template,
+        array $payload
+    ): array {
+        $this->requireRunning(
+            $state
+        );
+
+        $nodeId =
+            (int)
+            (
+                $payload['node_id']
+                ??
+                0
+            );
+
+        $participantIds =
+            array_values(
+                $payload['participant_ids']
+                    ??
+                    []
+            );
+
+        if (
+            ! isset(
+                $state['nodes'][$nodeId]
+            )
+        ) {
+            $this->fail(
+                'El nodo solicitado no pertenece al Lab.'
+            );
+        }
+
+        $node =
+            $template
+            ->graphNodes()
+            ->with([
+                'phaseTemplate.singleEliminationSetting',
+                'phaseTemplate.singleEliminationRoundRules',
+                'phaseTemplate.roundRobinSetting',
+                'phaseTemplate.roundRobinTiebreakers',
+            ])
+            ->find(
+                $nodeId
+            );
+
+        if (
+            ! $node
+            ||
+            ! $node->phaseTemplate
+        ) {
+            $this->fail(
+                'El nodo no tiene una fase válida.'
+            );
+        }
+
+        if (
+            isset(
+                $state['nodes'][$nodeId]['runtime']
+            )
+        ) {
+            $this->fail(
+                'El nodo ya fue preparado. Reinicia el Lab para prepararlo nuevamente.'
+            );
+        }
+
+        foreach (
+            $participantIds
+            as
+            $participantId
+        ) {
+            if (
+                ! isset(
+                    $state['participants'][$participantId]
+                )
+            ) {
+                $this->fail(
+                    "El participante {$participantId} no pertenece al Lab."
+                );
+            }
+        }
+
+        $runtime =
+            $this->engineManager
+            ->prepare(
+                $node->phaseTemplate,
+                $participantIds,
+                $state['participants']
+            );
+
+        $state['nodes'][$nodeId]['runtime'] =
+            $runtime;
+
+        $state['nodes'][$nodeId]['participant_ids'] =
+            $participantIds;
+
+        $state['nodes'][$nodeId]['status'] =
+            $runtime['status'];
+
+        foreach (
+            $participantIds
+            as
+            $participantId
+        ) {
+            $location = [
+                'type' =>
+                'NODE',
+
+                'id' =>
+                $nodeId,
+
+                'code' =>
+                $node->code,
+
+                'name' =>
+                $node->name,
+            ];
+
+            $state['participants'][$participantId]['status'] =
+                'COMPETING';
+
+            $state['participants'][$participantId]['current_location'] =
+                $location;
+
+            $state['participants'][$participantId]['journey'][] =
+                $location;
+        }
+
+        $this->syncSummary(
+            $state
+        );
+
+        $this->addEvent(
+            $state,
+            'NODE_PREPARED',
+            'SUCCESS',
+            $node->name
+                .
+                ' fue preparado con '
+                .
+                count($participantIds)
+                .
+                ' participantes.'
+        );
+
+        return $state;
+    }
+
+    private function submitResult(
+        array $state,
+        array $payload
+    ): array {
+        $this->requireRunning(
+            $state
+        );
+
+        return $this->applyResult(
+            $state,
+            (int)
+            ($payload['node_id'] ?? 0),
+            (string)
+            ($payload['match_id'] ?? ''),
+            (int)
+            ($payload['score_a'] ?? 0),
+            (int)
+            ($payload['score_b'] ?? 0)
+        );
+    }
+
+    private function simulateMatch(
+        array $state,
+        array $payload
+    ): array {
+        $this->requireRunning(
+            $state
+        );
+
+        $nodeId =
+            (int)
+            ($payload['node_id'] ?? 0);
+
+        $runtime =
+            $state['nodes'][$nodeId]['runtime']
+            ??
+            null;
+
+        if (! $runtime) {
+            $this->fail(
+                'Primero debes preparar el nodo.'
+            );
+        }
+
+        [
+            $scoreA,
+            $scoreB,
+        ] = $this->randomScore(
+            $runtime
+        );
+
+        return $this->applyResult(
+            $state,
+            $nodeId,
+            (string)
+            ($payload['match_id'] ?? ''),
+            $scoreA,
+            $scoreB
+        );
+    }
+
+    private function simulateRound(
+        array $state,
+        array $payload
+    ): array {
+        $this->requireRunning(
+            $state
+        );
+
+        $nodeId =
+            (int)
+            ($payload['node_id'] ?? 0);
+
+        $runtime =
+            $state['nodes'][$nodeId]['runtime']
+            ??
+            null;
+
+        if (! $runtime) {
+            $this->fail(
+                'Primero debes preparar el nodo.'
+            );
+        }
+
+        $round =
+            collect(
+                $runtime['rounds']
+            )
+            ->first(
+                fn($round) =>
+                collect(
+                    $round['matches']
+                )
+                    ->contains(
+                        fn($match) =>
+                        $match['status']
+                            ===
+                            'PENDING'
+                            &&
+                            $match['participant_a_id']
+                            &&
+                            $match['participant_b_id']
+                    )
+            );
+
+        if (! $round) {
+            $this->fail(
+                'El nodo no tiene encuentros pendientes.'
+            );
+        }
+
+        foreach (
+            $round['matches']
+            as
+            $match
+        ) {
+            if (
+                $match['status']
+                !==
+                'PENDING'
+                ||
+                ! $match['participant_a_id']
+                ||
+                ! $match['participant_b_id']
+            ) {
+                continue;
+            }
+
+            [
+                $scoreA,
+                $scoreB,
+            ] = $this->randomScore(
+                $state['nodes'][$nodeId]['runtime']
+            );
+
+            $state =
+                $this->applyResult(
+                    $state,
+                    $nodeId,
+                    $match['id'],
+                    $scoreA,
+                    $scoreB,
+                    false
+                );
+        }
+
+        $this->addEvent(
+            $state,
+            'ROUND_SIMULATED',
+            'INFO',
+            'Se simuló una ronda del nodo '
+                .
+                $state['nodes'][$nodeId]['name']
+                .
+                '.'
+        );
+
+        return $state;
+    }
+
+    private function applyResult(
+        array $state,
+        int $nodeId,
+        string $matchId,
+        int $scoreA,
+        int $scoreB,
+        bool $registerEvent = true
+    ): array {
+        $runtime =
+            $state['nodes'][$nodeId]['runtime']
+            ??
+            null;
+
+        if (! $runtime) {
+            $this->fail(
+                'Primero debes preparar el nodo.'
+            );
+        }
+
+        $runtime =
+            $this->engineManager
+            ->submit(
+                $state['nodes'][$nodeId]['phase_type'],
+                $runtime,
+                $matchId,
+                $scoreA,
+                $scoreB
+            );
+
+        $state['nodes'][$nodeId]['runtime'] =
+            $runtime;
+
+        $state['nodes'][$nodeId]['status'] =
+            $runtime['status'];
+
+        $this->syncParticipantStatistics(
+            $state,
+            $nodeId
+        );
+
+        if (
+            $runtime['status']
+            ===
+            'COMPLETED'
+        ) {
+            $this->completeNodeParticipants(
+                $state,
+                $nodeId
+            );
+        }
+
+        $this->syncSummary(
+            $state
+        );
+
+        if ($registerEvent) {
+            $this->addEvent(
+                $state,
+                'MATCH_COMPLETED',
+                'SUCCESS',
+                "Resultado {$scoreA}-{$scoreB} registrado en {$matchId}."
+            );
+        }
+
+        return $state;
+    }
+
+    private function syncParticipantStatistics(
+        array &$state,
+        int $nodeId
+    ): void {
+        $runtime =
+            $state['nodes'][$nodeId]['runtime'];
+
+        if (
+            $runtime['engine']
+            ===
+            'ROUND_ROBIN'
+        ) {
+            foreach (
+                $runtime['standings']
+                as
+                $row
+            ) {
+                $state['participants'][$row['participant_id']]['statistics'] = [
+                    'matches' =>
+                    $row['played'],
+
+                    'wins' =>
+                    $row['wins'],
+
+                    'draws' =>
+                    $row['draws'],
+
+                    'losses' =>
+                    $row['losses'],
+
+                    'points' =>
+                    $row['points'],
+                ];
+            }
+
+            return;
+        }
+
+        $statistics =
+            [];
+
+        foreach (
+            $runtime['rounds']
+            as
+            $round
+        ) {
+            foreach (
+                $round['matches']
+                as
+                $match
+            ) {
+                if (
+                    $match['status']
+                    !==
+                    'COMPLETED'
+                ) {
+                    continue;
+                }
+
+                foreach (
+                    [
+                        $match['participant_a_id'],
+                        $match['participant_b_id'],
+                    ]
+                    as
+                    $participantId
+                ) {
+                    $statistics[$participantId] ??= [
+                        'matches' => 0,
+                        'wins' => 0,
+                        'draws' => 0,
+                        'losses' => 0,
+                        'points' => 0,
+                    ];
+                }
+
+                $statistics[$match['participant_a_id']]['matches']++;
+
+                $statistics[$match['participant_b_id']]['matches']++;
+
+                $statistics[$match['winner_id']]['wins']++;
+
+                $statistics[$match['loser_id']]['losses']++;
+            }
+        }
+
+        foreach (
+            $statistics
+            as
+            $participantId =>
+            $values
+        ) {
+            $state['participants'][$participantId]['statistics'] =
+                $values;
+        }
+    }
+
+    private function completeNodeParticipants(
+        array &$state,
+        int $nodeId
+    ): void {
+        $runtime =
+            $state['nodes'][$nodeId]['runtime'];
+
+        foreach (
+            $state['nodes'][$nodeId]['participant_ids']
+            as
+            $participantId
+        ) {
+            $state['participants'][$participantId]['status'] =
+                in_array(
+                    $participantId,
+                    $runtime['survivor_ids'],
+                    true
+                )
+                ? 'QUALIFIED'
+                : 'ELIMINATED';
+        }
+    }
+
+    private function randomScore(
+        array $runtime
+    ): array {
+        $scoreA =
+            random_int(
+                0,
+                5
+            );
+
+        $scoreB =
+            random_int(
+                0,
+                5
+            );
+
+        if (
+            $runtime['engine']
+            ===
+            'SINGLE_ELIMINATION'
+            ||
+            ! (
+                $runtime['allow_draws']
+                ??
+                false
+            )
+        ) {
+            while (
+                $scoreA
+                ===
+                $scoreB
+            ) {
+                $scoreB =
+                    random_int(
+                        0,
+                        5
+                    );
+            }
+        }
+
+        return [
+            $scoreA,
+            $scoreB,
+        ];
+    }
+
+    private function syncSummary(
+        array &$state
+    ): void {
+        $runtimes =
+            collect(
+                $state['nodes']
+            )
+            ->pluck(
+                'runtime'
+            )
+            ->filter();
+
+        $state['summary']['matches'] =
+            $runtimes
+            ->sum(
+                fn($runtime) =>
+                $runtime['matches_total']
+            );
+
+        $state['summary']['completed_matches'] =
+            $runtimes
+            ->sum(
+                fn($runtime) =>
+                $runtime['matches_completed']
+            );
+
+        $state['summary']['completed_nodes'] =
+            $runtimes
+            ->filter(
+                fn($runtime) =>
+                $runtime['status']
+                    ===
+                    'COMPLETED'
+            )
+            ->count();
+    }
+
+    private function requireRunning(
+        array $state
+    ): void {
+        if (
+            ($state['status'] ?? null)
+            !==
+            'RUNNING'
+        ) {
+            $this->fail(
+                'El Lab debe estar en ejecución para utilizar los motores.'
             );
         }
     }
