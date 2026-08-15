@@ -4,6 +4,7 @@ namespace App\Http\Requests\Tournaments;
 
 use App\Models\PhaseSingleEliminationRoundRule;
 use App\Models\PhaseTemplate;
+use App\Services\Tournaments\SingleElimination\SingleEliminationRoundAvailabilityService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -61,21 +62,73 @@ class StoreSingleEliminationRoundRuleRequest extends FormRequest
                 'roundRule'
             );
 
+        $settings =
+            $phaseTemplate
+            ?->singleEliminationSetting;
+
+        $possibleRoundSizes =
+            $phaseTemplate
+            &&
+            $settings
+            ? app(
+                SingleEliminationRoundAvailabilityService::class
+            )
+            ->possibleRoundSizes(
+                $phaseTemplate,
+                $settings
+            )
+            : [];
+
         return [
             'participants_in_round' => [
                 'required',
 
-                Rule::in([
-                    2,
-                    4,
-                    8,
-                    16,
-                    32,
-                    64,
-                    128,
-                    256,
-                    512,
-                ]),
+                function (
+                    string $attribute,
+                    mixed $value,
+                    \Closure $fail
+                ) use (
+                    $phaseTemplate,
+                    $possibleRoundSizes
+                ) {
+                    $roundSize =
+                        (int)
+                        $value;
+
+                    if (
+                        in_array(
+                            $roundSize,
+                            $possibleRoundSizes,
+                            true
+                        )
+                    ) {
+                        return;
+                    }
+
+                    $contract =
+                        $phaseTemplate
+                        ?->exact_participants
+                        !==
+                        null
+                        ? 'exactamente '
+                        .
+                        $phaseTemplate->exact_participants
+                        .
+                        ' participantes'
+                        : 'el contrato actual de participantes';
+
+                    $fail(
+                        'La ronda de '
+                            .
+                            $roundSize
+                            .
+                            ' participantes no puede existir con '
+                            .
+                            $contract
+                            .
+                            ' y el objetivo configurado.'
+                    );
+                },
 
                 Rule::unique(
                     'phase_single_elimination_round_rules',
@@ -150,9 +203,6 @@ class StoreSingleEliminationRoundRuleRequest extends FormRequest
         return [
             'participants_in_round.unique' =>
             'Ya existe una configuración especial para esa ronda.',
-
-            'participants_in_round.in' =>
-            'Selecciona un tamaño de ronda válido.',
 
             'best_of.in' =>
             'El Best of debe ser 1, 3, 5, 7 o 9.',

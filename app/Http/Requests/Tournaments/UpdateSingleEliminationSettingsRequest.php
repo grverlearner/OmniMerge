@@ -260,16 +260,25 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
                 |--------------------------------------------------------------------------
                 */
 
+                $effectiveParticipants =
+                    $phaseTemplate->exact_participants
+                    ??
+                    $phaseTemplate->min_participants;
+
                 if (
                     $target
                     >=
-                    $phaseTemplate->min_participants
+                    $effectiveParticipants
                 ) {
                     $validator
                         ->errors()
                         ->add(
                             'target_survivors',
-                            'El objetivo debe ser menor que la cantidad mínima de participantes de la Fase.'
+                            'El objetivo debe ser menor que la cantidad efectiva de entrada de la Fase: '
+                                .
+                                $effectiveParticipants
+                                .
+                                '.'
                         );
                 }
             }

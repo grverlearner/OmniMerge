@@ -329,6 +329,16 @@ Route::middleware('auth')->group(function () {
                     'single-elimination.update'
                 );
 
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/preview',
+                    [
+                        SingleEliminationController::class,
+                        'preview',
+                    ]
+                )->name(
+                    'single-elimination.preview'
+                );
+
                 /*
                 |--------------------------------------------------------------------------
                 | Reglas por ronda

@@ -67,7 +67,7 @@
 
     <div class="border-b border-slate-100 p-5">
         <form method="GET" action="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
-            class="flex flex-col gap-3 sm:flex-row">
+            @submit.prevent="schedulePreview(0)" class="flex flex-col gap-3 sm:flex-row">
             <div class="flex-1">
                 <div class="flex items-center gap-2">
                     <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
@@ -80,13 +80,20 @@
                 </div>
 
                 <input type="number" name="participants" min="2" max="512"
-                    value="{{ $previewParticipants }}"
+                    value="{{ $previewParticipants }}" data-preview-participants
+                    @input.debounce.400ms="schedulePreview(0)"
                     class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
             </div>
 
-            <button type="submit"
+            <button type="submit" :disabled="previewLoading"
                 class="self-end rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600">
-                Actualizar vista
+                <span x-show="! previewLoading">
+                    Actualizar vista
+                </span>
+
+                <span x-show="previewLoading">
+                    Actualizando...
+                </span>
             </button>
         </form>
 

@@ -2,12 +2,6 @@ export default function singleEliminationWorkspace(
     configuration = {}
 ) {
     return {
-        /*
-        |--------------------------------------------------------------------------
-        | Estado
-        |--------------------------------------------------------------------------
-        */
-
         view:
             configuration.initialView
             || 'summary',
@@ -20,24 +14,34 @@ export default function singleEliminationWorkspace(
         submitting:
             false,
 
+        previewLoading:
+            false,
+
+        previewError:
+            '',
+
+        previewMessage:
+            '',
+
+        previewUrl:
+            configuration.previewUrl
+            || '',
+
+        previewTimer:
+            null,
+
+        previewController:
+            null,
+
         initialSnapshot:
             '',
 
         sections: {
-            completion:
-                true,
-
-            distribution:
-                true,
-
-            byes:
-                false,
-
-            series:
-                false,
-
-            reseed:
-                false,
+            completion: true,
+            distribution: true,
+            byes: false,
+            series: false,
+            reseed: false,
         },
 
         draft: {
@@ -63,14 +67,15 @@ export default function singleEliminationWorkspace(
                 configuration.byeAssignment
                 || 'TOP_SEEDS',
 
+            seriesFormat:
+                configuration.seriesFormat
+                || 'BEST_OF',
+
             defaultBestOf:
                 Number(
                     configuration.defaultBestOf
                     || 1
                 ),
-            seriesFormat:
-                configuration.seriesFormat
-                || 'BEST_OF',
 
             fixedGames:
                 Number(
@@ -86,12 +91,6 @@ export default function singleEliminationWorkspace(
 
         beforeUnloadHandler:
             null,
-
-        /*
-        |--------------------------------------------------------------------------
-        | Inicializar
-        |--------------------------------------------------------------------------
-        */
 
         init() {
             this.$nextTick(
@@ -121,9 +120,7 @@ export default function singleEliminationWorkspace(
                     }
 
                     event.preventDefault();
-
-                    event.returnValue =
-                        '';
+                    event.returnValue = '';
                 };
 
             window.addEventListener(
@@ -132,40 +129,24 @@ export default function singleEliminationWorkspace(
             );
         },
 
-        /*
-        |--------------------------------------------------------------------------
-        | Obtener formulario
-        |--------------------------------------------------------------------------
-        */
-
         settingsForm() {
             return this.$refs
                 .settingsForm
                 || null;
         },
 
-        /*
-        |--------------------------------------------------------------------------
-        | Snapshot
-        |--------------------------------------------------------------------------
-        */
-
         formSnapshot() {
             const form =
                 this.settingsForm();
 
-            if (
-                !form
-            ) {
+            if (!form) {
                 return '';
             }
 
             const entries =
                 Array
                     .from(
-                        new FormData(
-                            form
-                        )
+                        new FormData(form)
                             .entries()
                     )
                     .filter(
@@ -174,9 +155,7 @@ export default function singleEliminationWorkspace(
                                 '_token',
                                 '_method',
                             ]
-                                .includes(
-                                    key
-                                )
+                                .includes(key)
                     )
                     .map(
                         ([key, value]) => [
@@ -197,12 +176,6 @@ export default function singleEliminationWorkspace(
             );
         },
 
-        /*
-        |--------------------------------------------------------------------------
-        | Detectar modificaciones
-        |--------------------------------------------------------------------------
-        */
-
         markSettingsDirty() {
             this.syncDraft();
 
@@ -210,32 +183,25 @@ export default function singleEliminationWorkspace(
                 this.formSnapshot()
                 !==
                 this.initialSnapshot;
-        },
 
-        /*
-        |--------------------------------------------------------------------------
-        | Sincronizar resumen temporal
-        |--------------------------------------------------------------------------
-        */
+            this.schedulePreview();
+        },
 
         syncDraft() {
             const form =
                 this.settingsForm();
 
-            if (
-                !form
-            ) {
+            if (!form) {
                 return;
             }
 
             const fieldValue =
                 (name, fallback = '') =>
                     form.elements
-                        .namedItem(
-                            name
-                        )
+                        .namedItem(name)
                         ?.value
-                    ?? fallback;
+                    ??
+                    fallback;
 
             this.draft.completionMode =
                 fieldValue(
@@ -269,17 +235,18 @@ export default function singleEliminationWorkspace(
                     'TOP_SEEDS'
                 );
 
+            this.draft.seriesFormat =
+                fieldValue(
+                    'series_format',
+                    'BEST_OF'
+                );
+
             this.draft.defaultBestOf =
                 Number(
                     fieldValue(
                         'default_best_of',
                         1
                     )
-                );
-            this.draft.seriesFormat =
-                fieldValue(
-                    'series_format',
-                    'BEST_OF'
                 );
 
             this.draft.fixedGames =
@@ -304,12 +271,6 @@ export default function singleEliminationWorkspace(
                 );
         },
 
-        /*
-        |--------------------------------------------------------------------------
-        | Guardar
-        |--------------------------------------------------------------------------
-        */
-
         submitSettings() {
             const form =
                 this.settingsForm();
@@ -322,26 +283,13 @@ export default function singleEliminationWorkspace(
                 return;
             }
 
-            if (
-                !form.reportValidity()
-            ) {
-                this.submitting =
-                    false;
-
+            if (!form.reportValidity()) {
                 return;
             }
 
-            this.submitting =
-                true;
-
+            this.submitting = true;
             form.requestSubmit();
         },
-
-        /*
-        |--------------------------------------------------------------------------
-        | Descartar
-        |--------------------------------------------------------------------------
-        */
 
         discardSettings() {
             const form =
@@ -367,8 +315,7 @@ export default function singleEliminationWorkspace(
                             new Event(
                                 'change',
                                 {
-                                    bubbles:
-                                        true,
+                                    bubbles: true,
                                 }
                             )
                         );
@@ -378,18 +325,224 @@ export default function singleEliminationWorkspace(
             this.$nextTick(
                 () => {
                     this.syncDraft();
-
-                    this.dirty =
-                        false;
+                    this.dirty = false;
+                    this.schedulePreview(0);
                 }
             );
         },
 
-        /*
-        |--------------------------------------------------------------------------
-        | Vistas
-        |--------------------------------------------------------------------------
-        */
+        schedulePreview(delay = 400) {
+            if (!this.previewUrl) {
+                return;
+            }
+
+            window.clearTimeout(
+                this.previewTimer
+            );
+
+            this.previewTimer =
+                window.setTimeout(
+                    () =>
+                        this.refreshPreview(),
+                    delay
+                );
+        },
+
+        async refreshPreview() {
+            const form =
+                this.settingsForm();
+
+            if (
+                !form
+                ||
+                !this.previewUrl
+            ) {
+                return;
+            }
+
+            this.previewController
+                ?.abort();
+
+            this.previewController =
+                new AbortController();
+
+            const payload =
+                new FormData(form);
+
+            payload.delete('_method');
+
+            if (
+                !payload.has(
+                    'reseed_each_round'
+                )
+            ) {
+                payload.set(
+                    'reseed_each_round',
+                    '0'
+                );
+            }
+
+            payload.set(
+                'participants',
+                String(
+                    this.previewParticipantCount()
+                )
+            );
+
+            this.previewLoading = true;
+            this.previewError = '';
+            this.previewMessage =
+                'Actualizando vista previa...';
+
+            try {
+                const response =
+                    await fetch(
+                        this.previewUrl,
+                        {
+                            method:
+                                'POST',
+
+                            headers: {
+                                Accept:
+                                    'application/json',
+
+                                'X-CSRF-TOKEN':
+                                    document
+                                        .querySelector(
+                                            'meta[name="csrf-token"]'
+                                        )
+                                        ?.content
+                                    ||
+                                    '',
+                            },
+
+                            body:
+                                payload,
+
+                            signal:
+                                this.previewController
+                                    .signal,
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        this.firstValidationMessage(
+                            data
+                        )
+                    );
+                }
+
+                const container =
+                    this.$refs
+                        .previewContainer;
+
+                if (
+                    container
+                    &&
+                    typeof data.html
+                    ===
+                    'string'
+                ) {
+                    container.innerHTML =
+                        data.html;
+
+                    window.Alpine
+                        ?.initTree(
+                            container
+                        );
+                }
+
+                const diagnosticContainer =
+                    this.$refs
+                        .diagnosticContainer;
+
+                if (
+                    diagnosticContainer
+                    &&
+                    typeof data.diagnostic_html
+                    ===
+                    'string'
+                ) {
+                    diagnosticContainer.innerHTML =
+                        data.diagnostic_html;
+                }
+
+                this.previewMessage =
+                    data.valid
+                        ? 'Vista previa actualizada.'
+                        : 'La configuración necesita revisión.';
+            } catch (error) {
+                if (
+                    error.name
+                    ===
+                    'AbortError'
+                ) {
+                    return;
+                }
+
+                this.previewError =
+                    error.message
+                    ||
+                    'No se pudo actualizar la vista previa.';
+
+                this.previewMessage = '';
+            } finally {
+                this.previewLoading =
+                    false;
+            }
+        },
+
+        previewParticipantCount() {
+            const input =
+                this.$refs
+                    .previewContainer
+                    ?.querySelector(
+                        '[data-preview-participants]'
+                    );
+
+            const value =
+                Number(
+                    input?.value
+                    ||
+                    configuration.previewParticipants
+                    ||
+                    2
+                );
+
+            return Math.min(
+                512,
+                Math.max(
+                    2,
+                    value
+                )
+            );
+        },
+
+        firstValidationMessage(data) {
+            const errors =
+                data?.errors
+                ||
+                {};
+
+            const firstGroup =
+                Object.values(errors)[0];
+
+            if (
+                Array.isArray(firstGroup)
+                &&
+                firstGroup.length > 0
+            ) {
+                return firstGroup[0];
+            }
+
+            return data?.message
+                ||
+                'Revisa los datos de la configuración.';
+        },
 
         setView(view) {
             if (
@@ -398,22 +551,13 @@ export default function singleEliminationWorkspace(
                     'blocks',
                     'table',
                 ]
-                    .includes(
-                        view
-                    )
+                    .includes(view)
             ) {
                 return;
             }
 
-            this.view =
-                view;
+            this.view = view;
         },
-
-        /*
-        |--------------------------------------------------------------------------
-        | Secciones
-        |--------------------------------------------------------------------------
-        */
 
         toggleSection(section) {
             if (
@@ -461,12 +605,6 @@ export default function singleEliminationWorkspace(
             );
         },
 
-        /*
-        |--------------------------------------------------------------------------
-        | Etiquetas temporales
-        |--------------------------------------------------------------------------
-        */
-
         completionLabel() {
             if (
                 this.draft.completionMode
@@ -495,7 +633,8 @@ export default function singleEliminationWorkspace(
             }[
                 this.draft.seedingMode
             ]
-                || this.draft.seedingMode;
+                ||
+                this.draft.seedingMode;
         },
 
         pairingLabel() {
@@ -511,7 +650,8 @@ export default function singleEliminationWorkspace(
             }[
                 this.draft.pairingMode
             ]
-                || this.draft.pairingMode;
+                ||
+                this.draft.pairingMode;
         },
 
         byeLabel() {
@@ -527,7 +667,8 @@ export default function singleEliminationWorkspace(
             }[
                 this.draft.byeAssignment
             ]
-                || this.draft.byeAssignment;
+                ||
+                this.draft.byeAssignment;
         },
 
         seriesLabel() {

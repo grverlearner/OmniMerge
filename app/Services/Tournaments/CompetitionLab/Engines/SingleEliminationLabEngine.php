@@ -4,6 +4,7 @@ namespace App\Services\Tournaments\CompetitionLab\Engines;
 
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\SingleElimination\SingleEliminationValidator;
+use App\Services\Tournaments\SingleElimination\SingleEliminationConfigurationInspector;
 use Illuminate\Validation\ValidationException;
 
 class SingleEliminationLabEngine
@@ -11,7 +12,10 @@ implements LabPhaseEngine
 {
     public function __construct(
         private readonly
-        SingleEliminationValidator $validator
+        SingleEliminationValidator $validator,
+
+        private readonly
+        SingleEliminationConfigurationInspector $inspector
     ) {}
 
     public function supports(
@@ -71,6 +75,23 @@ implements LabPhaseEngine
                 $phase,
                 $settings,
                 count($participantIds)
+            );
+
+        $diagnostic =
+            $this->inspector
+            ->inspect(
+                $phase,
+                $settings,
+                $phase->singleEliminationRoundRules,
+                count($participantIds)
+            );
+
+        $errors =
+            array_values(
+                array_unique([
+                    ...$errors,
+                    ...$diagnostic['errors'],
+                ])
             );
 
         if ($errors !== []) {

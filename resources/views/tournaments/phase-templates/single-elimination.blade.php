@@ -5,6 +5,8 @@
 
     <div x-data="singleEliminationWorkspace({
         initialView: 'summary',
+        previewUrl: @js(route('tournaments.single-elimination.preview', $phaseTemplate)),
+        previewParticipants: @js((int) $previewParticipants),
         hasErrors: @js($errors->any()),
         completionMode: @js(old('completion_mode', $settings->completion_mode)),
         targetSurvivors: @js((int) old('target_survivors', $settings->target_survivors)),
@@ -140,10 +142,28 @@
 
             <aside>
                 <div class="xl:sticky xl:top-24">
-                    @include('tournaments.phase-templates.partials.single-elimination-preview')
+                    <div class="mb-3 min-h-5">
+                        <p x-show="previewLoading" class="text-[11px] font-black text-amber-600"
+                            x-text="previewMessage"></p>
+
+                        <p x-show="! previewLoading && previewError"
+                            class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700"
+                            x-text="previewError"></p>
+
+                        <p x-show="! previewLoading && ! previewError && previewMessage"
+                            class="text-[11px] font-black text-emerald-600" x-text="previewMessage"></p>
+                    </div>
+
+                    <div x-ref="previewContainer">
+                        @include('tournaments.phase-templates.partials.single-elimination-preview')
+                    </div>
                 </div>
             </aside>
         </section>
+
+        <div x-ref="diagnosticContainer">
+            @include('tournaments.phase-templates.partials.single-elimination-diagnostic')
+        </div>
 
         {{-- OVERRIDES --}}
 
@@ -174,7 +194,18 @@
             <div class="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_420px]">
                 <div class="space-y-3">
                     @forelse ($roundRules as $roundRule)
-                        <article class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        @php
+                            $obsoleteRule = in_array((int) $roundRule->id, $diagnostic['obsolete_rule_ids'], true);
+
+                            $redundantRule = in_array((int) $roundRule->id, $diagnostic['redundant_rule_ids'], true);
+                        @endphp
+
+                        <article @class([
+                            'rounded-2xl border p-4',
+                            'border-red-300 bg-red-50' => $obsoleteRule,
+                            'border-amber-300 bg-amber-50' => !$obsoleteRule && $redundantRule,
+                            'border-slate-200 bg-slate-50' => !$obsoleteRule && !$redundantRule,
+                        ])>
                             <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                                 <div>
                                     <div class="flex flex-wrap items-center gap-2">
@@ -186,7 +217,29 @@
                                             class="rounded-full bg-violet-100 px-2 py-1 text-[9px] font-black uppercase text-violet-700">
                                             Override
                                         </span>
+                                        @if ($obsoleteRule)
+                                            <span
+                                                class="rounded-full bg-red-100 px-2 py-1 text-[9px] font-black uppercase text-red-700">
+                                                Obsoleto
+                                            </span>
+                                        @elseif ($redundantRule)
+                                            <span
+                                                class="rounded-full bg-amber-100 px-2 py-1 text-[9px] font-black uppercase text-amber-700">
+                                                Redundante
+                                            </span>
+                                        @endif
+                                        
+                                        @if ($obsoleteRule)
+                                            <p class="mt-2 text-xs font-bold leading-5 text-red-700">
+                                                Esta ronda no puede existir con el contrato y objetivo actuales.
+                                            </p>
+                                        @elseif ($redundantRule)
+                                            <p class="mt-2 text-xs font-bold leading-5 text-amber-700">
+                                                Utiliza el mismo formato que la configuración general.
+                                            </p>
+                                        @endif
                                     </div>
+
 
                                     <p class="mt-1 text-xs text-slate-500">
                                         {{ $roundRule->series_label }}
@@ -205,7 +258,7 @@
                                     action="{{ route('tournaments.single-elimination.round-rules.destroy', [$phaseTemplate, $roundRule]) }}"
                                     data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
                                     data-confirm-title="Eliminar override"
-                                    data-confirm-message="Esta ronda volverá a utilizar el formato de serie predeterminado.""
+                                    data-confirm-message="Esta ronda volverá a utilizar el formato de serie predeterminado."
                                     data-confirm-subject="{{ $roundRule->round_label }}"
                                     data-confirm-action="Eliminar override">
                                     @csrf
