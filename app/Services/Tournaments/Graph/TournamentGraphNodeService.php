@@ -5,10 +5,15 @@ namespace App\Services\Tournaments\Graph;
 use App\Models\PhaseTemplate;
 use App\Models\TournamentPhaseNode;
 use App\Models\TournamentTemplate;
+use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationEntryPortSynchronizer;
 use Illuminate\Support\Facades\DB;
 
 class TournamentGraphNodeService
 {
+    public function __construct(
+        private readonly
+        SingleEliminationEntryPortSynchronizer $entryPortSynchronizer
+    ) {}
     public function create(
         TournamentTemplate $tournamentTemplate,
         PhaseTemplate $phaseTemplate,
@@ -79,47 +84,63 @@ class TournamentGraphNodeService
                             'ACTIVE',
                     ]);
 
-
                 /*
                 |--------------------------------------------------------------------------
-                | Entrada principal
+                | Puertas de entrada contextuales
                 |--------------------------------------------------------------------------
                 |
-                | Todo Node comienza con un puerto principal.
-                | El usuario puede añadir entradas adicionales después.
+                | Si la plantilla ya tiene puertas de definición, se proyectan
+                | hacia el Node.
+                |
+                | Las plantillas antiguas conservan su Entrada principal.
                 |
                 */
 
-                $node
-                    ->entryPorts()
-                    ->create([
-                        'sequence_number' =>
-                        1,
+                if (
+                    $phaseTemplate
+                    ->inputGates()
+                    ->exists()
+                ) {
+                    $this
+                        ->entryPortSynchronizer
+                        ->syncNode(
+                            $node,
+                            $phaseTemplate
+                                ->inputGates()
+                                ->get()
+                        );
+                } else {
+                    $node
+                        ->entryPorts()
+                        ->create([
+                            'sequence_number' =>
+                            1,
 
-                        'code' =>
-                        'IN001',
+                            'code' =>
+                            'IN001',
 
-                        'name' =>
-                        'Entrada principal',
+                            'name' =>
+                            'Entrada principal',
 
-                        'description' =>
-                        'Entrada competitiva principal del Node.',
+                            'description' =>
+                            'Entrada competitiva principal del Node.',
 
-                        'merge_policy' =>
-                        'APPEND',
+                            'merge_policy' =>
+                            'APPEND',
 
-                        'is_required' =>
-                        true,
+                            'is_required' =>
+                            true,
 
-                        'accepts_multiple_connections' =>
-                        true,
+                            'accepts_multiple_connections' =>
+                            true,
 
-                        'sort_order' =>
-                        10,
+                            'sort_order' =>
+                            10,
 
-                        'status' =>
-                        'ACTIVE',
-                    ]);
+                            'status' =>
+                            'ACTIVE',
+                        ]);
+                }
 
 
                 return $node
@@ -244,6 +265,9 @@ class TournamentGraphNodeService
                     $copy
                         ->entryPorts()
                         ->create([
+                            'phase_input_gate_id' =>
+                            $entryPort
+                                ->phase_input_gate_id,
                             'sequence_number' =>
                             $entryPort
                                 ->sequence_number,

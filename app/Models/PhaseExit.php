@@ -23,6 +23,7 @@ class PhaseExit extends Model
         'description',
 
         'selector_type',
+        'resolution_mode',
 
         'exit_timing',
 
@@ -30,6 +31,9 @@ class PhaseExit extends Model
         'selector_to',
 
         'selector_round_size',
+        'min_participants',
+        'max_participants',
+        'exact_participants',
 
         'priority',
         'sort_order',
@@ -48,6 +52,14 @@ class PhaseExit extends Model
             'selector_to' => 'integer',
 
             'selector_round_size' => 'integer',
+            'min_participants' =>
+            'integer',
+
+            'max_participants' =>
+            'integer',
+
+            'exact_participants' =>
+            'integer',
 
             'priority' => 'integer',
             'sort_order' => 'integer',
@@ -74,6 +86,14 @@ class PhaseExit extends Model
         return $this->hasMany(
             TournamentPhaseConnection::class,
             'source_phase_exit_id'
+        );
+    }
+
+    public function incomingInternalConnections(): HasMany
+    {
+        return $this->hasMany(
+            PhaseSingleEliminationConnection::class,
+            'target_phase_exit_id'
         );
     }
 
@@ -277,5 +297,59 @@ class PhaseExit extends Model
             'la ronda de '
                 . $roundSize,
         };
+    }
+
+    public function getResolutionModeLabelAttribute(): string
+    {
+        return match ($this->resolution_mode) {
+            'SELECTOR' =>
+            'Selector del Engine',
+
+            'INTERNAL_GRAPH' =>
+            'Grafo interno',
+
+            default =>
+            $this->resolution_mode
+                ??
+                'Selector del Engine',
+        };
+    }
+
+    public function getContractLabelAttribute(): string
+    {
+        if (
+            $this->exact_participants
+            !==
+            null
+        ) {
+            return
+                $this->exact_participants
+                .
+                ' exactos';
+        }
+
+        if (
+            $this->min_participants === null
+            &&
+            $this->max_participants === null
+        ) {
+            return 'Flexible';
+        }
+
+        if (
+            $this->max_participants
+            ===
+            null
+        ) {
+            return ($this->min_participants ?? 0)
+                .
+                '+';
+        }
+
+        return ($this->min_participants ?? 0)
+            .
+            '–'
+            .
+            $this->max_participants;
     }
 }

@@ -107,8 +107,18 @@ class PhaseTemplateService
         array $data,
         ?UploadedFile $image = null
     ): PhaseTemplate {
-        $oldImage =
-            $phaseTemplate->image;
+        $oldImage = $phaseTemplate->image;
+
+        $structureContractBefore =
+            $phaseTemplate->only([
+                'phase_type',
+                'min_participants',
+                'max_participants',
+                'exact_participants',
+                'participant_multiple',
+                'allow_byes',
+                'best_of',
+            ]);
 
         $newImage = null;
 
@@ -157,11 +167,50 @@ class PhaseTemplateService
             DB::transaction(
                 function () use (
                     $phaseTemplate,
-                    $data
+                    $data,
+                    $structureContractBefore
                 ) {
                     $phaseTemplate->update(
                         $data
                     );
+
+                    $structureContractChanged =
+                        collect(
+                            $structureContractBefore
+                        )
+                        ->contains(
+                            fn($oldValue, $field) =>
+                            $phaseTemplate->{$field}
+                                !=
+                                $oldValue
+                        );
+
+                    if (
+                        $structureContractChanged
+                        &&
+                        $phaseTemplate->phase_type
+                        ===
+                        'SINGLE_ELIMINATION'
+                        &&
+                        $phaseTemplate
+                        ->singleEliminationSetting()
+                        ->where(
+                            'structure_version',
+                            '>',
+                            0
+                        )
+                        ->exists()
+                    ) {
+                        $phaseTemplate
+                            ->singleEliminationSetting()
+                            ->update([
+                                'structure_status' =>
+                                'STALE',
+
+                                'structure_validated_at' =>
+                                null,
+                            ]);
+                    }
 
                     /*
                     |--------------------------------------------------------------------------
@@ -324,6 +373,13 @@ class PhaseTemplateService
             'singleEliminationSetting',
             'singleEliminationRoundRules',
 
+            'inputGates',
+
+            'singleEliminationRounds.encounters.slots',
+            'singleEliminationRounds.encounters.results',
+
+            'singleEliminationConnections',
+
             'roundRobinSetting',
             'roundRobinTiebreakers',
 
@@ -461,6 +517,8 @@ class PhaseTemplateService
                                 'selector_type' =>
                                 $exit->selector_type,
 
+                                'resolution_mode' =>
+                                $exit->resolution_mode,
                                 'exit_timing' =>
                                 $exit->exit_timing,
 
@@ -472,6 +530,15 @@ class PhaseTemplateService
 
                                 'selector_round_size' =>
                                 $exit->selector_round_size,
+
+                                'min_participants' =>
+                                $exit->min_participants,
+
+                                'max_participants' =>
+                                $exit->max_participants,
+
+                                'exact_participants' =>
+                                $exit->exact_participants,
 
                                 'priority' =>
                                 $exit->priority,
@@ -555,6 +622,33 @@ class PhaseTemplateService
                                 'fixed_games' =>
                                 $sourceSettings->fixed_games,
 
+                                'structure_mode' =>
+                                $sourceSettings->structure_mode
+                                    ??
+                                    'AUTO',
+
+                                'structure_status' => (
+                                    (int)
+                                    $sourceSettings->structure_version
+                                    >
+                                    0
+                                )
+                                    ? 'STALE'
+                                    : 'NOT_GENERATED',
+
+                                'structure_version' =>
+                                (int)
+                                $sourceSettings->structure_version,
+
+                                'structure_fingerprint' =>
+                                null,
+
+                                'structure_generated_at' =>
+                                null,
+
+                                'structure_validated_at' =>
+                                null,
+
                                 'settings' =>
                                 $sourceSettings->settings,
                             ]);
@@ -600,6 +694,12 @@ class PhaseTemplateService
                                     $roundRule->settings,
                                 ]);
                         }
+
+                        $this->duplicateSingleEliminationStructure(
+                            $source,
+                            $copy,
+                            $exitIdMap
+                        );
                     }
 
                     /*
@@ -1243,6 +1343,540 @@ class PhaseTemplateService
                     'sequence_number'
                 )
         ) + 1;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Duplicar estructura interna de Eliminación Simple
+    |--------------------------------------------------------------------------
+    */
+
+    private function duplicateSingleEliminationStructure(
+        PhaseTemplate $source,
+        PhaseTemplate $copy,
+        array $exitIdMap
+    ): void {
+        $inputGateIdMap = [];
+        $roundIdMap = [];
+        $encounterIdMap = [];
+        $slotIdMap = [];
+        $resultIdMap = [];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Puertas
+        |--------------------------------------------------------------------------
+        */
+
+        foreach (
+            $source->inputGates
+            as
+            $inputGate
+        ) {
+            $newInputGate =
+                $copy
+                ->inputGates()
+                ->create([
+                    'sequence_number' =>
+                    $inputGate->sequence_number,
+
+                    'code' =>
+                    $inputGate->code,
+
+                    'name' =>
+                    $inputGate->name,
+
+                    'description' =>
+                    $inputGate->description,
+
+                    'input_type' =>
+                    $inputGate->input_type,
+
+                    'merge_policy' =>
+                    $inputGate->merge_policy,
+
+                    'distribution_mode' =>
+                    $inputGate
+                        ->distribution_mode,
+
+                    'empty_behavior' =>
+                    $inputGate->empty_behavior,
+
+                    'min_participants' =>
+                    $inputGate->min_participants,
+
+                    'max_participants' =>
+                    $inputGate->max_participants,
+
+                    'exact_participants' =>
+                    $inputGate->exact_participants,
+
+                    'is_required' =>
+                    $inputGate->is_required,
+
+                    'accepts_batch' =>
+                    $inputGate->accepts_batch,
+
+                    'accepts_multiple_connections' =>
+                    $inputGate
+                        ->accepts_multiple_connections,
+
+                    'priority' =>
+                    $inputGate->priority,
+
+                    'sort_order' =>
+                    $inputGate->sort_order,
+
+                    'status' =>
+                    $inputGate->status,
+
+                    'generation_source' =>
+                    $inputGate->generation_source,
+
+                    'is_locked' =>
+                    $inputGate->is_locked,
+
+                    'settings' =>
+                    $inputGate->settings,
+                ]);
+
+            $inputGateIdMap[$inputGate->id] =
+                $newInputGate->id;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Rondas, encuentros, slots y resultados
+        |--------------------------------------------------------------------------
+        */
+
+        foreach (
+            $source->singleEliminationRounds
+            as
+            $round
+        ) {
+            $newRound =
+                $copy
+                ->singleEliminationRounds()
+                ->create([
+                    'sequence_number' =>
+                    $round->sequence_number,
+
+                    'code' =>
+                    $round->code,
+
+                    'name' =>
+                    $round->name,
+
+                    'description' =>
+                    $round->description,
+
+                    'stage_number' =>
+                    $round->stage_number,
+
+                    'branch_code' =>
+                    $round->branch_code,
+
+                    'round_type' =>
+                    $round->round_type,
+
+                    'participants_expected' =>
+                    $round->participants_expected,
+
+                    'qualifiers_expected' =>
+                    $round->qualifiers_expected,
+
+                    'sort_order' =>
+                    $round->sort_order,
+
+                    'status' =>
+                    $round->status,
+
+                    'generation_source' =>
+                    $round->generation_source,
+
+                    'is_locked' =>
+                    $round->is_locked,
+
+                    'settings' =>
+                    $round->settings,
+                ]);
+
+            $roundIdMap[$round->id] =
+                $newRound->id;
+
+            foreach (
+                $round->encounters
+                as
+                $encounter
+            ) {
+                $newEncounter =
+                    $newRound
+                    ->encounters()
+                    ->create([
+                        'phase_template_id' =>
+                        $copy->id,
+
+                        'sequence_number' =>
+                        $encounter->sequence_number,
+
+                        'code' =>
+                        $encounter->code,
+
+                        'name' =>
+                        $encounter->name,
+
+                        'description' =>
+                        $encounter->description,
+
+                        'position' =>
+                        $encounter->position,
+
+                        'entrants_count' =>
+                        $encounter->entrants_count,
+
+                        'qualifiers_count' =>
+                        $encounter->qualifiers_count,
+
+                        'min_entrants_to_start' =>
+                        $encounter
+                            ->min_entrants_to_start,
+
+                        'encounter_profile' =>
+                        $encounter
+                            ->encounter_profile,
+
+                        'activation_policy' =>
+                        $encounter
+                            ->activation_policy,
+
+                        'allows_incomplete' =>
+                        $encounter
+                            ->allows_incomplete,
+
+                        'series_format' =>
+                        $encounter->series_format,
+
+                        'best_of' =>
+                        $encounter->best_of,
+
+                        'fixed_games' =>
+                        $encounter->fixed_games,
+
+                        'sort_order' =>
+                        $encounter->sort_order,
+
+                        'status' =>
+                        $encounter->status,
+
+                        'generation_source' =>
+                        $encounter
+                            ->generation_source,
+
+                        'is_locked' =>
+                        $encounter->is_locked,
+
+                        'settings' =>
+                        $encounter->settings,
+                    ]);
+
+                $encounterIdMap[$encounter->id] =
+                    $newEncounter->id;
+
+                foreach (
+                    $encounter->slots
+                    as
+                    $slot
+                ) {
+                    $newSlot =
+                        $newEncounter
+                        ->slots()
+                        ->create([
+                            'code' =>
+                            $slot->code,
+
+                            'position' =>
+                            $slot->position,
+
+                            'slot_type' =>
+                            $slot->slot_type,
+
+                            'capacity' =>
+                            $slot->capacity,
+
+                            'is_required' =>
+                            $slot->is_required,
+
+                            'source_policy' =>
+                            $slot->source_policy,
+
+                            'empty_behavior' =>
+                            $slot->empty_behavior,
+
+                            'assignment_rule' =>
+                            $slot->assignment_rule,
+
+                            'sort_order' =>
+                            $slot->sort_order,
+
+                            'status' =>
+                            $slot->status,
+
+                            'generation_source' =>
+                            $slot->generation_source,
+
+                            'is_locked' =>
+                            $slot->is_locked,
+
+                            'settings' =>
+                            $slot->settings,
+                        ]);
+
+                    $slotIdMap[$slot->id] =
+                        $newSlot->id;
+                }
+
+                foreach (
+                    $encounter->results
+                    as
+                    $result
+                ) {
+                    $newResult =
+                        $newEncounter
+                        ->results()
+                        ->create([
+                            'sequence_number' =>
+                            $result
+                                ->sequence_number,
+
+                            'code' =>
+                            $result->code,
+
+                            'name' =>
+                            $result->name,
+
+                            'description' =>
+                            $result->description,
+
+                            'result_type' =>
+                            $result->result_type,
+
+                            'position_from' =>
+                            $result->position_from,
+
+                            'position_to' =>
+                            $result->position_to,
+
+                            'quantity' =>
+                            $result->quantity,
+
+                            'flow_mode' =>
+                            $result->flow_mode,
+
+                            'participant_status' =>
+                            $result
+                                ->participant_status,
+
+                            'is_required' =>
+                            $result->is_required,
+
+                            'is_splittable' =>
+                            $result->is_splittable,
+
+                            'accepts_multiple_connections' =>
+                            $result
+                                ->accepts_multiple_connections,
+
+                            'priority' =>
+                            $result->priority,
+
+                            'sort_order' =>
+                            $result->sort_order,
+
+                            'status' =>
+                            $result->status,
+
+                            'generation_source' =>
+                            $result->generation_source,
+
+                            'is_locked' =>
+                            $result->is_locked,
+
+                            'settings' =>
+                            $result->settings,
+                        ]);
+
+                    $resultIdMap[$result->id] =
+                        $newResult->id;
+                }
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Conexiones remapeadas
+        |--------------------------------------------------------------------------
+        */
+
+        foreach (
+            $source->singleEliminationConnections
+            as
+            $connection
+        ) {
+            $sourceInputGateId =
+                $connection
+                ->source_input_gate_id
+                !==
+                null
+                ? (
+                    $inputGateIdMap[$connection
+                        ->source_input_gate_id]
+                    ??
+                    null
+                )
+                : null;
+
+            $sourceResultId =
+                $connection
+                ->source_result_id
+                !==
+                null
+                ? (
+                    $resultIdMap[$connection
+                        ->source_result_id]
+                    ??
+                    null
+                )
+                : null;
+
+            $targetSlotId =
+                $connection
+                ->target_slot_id
+                !==
+                null
+                ? (
+                    $slotIdMap[$connection
+                        ->target_slot_id]
+                    ??
+                    null
+                )
+                : null;
+
+            $targetPhaseExitId =
+                $connection
+                ->target_phase_exit_id
+                !==
+                null
+                ? (
+                    $exitIdMap[$connection
+                        ->target_phase_exit_id]
+                    ??
+                    null
+                )
+                : null;
+
+            if (
+                $connection->source_type
+                ===
+                'INPUT_GATE'
+                &&
+                $sourceInputGateId === null
+            ) {
+                continue;
+            }
+
+            if (
+                $connection->source_type
+                ===
+                'RESULT'
+                &&
+                $sourceResultId === null
+            ) {
+                continue;
+            }
+
+            if (
+                $connection->target_type
+                ===
+                'SLOT'
+                &&
+                $targetSlotId === null
+            ) {
+                continue;
+            }
+
+            if (
+                $connection->target_type
+                ===
+                'PHASE_EXIT'
+                &&
+                $targetPhaseExitId === null
+            ) {
+                continue;
+            }
+
+            $copy
+                ->singleEliminationConnections()
+                ->create([
+                    'sequence_number' =>
+                    $connection->sequence_number,
+
+                    'code' =>
+                    $connection->code,
+
+                    'label' =>
+                    $connection->label,
+
+                    'description' =>
+                    $connection->description,
+
+                    'source_type' =>
+                    $connection->source_type,
+
+                    'source_input_gate_id' =>
+                    $sourceInputGateId,
+
+                    'source_result_id' =>
+                    $sourceResultId,
+
+                    'target_type' =>
+                    $connection->target_type,
+
+                    'target_slot_id' =>
+                    $targetSlotId,
+
+                    'target_phase_exit_id' =>
+                    $targetPhaseExitId,
+
+                    'allocation_mode' =>
+                    $connection->allocation_mode,
+
+                    'allocation_value' =>
+                    $connection->allocation_value,
+
+                    'priority' =>
+                    $connection->priority,
+
+                    'condition_type' =>
+                    $connection->condition_type,
+
+                    'condition' =>
+                    $connection->condition,
+
+                    'status' =>
+                    $connection->status,
+
+                    'generation_source' =>
+                    $connection
+                        ->generation_source,
+
+                    'is_locked' =>
+                    $connection->is_locked,
+
+                    'settings' =>
+                    $connection->settings,
+                ]);
+        }
     }
 
     /*

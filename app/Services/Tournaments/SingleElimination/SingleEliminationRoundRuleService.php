@@ -23,28 +23,43 @@ class SingleEliminationRoundRuleService
         $data['sort_order'] =
             $data['participants_in_round'];
 
-        return $phaseTemplate
+        $roundRule =
+            $phaseTemplate
             ->singleEliminationRoundRules()
             ->create(
                 $data
             );
+
+        $this->markStructureStale(
+            $phaseTemplate
+        );
+
+        return $roundRule;
     }
 
     public function update(
         PhaseSingleEliminationRoundRule $roundRule,
         array $data
     ): PhaseSingleEliminationRoundRule {
+        $roundRule->loadMissing(
+            'phaseTemplate'
+        );
 
         $data =
             $this->normalizeSeries(
                 $data,
                 $roundRule
             );
+
         $data['sort_order'] =
             $data['participants_in_round'];
 
         $roundRule->update(
             $data
+        );
+
+        $this->markStructureStale(
+            $roundRule->phaseTemplate
         );
 
         return $roundRule->fresh();
@@ -53,7 +68,46 @@ class SingleEliminationRoundRuleService
     public function delete(
         PhaseSingleEliminationRoundRule $roundRule
     ): void {
+        $roundRule->loadMissing(
+            'phaseTemplate'
+        );
+
+        $phaseTemplate =
+            $roundRule->phaseTemplate;
+
         $roundRule->delete();
+
+        if ($phaseTemplate) {
+            $this->markStructureStale(
+                $phaseTemplate
+            );
+        }
+    }
+
+    private function markStructureStale(
+        PhaseTemplate $phaseTemplate
+    ): void {
+        $settings =
+            $phaseTemplate
+            ->singleEliminationSetting;
+
+        if (
+            ! $settings
+            ||
+            (int)
+            $settings->structure_version
+            < 1
+        ) {
+            return;
+        }
+
+        $settings->update([
+            'structure_status' =>
+            'STALE',
+
+            'structure_validated_at' =>
+            null,
+        ]);
     }
 
     private function ensureCorrectType(
@@ -97,7 +151,9 @@ class SingleEliminationRoundRuleService
                 'entrants_per_match',
                 'qualifiers_per_match',
                 'encounter_profile',
-            ] as $advancedField
+            ]
+            as
+            $advancedField
         ) {
             if (
                 ! array_key_exists(

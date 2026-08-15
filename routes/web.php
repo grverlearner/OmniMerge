@@ -57,6 +57,8 @@ use App\Http\Controllers\Tournaments\TournamentPhaseConnectionController;
 use App\Http\Controllers\Tournaments\TournamentGraphPresetController;
 use App\Http\Controllers\Tournaments\TournamentFlowPreviewController;
 
+use App\Http\Controllers\Tournaments\SingleEliminationStructureController;
+
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')
@@ -337,6 +339,42 @@ Route::middleware('auth')->group(function () {
                     ]
                 )->name(
                     'single-elimination.preview'
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | Estructura interna de Eliminación Simple
+                |--------------------------------------------------------------------------
+                */
+
+                Route::get(
+                    '/phases/{phaseTemplate}/single-elimination/structure',
+                    [
+                        SingleEliminationStructureController::class,
+                        'show',
+                    ]
+                )->name(
+                    'single-elimination.structure.show'
+                );
+
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/structure/generate',
+                    [
+                        SingleEliminationStructureController::class,
+                        'generate',
+                    ]
+                )->name(
+                    'single-elimination.structure.generate'
+                );
+
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/structure/validate',
+                    [
+                        SingleEliminationStructureController::class,
+                        'validateStructure',
+                    ]
+                )->name(
+                    'single-elimination.structure.validate'
                 );
 
                 /*

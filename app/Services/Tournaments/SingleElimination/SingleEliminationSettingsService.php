@@ -207,6 +207,27 @@ class SingleEliminationSettingsService
 
                 /*
                 |--------------------------------------------------------------------------
+                | La estructura persistente ya no representa la configuración
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    (int)
+                    $settings->structure_version
+                    >
+                    0
+                ) {
+                    $settings->update([
+                        'structure_status' =>
+                        'STALE',
+
+                        'structure_validated_at' =>
+                        null,
+                    ]);
+                }
+
+                /*
+                |--------------------------------------------------------------------------
                 | Mantener best_of de T1 sincronizado
                 |--------------------------------------------------------------------------
                 */

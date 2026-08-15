@@ -1144,7 +1144,7 @@ Política de sobrantes.
 Modos de entrada.
 Modos de enrutamiento.
 
-Etapa 4 — Puertas y estructura interna
+Etapa 4 — Puertas y estructura interna (implementada)
 Puertas de entrada.
 Slots.
 Encuentros.
@@ -1152,6 +1152,14 @@ Resultados internos.
 Conexiones internas.
 Puertas de salida.
 Validación del grafo interno.
+
+La implementación incorpora puertas reutilizables pertenecientes al PhaseTemplate, proyección hacia los PhaseEntryPort contextuales del Tournament Graph, rondas estructurales, encuentros, slots, resultados consumibles e informativos, conexiones internas y resolución de PhaseExit mediante INTERNAL_GRAPH.
+
+La configuración matemática de la Etapa 3 puede compilarse de manera transaccional hacia una estructura persistente. La estructura mantiene versión, huella, fecha de generación, estado de validación y detección de cambios obsoletos.
+
+El validador comprueba contratos de entrada, capacidad de slots, partición de resultados, cantidades clasificatorias, destinos obligatorios, duplicaciones, pertenencia a la plantilla, retrocesos, ciclos, alcanzabilidad y contratos de salida.
+
+La ejecución con participantes reales, resolución de resultados, eventos e historial continúa perteneciendo a la Etapa 6.
 
 Etapa 5 — Visualizador por bloques
 Bloques por ronda.

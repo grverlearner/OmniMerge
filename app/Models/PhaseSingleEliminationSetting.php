@@ -35,23 +35,48 @@ class PhaseSingleEliminationSetting extends Model
         'default_best_of',
         'fixed_games',
 
+        'structure_mode',
+        'structure_status',
+        'structure_version',
+        'structure_fingerprint',
+        'structure_generated_at',
+        'structure_validated_at',
+
         'settings',
     ];
 
     protected function casts(): array
     {
         return [
-            'entrants_per_match' => 'integer',
-            'qualifiers_per_match' => 'integer',
+            'entrants_per_match' =>
+            'integer',
 
-            'target_survivors' => 'integer',
+            'qualifiers_per_match' =>
+            'integer',
 
-            'reseed_each_round' => 'boolean',
+            'target_survivors' =>
+            'integer',
 
-            'default_best_of' => 'integer',
-            'fixed_games' => 'integer',
+            'reseed_each_round' =>
+            'boolean',
 
-            'settings' => 'array',
+            'default_best_of' =>
+            'integer',
+
+            'fixed_games' =>
+            'integer',
+
+            'structure_version' =>
+            'integer',
+
+            'structure_generated_at' =>
+            'datetime',
+
+            'structure_validated_at' =>
+            'datetime',
+
+            'settings' =>
+            'array',
         ];
     }
 
@@ -288,5 +313,29 @@ class PhaseSingleEliminationSetting extends Model
                 ? 'victoria.'
                 : 'victorias.'
             );
+    }
+    public function getStructureStatusLabelAttribute(): string
+    {
+        return match ($this->structure_status) {
+            'NOT_GENERATED' =>
+            'Sin generar',
+
+            'GENERATED' =>
+            'Generada',
+
+            'VALID' =>
+            'Válida',
+
+            'INVALID' =>
+            'Inválida',
+
+            'STALE' =>
+            'Desactualizada',
+
+            default =>
+            $this->structure_status
+                ??
+                'Sin generar',
+        };
     }
 }

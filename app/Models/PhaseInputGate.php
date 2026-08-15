@@ -7,13 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class PhaseEntryPort extends Model
+class PhaseInputGate extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'tournament_phase_node_id',
-        'phase_input_gate_id',
+        'phase_template_id',
 
         'sequence_number',
         'code',
@@ -21,33 +20,34 @@ class PhaseEntryPort extends Model
         'name',
         'description',
 
+        'input_type',
         'merge_policy',
-
-        'is_required',
-        'accepts_multiple_connections',
+        'distribution_mode',
+        'empty_behavior',
 
         'min_participants',
         'max_participants',
         'exact_participants',
 
+        'is_required',
+        'accepts_batch',
+        'accepts_multiple_connections',
+
+        'priority',
         'sort_order',
         'status',
 
+        'generation_source',
+        'is_locked',
+
         'settings',
     ];
-
 
     protected function casts(): array
     {
         return [
             'sequence_number' =>
             'integer',
-
-            'is_required' =>
-            'boolean',
-
-            'accepts_multiple_connections' =>
-            'boolean',
 
             'min_participants' =>
             'integer',
@@ -58,70 +58,111 @@ class PhaseEntryPort extends Model
             'exact_participants' =>
             'integer',
 
+            'is_required' =>
+            'boolean',
+
+            'accepts_batch' =>
+            'boolean',
+
+            'accepts_multiple_connections' =>
+            'boolean',
+
+            'priority' =>
+            'integer',
+
             'sort_order' =>
             'integer',
+
+            'is_locked' =>
+            'boolean',
 
             'settings' =>
             'array',
         ];
     }
 
-
-    public function node(): BelongsTo
+    public function phaseTemplate(): BelongsTo
     {
         return $this->belongsTo(
-            TournamentPhaseNode::class,
-            'tournament_phase_node_id'
+            PhaseTemplate::class
         );
     }
-    public function inputGate(): BelongsTo
+
+    public function contextualEntryPorts(): HasMany
     {
-        return $this->belongsTo(
-            PhaseInputGate::class,
+        return $this->hasMany(
+            PhaseEntryPort::class,
             'phase_input_gate_id'
         );
     }
-
-
-    public function incomingConnections(): HasMany
+    public function outgoingConnections(): HasMany
     {
         return $this->hasMany(
-            TournamentPhaseConnection::class,
-            'target_entry_port_id'
+            PhaseSingleEliminationConnection::class,
+            'source_input_gate_id'
         );
     }
-
 
     public static function formatCode(
         int $sequence
     ): string {
         return sprintf(
-            'IN%03d',
+            'GIN%03d',
             $sequence
         );
     }
 
-
-    public function getMergePolicyLabelAttribute(): string
+    public function getTypeLabelAttribute(): string
     {
-        return match ($this->merge_policy) {
-            'APPEND' =>
-            'Combinar participantes',
+        return match ($this->input_type) {
+            'POOL' =>
+            'Bolsa general',
 
-            'WAIT_ALL' =>
-            'Esperar todas las rutas',
+            'PER_SEED' =>
+            'Entrada por seed',
 
-            'FIRST_AVAILABLE' =>
-            'Primera ruta disponible',
+            'GROUPED' =>
+            'Entrada agrupada',
 
-            'PRIORITY' =>
-            'Por prioridad',
+            'HYBRID' =>
+            'Entrada híbrida',
+
+            'CUSTOM' =>
+            'Entrada personalizada',
 
             default =>
-            $this->merge_policy,
+            $this->input_type,
         };
     }
 
+    public function getDistributionLabelAttribute(): string
+    {
+        return match ($this->distribution_mode) {
+            'INPUT_ORDER' =>
+            'Orden de entrada',
+
+            'RANKING' =>
+            'Por ranking',
+
+            'RANDOM' =>
+            'Aleatoria',
+
+            'BALANCED' =>
+            'Balanceada',
+
+            'EXTREMES' =>
+            'Entre extremos',
+
+            'MANUAL' =>
+            'Manual',
+
+            'CUSTOM' =>
+            'Personalizada',
+
+            default =>
+            $this->distribution_mode,
+        };
+    }
 
     public function getContractLabelAttribute(): string
     {
@@ -149,8 +190,7 @@ class PhaseEntryPort extends Model
             ===
             null
         ) {
-            return
-                $this->min_participants
+            return ($this->min_participants ?? 0)
                 .
                 '+';
         }

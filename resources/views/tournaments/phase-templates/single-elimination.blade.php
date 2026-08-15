@@ -114,6 +114,53 @@
 
         {{-- ACCESOS RÁPIDOS --}}
 
+        {{-- ESTRUCTURA INTERNA --}}
+
+        @php
+            $internalStructureStatus = $settings->structure_status ?? 'NOT_GENERATED';
+
+            $internalStatusClasses = match ($internalStructureStatus) {
+                'VALID' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                'INVALID' => 'border-red-200 bg-red-50 text-red-700',
+                'STALE' => 'border-amber-200 bg-amber-50 text-amber-700',
+                'GENERATED' => 'border-indigo-200 bg-indigo-50 text-indigo-700',
+                default => 'border-slate-200 bg-slate-50 text-slate-600',
+            };
+        @endphp
+
+        <section
+            class="mt-4 flex flex-col justify-between gap-4 rounded-3xl border border-violet-200 bg-gradient-to-r from-violet-50 to-indigo-50 p-5 sm:flex-row sm:items-center">
+            <div class="flex items-start gap-3">
+                <span
+                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-lg font-black text-white">
+                    ◇
+                </span>
+
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <p class="font-black text-slate-900">
+                            Estructura interna
+                        </p>
+
+                        <span
+                            class="rounded-full border px-2.5 py-1 text-[9px] font-black uppercase {{ $internalStatusClasses }}">
+                            {{ $settings->structure_status_label }}
+                        </span>
+                    </div>
+
+                    <p class="mt-1 text-xs leading-5 text-slate-500">
+                        Puertas, rondas, encuentros, slots, resultados,
+                        conexiones y salidas persistentes.
+                    </p>
+                </div>
+            </div>
+
+            <a href="{{ route('tournaments.single-elimination.structure.show', $phaseTemplate) }}"
+                class="inline-flex shrink-0 items-center justify-center rounded-xl bg-violet-600 px-5 py-3 text-xs font-black text-white shadow-lg shadow-violet-500/20 transition hover:bg-violet-700">
+                Abrir estructura →
+            </a>
+        </section>
+
         <section class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             @foreach ([['mode', 'Nivel', $settings->configuration_mode === 'ADVANCED' ? 'Avanzado' : 'Básico', 'slate'], ['completion', 'Finalización', 'Objetivo', 'amber'], ['distribution', 'Distribución', 'Seeding', 'indigo'], ['byes', 'BYEs', $phaseTemplate->allow_byes ? 'Permitidos' : 'Desactivados', 'cyan'], ['series', 'Series', $settings->series_label, 'violet'], ['reseed', 'Reseed', $settings->reseed_each_round ? 'Activado' : 'Desactivado', 'emerald']] as [$section, $label, $detail, $color])
                 <button type="button"
