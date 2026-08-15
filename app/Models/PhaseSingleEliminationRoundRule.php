@@ -15,7 +15,9 @@ class PhaseSingleEliminationRoundRule extends Model
 
         'participants_in_round',
 
+        'series_format',
         'best_of',
+        'fixed_games',
 
         'sort_order',
 
@@ -28,6 +30,8 @@ class PhaseSingleEliminationRoundRule extends Model
             'participants_in_round' => 'integer',
 
             'best_of' => 'integer',
+
+            'fixed_games' => 'integer',
 
             'sort_order' => 'integer',
 
@@ -96,5 +100,30 @@ class PhaseSingleEliminationRoundRule extends Model
             $this->best_of,
             2
         ) + 1;
+    }
+
+    public function getSeriesLabelAttribute(): string
+    {
+        if (
+            $this->series_format
+            ===
+            'FIXED_GAMES'
+        ) {
+            return
+                $this->fixed_games
+                .
+                ' '
+                .
+                (
+                    $this->fixed_games === 1
+                    ? 'enfrentamiento fijo'
+                    : 'enfrentamientos fijos'
+                );
+        }
+
+        return
+            'BO'
+            .
+            $this->best_of;
     }
 }

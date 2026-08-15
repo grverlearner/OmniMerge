@@ -282,7 +282,7 @@
                             <div class="flex flex-wrap gap-2">
                                 <span
                                     class="rounded-xl bg-white px-3 py-2 text-[10px] font-black text-violet-700 shadow-sm">
-                                    BO{{ $round['best_of'] }}
+                                    {{ $round['series_label'] }}
                                 </span>
 
                                 <span
@@ -420,7 +420,7 @@
                                 <td class="px-4 py-3">
                                     <span
                                         class="rounded-lg bg-violet-50 px-2 py-1 text-[10px] font-black text-violet-700">
-                                        BO{{ $round['best_of'] }}
+                                        {{ $round['series_label'] }}
                                     </span>
                                 </td>
                             </tr>

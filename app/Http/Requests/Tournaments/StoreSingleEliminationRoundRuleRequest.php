@@ -9,6 +9,19 @@ use Illuminate\Validation\Rule;
 
 class StoreSingleEliminationRoundRuleRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'series_format' =>
+            strtoupper(
+                (string)
+                $this->input(
+                    'series_format',
+                    'BEST_OF'
+                )
+            ),
+        ]);
+    }
     public function authorize(): bool
     {
         $phaseTemplate =
@@ -84,8 +97,26 @@ class StoreSingleEliminationRoundRuleRequest extends FormRequest
                     ),
             ],
 
-            'best_of' => [
+            'series_format' => [
                 'required',
+
+                Rule::in([
+                    'BEST_OF',
+                    'FIXED_GAMES',
+                ]),
+            ],
+
+            'best_of' => [
+                Rule::requiredIf(
+                    fn() =>
+                    $this->input(
+                        'series_format'
+                    )
+                        ===
+                        'BEST_OF'
+                ),
+
+                'nullable',
 
                 Rule::in([
                     1,
@@ -94,6 +125,22 @@ class StoreSingleEliminationRoundRuleRequest extends FormRequest
                     7,
                     9,
                 ]),
+            ],
+
+            'fixed_games' => [
+                Rule::requiredIf(
+                    fn() =>
+                    $this->input(
+                        'series_format'
+                    )
+                        ===
+                        'FIXED_GAMES'
+                ),
+
+                'nullable',
+                'integer',
+                'min:1',
+                'max:99',
             ],
         ];
     }
@@ -109,6 +156,18 @@ class StoreSingleEliminationRoundRuleRequest extends FormRequest
 
             'best_of.in' =>
             'El Best of debe ser 1, 3, 5, 7 o 9.',
+
+            'series_format.in' =>
+            'Selecciona Best of o Cantidad fija.',
+
+            'fixed_games.required' =>
+            'Indica cuántos enfrentamientos deben disputarse.',
+
+            'fixed_games.min' =>
+            'Debe disputarse al menos un enfrentamiento.',
+
+            'fixed_games.max' =>
+            'La cantidad fija no puede superar 99 enfrentamientos.',
         ];
     }
 }

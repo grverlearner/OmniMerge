@@ -315,8 +315,8 @@
             'icon' => '◉',
         ],
         [
-            'label' => 'Best of',
-            'value' => $phaseTemplate->best_of,
+            'label' => 'Formato',
+            'value' => $phaseTemplate->phase_type === 'SINGLE_ELIMINATION' && $phaseTemplate->singleEliminationSetting ? $phaseTemplate->singleEliminationSetting->series_label : 'BO' . $phaseTemplate->best_of,
             'icon' => '×',
         ],
         [
@@ -653,7 +653,11 @@
                         </span>
 
                         <span class="text-xs font-black text-slate-900">
-                            Best of {{ $phaseTemplate->best_of }}
+                            @if ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION' && $phaseTemplate->singleEliminationSetting)
+                                {{ $phaseTemplate->singleEliminationSetting->series_label }}
+                            @else
+                                Best of {{ $phaseTemplate->best_of }}
+                            @endif
                         </span>
 
                     </div>

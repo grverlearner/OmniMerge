@@ -244,7 +244,14 @@
 
                                 <p class="text-[8px] font-black text-violet-600" x-text="match.id">
                                 </p>
-
+                                <p class="mt-1 text-[9px] font-bold text-slate-400"
+                                    x-text="match.series_label
+                                        ?? (
+                                            match.best_of
+                                                ? `BO${match.best_of}`
+                                                : ''
+                                        )">
+                                </p>
                                 <div
                                     class="mt-3 grid grid-cols-[minmax(0,1fr)_50px_14px_50px_minmax(0,1fr)] items-center gap-2">
 

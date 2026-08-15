@@ -68,6 +68,15 @@ export default function singleEliminationWorkspace(
                     configuration.defaultBestOf
                     || 1
                 ),
+            seriesFormat:
+                configuration.seriesFormat
+                || 'BEST_OF',
+
+            fixedGames:
+                Number(
+                    configuration.fixedGames
+                    || 1
+                ),
 
             reseedEachRound:
                 Boolean(
@@ -264,6 +273,19 @@ export default function singleEliminationWorkspace(
                 Number(
                     fieldValue(
                         'default_best_of',
+                        1
+                    )
+                );
+            this.draft.seriesFormat =
+                fieldValue(
+                    'series_format',
+                    'BEST_OF'
+                );
+
+            this.draft.fixedGames =
+                Number(
+                    fieldValue(
+                        'fixed_games',
                         1
                     )
                 );
@@ -506,6 +528,21 @@ export default function singleEliminationWorkspace(
                 this.draft.byeAssignment
             ]
                 || this.draft.byeAssignment;
+        },
+
+        seriesLabel() {
+            if (
+                this.draft.seriesFormat
+                ===
+                'FIXED_GAMES'
+            ) {
+                return `${this.draft.fixedGames} ${this.draft.fixedGames === 1
+                        ? 'enfrentamiento fijo'
+                        : 'enfrentamientos fijos'
+                    }`;
+            }
+
+            return `BO${this.draft.defaultBestOf}`;
         },
     };
 }

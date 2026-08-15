@@ -44,6 +44,9 @@ class SingleEliminationSettingsService
                     'reseed_each_round' =>
                     false,
 
+                    'series_format' =>
+                    'BEST_OF',
+
                     /*
                      * Conservamos compatibilidad
                      * con T1.
@@ -51,6 +54,8 @@ class SingleEliminationSettingsService
                     'default_best_of' =>
                     $phaseTemplate->best_of
                         ?: 1,
+                    'fixed_games' =>
+                    1,
                 ]
             );
     }
@@ -105,10 +110,14 @@ class SingleEliminationSettingsService
 
                             'reseed_each_round' =>
                             false,
-
+                            'series_format' =>
+                            'BEST_OF',
                             'default_best_of' =>
                             $lockedPhase->best_of
                                 ?: 1,
+
+                            'fixed_games' =>
+                            1,
                         ]
                     );
 
@@ -127,6 +136,27 @@ class SingleEliminationSettingsService
                         1;
                 }
 
+                $data['series_format'] =
+                    $data['series_format']
+                    ??
+                    $settings->series_format
+                    ??
+                    'BEST_OF';
+
+                $data['default_best_of'] =
+                    $data['default_best_of']
+                    ??
+                    $settings->default_best_of
+                    ??
+                    1;
+
+                $data['fixed_games'] =
+                    $data['fixed_games']
+                    ??
+                    $settings->fixed_games
+                    ??
+                    1;
+
                 $settings->update(
                     $data
                 );
@@ -139,7 +169,11 @@ class SingleEliminationSettingsService
 
                 $lockedPhase->update([
                     'best_of' =>
-                    $data['default_best_of'],
+                    $data['series_format']
+                        ===
+                        'BEST_OF'
+                        ? $data['default_best_of']
+                        : 1,
                 ]);
 
                 return $settings->fresh();

@@ -22,7 +22,9 @@ class PhaseSingleEliminationSetting extends Model
         'bye_assignment',
         'reseed_each_round',
 
+        'series_format',
         'default_best_of',
+        'fixed_games',
 
         'settings',
     ];
@@ -35,6 +37,8 @@ class PhaseSingleEliminationSetting extends Model
             'reseed_each_round' => 'boolean',
 
             'default_best_of' => 'integer',
+
+            'fixed_games' => 'integer',
 
             'settings' => 'array',
         ];
@@ -139,5 +143,55 @@ class PhaseSingleEliminationSetting extends Model
             $this->default_best_of,
             2
         ) + 1;
+    }
+
+    public function getSeriesLabelAttribute(): string
+    {
+        if (
+            $this->series_format
+            ===
+            'FIXED_GAMES'
+        ) {
+            return
+                $this->fixed_games
+                .
+                ' '
+                .
+                (
+                    $this->fixed_games === 1
+                    ? 'enfrentamiento fijo'
+                    : 'enfrentamientos fijos'
+                );
+        }
+
+        return
+            'BO'
+            .
+            $this->default_best_of;
+    }
+
+    public function getSeriesDescriptionAttribute(): string
+    {
+        if (
+            $this->series_format
+            ===
+            'FIXED_GAMES'
+        ) {
+            return
+                'Se disputan obligatoriamente todos los enfrentamientos.';
+        }
+
+        return
+            'Termina al alcanzar '
+            .
+            $this->wins_required
+            .
+            ' '
+            .
+            (
+                $this->wins_required === 1
+                ? 'victoria.'
+                : 'victorias.'
+            );
     }
 }

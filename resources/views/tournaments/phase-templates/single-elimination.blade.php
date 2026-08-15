@@ -12,6 +12,8 @@
         pairingMode: @js(old('pairing_mode', $settings->pairing_mode)),
         byeAssignment: @js(old('bye_assignment', $settings->bye_assignment)),
         defaultBestOf: @js((int) old('default_best_of', $settings->default_best_of)),
+        seriesFormat: @js(old('series_format', $settings->series_format)),
+        fixedGames: @js((int) old('fixed_games', $settings->fixed_games)),
         reseedEachRound: @js((bool) old('reseed_each_round', $settings->reseed_each_round))
     })" x-init="init()" class="pb-28">
         {{-- VOLVER --}}
@@ -87,7 +89,7 @@
                         </p>
 
                         <p class="mt-1 text-sm font-black">
-                            BO<span x-text="draft.defaultBestOf"></span>
+                            <span x-text="seriesLabel()"></span>
                         </p>
                     </div>
                 </div>
@@ -97,7 +99,7 @@
         {{-- ACCESOS RÁPIDOS --}}
 
         <section class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            @foreach ([['completion', 'Finalización', 'Objetivo', 'amber'], ['distribution', 'Distribución', 'Seeding', 'indigo'], ['byes', 'BYEs', $phaseTemplate->allow_byes ? 'Permitidos' : 'Desactivados', 'cyan'], ['series', 'Series', 'Best of', 'violet'], ['reseed', 'Reseed', $settings->reseed_each_round ? 'Activado' : 'Desactivado', 'emerald']] as [$section, $label, $detail, $color])
+            @foreach ([['completion', 'Finalización', 'Objetivo', 'amber'], ['distribution', 'Distribución', 'Seeding', 'indigo'], ['byes', 'BYEs', $phaseTemplate->allow_byes ? 'Permitidos' : 'Desactivados', 'cyan'], ['series', 'Series', $settings->series_label, 'violet'], ['reseed', 'Reseed', $settings->reseed_each_round ? 'Activado' : 'Desactivado', 'emerald']] as [$section, $label, $detail, $color])
                 <button type="button"
                     class="rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md"
                     @click="openSection('{{ $section }}')">
@@ -187,10 +189,15 @@
                                     </div>
 
                                     <p class="mt-1 text-xs text-slate-500">
-                                        BO{{ $roundRule->best_of }}
+                                        {{ $roundRule->series_label }}
                                         ·
-                                        {{ $roundRule->wins_required }}
-                                        {{ $roundRule->wins_required === 1 ? 'victoria necesaria' : 'victorias necesarias' }}
+
+                                        @if ($roundRule->series_format === 'FIXED_GAMES')
+                                            se disputan todos
+                                        @else
+                                            {{ $roundRule->wins_required }}
+                                            {{ $roundRule->wins_required === 1 ? 'victoria necesaria' : 'victorias necesarias' }}
+                                        @endif
                                     </p>
                                 </div>
 
@@ -198,7 +205,7 @@
                                     action="{{ route('tournaments.single-elimination.round-rules.destroy', [$phaseTemplate, $roundRule]) }}"
                                     data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
                                     data-confirm-title="Eliminar override"
-                                    data-confirm-message="Esta ronda volverá a utilizar el Best of predeterminado."
+                                    data-confirm-message="Esta ronda volverá a utilizar el formato de serie predeterminado.""
                                     data-confirm-subject="{{ $roundRule->round_label }}"
                                     data-confirm-action="Eliminar override">
                                     @csrf
@@ -223,7 +230,7 @@
                     @empty
                         <div class="rounded-2xl border border-dashed border-violet-300 bg-violet-50/30 p-6 text-center">
                             <p class="font-black text-slate-800">
-                                Todas las rondas utilizan BO{{ $settings->default_best_of }}
+                                Todas las rondas utilizan {{ $settings->series_label }}
                             </p>
 
                             <p class="mt-1 text-xs text-slate-500">
@@ -239,7 +246,7 @@
                     </p>
 
                     <p class="mt-1 text-xs leading-5 text-slate-500">
-                        Elige la ronda y su Best of particular.
+                        Elige la ronda y su formato de serie particular.
                     </p>
 
                     @if (count($availableRoundSizes) > 0)
@@ -248,6 +255,7 @@
                                 'tournaments.phase-templates.partials.single-elimination-round-rule-form',
                                 [
                                     'roundRule' => null,
+                                    'compact' => true,
                                 ]
                             )
                         </div>

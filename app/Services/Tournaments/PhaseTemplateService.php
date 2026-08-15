@@ -526,8 +526,14 @@ class PhaseTemplateService
                                 'reseed_each_round' =>
                                 $sourceSettings->reseed_each_round,
 
+                                'series_format' =>
+                                $sourceSettings->series_format,
+
                                 'default_best_of' =>
                                 $sourceSettings->default_best_of,
+
+                                'fixed_games' =>
+                                $sourceSettings->fixed_games,
 
                                 'settings' =>
                                 $sourceSettings->settings,
@@ -550,8 +556,14 @@ class PhaseTemplateService
                                     'participants_in_round' =>
                                     $roundRule->participants_in_round,
 
+                                    'series_format' =>
+                                    $roundRule->series_format,
+
                                     'best_of' =>
                                     $roundRule->best_of,
+
+                                    'fixed_games' =>
+                                    $roundRule->fixed_games,
 
                                     'sort_order' =>
                                     $roundRule->sort_order,

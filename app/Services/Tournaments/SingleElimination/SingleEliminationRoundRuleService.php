@@ -15,6 +15,11 @@ class SingleEliminationRoundRuleService
             $phaseTemplate
         );
 
+        $data =
+            $this->normalizeSeries(
+                $data
+            );
+
         $data['sort_order'] =
             $data['participants_in_round'];
 
@@ -29,6 +34,12 @@ class SingleEliminationRoundRuleService
         PhaseSingleEliminationRoundRule $roundRule,
         array $data
     ): PhaseSingleEliminationRoundRule {
+
+        $data =
+            $this->normalizeSeries(
+                $data,
+                $roundRule
+            );
         $data['sort_order'] =
             $data['participants_in_round'];
 
@@ -54,5 +65,33 @@ class SingleEliminationRoundRuleService
                 'SINGLE_ELIMINATION',
             404
         );
+    }
+
+    private function normalizeSeries(
+        array $data,
+        ?PhaseSingleEliminationRoundRule $current = null
+    ): array {
+        $data['series_format'] =
+            $data['series_format']
+            ??
+            $current?->series_format
+            ??
+            'BEST_OF';
+
+        $data['best_of'] =
+            $data['best_of']
+            ??
+            $current?->best_of
+            ??
+            1;
+
+        $data['fixed_games'] =
+            $data['fixed_games']
+            ??
+            $current?->fixed_games
+            ??
+            1;
+
+        return $data;
     }
 }

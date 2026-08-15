@@ -118,10 +118,26 @@ class SingleEliminationBracketCalculator
                     $currentSlots
                 );
 
-            $bestOf =
-                $rule?->best_of
+            $seriesFormat =
+                $rule?->series_format
                 ??
-                $settings->default_best_of;
+                $settings->series_format
+                ??
+                'BEST_OF';
+
+            $bestOf =
+                (int) (
+                    $rule?->best_of
+                    ??
+                    $settings->default_best_of
+                );
+
+            $fixedGames =
+                (int) (
+                    $rule?->fixed_games
+                    ??
+                    $settings->fixed_games
+                );
 
             $winsRequired =
                 intdiv(
@@ -161,11 +177,34 @@ class SingleEliminationBracketCalculator
                 'survivors' =>
                 $nextSlots,
 
+                'series_format' =>
+                $seriesFormat,
+
                 'best_of' =>
                 $bestOf,
 
+                'fixed_games' =>
+                $fixedGames,
+
+                'series_label' =>
+                $seriesFormat === 'FIXED_GAMES'
+                    ? $fixedGames
+                    .
+                    ' '
+                    .
+                    (
+                        $fixedGames === 1
+                        ? 'enfrentamiento'
+                        : 'enfrentamientos'
+                    )
+                    : 'BO'
+                    .
+                    $bestOf,
+
                 'wins_required' =>
-                $winsRequired,
+                $seriesFormat === 'BEST_OF'
+                    ? $winsRequired
+                    : null,
 
                 'has_override' =>
                 $rule !== null,

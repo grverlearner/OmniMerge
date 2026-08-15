@@ -108,7 +108,7 @@ implements LabPhaseEngine
             );
         }
 
-        $roundBestOf =
+        $roundSeriesRules =
             $phase
             ->singleEliminationRoundRules
             ->mapWithKeys(
@@ -116,8 +116,20 @@ implements LabPhaseEngine
                     (int)
                     $rule->participants_in_round
                     =>
-                    (int)
-                    $rule->best_of,
+                    [
+                        'series_format' =>
+                        $rule->series_format
+                            ?:
+                            'BEST_OF',
+
+                        'best_of' =>
+                        (int)
+                        $rule->best_of,
+
+                        'fixed_games' =>
+                        (int)
+                        $rule->fixed_games,
+                    ],
                 ]
             )
             ->all();
@@ -136,12 +148,21 @@ implements LabPhaseEngine
                 $settings->target_survivors
             ),
 
+            'default_series_format' =>
+            $settings->series_format
+                ?:
+                'BEST_OF',
+
             'default_best_of' =>
             (int)
             $settings->default_best_of,
 
-            'round_best_of' =>
-            $roundBestOf,
+            'default_fixed_games' =>
+            (int)
+            $settings->fixed_games,
+
+            'round_series_rules' =>
+            $roundSeriesRules,
 
             'reseed_each_round' =>
             (bool)
@@ -458,6 +479,19 @@ implements LabPhaseEngine
         array &$runtime
     ): array {
         $matches = [];
+        $roundSeries =
+            $runtime['round_series_rules'][count($participantIds)]
+            ??
+            [
+                'series_format' =>
+                $runtime['default_series_format'],
+
+                'best_of' =>
+                $runtime['default_best_of'],
+
+                'fixed_games' =>
+                $runtime['default_fixed_games'],
+            ];
 
         $left =
             0;
@@ -523,10 +557,33 @@ implements LabPhaseEngine
                 'loser_id' =>
                 null,
 
+                'series_format' =>
+                $roundSeries['series_format'],
+
                 'best_of' =>
-                $runtime['round_best_of'][count($participantIds)]
-                    ??
-                    $runtime['default_best_of'],
+                (int)
+                $roundSeries['best_of'],
+
+                'fixed_games' =>
+                (int)
+                $roundSeries['fixed_games'],
+
+                'series_label' =>
+                $roundSeries['series_format']
+                    ===
+                    'FIXED_GAMES'
+                    ? $roundSeries['fixed_games']
+                    .
+                    ' '
+                    .
+                    (
+                        $roundSeries['fixed_games'] === 1
+                        ? 'enfrentamiento fijo'
+                        : 'enfrentamientos fijos'
+                    )
+                    : 'BO'
+                    .
+                    $roundSeries['best_of'],
 
                 'status' =>
                 'PENDING',

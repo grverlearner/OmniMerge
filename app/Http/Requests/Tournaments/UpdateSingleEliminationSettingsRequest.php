@@ -79,6 +79,14 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
             $this->boolean(
                 'reseed_each_round'
             ),
+            'series_format' =>
+            strtoupper(
+                (string)
+                $this->input(
+                    'series_format',
+                    'BEST_OF'
+                )
+            ),
         ]);
     }
 
@@ -145,8 +153,26 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
                 'boolean',
             ],
 
-            'default_best_of' => [
+            'series_format' => [
                 'required',
+
+                Rule::in([
+                    'BEST_OF',
+                    'FIXED_GAMES',
+                ]),
+            ],
+
+            'default_best_of' => [
+                Rule::requiredIf(
+                    fn() =>
+                    $this->input(
+                        'series_format'
+                    )
+                        ===
+                        'BEST_OF'
+                ),
+
+                'nullable',
 
                 Rule::in([
                     1,
@@ -155,6 +181,22 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
                     7,
                     9,
                 ]),
+            ],
+
+            'fixed_games' => [
+                Rule::requiredIf(
+                    fn() =>
+                    $this->input(
+                        'series_format'
+                    )
+                        ===
+                        'FIXED_GAMES'
+                ),
+
+                'nullable',
+                'integer',
+                'min:1',
+                'max:99',
             ],
         ];
     }

@@ -249,10 +249,7 @@
                         Series
                     </span>
 
-                    <span class="mt-1 block truncate text-xs font-bold text-violet-700">
-                        Best of
-                        <span x-text="draft.defaultBestOf"></span>
-                    </span>
+                    <span class="mt-1 block truncate text-xs font-bold text-violet-700" x-text="seriesLabel()"></span>
                 </span>
             </span>
 
@@ -262,42 +259,92 @@
         </button>
 
         <div x-show="sections.series" x-transition class="border-t border-violet-100 bg-violet-50/30 p-5">
-            <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                Best of predeterminado
-            </label>
+            <p class="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                Formato predeterminado
+            </p>
 
-            <select name="default_best_of" x-model.number="draft.defaultBestOf"
-                class="mt-2 w-full rounded-xl border-slate-300 bg-white text-sm focus:border-violet-400 focus:ring-violet-400">
-                @foreach ([1, 3, 5, 7, 9] as $value)
-                    <option value="{{ $value }}" @selected((int) old('default_best_of', $settings->default_best_of) === $value)>
-                        BO{{ $value }}
-                        ·
-                        {{ intdiv($value, 2) + 1 }}
-                        {{ intdiv($value, 2) + 1 === 1 ? 'victoria' : 'victorias' }}
-                    </option>
-                @endforeach
-            </select>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                <label class="cursor-pointer rounded-2xl border p-4 transition"
+                    :class="draft.seriesFormat === 'BEST_OF' ?
+                        'border-violet-400 bg-violet-100' :
+                        'border-slate-200 bg-white'">
+                    <span class="flex items-start gap-3">
+                        <input type="radio" name="series_format" value="BEST_OF" x-model="draft.seriesFormat"
+                            class="mt-0.5 border-slate-300 text-violet-600 focus:ring-violet-500">
 
-            <div class="mt-3 grid grid-cols-5 gap-2">
-                @foreach ([[1, 1], [3, 2], [5, 3], [7, 4], [9, 5]] as [$bestOf, $wins])
-                    <div class="rounded-xl border px-2 py-2 text-center transition"
-                        :class="draft.defaultBestOf === {{ $bestOf }} ?
-                            'border-violet-300 bg-violet-100' :
-                            'border-slate-200 bg-white'">
-                        <p class="text-xs font-black text-violet-700">
-                            BO{{ $bestOf }}
-                        </p>
+                        <span>
+                            <span class="block text-sm font-black text-slate-900">
+                                Best of
+                            </span>
 
-                        <p class="mt-0.5 text-[9px] font-bold text-slate-400">
-                            {{ $wins }}V
-                        </p>
-                    </div>
-                @endforeach
+                            <span class="mt-1 block text-[11px] leading-5 text-slate-500">
+                                Termina cuando alguien alcanza la mayoría necesaria.
+                            </span>
+                        </span>
+                    </span>
+                </label>
+
+                <label class="cursor-pointer rounded-2xl border p-4 transition"
+                    :class="draft.seriesFormat === 'FIXED_GAMES' ?
+                        'border-cyan-400 bg-cyan-50' :
+                        'border-slate-200 bg-white'">
+                    <span class="flex items-start gap-3">
+                        <input type="radio" name="series_format" value="FIXED_GAMES" x-model="draft.seriesFormat"
+                            class="mt-0.5 border-slate-300 text-cyan-600 focus:ring-cyan-500">
+
+                        <span>
+                            <span class="block text-sm font-black text-slate-900">
+                                Cantidad fija
+                            </span>
+
+                            <span class="mt-1 block text-[11px] leading-5 text-slate-500">
+                                Se disputan obligatoriamente todos los enfrentamientos.
+                            </span>
+                        </span>
+                    </span>
+                </label>
             </div>
+
+            <div x-show="draft.seriesFormat === 'BEST_OF'" x-transition class="mt-4">
+                <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    Best of
+                </label>
+
+                <select name="default_best_of" x-model.number="draft.defaultBestOf"
+                    class="mt-2 w-full rounded-xl border-slate-300 bg-white text-sm focus:border-violet-400 focus:ring-violet-400">
+                    @foreach ([1, 3, 5, 7, 9] as $value)
+                        <option value="{{ $value }}" @selected((int) old('default_best_of', $settings->default_best_of) === $value)>
+                            BO{{ $value }}
+                            ·
+                            {{ intdiv($value, 2) + 1 }}
+                            {{ intdiv($value, 2) + 1 === 1 ? 'victoria' : 'victorias' }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <x-input-error :messages="$errors->get('default_best_of')" class="mt-2" />
+            </div>
+
+            <div x-show="draft.seriesFormat === 'FIXED_GAMES'" x-transition class="mt-4">
+                <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    Enfrentamientos obligatorios
+                </label>
+
+                <input type="number" name="fixed_games" min="1" max="99"
+                    x-model.number="draft.fixedGames"
+                    class="mt-2 w-full rounded-xl border-slate-300 bg-white text-sm focus:border-cyan-400 focus:ring-cyan-400">
+
+                <p class="mt-2 text-[11px] leading-5 text-slate-500">
+                    La serie no termina antes. El resultado se determina
+                    después de disputar la cantidad completa.
+                </p>
+
+                <x-input-error :messages="$errors->get('fixed_games')" class="mt-2" />
+            </div>
+
+            <x-input-error :messages="$errors->get('series_format')" class="mt-3" />
         </div>
     </section>
-
-    {{-- RESEED --}}
 
     {{-- RESEED --}}
 
