@@ -2,9 +2,11 @@ import './bootstrap';
 import Alpine from 'alpinejs';
 import tournamentFlowBuilder from './tournaments/graph/flow-builder';
 import competitionLab from './tournaments/lab/competition-lab';
+import singleEliminationWorkspace from './tournaments/single-elimination/workspace';
 
 window.Alpine = Alpine;
 window.tournamentFlowBuilder = tournamentFlowBuilder;
+window.singleEliminationWorkspace = singleEliminationWorkspace;
 
 
 window.Alpine =
@@ -82,6 +84,10 @@ document.addEventListener(
         Alpine.data(
             'competitionLab',
             competitionLab
+        );
+        Alpine.data(
+            'singleEliminationWorkspace',
+            singleEliminationWorkspace
         );
 
         Alpine.data(
