@@ -37,6 +37,8 @@ export default function singleEliminationWorkspace(
             '',
 
         sections: {
+            mode: true,
+            advanced: true,
             completion: true,
             distribution: true,
             byes: false,
@@ -45,6 +47,37 @@ export default function singleEliminationWorkspace(
         },
 
         draft: {
+            configurationMode:
+                configuration.configurationMode
+                || 'BASIC',
+
+            inputMode:
+                configuration.inputMode
+                || 'POOL',
+
+            routingMode:
+                configuration.routingMode
+                || 'AUTOMATIC',
+
+            entrantsPerMatch:
+                Number(
+                    configuration.entrantsPerMatch
+                    || 2
+                ),
+
+            qualifiersPerMatch:
+                Number(
+                    configuration.qualifiersPerMatch
+                    || 1
+                ),
+
+            encounterProfile:
+                configuration.encounterProfile
+                || 'DUEL',
+
+            remainderPolicy:
+                configuration.remainderPolicy
+                || 'REJECT',
             completionMode:
                 configuration.completionMode
                 || 'WINNER',
@@ -202,6 +235,51 @@ export default function singleEliminationWorkspace(
                         ?.value
                     ??
                     fallback;
+            this.draft.configurationMode =
+                fieldValue(
+                    'configuration_mode',
+                    'BASIC'
+                );
+
+            this.draft.inputMode =
+                fieldValue(
+                    'input_mode',
+                    'POOL'
+                );
+
+            this.draft.routingMode =
+                fieldValue(
+                    'routing_mode',
+                    'AUTOMATIC'
+                );
+
+            this.draft.entrantsPerMatch =
+                Number(
+                    fieldValue(
+                        'entrants_per_match',
+                        2
+                    )
+                );
+
+            this.draft.qualifiersPerMatch =
+                Number(
+                    fieldValue(
+                        'qualifiers_per_match',
+                        1
+                    )
+                );
+
+            this.draft.encounterProfile =
+                fieldValue(
+                    'encounter_profile',
+                    'DUEL'
+                );
+
+            this.draft.remainderPolicy =
+                fieldValue(
+                    'remainder_policy',
+                    'REJECT'
+                );
 
             this.draft.completionMode =
                 fieldValue(
@@ -617,6 +695,104 @@ export default function singleEliminationWorkspace(
             return `${this.draft.targetSurvivors} supervivientes`;
         },
 
+        configurationModeLabel() {
+            return this.draft.configurationMode
+                ===
+                'ADVANCED'
+                ? 'Avanzado'
+                : 'Básico';
+        },
+
+        formatLabel() {
+            return `${this.draft.entrantsPerMatch} → ${this.draft.qualifiersPerMatch}`;
+        },
+
+        encounterProfileLabel() {
+            return {
+                DUEL:
+                    'Duelo',
+
+                MULTI_COMPETITOR:
+                    'Multicompetidor',
+
+                CUSTOM:
+                    'Personalizado',
+            }[
+                this.draft.encounterProfile
+            ]
+                ||
+                this.draft.encounterProfile;
+        },
+
+        inputModeLabel() {
+            return {
+                POOL:
+                    'Bolsa común',
+
+                PER_SEED:
+                    'Por seed',
+
+                GROUPED:
+                    'Agrupada',
+
+                HYBRID:
+                    'Híbrida',
+
+                CUSTOM:
+                    'Personalizada',
+            }[
+                this.draft.inputMode
+            ]
+                ||
+                this.draft.inputMode;
+        },
+
+        routingModeLabel() {
+            return {
+                AUTOMATIC:
+                    'Automático',
+
+                POSITIONAL:
+                    'Por posición',
+
+                MANUAL:
+                    'Manual',
+
+                CUSTOM:
+                    'Personalizado',
+            }[
+                this.draft.routingMode
+            ]
+                ||
+                this.draft.routingMode;
+        },
+
+        remainderPolicyLabel() {
+            return {
+                BYE:
+                    'BYE',
+
+                PRELIMINARY:
+                    'Preliminar',
+
+                BALANCED:
+                    'Balanceada',
+
+                INCOMPLETE_MATCH:
+                    'Encuentro incompleto',
+
+                MANUAL:
+                    'Manual',
+
+                REJECT:
+                    'Rechazar',
+            }[
+                this.draft.remainderPolicy
+            ]
+                ||
+                this.draft.remainderPolicy;
+        },
+
         seedingLabel() {
             return {
                 INPUT_ORDER:
@@ -678,8 +854,8 @@ export default function singleEliminationWorkspace(
                 'FIXED_GAMES'
             ) {
                 return `${this.draft.fixedGames} ${this.draft.fixedGames === 1
-                        ? 'enfrentamiento fijo'
-                        : 'enfrentamientos fijos'
+                    ? 'enfrentamiento fijo'
+                    : 'enfrentamientos fijos'
                     }`;
             }
 

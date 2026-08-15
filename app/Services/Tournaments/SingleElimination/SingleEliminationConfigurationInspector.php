@@ -26,7 +26,8 @@ class SingleEliminationConfigurationInspector
             $this->availability
             ->possibleRoundSizes(
                 $phaseTemplate,
-                $settings
+                $settings,
+                $roundRules
             );
 
         $obsoleteRules = [];
@@ -89,7 +90,7 @@ class SingleEliminationConfigurationInspector
                         .
                         $roundRule->round_label
                         .
-                        ' utiliza el mismo formato que la configuración general.',
+                        ' utiliza la misma configuración que la regla general.',
                 ];
             }
         }
@@ -109,6 +110,51 @@ class SingleEliminationConfigurationInspector
                 (int)
                 $previewParticipants
             );
+
+        $warnings = [];
+
+        if (
+            $settings->configuration_mode
+            ===
+            'ADVANCED'
+        ) {
+            $calculator =
+                new SingleEliminationAdvancedCalculator();
+
+            $calculation =
+                $calculator->calculate(
+                    $phaseTemplate,
+                    $settings,
+                    (int)
+                    $previewParticipants,
+                    $roundRules
+                );
+
+            $errors =
+                array_merge(
+                    $errors,
+                    $calculation['errors']
+                        ??
+                        []
+                );
+
+            $warnings =
+                array_merge(
+                    $warnings,
+                    $calculation['warnings']
+                        ??
+                        []
+                );
+
+            if (
+                ($calculation['valid'] ?? false)
+                &&
+                ! ($calculation['complete'] ?? true)
+            ) {
+                $warnings[] =
+                    'La definición es válida, pero necesita una resolución manual para completar todas sus rondas.';
+            }
+        }
 
         foreach (
             $obsoleteRules
@@ -132,9 +178,14 @@ class SingleEliminationConfigurationInspector
 
             'warnings' =>
             array_values(
-                array_column(
-                    $redundantRules,
-                    'message'
+                array_unique(
+                    array_merge(
+                        $warnings,
+                        array_column(
+                            $redundantRules,
+                            'message'
+                        )
+                    )
                 )
             ),
 
@@ -165,6 +216,52 @@ class SingleEliminationConfigurationInspector
         PhaseSingleEliminationSetting $settings,
         object $roundRule
     ): bool {
+        if (
+            $settings->configuration_mode
+            ===
+            'ADVANCED'
+        ) {
+            $ruleEntrants =
+                (int) (
+                    $roundRule->entrants_per_match
+                    ??
+                    $settings->entrants_per_match
+                );
+
+            $ruleQualifiers =
+                (int) (
+                    $roundRule->qualifiers_per_match
+                    ??
+                    $settings->qualifiers_per_match
+                );
+
+            $ruleProfile =
+                (string) (
+                    $roundRule->encounter_profile
+                    ??
+                    $settings->encounter_profile
+                );
+
+            if (
+                $ruleEntrants
+                !==
+                (int)
+                $settings->entrants_per_match
+                ||
+                $ruleQualifiers
+                !==
+                (int)
+                $settings->qualifiers_per_match
+                ||
+                $ruleProfile
+                !==
+                (string)
+                $settings->encounter_profile
+            ) {
+                return false;
+            }
+        }
+
         $settingsFormat =
             $settings->series_format
             ?:

@@ -6,6 +6,7 @@ use App\Models\PhaseSingleEliminationSetting;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\SingleElimination\SingleEliminationBracketCalculator;
 use App\Services\Tournaments\SingleElimination\SingleEliminationValidator;
+use App\Services\Tournaments\SingleElimination\SingleEliminationAdvancedCalculator;
 use Illuminate\Support\Collection;
 use PHPUnit\Framework\TestCase;
 
@@ -14,7 +15,8 @@ class SingleEliminationBracketCalculatorTest extends TestCase
     private function calculator(): SingleEliminationBracketCalculator
     {
         return new SingleEliminationBracketCalculator(
-            new SingleEliminationValidator()
+            new SingleEliminationValidator(),
+            new SingleEliminationAdvancedCalculator()
         );
     }
 

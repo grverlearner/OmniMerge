@@ -15,6 +15,10 @@ class PhaseSingleEliminationRoundRule extends Model
 
         'participants_in_round',
 
+        'entrants_per_match',
+        'qualifiers_per_match',
+        'encounter_profile',
+
         'series_format',
         'best_of',
         'fixed_games',
@@ -29,8 +33,10 @@ class PhaseSingleEliminationRoundRule extends Model
         return [
             'participants_in_round' => 'integer',
 
-            'best_of' => 'integer',
+            'entrants_per_match' => 'integer',
+            'qualifiers_per_match' => 'integer',
 
+            'best_of' => 'integer',
             'fixed_games' => 'integer',
 
             'sort_order' => 'integer',
@@ -39,24 +45,12 @@ class PhaseSingleEliminationRoundRule extends Model
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Relaciones
-    |--------------------------------------------------------------------------
-    */
-
     public function phaseTemplate(): BelongsTo
     {
         return $this->belongsTo(
             PhaseTemplate::class
         );
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Ronda
-    |--------------------------------------------------------------------------
-    */
 
     public function getRoundLabelAttribute(): string
     {
@@ -90,7 +84,8 @@ class PhaseSingleEliminationRoundRule extends Model
 
             default =>
             'Ronda de '
-                . $this->participants_in_round,
+                .
+                $this->participants_in_round,
         };
     }
 
@@ -104,11 +99,7 @@ class PhaseSingleEliminationRoundRule extends Model
 
     public function getSeriesLabelAttribute(): string
     {
-        if (
-            $this->series_format
-            ===
-            'FIXED_GAMES'
-        ) {
+        if ($this->series_format === 'FIXED_GAMES') {
             return
                 $this->fixed_games
                 .
@@ -125,5 +116,44 @@ class PhaseSingleEliminationRoundRule extends Model
             'BO'
             .
             $this->best_of;
+    }
+
+    public function getCompetitiveFormatLabelAttribute(): ?string
+    {
+        if (
+            $this->entrants_per_match === null
+            ||
+            $this->qualifiers_per_match === null
+        ) {
+            return null;
+        }
+
+        return
+            $this->entrants_per_match
+            .
+            ' → '
+            .
+            $this->qualifiers_per_match;
+    }
+
+    public function getEncounterProfileLabelAttribute(): ?string
+    {
+        if ($this->encounter_profile === null) {
+            return null;
+        }
+
+        return match ($this->encounter_profile) {
+            'DUEL' =>
+            'Duelo',
+
+            'MULTI_COMPETITOR' =>
+            'Multicompetidor',
+
+            'CUSTOM' =>
+            'Personalizado',
+
+            default =>
+            $this->encounter_profile,
+        };
     }
 }

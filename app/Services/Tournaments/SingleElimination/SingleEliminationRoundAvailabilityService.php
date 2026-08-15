@@ -4,24 +4,42 @@ namespace App\Services\Tournaments\SingleElimination;
 
 use App\Models\PhaseSingleEliminationSetting;
 use App\Models\PhaseTemplate;
+use Illuminate\Support\Collection;
 
 class SingleEliminationRoundAvailabilityService
 {
     public function possibleRoundSizes(
         PhaseTemplate $phaseTemplate,
-        PhaseSingleEliminationSetting $settings
+        PhaseSingleEliminationSetting $settings,
+        ?Collection $roundRules = null
     ): array {
         $target =
             max(
                 1,
-                (int) $settings->target_survivors
+                (int)
+                $settings->target_survivors
             );
+
+        if (
+            $settings->configuration_mode
+            ===
+            'ADVANCED'
+        ) {
+            return $this->advancedRoundSizes(
+                $phaseTemplate,
+                $settings,
+                $roundRules
+                    ??
+                    collect()
+            );
+        }
 
         $roundSizes = [];
 
         foreach (
             $this->acceptedParticipantCounts(
-                $phaseTemplate
+                $phaseTemplate,
+                $settings
             )
             as
             $participants
@@ -54,7 +72,8 @@ class SingleEliminationRoundAvailabilityService
     }
 
     public function acceptedParticipantCounts(
-        PhaseTemplate $phaseTemplate
+        PhaseTemplate $phaseTemplate,
+        ?PhaseSingleEliminationSetting $settings = null
     ): array {
         if (
             $phaseTemplate->exact_participants
@@ -68,7 +87,8 @@ class SingleEliminationRoundAvailabilityService
             return
                 $this->participantCountIsAccepted(
                     $phaseTemplate,
-                    $exact
+                    $exact,
+                    $settings
                 )
                 ? [$exact]
                 : [];
@@ -105,7 +125,8 @@ class SingleEliminationRoundAvailabilityService
             if (
                 $this->participantCountIsAccepted(
                     $phaseTemplate,
-                    $count
+                    $count,
+                    $settings
                 )
             ) {
                 $counts[] =
@@ -118,7 +139,8 @@ class SingleEliminationRoundAvailabilityService
 
     public function participantCountIsAccepted(
         PhaseTemplate $phaseTemplate,
-        int $participants
+        int $participants,
+        ?PhaseSingleEliminationSetting $settings = null
     ): bool {
         if (
             $participants < 2
@@ -178,7 +200,17 @@ class SingleEliminationRoundAvailabilityService
             return false;
         }
 
+        /*
+         * En modo avanzado una fase sin BYEs puede aceptar
+         * cantidades no potencia de 2 si otra política de
+         * sobrantes logra distribuirlas correctamente.
+         */
+
         if (
+            $settings?->configuration_mode
+            !==
+            'ADVANCED'
+            &&
             ! $phaseTemplate->allow_byes
             &&
             ! $this->isPowerOfTwo(
@@ -191,6 +223,241 @@ class SingleEliminationRoundAvailabilityService
         return true;
     }
 
+    private function advancedRoundSizes(
+        PhaseTemplate $phaseTemplate,
+        PhaseSingleEliminationSetting $settings,
+        Collection $roundRules
+    ): array {
+        $target =
+            max(
+                1,
+                (int)
+                $settings->target_survivors
+            );
+
+        $rulesByRound =
+            $roundRules->keyBy(
+                'participants_in_round'
+            );
+
+        $roundSizes = [];
+
+        foreach (
+            $this->acceptedParticipantCounts(
+                $phaseTemplate,
+                $settings
+            )
+            as
+            $participants
+        ) {
+            $current =
+                $participants;
+
+            for (
+                $guard = 0;
+                $guard < 64
+                    &&
+                    $current > $target;
+                $guard++
+            ) {
+                /*
+                 * Se registra antes de calcular la siguiente ronda.
+                 * Así el usuario puede crear un override que resuelva
+                 * una ronda actualmente incompatible.
+                 */
+
+                $roundSizes[$current] =
+                    $current;
+
+                $rule =
+                    $rulesByRound->get(
+                        $current
+                    );
+
+                $entrants =
+                    (int) (
+                        $rule?->entrants_per_match
+                        ??
+                        $settings->entrants_per_match
+                    );
+
+                $qualifiers =
+                    (int) (
+                        $rule?->qualifiers_per_match
+                        ??
+                        $settings->qualifiers_per_match
+                    );
+
+                if (
+                    $entrants < 2
+                    ||
+                    $qualifiers < 1
+                    ||
+                    $qualifiers >= $entrants
+                ) {
+                    break;
+                }
+
+                $next =
+                    $this->advancedNextCount(
+                        $phaseTemplate,
+                        (string)
+                        $settings->remainder_policy,
+                        $current,
+                        $target,
+                        $entrants,
+                        $qualifiers
+                    );
+
+                if (
+                    $next === null
+                    ||
+                    $next >= $current
+                    ||
+                    $next < $target
+                ) {
+                    break;
+                }
+
+                $current =
+                    $next;
+            }
+        }
+
+        rsort(
+            $roundSizes,
+            SORT_NUMERIC
+        );
+
+        return array_values(
+            $roundSizes
+        );
+    }
+
+    private function advancedNextCount(
+        PhaseTemplate $phaseTemplate,
+        string $policy,
+        int $participants,
+        int $target,
+        int $entrants,
+        int $qualifiers
+    ): ?int {
+        $fullSeries =
+            intdiv(
+                $participants,
+                $entrants
+            );
+
+        $remainder =
+            $participants
+            %
+            $entrants;
+
+        if ($remainder === 0) {
+            return
+                $fullSeries
+                *
+                $qualifiers;
+        }
+
+        if (
+            $policy === 'BYE'
+            &&
+            $phaseTemplate->allow_byes
+        ) {
+            return (
+                    $fullSeries
+                    *
+                    $qualifiers
+                )
+                +
+                $remainder;
+        }
+
+        if (
+            $policy === 'INCOMPLETE_MATCH'
+            &&
+            $remainder >= 2
+            &&
+            $qualifiers < $remainder
+        ) {
+            return (
+                    $fullSeries + 1
+                )
+                *
+                $qualifiers;
+        }
+
+        if ($policy === 'BALANCED') {
+            $series =
+                (int)
+                ceil(
+                    $participants
+                        /
+                        $entrants
+                );
+
+            $minimumSize =
+                intdiv(
+                    $participants,
+                    $series
+                );
+
+            return
+                $minimumSize >= 2
+                &&
+                $qualifiers < $minimumSize
+                ? $series
+                *
+                $qualifiers
+                : null;
+        }
+
+        if ($policy === 'PRELIMINARY') {
+            for (
+                $series = 1;
+                $series <= $fullSeries;
+                $series++
+            ) {
+                $next =
+                    $participants
+                    -
+                    (
+                        $series
+                        *
+                        (
+                            $entrants
+                            -
+                            $qualifiers
+                        )
+                    );
+
+                if (
+                    $next >= $target
+                    &&
+                    $next < $participants
+                    &&
+                    $next % $entrants === 0
+                    &&
+                    (
+                        $series
+                        *
+                        $entrants
+                    ) <= $participants
+                ) {
+                    return $next;
+                }
+            }
+        }
+
+        /*
+         * MANUAL y REJECT no producen automáticamente
+         * la siguiente cantidad.
+         */
+
+        return null;
+    }
+
     public function nextPowerOfTwo(
         int $value
     ): int {
@@ -198,7 +465,8 @@ class SingleEliminationRoundAvailabilityService
             return 1;
         }
 
-        $power = 1;
+        $power =
+            1;
 
         while ($power < $value) {
             $power *= 2;

@@ -8,6 +8,13 @@
         previewUrl: @js(route('tournaments.single-elimination.preview', $phaseTemplate)),
         previewParticipants: @js((int) $previewParticipants),
         hasErrors: @js($errors->any()),
+        configurationMode: @js(old('configuration_mode', $settings->configuration_mode)),
+        inputMode: @js(old('input_mode', $settings->input_mode)),
+        routingMode: @js(old('routing_mode', $settings->routing_mode)),
+        entrantsPerMatch: @js((int) old('entrants_per_match', $settings->entrants_per_match)),
+        qualifiersPerMatch: @js((int) old('qualifiers_per_match', $settings->qualifiers_per_match)),
+        encounterProfile: @js(old('encounter_profile', $settings->encounter_profile)),
+        remainderPolicy: @js(old('remainder_policy', $settings->remainder_policy)),
         completionMode: @js(old('completion_mode', $settings->completion_mode)),
         targetSurvivors: @js((int) old('target_survivors', $settings->target_survivors)),
         seedingMode: @js(old('seeding_mode', $settings->seeding_mode)),
@@ -56,7 +63,15 @@
                     </p>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:min-w-[420px]">
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[560px]">
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+                        <p class="text-[8px] font-black uppercase tracking-wider text-fuchsia-300">
+                            Modo
+                        </p>
+
+                        <p class="mt-1 text-sm font-black" x-text="configurationModeLabel()">
+                        </p>
+                    </div>
                     <div class="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
                         <p class="text-[8px] font-black uppercase tracking-wider text-amber-300">
                             Objetivo
@@ -84,8 +99,7 @@
                         </p>
                     </div>
 
-                    <div
-                        class="col-span-2 rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur sm:col-span-1">
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
                         <p class="text-[8px] font-black uppercase tracking-wider text-violet-300">
                             Series
                         </p>
@@ -100,8 +114,8 @@
 
         {{-- ACCESOS RÁPIDOS --}}
 
-        <section class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            @foreach ([['completion', 'Finalización', 'Objetivo', 'amber'], ['distribution', 'Distribución', 'Seeding', 'indigo'], ['byes', 'BYEs', $phaseTemplate->allow_byes ? 'Permitidos' : 'Desactivados', 'cyan'], ['series', 'Series', $settings->series_label, 'violet'], ['reseed', 'Reseed', $settings->reseed_each_round ? 'Activado' : 'Desactivado', 'emerald']] as [$section, $label, $detail, $color])
+        <section class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            @foreach ([['mode', 'Nivel', $settings->configuration_mode === 'ADVANCED' ? 'Avanzado' : 'Básico', 'slate'], ['completion', 'Finalización', 'Objetivo', 'amber'], ['distribution', 'Distribución', 'Seeding', 'indigo'], ['byes', 'BYEs', $phaseTemplate->allow_byes ? 'Permitidos' : 'Desactivados', 'cyan'], ['series', 'Series', $settings->series_label, 'violet'], ['reseed', 'Reseed', $settings->reseed_each_round ? 'Activado' : 'Desactivado', 'emerald']] as [$section, $label, $detail, $color])
                 <button type="button"
                     class="rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md"
                     @click="openSection('{{ $section }}')">
@@ -180,7 +194,7 @@
                         </h2>
 
                         <p class="mt-1 text-[11px] leading-5 text-slate-500">
-                            Permiten usar un Best of diferente en una ronda específica.
+                            Permiten cambiar la serie y, en modo avanzado, la relación K → Q de una ronda.
                         </p>
                     </div>
 
@@ -228,7 +242,7 @@
                                                 Redundante
                                             </span>
                                         @endif
-                                        
+
                                         @if ($obsoleteRule)
                                             <p class="mt-2 text-xs font-bold leading-5 text-red-700">
                                                 Esta ronda no puede existir con el contrato y objetivo actuales.
@@ -252,13 +266,24 @@
                                             {{ $roundRule->wins_required === 1 ? 'victoria necesaria' : 'victorias necesarias' }}
                                         @endif
                                     </p>
+
+                                    @if ($roundRule->entrants_per_match !== null)
+                                        <p
+                                            class="mt-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-700">
+                                            {{ $roundRule->entrants_per_match }}
+                                            →
+                                            {{ $roundRule->qualifiers_per_match }}
+                                            ·
+                                            {{ $roundRule->encounter_profile_label }}
+                                        </p>
+                                    @endif
                                 </div>
 
                                 <form method="POST"
                                     action="{{ route('tournaments.single-elimination.round-rules.destroy', [$phaseTemplate, $roundRule]) }}"
                                     data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
                                     data-confirm-title="Eliminar override"
-                                    data-confirm-message="Esta ronda volverá a utilizar el formato de serie predeterminado."
+                                    data-confirm-message="Esta ronda volverá a utilizar la serie y el formato competitivo predeterminados."
                                     data-confirm-subject="{{ $roundRule->round_label }}"
                                     data-confirm-action="Eliminar override">
                                     @csrf

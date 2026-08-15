@@ -30,6 +30,14 @@ class SingleEliminationPreviewService
             Arr::only(
                 $payload,
                 [
+                    'configuration_mode',
+                    'input_mode',
+                    'routing_mode',
+                    'entrants_per_match',
+                    'qualifiers_per_match',
+                    'encounter_profile',
+                    'remainder_policy',
+                    
                     'completion_mode',
                     'target_survivors',
                     'seeding_mode',

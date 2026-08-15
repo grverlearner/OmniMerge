@@ -26,6 +26,28 @@ class SingleEliminationSettingsService
             ->firstOrCreate(
                 [],
                 [
+                    'configuration_mode' =>
+                    'BASIC',
+
+                    'input_mode' =>
+                    'POOL',
+
+                    'routing_mode' =>
+                    'AUTOMATIC',
+
+                    'entrants_per_match' =>
+                    2,
+
+                    'qualifiers_per_match' =>
+                    1,
+
+                    'encounter_profile' =>
+                    'DUEL',
+
+                    'remainder_policy' =>
+                    $phaseTemplate->allow_byes
+                        ? 'BYE'
+                        : 'REJECT',
                     'completion_mode' =>
                     'WINNER',
 
@@ -93,6 +115,28 @@ class SingleEliminationSettingsService
                     ->firstOrCreate(
                         [],
                         [
+                            'configuration_mode' =>
+                            'BASIC',
+
+                            'input_mode' =>
+                            'POOL',
+
+                            'routing_mode' =>
+                            'AUTOMATIC',
+
+                            'entrants_per_match' =>
+                            2,
+
+                            'qualifiers_per_match' =>
+                            1,
+
+                            'encounter_profile' =>
+                            'DUEL',
+
+                            'remainder_policy' =>
+                            $lockedPhase->allow_byes
+                                ? 'BYE'
+                                : 'REJECT',
                             'completion_mode' =>
                             'WINNER',
 

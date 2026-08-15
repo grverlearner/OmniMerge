@@ -165,6 +165,25 @@ Modelo de configuración.
 Modelo de overrides por ronda.
 Esta base deberá conservarse y ampliarse sin romper las fases existentes.
 
+4.9 Estado de la Etapa 3
+La base avanzada se implementa de forma incremental y compatible.
+
+Incluye:
+Modo BASIC y ADVANCED.
+Relación general K → Q mediante entrants_per_match y qualifiers_per_match.
+Perfiles DUEL, MULTI_COMPETITOR y CUSTOM.
+Políticas BYE, PRELIMINARY, BALANCED, INCOMPLETE_MATCH, MANUAL y REJECT.
+Modos de entrada POOL, PER_SEED, GROUPED, HYBRID y CUSTOM.
+Modos de enrutamiento AUTOMATIC, POSITIONAL, MANUAL y CUSTOM.
+Overrides K → Q y perfil por tamaño de ronda.
+Previsualización matemática sin persistir encuentros.
+Validación del contrato y de la alcanzabilidad del objetivo.
+Pronóstico más preciso de las salidas SURVIVORS y ELIMINATED en Tournament Graph.
+
+El modo BASIC conserva el comportamiento tradicional 2 → 1 y los objetivos potencia de 2.
+
+Las configuraciones avanzadas pueden guardarse y previsualizarse, pero todavía no se ejecutan en Competition Lab. Su ejecución depende de los encuentros, slots, resultados y rutas internas de las Etapas 4 y 6.
+
 5. Limitaciones detectadas en la implementación actual
 5.1 Guardado poco accesible
 El formulario es extenso y el botón para guardar se encuentra al final. El usuario debe desplazarse constantemente para confirmar sus modificaciones.
@@ -1115,7 +1134,8 @@ Detectar overrides obsoletos.
 Validar contrato y objetivo.
 Actualización inmediata del preview.
 Mensajes de error específicos.
-Etapa 3 — Fundamento avanzado
+
+Etapa 3 — Fundamento avanzado (implementada)
 Modo básico y avanzado.
 Participantes por encuentro.
 Clasificados por encuentro.
@@ -1123,6 +1143,7 @@ Perfil de encuentro.
 Política de sobrantes.
 Modos de entrada.
 Modos de enrutamiento.
+
 Etapa 4 — Puertas y estructura interna
 Puertas de entrada.
 Slots.
@@ -1131,6 +1152,7 @@ Resultados internos.
 Conexiones internas.
 Puertas de salida.
 Validación del grafo interno.
+
 Etapa 5 — Visualizador por bloques
 Bloques por ronda.
 Tarjetas de encuentros.
@@ -1140,6 +1162,7 @@ Vista de tabla.
 Inspector.
 Indicadores de rutas y estados.
 Sin dependencia de zoom.
+
 Etapa 6 — Competition Lab
 Resolución de entradas.
 Ejecución multicompetidor.
@@ -1147,6 +1170,7 @@ Múltiples clasificados.
 Rutas internas.
 Puertas de resultados.
 Historial completo.
+
 Etapa 7 — Biblioteca de tipos de batalla
 Tipos reutilizables.
 Esquemas de entrada.

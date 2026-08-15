@@ -490,10 +490,10 @@ class PhaseTemplateService
                     }
 
                     /*
-|--------------------------------------------------------------------------
-| Configuración SINGLE ELIMINATION
-|--------------------------------------------------------------------------
-*/
+                    |--------------------------------------------------------------------------
+                    | Configuración SINGLE ELIMINATION
+                    |--------------------------------------------------------------------------
+                    */
 
                     if (
                         $source->phase_type
@@ -508,6 +508,26 @@ class PhaseTemplateService
                         $copy
                             ->singleEliminationSetting()
                             ->create([
+                                'configuration_mode' =>
+                                $sourceSettings->configuration_mode,
+
+                                'input_mode' =>
+                                $sourceSettings->input_mode,
+
+                                'routing_mode' =>
+                                $sourceSettings->routing_mode,
+
+                                'entrants_per_match' =>
+                                $sourceSettings->entrants_per_match,
+
+                                'qualifiers_per_match' =>
+                                $sourceSettings->qualifiers_per_match,
+
+                                'encounter_profile' =>
+                                $sourceSettings->encounter_profile,
+
+                                'remainder_policy' =>
+                                $sourceSettings->remainder_policy,
                                 'completion_mode' =>
                                 $sourceSettings->completion_mode,
 
@@ -555,6 +575,14 @@ class PhaseTemplateService
                                 ->create([
                                     'participants_in_round' =>
                                     $roundRule->participants_in_round,
+                                    'entrants_per_match' =>
+                                    $roundRule->entrants_per_match,
+
+                                    'qualifiers_per_match' =>
+                                    $roundRule->qualifiers_per_match,
+
+                                    'encounter_profile' =>
+                                    $roundRule->encounter_profile,
 
                                     'series_format' =>
                                     $roundRule->series_format,

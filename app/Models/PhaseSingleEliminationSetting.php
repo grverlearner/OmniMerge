@@ -13,6 +13,15 @@ class PhaseSingleEliminationSetting extends Model
     protected $fillable = [
         'phase_template_id',
 
+        'configuration_mode',
+        'input_mode',
+        'routing_mode',
+
+        'entrants_per_match',
+        'qualifiers_per_match',
+        'encounter_profile',
+        'remainder_policy',
+
         'completion_mode',
         'target_survivors',
 
@@ -32,23 +41,19 @@ class PhaseSingleEliminationSetting extends Model
     protected function casts(): array
     {
         return [
+            'entrants_per_match' => 'integer',
+            'qualifiers_per_match' => 'integer',
+
             'target_survivors' => 'integer',
 
             'reseed_each_round' => 'boolean',
 
             'default_best_of' => 'integer',
-
             'fixed_games' => 'integer',
 
             'settings' => 'array',
         ];
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Relaciones
-    |--------------------------------------------------------------------------
-    */
 
     public function phaseTemplate(): BelongsTo
     {
@@ -57,11 +62,115 @@ class PhaseSingleEliminationSetting extends Model
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Etiquetas
-    |--------------------------------------------------------------------------
-    */
+    public function getConfigurationModeLabelAttribute(): string
+    {
+        return match ($this->configuration_mode) {
+            'BASIC' =>
+            'Básico',
+
+            'ADVANCED' =>
+            'Avanzado',
+
+            default =>
+            $this->configuration_mode,
+        };
+    }
+
+    public function getInputModeLabelAttribute(): string
+    {
+        return match ($this->input_mode) {
+            'POOL' =>
+            'Bolsa común',
+
+            'PER_SEED' =>
+            'Una entrada por seed',
+
+            'GROUPED' =>
+            'Entradas agrupadas',
+
+            'HYBRID' =>
+            'Entrada híbrida',
+
+            'CUSTOM' =>
+            'Entrada personalizada',
+
+            default =>
+            $this->input_mode,
+        };
+    }
+
+    public function getRoutingModeLabelAttribute(): string
+    {
+        return match ($this->routing_mode) {
+            'AUTOMATIC' =>
+            'Automático',
+
+            'POSITIONAL' =>
+            'Por posición',
+
+            'MANUAL' =>
+            'Manual',
+
+            'CUSTOM' =>
+            'Personalizado',
+
+            default =>
+            $this->routing_mode,
+        };
+    }
+
+    public function getEncounterProfileLabelAttribute(): string
+    {
+        return match ($this->encounter_profile) {
+            'DUEL' =>
+            'Duelo',
+
+            'MULTI_COMPETITOR' =>
+            'Multicompetidor',
+
+            'CUSTOM' =>
+            'Personalizado',
+
+            default =>
+            $this->encounter_profile,
+        };
+    }
+
+    public function getRemainderPolicyLabelAttribute(): string
+    {
+        return match ($this->remainder_policy) {
+            'BYE' =>
+            'Avance libre por BYE',
+
+            'PRELIMINARY' =>
+            'Ronda preliminar',
+
+            'BALANCED' =>
+            'Distribución balanceada',
+
+            'INCOMPLETE_MATCH' =>
+            'Encuentro incompleto',
+
+            'MANUAL' =>
+            'Resolución manual',
+
+            'REJECT' =>
+            'Rechazar cantidad incompatible',
+
+            default =>
+            $this->remainder_policy,
+        };
+    }
+
+    public function getCompetitiveFormatLabelAttribute(): string
+    {
+        return
+            $this->entrants_per_match
+            .
+            ' → '
+            .
+            $this->qualifiers_per_match;
+    }
 
     public function getCompletionModeLabelAttribute(): string
     {
@@ -131,12 +240,6 @@ class PhaseSingleEliminationSetting extends Model
         };
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Best Of
-    |--------------------------------------------------------------------------
-    */
-
     public function getWinsRequiredAttribute(): int
     {
         return intdiv(
@@ -147,11 +250,7 @@ class PhaseSingleEliminationSetting extends Model
 
     public function getSeriesLabelAttribute(): string
     {
-        if (
-            $this->series_format
-            ===
-            'FIXED_GAMES'
-        ) {
+        if ($this->series_format === 'FIXED_GAMES') {
             return
                 $this->fixed_games
                 .
@@ -172,11 +271,7 @@ class PhaseSingleEliminationSetting extends Model
 
     public function getSeriesDescriptionAttribute(): string
     {
-        if (
-            $this->series_format
-            ===
-            'FIXED_GAMES'
-        ) {
+        if ($this->series_format === 'FIXED_GAMES') {
             return
                 'Se disputan obligatoriamente todos los enfrentamientos.';
         }

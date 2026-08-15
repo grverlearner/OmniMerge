@@ -23,6 +23,7 @@ class TournamentGraphFlowValidationService
         $template->loadMissing([
             'graphStarts.outgoingConnections',
             'graphNodes.phaseTemplate.exits',
+            'graphNodes.phaseTemplate.singleEliminationSetting',
             'graphNodes.entryPorts.incomingConnections',
             'graphTerminals.incomingConnections',
             'graphConnections.sourceStart',
@@ -208,7 +209,10 @@ class TournamentGraphFlowValidationService
                     $this->calculator
                     ->fromExit(
                         $nodeForecast,
-                        $exit
+                        $exit,
+                        $node
+                            ->phaseTemplate
+                            ->singleEliminationSetting
                     );
 
                 $exitForecasts[$node->id

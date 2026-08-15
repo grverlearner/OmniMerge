@@ -323,13 +323,20 @@ class TournamentFlowPreviewService
                     $this->exitResolver
                     ->resolve(
                         $participants,
+
                         $node
                             ->phaseTemplate
                             ->exits,
+
                         $strategy,
+
                         $seed
                             +
-                            $node->id
+                            $node->id,
+
+                        $node
+                            ->phaseTemplate
+                            ->singleEliminationSetting
                     );
 
                 $warnings = [
@@ -989,6 +996,7 @@ class TournamentFlowPreviewService
             'graphStarts.outgoingConnections',
 
             'graphNodes.phaseTemplate.exits',
+            'graphNodes.phaseTemplate.singleEliminationSetting',
 
             'graphNodes.entryPorts.incomingConnections',
 

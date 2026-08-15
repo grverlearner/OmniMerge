@@ -3,6 +3,7 @@
 namespace App\Services\Tournaments\Graph\Preview;
 
 use App\Models\PhaseExit;
+use App\Models\PhaseSingleEliminationSetting;
 use Illuminate\Support\Collection;
 
 class PreviewExitResolver
@@ -11,7 +12,8 @@ class PreviewExitResolver
         array $participants,
         Collection $exits,
         string $strategy,
-        int $seed
+        int $seed,
+        ?PhaseSingleEliminationSetting $singleEliminationSettings = null
     ): array {
         $ordered =
             $this->orderParticipants(
@@ -52,7 +54,8 @@ class PreviewExitResolver
                 $this->select(
                     $ordered,
                     $remaining,
-                    $exit
+                    $exit,
+                    $singleEliminationSettings
                 );
 
             $selectedIds =
@@ -144,7 +147,8 @@ class PreviewExitResolver
     private function select(
         array $ordered,
         array $remaining,
-        PhaseExit $exit
+        PhaseExit $exit,
+        ?PhaseSingleEliminationSetting $singleEliminationSettings = null
     ): array {
         return match ($exit->selector_type) {
             'TOP_N' =>
@@ -194,7 +198,13 @@ class PreviewExitResolver
                 $remaining,
                 0,
                 $this->winnerQuantity(
-                    count($remaining)
+                    count($remaining),
+
+                    $exit->selector_type
+                        ===
+                        'SURVIVORS'
+                        ? $singleEliminationSettings
+                        : null
                 )
             ),
 
@@ -211,7 +221,8 @@ class PreviewExitResolver
             'ENGINE_RULES' =>
             $this->engineRuleSelection(
                 $remaining,
-                $exit
+                $exit,
+                $singleEliminationSettings
             ),
 
             default =>
@@ -276,14 +287,30 @@ class PreviewExitResolver
     }
 
     private function winnerQuantity(
-        int $participants
+        int $participants,
+        ?PhaseSingleEliminationSetting $singleEliminationSettings = null
     ): int {
+        if ($singleEliminationSettings) {
+            return min(
+                $participants,
+
+                max(
+                    1,
+                    (int)
+                    $singleEliminationSettings
+                        ->target_survivors
+                )
+            );
+        }
+
         if ($participants <= 1) {
             return $participants;
         }
 
         return (int) ceil(
-            $participants / 2
+            $participants
+                /
+                2
         );
     }
 
@@ -310,7 +337,8 @@ class PreviewExitResolver
 
     private function engineRuleSelection(
         array $participants,
-        PhaseExit $exit
+        PhaseExit $exit,
+        ?PhaseSingleEliminationSetting $singleEliminationSettings = null
     ): array {
         if (
             $exit->selector_from
@@ -331,7 +359,8 @@ class PreviewExitResolver
             $participants,
             0,
             $this->winnerQuantity(
-                count($participants)
+                count($participants),
+                $singleEliminationSettings
             )
         );
     }

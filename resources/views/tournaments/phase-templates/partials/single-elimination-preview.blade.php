@@ -18,11 +18,17 @@
                 </p>
             </div>
 
-            @if ($preview['valid'])
+            @if ($preview['valid'] && ($preview['complete'] ?? true))
                 <span
                     class="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-400/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-300">
                     <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
                     Configuración válida
+                </span>
+            @elseif ($preview['valid'])
+                <span
+                    class="inline-flex w-fit items-center gap-2 rounded-full bg-amber-400/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                    <span class="h-2 w-2 rounded-full bg-amber-400"></span>
+                    Definición parcial
                 </span>
             @else
                 <span
@@ -62,6 +68,20 @@
             </button>
         </div>
     </div>
+
+    @if (!empty($preview['warnings']))
+        <div class="border-b border-amber-100 bg-amber-50 p-5">
+            <p class="text-[10px] font-black uppercase tracking-wider text-amber-700">
+                Avisos de la definición
+            </p>
+
+            @foreach ($preview['warnings'] as $warning)
+                <p class="mt-2 text-xs leading-5 text-amber-800">
+                    • {{ $warning }}
+                </p>
+            @endforeach
+        </div>
+    @endif
 
     {{-- PARTICIPANTES --}}
 
@@ -147,7 +167,7 @@
         {{-- MÉTRICAS --}}
 
         <div class="grid grid-cols-2 gap-px bg-slate-100 lg:grid-cols-4">
-            @foreach ([['Bracket', $preview['bracket_size'], 'amber'], ['BYEs', $preview['initial_byes'], 'cyan'], ['Rondas', $preview['round_count'], 'indigo'], ['Series', $preview['total_series'], 'violet']] as [$label, $value, $color])
+            @foreach ([[($settings->configuration_mode ?? 'BASIC') === 'ADVANCED' ? 'Entrada' : 'Bracket', $preview['bracket_size'], 'amber'], ['BYEs', $preview['initial_byes'], 'cyan'], ['Rondas', $preview['round_count'], 'indigo'], ['Series', $preview['total_series'], 'violet']] as [$label, $value, $color])
                 <div class="bg-white p-4">
                     <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
                         {{ $label }}
@@ -284,6 +304,27 @@
                                         · {{ $round['byes'] }} BYE
                                     @endif
                                 </p>
+
+                                @if (isset($round['entrants_per_match']))
+                                    <p class="mt-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-700">
+                                        {{ $round['entrants_per_match'] }}
+                                        →
+                                        {{ $round['qualifiers_per_match'] }}
+
+                                        ·
+
+                                        {{ match ($round['encounter_profile']) {
+                                            'DUEL' => 'Duelo',
+                                            'MULTI_COMPETITOR' => 'Multicompetidor',
+                                            'CUSTOM' => 'Personalizado',
+                                            default => $round['encounter_profile'],
+                                        } }}
+
+                                        @if ($round['preliminary'])
+                                            · Preliminar
+                                        @endif
+                                    </p>
+                                @endif
                             </div>
 
                             <div class="flex flex-wrap gap-2">
@@ -376,6 +417,12 @@
                                 Series
                             </th>
 
+                            @if (($settings->configuration_mode ?? 'BASIC') === 'ADVANCED')
+                                <th class="px-4 py-3 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                    K → Q
+                                </th>
+                            @endif
+
                             <th class="px-4 py-3 text-[9px] font-black uppercase tracking-wider text-slate-400">
                                 BYEs
                             </th>
@@ -415,6 +462,14 @@
                                 <td class="px-4 py-3 text-xs font-bold text-slate-600">
                                     {{ $round['series'] }}
                                 </td>
+
+                                @if (($settings->configuration_mode ?? 'BASIC') === 'ADVANCED')
+                                    <td class="whitespace-nowrap px-4 py-3 text-xs font-black text-fuchsia-700">
+                                        {{ $round['entrants_per_match'] }}
+                                        →
+                                        {{ $round['qualifiers_per_match'] }}
+                                    </td>
+                                @endif
 
                                 <td class="px-4 py-3 text-xs font-bold text-cyan-700">
                                     {{ $round['byes'] }}

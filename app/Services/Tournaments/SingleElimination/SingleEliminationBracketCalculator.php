@@ -10,7 +10,10 @@ class SingleEliminationBracketCalculator
 {
     public function __construct(
         private readonly
-        SingleEliminationValidator $validator
+        SingleEliminationValidator $validator,
+
+        private readonly
+        SingleEliminationAdvancedCalculator $advancedCalculator
     ) {}
 
     public function calculate(
@@ -35,6 +38,20 @@ class SingleEliminationBracketCalculator
                 'participants' =>
                 $participants,
             ];
+        }
+
+        if (
+            $settings->configuration_mode
+            ===
+            'ADVANCED'
+        ) {
+            return $this->advancedCalculator
+                ->calculate(
+                    $phaseTemplate,
+                    $settings,
+                    $participants,
+                    $roundRules
+                );
         }
 
         /*

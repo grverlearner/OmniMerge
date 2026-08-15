@@ -177,6 +177,9 @@ class SingleEliminationController extends Controller
 
                     'preview' =>
                     $result['preview'],
+
+                    'settings' =>
+                    $result['settings'],
                 ]
             )
             ->render();

@@ -3,6 +3,7 @@
 namespace App\Services\Tournaments\Graph\Flow;
 
 use App\Models\PhaseExit;
+use App\Models\PhaseSingleEliminationSetting;
 
 class TournamentGraphCapacityCalculator
 {
@@ -170,12 +171,77 @@ class TournamentGraphCapacityCalculator
 
     public function fromExit(
         array $phaseInput,
-        PhaseExit $exit
+        PhaseExit $exit,
+        ?PhaseSingleEliminationSetting $singleEliminationSettings = null
     ): array {
         $phaseInput =
             $this->normalize(
                 $phaseInput
             );
+
+        /*
+    |--------------------------------------------------------------------------
+    | Supervivientes de Single Elimination
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $singleEliminationSettings
+            &&
+            $exit->selector_type
+            ===
+            'SURVIVORS'
+        ) {
+            return $this->limitedSelection(
+                $phaseInput,
+                max(
+                    1,
+                    (int)
+                    $singleEliminationSettings->target_survivors
+                )
+            );
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Eliminados de Single Elimination
+    |--------------------------------------------------------------------------
+    */
+
+        if (
+            $singleEliminationSettings
+            &&
+            $exit->selector_type
+            ===
+            'ELIMINATED'
+        ) {
+            $target =
+                max(
+                    1,
+                    (int)
+                    $singleEliminationSettings->target_survivors
+                );
+
+            return $this->range(
+                max(
+                    0,
+                    $phaseInput['min']
+                        -
+                        $target
+                ),
+
+                $phaseInput['max']
+                    ===
+                    null
+                    ? null
+                    : max(
+                        0,
+                        $phaseInput['max']
+                            -
+                            $target
+                    )
+            );
+        }
 
         return match ($exit->selector_type) {
             'TOP_N',

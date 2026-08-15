@@ -92,6 +92,24 @@ class SingleEliminationRoundRuleService
             ??
             1;
 
+        foreach (
+            [
+                'entrants_per_match',
+                'qualifiers_per_match',
+                'encounter_profile',
+            ] as $advancedField
+        ) {
+            if (
+                ! array_key_exists(
+                    $advancedField,
+                    $data
+                )
+            ) {
+                $data[$advancedField] =
+                    $current?->{$advancedField};
+            }
+        }
+
         return $data;
     }
 }

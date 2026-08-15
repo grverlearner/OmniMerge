@@ -2,6 +2,7 @@
     class="space-y-4" @input="markSettingsDirty()" @change="markSettingsDirty()" @submit="submitting = true">
     @csrf
     @method('PUT')
+    @include('tournaments.phase-templates.partials.single-elimination-advanced-settings-form')
 
     {{-- FINALIZACIÓN --}}
 
@@ -54,15 +55,15 @@
                         Supervivientes objetivo
                     </label>
 
-                    <select name="target_survivors" x-model.number="draft.targetSurvivors"
+                    <input type="number" name="target_survivors" min="1" max="256" step="1"
+                        x-model.number="draft.targetSurvivors"
                         class="mt-2 w-full rounded-xl border-slate-300 bg-white text-sm focus:border-amber-400 focus:ring-amber-400">
-                        @foreach ([1, 2, 4, 8, 16, 32, 64, 128, 256] as $value)
-                            <option value="{{ $value }}" @selected((int) old('target_survivors', $settings->target_survivors) === $value)>
-                                {{ $value }}
-                            </option>
-                        @endforeach
-                    </select>
 
+                    <p class="mt-2 text-[11px] leading-5 text-slate-500"
+                        x-text="draft.configurationMode === 'BASIC'
+                        ? 'En modo básico usa 1, 2, 4, 8, 16...'
+                        : 'En modo avanzado puede ser cualquier entero alcanzable por las reglas K → Q.'">
+                    </p>
                     <x-input-error :messages="$errors->get('target_survivors')" class="mt-2" />
                 </div>
             </div>

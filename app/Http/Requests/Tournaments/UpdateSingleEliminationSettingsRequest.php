@@ -32,67 +32,160 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
                     'update',
                     $phaseTemplate
                 )
-                ?? false
+                ??
+                false
             );
     }
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
+        $uppercaseFields = [
+            'configuration_mode' =>
+            'BASIC',
+
+            'input_mode' =>
+            'POOL',
+
+            'routing_mode' =>
+            'AUTOMATIC',
+
+            'encounter_profile' =>
+            'DUEL',
+
+            'remainder_policy' =>
+            'REJECT',
+
             'completion_mode' =>
-            strtoupper(
-                (string)
-                $this->input(
-                    'completion_mode',
-                    'WINNER'
-                )
-            ),
+            'WINNER',
 
             'seeding_mode' =>
-            strtoupper(
-                (string)
-                $this->input(
-                    'seeding_mode',
-                    'INPUT_ORDER'
-                )
-            ),
+            'INPUT_ORDER',
 
             'pairing_mode' =>
-            strtoupper(
-                (string)
-                $this->input(
-                    'pairing_mode',
-                    'STANDARD_SEEDED'
-                )
-            ),
+            'STANDARD_SEEDED',
 
             'bye_assignment' =>
-            strtoupper(
-                (string)
-                $this->input(
-                    'bye_assignment',
-                    'TOP_SEEDS'
-                )
-            ),
+            'TOP_SEEDS',
 
-            'reseed_each_round' =>
+            'series_format' =>
+            'BEST_OF',
+        ];
+
+        $normalized = [];
+
+        foreach (
+            $uppercaseFields
+            as
+            $field => $default
+        ) {
+            $normalized[$field] =
+                strtoupper(
+                    (string)
+                    $this->input(
+                        $field,
+                        $default
+                    )
+                );
+        }
+
+        $normalized['reseed_each_round'] =
             $this->boolean(
                 'reseed_each_round'
-            ),
-            'series_format' =>
-            strtoupper(
-                (string)
-                $this->input(
-                    'series_format',
-                    'BEST_OF'
-                )
-            ),
-        ]);
+            );
+
+        $this->merge(
+            $normalized
+        );
     }
 
     public function rules(): array
     {
+        $advanced =
+            fn() =>
+            $this->input(
+                'configuration_mode'
+            )
+                ===
+                'ADVANCED';
+
         return [
+            'configuration_mode' => [
+                'required',
+
+                Rule::in([
+                    'BASIC',
+                    'ADVANCED',
+                ]),
+            ],
+
+            'input_mode' => [
+                'required',
+
+                Rule::in([
+                    'POOL',
+                    'PER_SEED',
+                    'GROUPED',
+                    'HYBRID',
+                    'CUSTOM',
+                ]),
+            ],
+
+            'routing_mode' => [
+                'required',
+
+                Rule::in([
+                    'AUTOMATIC',
+                    'POSITIONAL',
+                    'MANUAL',
+                    'CUSTOM',
+                ]),
+            ],
+
+            'entrants_per_match' => [
+                Rule::requiredIf(
+                    $advanced
+                ),
+
+                'nullable',
+                'integer',
+                'min:2',
+                'max:64',
+            ],
+
+            'qualifiers_per_match' => [
+                Rule::requiredIf(
+                    $advanced
+                ),
+
+                'nullable',
+                'integer',
+                'min:1',
+                'max:63',
+            ],
+
+            'encounter_profile' => [
+                'required',
+
+                Rule::in([
+                    'DUEL',
+                    'MULTI_COMPETITOR',
+                    'CUSTOM',
+                ]),
+            ],
+
+            'remainder_policy' => [
+                'required',
+
+                Rule::in([
+                    'BYE',
+                    'PRELIMINARY',
+                    'BALANCED',
+                    'INCOMPLETE_MATCH',
+                    'MANUAL',
+                    'REJECT',
+                ]),
+            ],
+
             'completion_mode' => [
                 'required',
 
@@ -220,26 +313,39 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
                     return;
                 }
 
-                $completionMode =
+                $advanced =
                     $this->input(
-                        'completion_mode'
-                    );
+                        'configuration_mode'
+                    )
+                    ===
+                    'ADVANCED';
 
                 $target =
-                    $completionMode === 'WINNER'
+                    $this->input(
+                        'completion_mode'
+                    )
+                    ===
+                    'WINNER'
                     ? 1
                     : (int)
                     $this->input(
                         'target_survivors'
                     );
 
+                $effectiveParticipants =
+                    $phaseTemplate->exact_participants
+                    ??
+                    $phaseTemplate->min_participants;
+
                 /*
                 |--------------------------------------------------------------------------
-                | Target debe ser una potencia de 2
+                | En modo básico el objetivo conserva la restricción tradicional
                 |--------------------------------------------------------------------------
                 */
 
                 if (
+                    ! $advanced
+                    &&
                     $target > 0
                     &&
                     ! $this->isPowerOfTwo(
@@ -250,20 +356,15 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
                         ->errors()
                         ->add(
                             'target_survivors',
-                            'El objetivo de supervivientes debe ser una potencia de 2: 1, 2, 4, 8, 16, 32...'
+                            'En modo básico el objetivo debe ser una potencia de 2: 1, 2, 4, 8, 16, 32...'
                         );
                 }
 
                 /*
                 |--------------------------------------------------------------------------
-                | Debe existir al menos una eliminación
+                | Siempre debe existir al menos una eliminación
                 |--------------------------------------------------------------------------
                 */
-
-                $effectiveParticipants =
-                    $phaseTemplate->exact_participants
-                    ??
-                    $phaseTemplate->min_participants;
 
                 if (
                     $target
@@ -274,15 +375,182 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
                         ->errors()
                         ->add(
                             'target_survivors',
-                            'El objetivo debe ser menor que la cantidad efectiva de entrada de la Fase: '
+                            'El objetivo debe ser menor que la entrada efectiva de la Fase: '
                                 .
                                 $effectiveParticipants
                                 .
                                 '.'
                         );
                 }
+
+                if (! $advanced) {
+                    return;
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Validaciones avanzadas K → Q
+                |--------------------------------------------------------------------------
+                */
+
+                $entrants =
+                    (int)
+                    $this->input(
+                        'entrants_per_match'
+                    );
+
+                $qualifiers =
+                    (int)
+                    $this->input(
+                        'qualifiers_per_match'
+                    );
+
+                $profile =
+                    $this->input(
+                        'encounter_profile'
+                    );
+
+                if (
+                    $qualifiers
+                    >=
+                    $entrants
+                ) {
+                    $validator
+                        ->errors()
+                        ->add(
+                            'qualifiers_per_match',
+                            'Los clasificados deben ser menos que los participantes del encuentro.'
+                        );
+                }
+
+                if (
+                    $profile === 'DUEL'
+                    &&
+                    (
+                        $entrants !== 2
+                        ||
+                        $qualifiers !== 1
+                    )
+                ) {
+                    $validator
+                        ->errors()
+                        ->add(
+                            'encounter_profile',
+                            'El perfil Duelo exige una relación 2 → 1.'
+                        );
+                }
+
+                if (
+                    $profile
+                    ===
+                    'MULTI_COMPETITOR'
+                    &&
+                    $entrants < 3
+                ) {
+                    $validator
+                        ->errors()
+                        ->add(
+                            'entrants_per_match',
+                            'El perfil Multicompetidor exige al menos 3 participantes por encuentro.'
+                        );
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Política BYE
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $this->input(
+                        'remainder_policy'
+                    )
+                    ===
+                    'BYE'
+                    &&
+                    ! $phaseTemplate->allow_byes
+                ) {
+                    $validator
+                        ->errors()
+                        ->add(
+                            'remainder_policy',
+                            'No puedes usar BYE porque el contrato de la Fase no los permite.'
+                        );
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Entrada por seed
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $this->input(
+                        'input_mode'
+                    )
+                    ===
+                    'PER_SEED'
+                    &&
+                    $phaseTemplate->exact_participants
+                    ===
+                    null
+                ) {
+                    $validator
+                        ->errors()
+                        ->add(
+                            'input_mode',
+                            'La entrada Por seed necesita una cantidad exacta de participantes.'
+                        );
+                }
             }
         );
+    }
+
+    public function messages(): array
+    {
+        return [
+            'configuration_mode.in' =>
+            'Selecciona modo Básico o Avanzado.',
+
+            'input_mode.in' =>
+            'Selecciona una forma de entrada válida.',
+
+            'routing_mode.in' =>
+            'Selecciona un modo de enrutamiento válido.',
+
+            'entrants_per_match.required' =>
+            'Indica cuántos participantes entran en cada encuentro.',
+
+            'entrants_per_match.min' =>
+            'Cada encuentro debe recibir al menos 2 participantes.',
+
+            'entrants_per_match.max' =>
+            'Un encuentro no puede recibir más de 64 participantes.',
+
+            'qualifiers_per_match.required' =>
+            'Indica cuántos participantes clasifican por encuentro.',
+
+            'qualifiers_per_match.min' =>
+            'Cada encuentro debe clasificar al menos 1 participante.',
+
+            'qualifiers_per_match.max' =>
+            'No puedes clasificar más de 63 participantes por encuentro.',
+
+            'encounter_profile.in' =>
+            'Selecciona un perfil de encuentro válido.',
+
+            'remainder_policy.in' =>
+            'Selecciona una política de participantes sobrantes válida.',
+
+            'default_best_of.in' =>
+            'El Best of debe ser 1, 3, 5, 7 o 9.',
+
+            'fixed_games.min' =>
+            'Debe disputarse al menos un enfrentamiento.',
+
+            'fixed_games.max' =>
+            'La cantidad fija no puede superar 99 enfrentamientos.',
+        ];
     }
 
     private function isPowerOfTwo(
@@ -290,7 +558,6 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
     ): bool {
         return
             $value > 0
-
             &&
             (
                 $value

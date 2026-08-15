@@ -46,6 +46,27 @@ implements LabPhaseEngine
             );
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | El modo avanzado todavía no se ejecuta en Competition Lab
+        |--------------------------------------------------------------------------
+        |
+        | La Etapa 3 permite guardar, validar y previsualizar su estructura.
+        | La ejecución requiere los encuentros, slots y rutas internas de las
+        | Etapas 4 y 6.
+        |
+        */
+
+        if (
+            $settings->configuration_mode
+            ===
+            'ADVANCED'
+        ) {
+            $this->fail(
+                'La definición avanzada ya puede guardarse y previsualizarse. Su ejecución en Competition Lab se habilitará en la Etapa 6.'
+            );
+        }
+
         $participantIds =
             array_values(
                 array_unique(
