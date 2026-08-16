@@ -58,16 +58,24 @@ class SingleEliminationController extends Controller
         $validated =
             $request->validated();
 
+        $rememberedParticipants =
+            (int) data_get(
+                $settings->settings,
+                'working_participants',
+                0
+            );
+
         $previewParticipants =
-            isset(
-                $validated['participants']
-            )
-            ? (int)
-            $validated['participants']
+            isset($validated['participants'])
+            ? (int) $validated['participants']
             : (
-                $phaseTemplate->exact_participants
-                ??
-                $phaseTemplate->min_participants
+                $rememberedParticipants >= 2
+                ? $rememberedParticipants
+                : (
+                    $phaseTemplate->exact_participants
+                    ??
+                    $phaseTemplate->min_participants
+                )
             );
 
         $preview =
@@ -145,10 +153,18 @@ class SingleEliminationController extends Controller
             $phaseTemplate
         );
 
+        $validated =
+            $request->validated();
+
+        /*
+     * El número queda recordado aunque solamente
+     * se esté utilizando para la vista previa.
+     */
         $settings =
             $this->settingsService
-            ->ensure(
-                $phaseTemplate
+            ->rememberParticipants(
+                $phaseTemplate,
+                (int) $validated['participants']
             );
 
         $roundRules =
@@ -162,7 +178,7 @@ class SingleEliminationController extends Controller
                 $phaseTemplate,
                 $settings,
                 $roundRules,
-                $request->validated()
+                $validated
             );
 
         $html =

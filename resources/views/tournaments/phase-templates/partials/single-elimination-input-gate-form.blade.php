@@ -227,14 +227,39 @@
     </div>
 
     <div class="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
-        <p class="text-[10px] font-black uppercase text-indigo-700">
-            Mapeo puerta → slots
-        </p>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <p class="text-[10px] font-black uppercase text-indigo-700">
+                    Mapeo puerta → slots
+                </p>
 
-        <p class="mt-1 text-[11px] leading-5 text-indigo-800">
-            El orden de selección define Posición 1, Posición 2, etc.
-            También puedes enviar un seed directamente a rondas posteriores.
-        </p>
+                <p class="mt-1 max-w-2xl text-[11px] leading-5 text-indigo-800">
+                    Solamente puedes seleccionar slots disponibles o slots que ya
+                    pertenecen a esta puerta. Los ocupados por otra fuente están bloqueados.
+                </p>
+            </div>
+
+            {{-- Leyenda --}}
+            <div class="flex flex-wrap gap-2 text-[9px] font-black">
+                <span
+                    class="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-emerald-700">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                    Disponible
+                </span>
+
+                <span
+                    class="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-indigo-700">
+                    <span class="h-2 w-2 rounded-full bg-indigo-500"></span>
+                    Esta puerta
+                </span>
+
+                <span
+                    class="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1.5 text-red-700">
+                    <span class="h-2 w-2 rounded-full bg-red-500"></span>
+                    Ocupado
+                </span>
+            </div>
+        </div>
 
         @if ($rounds->isEmpty())
             <p
@@ -242,12 +267,20 @@
                 Primero genera la estructura para disponer de slots.
             </p>
         @else
-            <div class="mt-4 max-h-[420px] space-y-3 overflow-y-auto">
+            <div class="mt-4 max-h-[520px] space-y-3 overflow-y-auto pr-1">
                 @foreach ($rounds as $round)
                     <div class="rounded-2xl border border-indigo-100 bg-white p-3">
-                        <p class="text-xs font-black text-slate-800">
-                            {{ $round->name }}
-                        </p>
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-xs font-black text-slate-800">
+                                {{ $round->name }}
+                            </p>
+
+                            <span
+                                class="rounded-full bg-slate-100 px-2.5 py-1 text-[8px] font-black uppercase text-slate-500">
+                                {{ $round->encounters->sum(fn($encounter) => $encounter->slots->count()) }}
+                                slots
+                            </span>
+                        </div>
 
                         <div class="mt-3 grid gap-2 md:grid-cols-2">
                             @foreach ($round->encounters as $encounter)
@@ -258,23 +291,109 @@
                                 @foreach ($encounter->slots as $slot)
                                     @php
                                         $globalSlotNumber++;
+
+                                        /*
+                                         * Solamente se consideran conexiones activas.
+                                         */
+                                        $activeIncomingConnections = $slot->incomingConnections
+                                            ->where('status', 'ACTIVE')
+                                            ->values();
+
+                                        /*
+                                         * Determinar si el slot ya pertenece
+                                         * a la puerta que se está editando.
+                                         */
+                                        $belongsToCurrentGate =
+                                            $editingGate &&
+                                            $activeIncomingConnections->contains(
+                                                fn($connection) => $connection->source_type === 'INPUT_GATE' &&
+                                                    (int) $connection->source_input_gate_id ===
+                                                        (int) $phaseInputGate->id,
+                                            );
+
+                                        /*
+                                         * Buscar una conexión que no pertenezca
+                                         * a la puerta actual.
+                                         */
+                                        $occupyingConnection = $activeIncomingConnections->first(
+                                            fn($connection) => !(
+                                                $editingGate &&
+                                                $connection->source_type === 'INPUT_GATE' &&
+                                                (int) $connection->source_input_gate_id === (int) $phaseInputGate->id
+                                            ),
+                                        );
+
+                                        $occupiedByOther = $occupyingConnection !== null;
+
+                                        $isSelected = $selectedTargetIds->contains($slot->id);
+
+                                        $occupancyLabel = match ($occupyingConnection?->source_type) {
+                                            'INPUT_GATE' => 'Puerta ocupada',
+
+                                            'RESULT' => 'Ocupado por un resultado anterior',
+
+                                            default => 'Slot ocupado',
+                                        };
                                     @endphp
 
-                                    <label
-                                        class="flex cursor-pointer gap-3 rounded-xl border border-slate-200 p-3 hover:border-indigo-300">
+                                    <label @class([
+                                        'relative flex gap-3 rounded-xl border p-3 transition',
+                                    
+                                        'cursor-not-allowed border-red-200 bg-red-50/80 opacity-80' => $occupiedByOther,
+                                    
+                                        'cursor-pointer border-indigo-300 bg-indigo-50 ring-1 ring-indigo-200' =>
+                                            !$occupiedByOther && $belongsToCurrentGate,
+                                    
+                                        'cursor-pointer border-emerald-200 bg-emerald-50/50 hover:border-emerald-400 hover:bg-emerald-50' =>
+                                            !$occupiedByOther && !$belongsToCurrentGate,
+                                    ])>
+
                                         <input type="checkbox" name="target_slot_ids[]" value="{{ $slot->id }}"
-                                            @checked($selectedTargetIds->contains($slot->id))
-                                            class="mt-0.5 rounded border-indigo-300 text-indigo-600">
+                                            @checked($isSelected) @disabled($occupiedByOther)
+                                            @class([
+                                                'mt-0.5 rounded',
+                                            
+                                                'border-red-300 text-red-500' => $occupiedByOther,
+                                            
+                                                'border-indigo-300 text-indigo-600' => $belongsToCurrentGate,
+                                            
+                                                'border-emerald-300 text-emerald-600' =>
+                                                    !$occupiedByOther && !$belongsToCurrentGate,
+                                            ])>
 
-                                        <span>
-                                            <span class="block text-[10px] font-black text-slate-800">
-                                                Encuentro global #{{ $globalEncounterNumber }}
-                                                · Slot {{ $slot->position }}
-                                            </span>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="flex flex-wrap items-center justify-between gap-2">
 
-                                            <span class="mt-1 block text-[9px] text-slate-400">
-                                                Slot global #{{ $globalSlotNumber }}
-                                                · {{ $slot->code }}
+                                                <span @class([
+                                                    'block text-[10px] font-black',
+                                                
+                                                    'text-red-800' => $occupiedByOther,
+                                                
+                                                    'text-indigo-800' => !$occupiedByOther && $belongsToCurrentGate,
+                                                
+                                                    'text-slate-800' => !$occupiedByOther && !$belongsToCurrentGate,
+                                                ])>
+                                                    Encuentro global
+                                                    #{{ $globalEncounterNumber }}
+                                                    · Slot {{ $slot->position }}
+                                                </span>
+
+                                                @if ($occupiedByOther)
+                                                    <span
+                                                        class="rounded-full bg-red-100 px-2 py-1 text-[8px] font-black uppercase text-red-700">
+                                                        Ocupado
+                                                    </span>
+                                                @elseif ($belongsToCurrentGate)
+                                                    <span
+                                                        class="rounded-full bg-indigo-100 px-2 py-1 text-[8px] font-black uppercase text-indigo-700">
+                                                        Esta puerta
+                                                    </span>
+                                                @else
+                                                    <span
+                                                        class="rounded-full bg-emerald-100 px-2 py-1 text-[8px] font-black uppercase text-emerald-700">
+                                                        Disponible
+                                                    </span>
+                                                @endif
                                             </span>
                                         </span>
                                     </label>

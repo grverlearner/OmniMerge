@@ -7,6 +7,7 @@ use App\Http\Requests\Tournaments\GenerateSingleEliminationStructureRequest;
 use App\Http\Requests\Tournaments\UpdateSingleEliminationStructureElementRequest;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureService;
+use App\Services\Tournaments\SingleElimination\SingleEliminationSettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -14,7 +15,10 @@ class SingleEliminationStructureController extends Controller
 {
     public function __construct(
         private readonly
-        SingleEliminationStructureService $service
+        SingleEliminationStructureService $service,
+
+        private readonly
+        SingleEliminationSettingsService $settingsService
     ) {}
 
     public function show(
@@ -132,6 +136,16 @@ class SingleEliminationStructureController extends Controller
                 ->min_participants
             );
 
+        /*
+        * Recordar la cantidad introducida antes de generar.
+        * Incluso si la estructura necesita alguna corrección,
+        * el campo conservará este número.
+        */
+        $this->settingsService
+            ->rememberParticipants(
+                $phaseTemplate,
+                $participants
+            );
         $result =
             $this->service
             ->generate(

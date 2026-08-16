@@ -246,6 +246,60 @@ class SingleEliminationSettingsService
         );
     }
 
+    /*
+|--------------------------------------------------------------------------
+| Recordar cantidad de participantes utilizada
+|--------------------------------------------------------------------------
+|
+| Es una preferencia de trabajo de la fase. No modifica el contrato,
+| no regenera la estructura y no cambia su estado de validación.
+|
+*/
+
+    public function rememberParticipants(
+        PhaseTemplate $phaseTemplate,
+        int $participants
+    ): PhaseSingleEliminationSetting {
+        $this->ensureCorrectType(
+            $phaseTemplate
+        );
+
+        return DB::transaction(
+            function () use (
+                $phaseTemplate,
+                $participants
+            ) {
+                $lockedPhase =
+                    PhaseTemplate::query()
+                    ->whereKey(
+                        $phaseTemplate->id
+                    )
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $settings =
+                    $this->ensure(
+                        $lockedPhase
+                    );
+
+                $metadata =
+                    is_array($settings->settings)
+                    ? $settings->settings
+                    : [];
+
+                $metadata['working_participants'] =
+                    $participants;
+
+                $settings->update([
+                    'settings' =>
+                    $metadata,
+                ]);
+
+                return $settings->fresh();
+            }
+        );
+    }
+
     private function ensureCorrectType(
         PhaseTemplate $phaseTemplate
     ): void {

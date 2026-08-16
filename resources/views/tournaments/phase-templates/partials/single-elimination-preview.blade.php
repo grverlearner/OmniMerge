@@ -14,7 +14,7 @@
                 </h3>
 
                 <p class="mt-1 text-[11px] leading-5 text-slate-300">
-                    Cálculo temporal: no crea encuentros ni modifica datos.
+                    Cálculo temporal: no crea encuentros y recuerda la última cantidad utilizada.
                 </p>
             </div>
 

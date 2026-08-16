@@ -18,7 +18,11 @@
             default => 'border-slate-300 bg-slate-100 text-slate-700',
         };
 
-        $defaultParticipants = $phaseTemplate->exact_participants ?? $phaseTemplate->min_participants;
+        $rememberedParticipants = (int) data_get($settings->settings, 'working_participants', 0);
+
+        $defaultParticipants =
+            $phaseTemplate->exact_participants ??
+            ($rememberedParticipants >= 2 ? $rememberedParticipants : $phaseTemplate->min_participants);
 
         $elementUpdateUrl = route('tournaments.single-elimination.structure.elements.update', [
             'phaseTemplate' => $phaseTemplate,
