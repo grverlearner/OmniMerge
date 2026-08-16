@@ -1161,15 +1161,184 @@ El validador comprueba contratos de entrada, capacidad de slots, partición de r
 
 La ejecución con participantes reales, resolución de resultados, eventos e historial continúa perteneciendo a la Etapa 6.
 
-Etapa 5 — Visualizador por bloques
-Bloques por ronda.
-Tarjetas de encuentros.
+
+Etapa 5 — Visualizador por bloques (implementada)
+
+La estructura interna persistente de Eliminación Simple dispone de un visualizador interactivo que representa puertas de entrada, rondas, encuentros, slots, resultados, conexiones y puertas de salida.
+
+El visualizador no utiliza un lienzo infinito y no depende del zoom. La información se organiza mediante bloques, tablas, filtros, paneles laterales y rutas textuales, permitiendo revisar estructuras pequeñas y grandes desde escritorio, tablet o móvil.
+
+La implementación incorpora tres vistas complementarias:
+
 Vista compacta.
-Vista detallada.
+
+Presenta el recorrido general de la fase:
+
+Puertas de entrada
+→ rondas
+→ puertas de salida
+
+Esta vista muestra cantidades de participantes, encuentros, clasificados, BYEs, rutas y problemas por ronda. Está orientada a comprender rápidamente la estructura completa sin revisar todos sus elementos internos.
+
+Vista detallada por bloques.
+
+Presenta:
+
+Puertas de entrada.
+Rondas expandibles.
+Tarjetas de encuentros.
+Slots de entrada.
+Fuentes de cada slot.
+Resultados internos.
+Destinos de cada resultado.
+Puertas de salida.
+Rutas relacionadas.
+Estados manuales y automáticos.
+Elementos protegidos.
+Errores, advertencias y recomendaciones.
+
+Cada elemento puede seleccionarse para abrir su inspector y rastrear las conexiones relacionadas.
+
 Vista de tabla.
+
+Incluye una tabla de encuentros con:
+
+Ronda.
+Encuentro.
+Fuentes.
+Formato K → Q.
+Perfil.
+Serie.
+Destinos.
+Estado de validación.
+
+También incluye una tabla específica de conexiones con:
+
+Código.
+Origen.
+Destino.
+Modo de asignación.
+Condición.
+Origen de generación.
+Estado de validación.
+
+La vista tabular garantiza que el enrutamiento continúe siendo comprensible incluso cuando una estructura tenga demasiadas relaciones para representarlas simultáneamente mediante flechas.
+
+Barra de herramientas.
+
+El visualizador incorpora:
+
+Búsqueda por nombre, código, fuente o destino.
+Filtro por ronda.
+Filtro por severidad.
+Filtro por generación automática o manual.
+Selector de densidad cómoda o densa.
+Cambio entre las tres vistas.
+Acceso al diagnóstico integrado.
+Limpieza de filtros.
+
+Las preferencias de vista y densidad se conservan en localStorage de manera independiente para cada PhaseTemplate.
+
 Inspector.
-Indicadores de rutas y estados.
-Sin dependencia de zoom.
+
+El inspector lateral permite seleccionar:
+
+Puertas de entrada.
+Rondas.
+Encuentros.
+Slots.
+Resultados.
+Conexiones.
+Puertas de salida.
+
+El inspector muestra:
+
+Tipo.
+Código.
+Nombre.
+Descripción.
+Estado.
+Origen de generación.
+Protección.
+Propiedades específicas.
+Rutas relacionadas.
+Problemas asociados.
+
+Desde el inspector pueden editarse los campos permitidos de cada elemento. Las modificaciones:
+
+Se validan mediante Form Request.
+Comprueban que el elemento pertenezca al PhaseTemplate actual.
+Se ejecutan dentro de una transacción.
+Marcan el elemento como MANUAL.
+Permiten proteger la personalización.
+Vuelven a validar el grafo.
+Conservan seleccionado el elemento después de la redirección.
+
+La fase no permite editar desde su inspector un elemento perteneciente a otra fase.
+
+Seguimiento de rutas.
+
+El visualizador permite cuatro modos de seguimiento:
+
+Directa.
+
+Resalta las conexiones inmediatamente relacionadas con el elemento.
+
+Origen.
+
+Recorre el grafo hacia atrás para mostrar de dónde provienen sus participantes.
+
+Destino.
+
+Recorre el grafo hacia adelante para mostrar hacia dónde avanzan sus resultados.
+
+Completa.
+
+Combina el recorrido hacia atrás y hacia adelante.
+
+Los elementos ajenos al recorrido seleccionado se atenúan sin desaparecer. De esta manera se conserva el contexto general de la fase.
+
+Diagnóstico integrado.
+
+Los errores, advertencias y recomendaciones generados por el validador se incorporan al payload visual.
+
+El usuario puede:
+
+Abrir el listado de problemas.
+Seleccionar un problema.
+Cambiar automáticamente a la vista adecuada.
+Localizar el elemento asociado.
+Abrir su inspector.
+Revisar sus rutas.
+Aplicar una corrección permitida.
+Volver a validar la estructura.
+
+Protección de personalizaciones.
+
+La regeneración protege:
+
+Puertas de entrada manuales o bloqueadas.
+Rondas manuales o bloqueadas.
+Encuentros manuales o bloqueados.
+Slots manuales o bloqueados.
+Resultados manuales o bloqueados.
+Conexiones manuales o bloqueadas.
+
+Si existe cualquiera de estos elementos, el generador requiere que el usuario confirme explícitamente el reemplazo de personalizaciones.
+
+Arquitectura.
+
+SingleEliminationStructurePresenter transforma los modelos persistentes y el diagnóstico del validador en un payload preparado para la interfaz.
+
+SingleEliminationStructureEditor centraliza las modificaciones permitidas desde el inspector y valida la pertenencia de cada elemento.
+
+SingleEliminationStructureService coordina generación, edición, validación y construcción del payload.
+
+SingleEliminationStructureController expone la pantalla principal y la actualización controlada de elementos.
+
+El componente Alpine singleEliminationStructureVisualizer gestiona selección, vistas, filtros, rutas, preferencias, inspector y diagnóstico sin duplicar reglas estructurales del backend.
+
+La Etapa 5 es una capa de visualización y edición controlada. La ejecución real de participantes, activación de encuentros, resolución de resultados y registro histórico continúa perteneciendo a la Etapa 6.
 
 Etapa 6 — Competition Lab
 Resolución de entradas.

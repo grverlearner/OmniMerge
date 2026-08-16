@@ -3,10 +3,12 @@ import Alpine from 'alpinejs';
 import tournamentFlowBuilder from './tournaments/graph/flow-builder';
 import competitionLab from './tournaments/lab/competition-lab';
 import singleEliminationWorkspace from './tournaments/single-elimination/workspace';
+import singleEliminationStructureVisualizer from './tournaments/single-elimination/structure-visualizer';
 
 window.Alpine = Alpine;
 window.tournamentFlowBuilder = tournamentFlowBuilder;
 window.singleEliminationWorkspace = singleEliminationWorkspace;
+window.singleEliminationStructureVisualizer = singleEliminationStructureVisualizer;
 
 
 window.Alpine =
@@ -88,6 +90,10 @@ document.addEventListener(
         Alpine.data(
             'singleEliminationWorkspace',
             singleEliminationWorkspace
+        );
+        Alpine.data(
+            'singleEliminationStructureVisualizer',
+            singleEliminationStructureVisualizer
         );
 
         Alpine.data(

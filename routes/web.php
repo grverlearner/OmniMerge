@@ -377,6 +377,32 @@ Route::middleware('auth')->group(function () {
                     'single-elimination.structure.validate'
                 );
 
+                Route::put(
+                    '/phases/{phaseTemplate}/single-elimination/structure/elements/{elementType}/{element}',
+                    [
+                        SingleEliminationStructureController::class,
+                        'updateElement',
+                    ]
+                )
+                    ->whereIn(
+                        'elementType',
+                        [
+                            'INPUT_GATE',
+                            'ROUND',
+                            'ENCOUNTER',
+                            'SLOT',
+                            'RESULT',
+                            'CONNECTION',
+                            'PHASE_EXIT',
+                        ]
+                    )
+                    ->whereNumber(
+                        'element'
+                    )
+                    ->name(
+                        'single-elimination.structure.elements.update'
+                    );
+
                 /*
                 |--------------------------------------------------------------------------
                 | Reglas por ronda

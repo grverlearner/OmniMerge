@@ -1608,6 +1608,64 @@ class SingleEliminationStructureGenerator
 
             ||
 
+            PhaseSingleEliminationSlot::query()
+            ->whereHas(
+                'encounter',
+                function ($query) use (
+                    $phaseTemplate
+                ) {
+                    $query->where(
+                        'phase_template_id',
+                        $phaseTemplate->id
+                    );
+                }
+            )
+            ->where(
+                function ($query) {
+                    $query
+                        ->where(
+                            'generation_source',
+                            'MANUAL'
+                        )
+                        ->orWhere(
+                            'is_locked',
+                            true
+                        );
+                }
+            )
+            ->exists()
+
+            ||
+
+            PhaseSingleEliminationResult::query()
+            ->whereHas(
+                'encounter',
+                function ($query) use (
+                    $phaseTemplate
+                ) {
+                    $query->where(
+                        'phase_template_id',
+                        $phaseTemplate->id
+                    );
+                }
+            )
+            ->where(
+                function ($query) {
+                    $query
+                        ->where(
+                            'generation_source',
+                            'MANUAL'
+                        )
+                        ->orWhere(
+                            'is_locked',
+                            true
+                        );
+                }
+            )
+            ->exists()
+
+            ||
+
             $phaseTemplate
             ->singleEliminationConnections()
             ->where(

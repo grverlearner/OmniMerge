@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tournaments;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\GenerateSingleEliminationStructureRequest;
+use App\Http\Requests\Tournaments\UpdateSingleEliminationStructureElementRequest;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureService;
 use Illuminate\Http\RedirectResponse;
@@ -57,6 +58,9 @@ class SingleEliminationStructureController extends Controller
 
                 'validation' =>
                 $payload['validation'],
+
+                'visualizer' =>
+                $payload['visualizer'],
             ]
         );
     }
@@ -143,6 +147,53 @@ class SingleEliminationStructureController extends Controller
                 $validation['valid']
                     ? 'El grafo interno es válido.'
                     : 'El grafo interno contiene errores que deben corregirse.'
+            );
+    }
+
+    public function updateElement(
+        UpdateSingleEliminationStructureElementRequest $request,
+        PhaseTemplate $phaseTemplate,
+        string $elementType,
+        int $element
+    ): RedirectResponse {
+        $this->ensureCorrectType(
+            $phaseTemplate
+        );
+
+        $result =
+            $this->service
+            ->updateElement(
+                $phaseTemplate,
+                $elementType,
+                $element,
+                $request->validated()
+            );
+
+        $validation =
+            $result['validation'];
+
+        return redirect()
+            ->route(
+                'tournaments.single-elimination.structure.show',
+                [
+                    'phaseTemplate' =>
+                    $phaseTemplate,
+
+                    'selected' =>
+                    $elementType
+                        .
+                        ':'
+                        .
+                        $element,
+                ]
+            )
+            ->with(
+                $validation['valid']
+                    ? 'success'
+                    : 'warning',
+                $validation['valid']
+                    ? 'El elemento fue actualizado y la estructura continúa siendo válida.'
+                    : 'El elemento fue actualizado, pero la estructura ahora necesita correcciones.'
             );
     }
 

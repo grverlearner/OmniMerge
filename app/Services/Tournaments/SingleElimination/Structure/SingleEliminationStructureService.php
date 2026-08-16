@@ -4,6 +4,8 @@ namespace App\Services\Tournaments\SingleElimination\Structure;
 
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\SingleElimination\SingleEliminationSettingsService;
+use App\Services\Tournaments\SingleElimination\Visualization\SingleEliminationStructureEditor;
+use App\Services\Tournaments\SingleElimination\Visualization\SingleEliminationStructurePresenter;
 use Illuminate\Support\Facades\DB;
 
 class SingleEliminationStructureService
@@ -16,7 +18,13 @@ class SingleEliminationStructureService
         SingleEliminationStructureValidator $validator,
 
         private readonly
-        SingleEliminationSettingsService $settingsService
+        SingleEliminationSettingsService $settingsService,
+
+        private readonly
+        SingleEliminationStructurePresenter $presenter,
+
+        private readonly
+        SingleEliminationStructureEditor $editor
     ) {}
 
     /*
@@ -94,6 +102,41 @@ class SingleEliminationStructureService
 
     /*
     |--------------------------------------------------------------------------
+    | Edición segura desde el inspector
+    |--------------------------------------------------------------------------
+    */
+
+    public function updateElement(
+        PhaseTemplate $phaseTemplate,
+        string $elementType,
+        int $elementId,
+        array $data
+    ): array {
+        $element =
+            $this->editor
+            ->update(
+                $phaseTemplate,
+                $elementType,
+                $elementId,
+                $data
+            );
+
+        $validation =
+            $this->validateAndPersist(
+                $phaseTemplate->fresh()
+            );
+
+        return [
+            'element' =>
+            $element,
+
+            'validation' =>
+            $validation,
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Payload para la vista
     |--------------------------------------------------------------------------
     */
@@ -107,8 +150,20 @@ class SingleEliminationStructureService
                 $phaseTemplate
             );
 
+        $validation =
+            $this->validator
+            ->validate(
+                $phaseTemplate
+            );
+
+        /*
+         * El validador carga su propio conjunto de relaciones.
+         * Después se carga el grafo visual completo para evitar N+1
+         * en el presentador y en los parciales Blade.
+         */
         $phaseTemplate->load([
             'inputGates.contextualEntryPorts',
+            'inputGates.outgoingConnections',
 
             'singleEliminationRounds.encounters.slots.incomingConnections',
             'singleEliminationRounds.encounters.results.outgoingConnections',
@@ -121,15 +176,20 @@ class SingleEliminationStructureService
             'exits.incomingInternalConnections',
         ]);
 
-        $validation =
-            $this->validator
-            ->validate(
-                $phaseTemplate
+        $freshSettings =
+            $settings->fresh();
+
+        $visualizer =
+            $this->presenter
+            ->present(
+                $phaseTemplate,
+                $freshSettings,
+                $validation
             );
 
         return [
             'settings' =>
-            $settings->fresh(),
+            $freshSettings,
 
             'inputGates' =>
             $phaseTemplate->inputGates,
@@ -147,6 +207,9 @@ class SingleEliminationStructureService
 
             'validation' =>
             $validation,
+
+            'visualizer' =>
+            $visualizer,
         ];
     }
 }
