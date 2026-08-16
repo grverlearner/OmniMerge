@@ -16,6 +16,12 @@
             && !data_get($connection->settings, 'automatic_elimination_route', false)
         )
         ->groupBy(fn($connection) => data_get($connection->settings, 'route_group', 'connection:' . $connection->id));
+
+    $initialBuilderStep = $rounds->isEmpty()
+        ? 1
+        : ($encounters->isEmpty()
+            ? 2
+            : ($manualRouteGroups->isEmpty() ? 3 : 4));
 @endphp
 
 <section class="mt-6 overflow-hidden rounded-[30px] border border-fuchsia-200 bg-white shadow-sm">
@@ -43,7 +49,7 @@
         </div>
     </div>
 
-    <div class="p-5 sm:p-6">
+    <div x-data="{ builderStep: @js($initialBuilderStep) }" class="p-5 sm:p-6">
         @unless ($isCustomGraph)
             <form method="POST"
                 action="{{ route('tournaments.single-elimination.graph.initialize', $phaseTemplate) }}"
@@ -105,11 +111,40 @@
                 @endforeach
             </div>
 
-            <div class="mt-5 grid gap-5 xl:grid-cols-3">
+            <div class="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 p-2">
+                <div class="grid min-w-[720px] grid-cols-4 gap-2">
+                    @foreach ([
+                        [1, 'Etapas', 'Organiza el recorrido', $rounds->count()],
+                        [2, 'Encuentros', 'Define quién compite', $encounters->count()],
+                        [3, 'Conexiones', 'Mueve clasificados', $manualRouteGroups->count()],
+                        [4, 'Revisión', 'Comprueba el resultado', null],
+                    ] as [$step, $label, $description, $count])
+                        <button type="button" @click="builderStep = {{ $step }}"
+                            :class="builderStep === {{ $step }}
+                                ? 'border-fuchsia-300 bg-white text-fuchsia-900 shadow-sm'
+                                : 'border-transparent text-slate-500 hover:bg-white/70'"
+                            class="rounded-xl border px-4 py-3 text-left transition">
+                            <span class="flex items-center justify-between gap-2">
+                                <span class="text-[9px] font-black uppercase tracking-wider">
+                                    {{ $step }}. {{ $label }}
+                                </span>
+                                @if ($count !== null)
+                                    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-black text-slate-600">
+                                        {{ $count }}
+                                    </span>
+                                @endif
+                            </span>
+                            <span class="mt-1 block text-[9px] font-bold opacity-60">{{ $description }}</span>
+                        </button>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="mt-5">
                 {{-- Etapa --}}
-                <form method="POST"
+                <form x-cloak x-show="builderStep === 1" x-transition method="POST"
                     action="{{ route('tournaments.single-elimination.graph.stages.store', $phaseTemplate) }}"
-                    class="rounded-3xl border border-violet-200 bg-violet-50 p-5">
+                    class="max-w-3xl rounded-3xl border border-violet-200 bg-violet-50 p-5">
                     @csrf
 
                     <p class="text-[9px] font-black uppercase tracking-wider text-violet-700">1. Nueva etapa</p>
@@ -140,9 +175,9 @@
                 </form>
 
                 {{-- Encuentro --}}
-                <form method="POST"
+                <form x-cloak x-show="builderStep === 2" x-transition method="POST"
                     action="{{ route('tournaments.single-elimination.graph.encounters.store', $phaseTemplate) }}"
-                    class="rounded-3xl border border-indigo-200 bg-indigo-50 p-5">
+                    class="max-w-3xl rounded-3xl border border-indigo-200 bg-indigo-50 p-5">
                     @csrf
 
                     <p class="text-[9px] font-black uppercase tracking-wider text-indigo-700">2. Nuevo encuentro</p>
@@ -219,9 +254,10 @@
                 </form>
 
                 {{-- Ruta --}}
-                <form method="POST" x-data="{ targetType: 'ENCOUNTER' }"
+                <form x-cloak x-show="builderStep === 3" x-transition method="POST"
+                    x-data="{ targetType: 'ENCOUNTER' }"
                     action="{{ route('tournaments.single-elimination.graph.routes.store', $phaseTemplate) }}"
-                    class="rounded-3xl border border-cyan-200 bg-cyan-50 p-5">
+                    class="max-w-3xl rounded-3xl border border-cyan-200 bg-cyan-50 p-5">
                     @csrf
 
                     <p class="text-[9px] font-black uppercase tracking-wider text-cyan-700">3. Nueva ruta</p>
@@ -286,7 +322,22 @@
             </div>
 
             {{-- Etapas y encuentros existentes --}}
-            <div class="mt-6 space-y-4">
+            <div x-cloak x-show="builderStep === 1 || builderStep === 2 || builderStep === 4" x-transition
+                class="mt-6 space-y-4">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                            {{ $rounds->count() }} {{ $rounds->count() === 1 ? 'etapa creada' : 'etapas creadas' }}
+                        </p>
+                        <h3 class="mt-1 text-lg font-black text-slate-900">
+                            Recorrido actual
+                        </h3>
+                    </div>
+                    <p class="max-w-lg text-[10px] leading-4 text-slate-500">
+                        Abre un encuentro solamente cuando necesites modificarlo. Los slots muestran también
+                        si están disponibles o qué tipo de conexión los ocupa.
+                    </p>
+                </div>
                 @foreach ($rounds as $round)
                     <article class="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                         <div class="flex flex-wrap items-start justify-between gap-3">
@@ -454,7 +505,8 @@
                 @endforeach
             </div>
 
-            <div class="mt-6 rounded-3xl border border-cyan-200 bg-cyan-50 p-5">
+            <div x-cloak x-show="builderStep === 3 || builderStep === 4" x-transition
+                class="mt-6 rounded-3xl border border-cyan-200 bg-cyan-50 p-5">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <p class="text-[9px] font-black uppercase text-cyan-700">Rutas competitivas</p>
@@ -465,7 +517,7 @@
 
                     <a href="{{ route('tournaments.single-elimination.structure.io', $phaseTemplate) }}"
                         class="rounded-xl bg-fuchsia-600 px-4 py-3 text-[10px] font-black text-white">
-                        Mapear puerta de entrada → slots
+                        Configurar entradas y salidas →
                     </a>
                 </div>
 
@@ -506,6 +558,14 @@
                         </p>
                     @endforelse
                 </div>
+            </div>
+
+            <div x-cloak x-show="builderStep !== 4"
+                class="mt-5 flex justify-end">
+                <button type="button" @click="builderStep = Math.min(4, builderStep + 1)"
+                    class="rounded-xl border border-fuchsia-200 bg-white px-4 py-3 text-xs font-black text-fuchsia-700 transition hover:bg-fuchsia-50">
+                    Continuar al siguiente paso →
+                </button>
             </div>
         @endunless
     </div>

@@ -25,19 +25,9 @@
         fixedGames: @js((int) old('fixed_games', $settings->fixed_games)),
         reseedEachRound: @js((bool) old('reseed_each_round', $settings->reseed_each_round))
     })" x-init="init()" class="pb-28">
-        {{-- VOLVER --}}
-
-        <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <a href="{{ route('tournaments.phase-templates.show', $phaseTemplate) }}"
-                class="inline-flex items-center gap-2 text-sm font-black text-slate-400 transition hover:text-amber-600">
-                ← Volver a la Fase
-            </a>
-
-            <span
-                class="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-[10px] font-bold text-slate-400">
-                {{ $phaseTemplate->code }}
-            </span>
-        </div>
+        @include('tournaments.phase-templates.partials.workspace-navigation', [
+            'current' => 'rules',
+        ])
 
         {{-- HERO --}}
 
@@ -58,8 +48,8 @@
                     </h1>
 
                     <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-                        Configura la entrada, distribución, rondas,
-                        series y salida de esta fase.
+                        Define cómo compiten los participantes. La estructura y sus puertas
+                        se administran en espacios separados para conservar el contexto.
                     </p>
                 </div>
 
@@ -237,7 +227,7 @@
                         </p>
 
                         <h2 class="mt-1 text-xl font-black text-slate-900">
-                            Overrides
+                            Reglas especiales por ronda
                         </h2>
 
                         <p class="mt-1 text-[11px] leading-5 text-slate-500">
@@ -276,7 +266,7 @@
 
                                         <span
                                             class="rounded-full bg-violet-100 px-2 py-1 text-[9px] font-black uppercase text-violet-700">
-                                            Override
+                                            Regla especial
                                         </span>
                                         @if ($obsoleteRule)
                                             <span
@@ -329,10 +319,10 @@
                                 <form method="POST"
                                     action="{{ route('tournaments.single-elimination.round-rules.destroy', [$phaseTemplate, $roundRule]) }}"
                                     data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
-                                    data-confirm-title="Eliminar override"
+                                    data-confirm-title="Eliminar regla especial"
                                     data-confirm-message="Esta ronda volverá a utilizar la serie y el formato competitivo predeterminados."
                                     data-confirm-subject="{{ $roundRule->round_label }}"
-                                    data-confirm-action="Eliminar override">
+                                    data-confirm-action="Eliminar regla">
                                     @csrf
                                     @method('DELETE')
 

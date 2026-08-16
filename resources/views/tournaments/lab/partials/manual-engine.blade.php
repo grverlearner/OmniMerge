@@ -57,6 +57,27 @@
                 Reiniciar
             </button>
         </div>
+
+        <div x-show="state?.status !== 'READY'" class="mt-5 grid gap-2 md:grid-cols-3">
+            <div class="rounded-2xl border border-white bg-white/80 p-3"
+                :class="selectedNodeId ? 'text-emerald-800' : 'text-sky-800'">
+                <p class="text-[9px] font-black uppercase">1. Seleccionar fase</p>
+                <p class="mt-1 text-[10px] opacity-70" x-text="selectedNodeId ? 'Fase seleccionada' : 'Elige qué fase probarás'">
+                </p>
+            </div>
+            <div class="rounded-2xl border border-white bg-white/80 p-3"
+                :class="selectedNode()?.runtime ? 'text-emerald-800' : 'text-slate-500'">
+                <p class="text-[9px] font-black uppercase">2. Preparar participantes</p>
+                <p class="mt-1 text-[10px] opacity-70"
+                    x-text="selectedNode()?.runtime ? 'Participantes preparados' : 'Selecciona y confirma el grupo'">
+                </p>
+            </div>
+            <div class="rounded-2xl border border-white bg-white/80 p-3"
+                :class="selectedNode()?.runtime ? 'text-violet-800' : 'text-slate-400'">
+                <p class="text-[9px] font-black uppercase">3. Ejecutar encuentros</p>
+                <p class="mt-1 text-[10px] opacity-70">Registra o simula resultados</p>
+            </div>
+        </div>
     </section>
 
     <section x-show="state?.status !== 'READY'" class="rounded-3xl border border-slate-200 bg-white p-5">
@@ -64,6 +85,10 @@
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
 
             <div class="flex-1">
+
+                <p class="mb-2 text-[9px] font-black uppercase tracking-[0.16em] text-sky-600">
+                    Paso 1 · Selección
+                </p>
 
                 <label class="text-[9px] font-black uppercase text-slate-500">
                     Fase que deseas probar
@@ -108,6 +133,13 @@
                 !selectedNode().runtime
             "
             class="mt-5">
+
+            <div class="mb-3 flex items-center justify-between gap-3">
+                <p class="text-[9px] font-black uppercase tracking-[0.16em] text-sky-600">
+                    Paso 2 · Participantes de prueba
+                </p>
+                <p class="text-[9px] font-bold text-slate-400">Mínimo 2</p>
+            </div>
 
             <div class="flex max-h-[220px] flex-wrap gap-2 overflow-y-auto">
 
@@ -156,7 +188,7 @@
             <div>
 
                 <p class="text-[9px] font-black uppercase text-violet-600">
-                    Motor activo
+                    Paso 3 · Motor activo
                 </p>
 
                 <h3 class="mt-1 text-xl font-black text-slate-950" x-text="selectedNode()?.name">

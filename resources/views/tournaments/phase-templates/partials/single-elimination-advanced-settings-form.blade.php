@@ -142,7 +142,7 @@
                     </option>
 
                     <option value="CUSTOM">
-                        Personalizado
+                        Personalizado · requiere estructura
                     </option>
                 </select>
 
@@ -175,7 +175,7 @@
                     </option>
 
                     <option value="MANUAL">
-                        Resolución manual
+                        Resolución manual · requiere estructura
                     </option>
 
                     <option value="REJECT">
@@ -212,7 +212,7 @@
                     </option>
 
                     <option value="CUSTOM">
-                        Personalizada
+                        Personalizada · requiere configurar puertas
                     </option>
                 </select>
 
@@ -235,11 +235,11 @@
                     </option>
 
                     <option value="MANUAL">
-                        Manual
+                        Manual · requiere constructor
                     </option>
 
                     <option value="CUSTOM">
-                        Personalizado
+                        Personalizado · requiere constructor
                     </option>
                 </select>
 
@@ -247,11 +247,32 @@
             </div>
         </div>
 
+        <div x-cloak
+            x-show="draft.encounterProfile === 'CUSTOM' || draft.remainderPolicy === 'MANUAL' || draft.inputMode === 'CUSTOM' || draft.routingMode === 'MANUAL' || draft.routingMode === 'CUSTOM'"
+            class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div class="flex items-start gap-3">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-black text-amber-700">!</span>
+                <div>
+                    <p class="text-xs font-black text-amber-900">Requiere completar la estructura</p>
+                    <p class="mt-1 text-[10px] leading-5 text-amber-800">
+                        La opción se guardará, pero la fase no estará lista para ejecutarse hasta que construyas
+                        sus etapas, encuentros, conexiones y puertas en la sección Estructura.
+                    </p>
+                    <a href="{{ route('tournaments.single-elimination.structure.show', [
+                        'phaseTemplate' => $phaseTemplate,
+                        'workspace' => 'CUSTOM',
+                    ]) }}"
+                        class="mt-3 inline-flex text-[10px] font-black text-amber-900 underline decoration-amber-400 underline-offset-4">
+                        Abrir constructor personalizado →
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <div class="mt-4 rounded-2xl border border-fuchsia-100 bg-white p-4 text-xs leading-5 text-slate-500">
-            La Etapa 3 guarda, valida y calcula esta definición.
-            Las rutas manuales o personalizadas y la ejecución completa
-            en Competition Lab se conectarán cuando existan encuentros,
-            slots y conexiones internas.
+            La configuración automática puede generar la estructura desde estas reglas.
+            Si seleccionas entrada o enrutamiento manual, deberás completar etapas,
+            encuentros, conexiones y slots desde la sección Estructura antes de probarla.
         </div>
     </div>
 </section>

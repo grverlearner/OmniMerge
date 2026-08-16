@@ -22,7 +22,7 @@
     $engine = $editing
         ? match ($phaseTemplate->phase_type) {
             'SINGLE_ELIMINATION' => [
-                'name' => 'Single Elimination Engine',
+                'name' => 'Reglas de Eliminación Simple',
                 'icon' => '⚔',
                 'url' => route('tournaments.single-elimination.show', $phaseTemplate),
                 'description' => 'Seeding, pairing, BYEs, reglas por ronda y estructura interna.',
@@ -33,7 +33,7 @@
                 'button' => 'bg-amber-500 shadow-amber-500/20 hover:bg-amber-600',
             ],
             'ROUND_ROBIN' => [
-                'name' => 'Round Robin Engine',
+                'name' => 'Reglas de Round Robin',
                 'icon' => '↻',
                 'url' => route('tournaments.round-robin.show', $phaseTemplate),
                 'description' => 'Ciclos, calendario, puntuación, empates y criterios de desempate.',
@@ -44,7 +44,7 @@
                 'button' => 'bg-cyan-600 shadow-cyan-600/20 hover:bg-cyan-700',
             ],
             'GROUP_STAGE' => [
-                'name' => 'Group Stage Engine',
+                'name' => 'Reglas de Fase de Grupos',
                 'icon' => '▦',
                 'url' => route('tournaments.group-stage.show', $phaseTemplate),
                 'description' => 'Grupos, distribución, calendario interno y reglas de clasificación.',
@@ -55,7 +55,7 @@
                 'button' => 'bg-indigo-600 shadow-indigo-600/20 hover:bg-indigo-700',
             ],
             'SWISS' => [
-                'name' => 'Swiss Engine',
+                'name' => 'Reglas del Sistema Suizo',
                 'icon' => '◆',
                 'url' => route('tournaments.swiss.show', $phaseTemplate),
                 'description' => 'Rondas, score groups, rematches, BYEs, scoring y desempates.',
@@ -531,14 +531,14 @@
                         {{ $engine['name'] }}
                     </p>
                     <h3 class="mt-2 text-sm font-black {{ $engine['title'] }}">
-                        {{ $engine['icon'] }} Configuración avanzada separada
+                        {{ $engine['icon'] }} Reglas específicas de la fase
                     </h3>
                     <p class="mt-2 text-xs leading-5 {{ $engine['body'] }}">
                         {{ $engine['description'] }}
                     </p>
                     <a href="{{ $engine['url'] }}"
                         class="mt-4 block rounded-xl px-4 py-3 text-center text-xs font-black text-white shadow-lg transition {{ $engine['button'] }}">
-                        {{ $engine['icon'] }} Abrir Engine
+                        {{ $engine['icon'] }} Abrir reglas
                     </a>
                 </section>
             @else
@@ -548,7 +548,7 @@
                     </p>
                     <p class="mt-2 text-xs leading-5 text-slate-600">
                         Este formulario solo define la Fase. Brackets, calendarios, grupos,
-                        emparejamientos y reglas avanzadas pertenecen al Engine.
+                        emparejamientos y reglas avanzadas se administran en la sección Reglas.
                     </p>
                 </section>
             @endif

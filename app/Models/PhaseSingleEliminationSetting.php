@@ -318,24 +318,24 @@ class PhaseSingleEliminationSetting extends Model
     {
         return match ($this->structure_status) {
             'NOT_GENERATED' =>
-            'Sin generar',
+            'Sin estructura',
 
             'GENERATED' =>
-            'Generada',
+            'Pendiente de validación',
 
             'VALID' =>
-            'Válida',
+            'Lista para probar',
 
             'INVALID' =>
-            'Inválida',
+            'Requiere correcciones',
 
             'STALE' =>
-            'Desactualizada',
+            'Estructura desactualizada',
 
             default =>
             $this->structure_status
                 ??
-                'Sin generar',
+                'Sin estructura',
         };
     }
 }

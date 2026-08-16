@@ -17,7 +17,7 @@
             <div class="max-w-3xl">
                 <div
                     class="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">
-                    🏆 Tournament & Phase Designer
+                    🏆 Diseñador de torneos y fases
                 </div>
 
                 <h2 class="mt-5 text-3xl font-black tracking-tight sm:text-4xl">
@@ -27,7 +27,7 @@
 
                 <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
                     Las Fases definen qué ocurre dentro de cada etapa.
-                    Los Torneos serán los encargados de conectarlas
+                    Los torneos las conectan
                     para formar recorridos, bifurcaciones, repechajes
                     y caminos competitivos completos.
                 </p>
@@ -235,7 +235,7 @@
                         class="{{ $done ? 'text-emerald-600' : 'text-slate-400' }}
                         mt-3 inline-flex text-[9px] font-black uppercase">
 
-                        {{ $done ? 'Sprint actual' : 'Próximo' }}
+                        {{ $done ? 'Disponible' : 'Planificado' }}
                     </span>
                 </article>
             @endforeach

@@ -30,7 +30,7 @@
             </button>
         </div>
 
-        <div class="flex flex-1 flex-col gap-2 lg:flex-row xl:max-w-4xl">
+        <div class="flex flex-1 items-center gap-2 xl:max-w-2xl">
             <label class="relative flex-1">
                 <span class="sr-only">
                     Buscar en la estructura
@@ -45,54 +45,68 @@
                     class="min-h-11 w-full rounded-xl border-slate-200 bg-slate-50 pl-9 text-xs font-bold text-slate-700 focus:border-violet-400 focus:bg-white focus:ring-violet-400">
             </label>
 
-            <select x-model="roundFilter" aria-label="Filtrar por ronda"
-                class="min-h-11 rounded-xl border-slate-200 bg-white text-xs font-black text-slate-600 focus:border-violet-400 focus:ring-violet-400">
-                <option value="ALL">
-                    Todas las rondas
-                </option>
+            <details class="relative shrink-0">
+                <summary
+                    class="flex min-h-11 cursor-pointer list-none items-center rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-600 transition hover:border-violet-300 hover:text-violet-700">
+                    Filtros y densidad
+                </summary>
 
-                <template x-for="round in payload.rounds" :key="round.key">
-                    <option :value="round.key" x-text="round.name"></option>
-                </template>
-            </select>
+                <div class="absolute right-0 z-30 mt-2 w-72 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
+                    <div>
+                        <label class="text-[9px] font-black uppercase tracking-wider text-slate-400">Etapa</label>
+                        <select x-model="roundFilter" aria-label="Filtrar por ronda"
+                            class="mt-1 w-full rounded-xl border-slate-200 bg-white text-xs font-black text-slate-600 focus:border-violet-400 focus:ring-violet-400">
+                            <option value="ALL">Todas las rondas</option>
+                            <template x-for="round in payload.rounds" :key="round.key">
+                                <option :value="round.key" x-text="round.name"></option>
+                            </template>
+                        </select>
+                    </div>
 
-            <select x-model="severityFilter" aria-label="Filtrar por diagnóstico"
-                class="min-h-11 rounded-xl border-slate-200 bg-white text-xs font-black text-slate-600 focus:border-violet-400 focus:ring-violet-400">
-                <option value="ALL">
-                    Todo diagnóstico
-                </option>
+                    <div>
+                        <label class="text-[9px] font-black uppercase tracking-wider text-slate-400">Diagnóstico</label>
+                        <select x-model="severityFilter" aria-label="Filtrar por diagnóstico"
+                            class="mt-1 w-full rounded-xl border-slate-200 bg-white text-xs font-black text-slate-600 focus:border-violet-400 focus:ring-violet-400">
+                            <option value="ALL">Todo diagnóstico</option>
+                            <option value="ERROR">Con errores</option>
+                            <option value="WARNING">Con advertencias</option>
+                            <option value="RECOMMENDATION">Con recomendaciones</option>
+                            <option value="NONE">Sin problemas</option>
+                        </select>
+                    </div>
 
-                <option value="ERROR">
-                    Con errores
-                </option>
+                    <div>
+                        <label class="text-[9px] font-black uppercase tracking-wider text-slate-400">Origen</label>
+                        <select x-model="generationFilter" aria-label="Filtrar por origen de generación"
+                            class="mt-1 w-full rounded-xl border-slate-200 bg-white text-xs font-black text-slate-600 focus:border-violet-400 focus:ring-violet-400">
+                            <option value="ALL">Automáticos y manuales</option>
+                            <option value="GENERATED">Automáticos</option>
+                            <option value="MANUAL">Manuales</option>
+                        </select>
+                    </div>
 
-                <option value="WARNING">
-                    Con advertencias
-                </option>
+                    <div>
+                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">Densidad</p>
+                        <div class="mt-1 grid grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-1">
+                            <button type="button" @click="setDensity('comfortable')"
+                                class="min-h-9 rounded-lg px-3 text-[9px] font-black"
+                                :class="density === 'comfortable' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-400'">
+                                Cómoda
+                            </button>
+                            <button type="button" @click="setDensity('dense')"
+                                class="min-h-9 rounded-lg px-3 text-[9px] font-black"
+                                :class="density === 'dense' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-400'">
+                                Densa
+                            </button>
+                        </div>
+                    </div>
 
-                <option value="RECOMMENDATION">
-                    Con recomendaciones
-                </option>
-
-                <option value="NONE">
-                    Sin problemas
-                </option>
-            </select>
-
-            <select x-model="generationFilter" aria-label="Filtrar por origen de generación"
-                class="min-h-11 rounded-xl border-slate-200 bg-white text-xs font-black text-slate-600 focus:border-violet-400 focus:ring-violet-400">
-                <option value="ALL">
-                    Auto y manual
-                </option>
-
-                <option value="GENERATED">
-                    Automáticos
-                </option>
-
-                <option value="MANUAL">
-                    Manuales
-                </option>
-            </select>
+                    <button type="button" x-show="! noActiveFilters()" @click="clearFilters()"
+                        class="w-full rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-black text-slate-500 hover:bg-slate-50">
+                        Limpiar filtros
+                    </button>
+                </div>
+            </details>
         </div>
     </div>
 
@@ -119,31 +133,6 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-            <button type="button" x-show="! noActiveFilters()" @click="clearFilters()"
-                class="min-h-9 rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-black text-slate-500 hover:bg-slate-50">
-                Limpiar filtros
-            </button>
-
-            <div class="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
-                <button type="button" @click="setDensity('comfortable')"
-                    class="min-h-8 rounded-lg px-3 text-[9px] font-black"
-                    :class="density === 'comfortable'
-                        ?
-                        'bg-white text-violet-700 shadow-sm' :
-                        'text-slate-400'">
-                    Cómoda
-                </button>
-
-                <button type="button" @click="setDensity('dense')"
-                    class="min-h-8 rounded-lg px-3 text-[9px] font-black"
-                    :class="density === 'dense'
-                        ?
-                        'bg-white text-violet-700 shadow-sm' :
-                        'text-slate-400'">
-                    Densa
-                </button>
-            </div>
-
             <button type="button" @click="problemsOpen = true"
                 class="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-[10px] font-black text-white">
                 Diagnóstico

@@ -6,13 +6,12 @@
 
     <div class="mx-auto max-w-7xl">
 
-        <a href="{{ route('tournaments.phase-templates.show', $phaseTemplate) }}"
-            class="text-xs font-black text-slate-400 transition hover:text-amber-600">
-            ← Volver a la Fase
-        </a>
+        @include('tournaments.phase-templates.partials.workspace-navigation', [
+            'current' => 'definition',
+        ])
 
         <section
-            class="mb-7 mt-5 overflow-hidden rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50">
+            class="mb-7 overflow-hidden rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50">
 
             <div class="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-center lg:p-8">
 
@@ -20,7 +19,7 @@
                     <div class="flex flex-wrap items-center gap-2">
                         <span
                             class="rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
-                            Phase Designer
+                            Definición de la fase
                         </span>
 
                         <span
@@ -39,8 +38,8 @@
                     </h1>
 
                     <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-                        Ajusta la definición reutilizable de la Fase. El tipo permanece
-                        bloqueado para proteger el Engine y su estructura ya configurada.
+                        Ajusta su identidad y el contrato de participantes. El tipo permanece
+                        bloqueado para proteger las reglas y la estructura ya configuradas.
                     </p>
                 </div>
 

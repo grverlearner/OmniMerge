@@ -5,18 +5,9 @@
     </x-slot>
 
 
-    {{-- ========================================================= --}}
-    {{-- VOLVER --}}
-    {{-- ========================================================= --}}
-
-    <div class="mb-5">
-
-        <a href="{{ route('tournaments.phase-templates.show', $phaseTemplate) }}"
-            class="inline-flex items-center gap-2 text-sm font-black text-slate-400 transition hover:text-cyan-600">
-            ← Volver a la Fase
-        </a>
-
-    </div>
+    @include('tournaments.phase-templates.partials.workspace-navigation', [
+        'current' => 'rules',
+    ])
 
 
     {{-- ========================================================= --}}
@@ -34,7 +25,7 @@
 
                 <div
                     class="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
-                    ↻ Round Robin Engine
+                    ↻ Reglas de Round Robin
                 </div>
 
                 <h1 class="mt-5 text-3xl font-black tracking-tight sm:text-4xl">

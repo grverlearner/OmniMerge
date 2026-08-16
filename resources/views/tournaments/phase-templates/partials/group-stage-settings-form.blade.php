@@ -150,14 +150,14 @@
 
     <section class="rounded-3xl border border-slate-200 bg-white p-6">
 
-        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-600">03 · Internal Engine</p>
+        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-600">03 · Calendario interno</p>
         <h3 class="mt-2 text-xl font-black text-slate-900">Round Robin dentro de cada grupo</h3>
-        <p class="mt-2 text-sm leading-6 text-slate-500">T4 reutiliza el motor de T3. Cada grupo obtiene su propio
-            calendario y clasificación.</p>
+        <p class="mt-2 text-sm leading-6 text-slate-500">Cada grupo utiliza su propio calendario Round Robin y su
+            propia clasificación.</p>
 
         <div class="mt-5 rounded-2xl border border-cyan-200 bg-cyan-50 p-4">
             <p class="text-xs font-black text-cyan-900">↻ Todos contra todos</p>
-            <p class="mt-1 text-xs text-cyan-700">Motor interno activo en este Sprint.</p>
+            <p class="mt-1 text-xs text-cyan-700">Configuración aplicada independientemente a cada grupo.</p>
         </div>
 
         <div class="mt-5 grid gap-4 sm:grid-cols-2">

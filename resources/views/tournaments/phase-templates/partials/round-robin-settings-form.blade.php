@@ -91,7 +91,7 @@
             </p>
 
             <p class="mt-2 text-xs leading-5 text-cyan-700">
-                T3 utiliza una rotación tipo Circle Method para generar jornadas sin repetir enfrentamientos dentro de
+                La rotación Circle Method genera jornadas sin repetir enfrentamientos dentro de
                 un mismo ciclo.
             </p>
 

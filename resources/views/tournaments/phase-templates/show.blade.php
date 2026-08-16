@@ -87,22 +87,19 @@
             default => [],
         };
 
+        $rulesRouteName = match ($phaseTemplate->phase_type) {
+            'SINGLE_ELIMINATION' => 'tournaments.single-elimination.show',
+            'ROUND_ROBIN' => 'tournaments.round-robin.show',
+            'GROUP_STAGE' => 'tournaments.group-stage.show',
+            'SWISS' => 'tournaments.swiss.show',
+            default => null,
+        };
+
     @endphp
 
-
-    {{-- ========================================================= --}}
-    {{-- VOLVER --}}
-    {{-- ========================================================= --}}
-
-    <div class="mb-5">
-
-        <a href="{{ route('tournaments.phase-templates.index') }}"
-            class="inline-flex items-center gap-2 text-sm font-bold text-slate-400 transition hover:text-amber-600">
-            <span>←</span>
-            Fases
-        </a>
-
-    </div>
+    @include('tournaments.phase-templates.partials.workspace-navigation', [
+        'current' => 'summary',
+    ])
 
 
     {{-- ========================================================= --}}
@@ -238,45 +235,56 @@
 
                 {{-- ACCIONES --}}
 
-                <div class="mt-8 flex flex-wrap gap-3">
+                <div class="mt-8 flex flex-wrap items-center gap-3">
 
-                    <a href="{{ route('tournaments.phase-templates.edit', $phaseTemplate) }}"
+                    <a href="{{ $rulesRouteName && Route::has($rulesRouteName)
+                        ? route($rulesRouteName, $phaseTemplate)
+                        : route('tournaments.phase-templates.edit', $phaseTemplate) }}"
                         class="rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600">
-                        ✎ Abrir Phase Designer
+                        {{ $rulesRouteName && Route::has($rulesRouteName) ? 'Continuar en reglas →' : 'Completar definición →' }}
                     </a>
 
+                    <a href="{{ route('tournaments.phase-templates.edit', $phaseTemplate) }}"
+                        class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-amber-300 hover:bg-amber-50">
+                        Editar definición
+                    </a>
 
-                    <form method="POST" action="{{ route('tournaments.phase-templates.duplicate', $phaseTemplate) }}">
+                    <details class="relative">
+                        <summary
+                            class="cursor-pointer list-none rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-500 transition hover:bg-slate-50">
+                            Más acciones
+                        </summary>
 
-                        @csrf
+                        <div
+                            class="absolute right-0 z-20 mt-2 w-56 space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
+                            <form method="POST"
+                                action="{{ route('tournaments.phase-templates.duplicate', $phaseTemplate) }}">
+                                @csrf
+                                <button type="submit"
+                                    class="w-full rounded-xl px-3 py-2 text-left text-xs font-black text-slate-700 transition hover:bg-slate-50">
+                                    ⧉ Duplicar fase
+                                </button>
+                            </form>
 
-                        <button type="submit"
-                            class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-amber-300 hover:bg-amber-50">
-                            ⧉ Duplicar
-                        </button>
-
-                    </form>
-
-
-                    @if ($phaseTemplate->status !== 'ARCHIVED')
-                        <form method="POST"
-                            action="{{ route('tournaments.phase-templates.archive', $phaseTemplate) }}"
-                            data-omni-confirm data-confirm-variant="warning" data-confirm-icon="!"
-                            data-confirm-title="Archivar Fase" data-confirm-message="Esta Fase dejará de estar activa."
-                            data-confirm-subject="{{ $phaseTemplate->name }}"
-                            data-confirm-detail="No será eliminada. Su configuración y sus puertas de salida se conservarán."
-                            data-confirm-action="Archivar Fase">
-
-                            @csrf
-                            @method('PATCH')
-
-                            <button type="submit"
-                                class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-500 transition hover:bg-slate-50">
-                                Archivar
-                            </button>
-
-                        </form>
-                    @endif
+                            @if ($phaseTemplate->status !== 'ARCHIVED')
+                                <form method="POST"
+                                    action="{{ route('tournaments.phase-templates.archive', $phaseTemplate) }}"
+                                    data-omni-confirm data-confirm-variant="warning" data-confirm-icon="!"
+                                    data-confirm-title="Archivar Fase"
+                                    data-confirm-message="Esta Fase dejará de estar activa."
+                                    data-confirm-subject="{{ $phaseTemplate->name }}"
+                                    data-confirm-detail="No será eliminada. Su configuración y sus puertas de salida se conservarán."
+                                    data-confirm-action="Archivar Fase">
+                                    @csrf
+                                    @method('PATCH')
+                                    <button type="submit"
+                                        class="w-full rounded-xl px-3 py-2 text-left text-xs font-black text-slate-500 transition hover:bg-slate-50">
+                                        Archivar fase
+                                    </button>
+                                </form>
+                            @endif
+                        </div>
+                    </details>
 
                 </div>
 
@@ -477,7 +485,7 @@
 
             <a href="{{ route('tournaments.phase-templates.edit', $phaseTemplate) }}"
                 class="rounded-xl bg-amber-500 px-4 py-3 text-xs font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600">
-                ✎ Configurar en Phase Designer
+                Editar definición
             </a>
 
         </div>
@@ -680,7 +688,7 @@
                                         <div>
 
                                             <p class="text-[9px] font-black uppercase tracking-wider text-amber-700">
-                                                Single Elimination Engine
+                                                Reglas de Eliminación Simple
                                             </p>
 
                                             <p class="mt-2 text-sm font-black text-amber-950">
@@ -697,7 +705,7 @@
 
                                         <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
                                             class="shrink-0 rounded-xl bg-amber-500 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-amber-500/20">
-                                            ⚔ Configurar Engine
+                                            Configurar reglas →
                                         </a>
 
                                     </div>
@@ -712,7 +720,7 @@
                                         <div>
 
                                             <p class="text-[9px] font-black uppercase tracking-wider text-cyan-700">
-                                                Round Robin Engine
+                                                Reglas de Round Robin
                                             </p>
 
                                             <p class="mt-2 text-sm font-black text-cyan-950">
@@ -729,7 +737,7 @@
 
                                         <a href="{{ route('tournaments.round-robin.show', $phaseTemplate) }}"
                                             class="shrink-0 rounded-xl bg-cyan-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-cyan-600/20">
-                                            ↻ Configurar Engine
+                                            Configurar reglas →
                                         </a>
 
                                     </div>
@@ -743,7 +751,7 @@
 
                                         <div>
                                             <p class="text-[9px] font-black uppercase tracking-wider text-indigo-700">
-                                                Group Stage Engine
+                                                Reglas de Fase de Grupos
                                             </p>
 
                                             <p class="mt-2 text-sm font-black text-indigo-950">
@@ -759,7 +767,7 @@
 
                                         <a href="{{ route('tournaments.group-stage.show', $phaseTemplate) }}"
                                             class="shrink-0 rounded-xl bg-indigo-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-indigo-600/20">
-                                            ▦ Configurar Engine
+                                            Configurar reglas →
                                         </a>
 
                                     </div>
@@ -787,7 +795,7 @@
                                         <div>
 
                                             <p class="text-[9px] font-black uppercase tracking-wider text-violet-700">
-                                                Swiss Engine
+                                                Reglas del Sistema Suizo
                                             </p>
 
                                             <p class="mt-2 text-sm font-black text-violet-950">
@@ -806,7 +814,7 @@
                                         <a href="{{ route('tournaments.swiss.show', $phaseTemplate) }}"
                                             class="shrink-0 rounded-xl bg-violet-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-violet-600/20">
 
-                                            ◆ Configurar Engine
+                                            Configurar reglas →
 
                                         </a>
 
@@ -818,7 +826,7 @@
 
                                     <p class="text-xs leading-5 text-slate-500">
                                         La configuración avanzada se añadirá
-                                        progresivamente al Phase Designer.
+                                        progresivamente a la configuración de la fase.
                                     </p>
 
                                 </div>
@@ -857,10 +865,8 @@
 
                 <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
                     Cada puerta identifica qué competidores abandonan esta Fase.
-                    <strong class="text-slate-700">
-                        Aquí no se decide todavía hacia dónde irán.
-                    </strong>
-                    Ese destino pertenecerá al futuro Tournament Graph.
+                    La estructura interna decide desde qué encuentro salen; el grafo del torneo
+                    decide a qué fase o resultado terminal se conectan después.
                 </p>
 
             </div>
@@ -874,6 +880,44 @@
         </div>
 
 
+        @if ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION')
+            <div class="mt-6 rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-6">
+                <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-violet-600">
+                            Administración centralizada
+                        </p>
+                        <h3 class="mt-2 text-lg font-black text-slate-900">
+                            Configura entradas, slots y salidas en un solo lugar
+                        </h3>
+                        <p class="mt-2 max-w-2xl text-xs leading-5 text-slate-600">
+                            Esta pantalla conserva el resumen. La creación y edición de puertas se realiza
+                            en Entradas y salidas para evitar configuraciones duplicadas.
+                        </p>
+                    </div>
+
+                    <a href="{{ route('tournaments.single-elimination.structure.io', $phaseTemplate) }}"
+                        class="shrink-0 rounded-xl bg-violet-600 px-5 py-3 text-center text-xs font-black text-white shadow-lg shadow-violet-600/20">
+                        Administrar puertas →
+                    </a>
+                </div>
+
+                <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    @forelse ($phaseTemplate->exits as $phaseExit)
+                        <article class="rounded-2xl border border-white bg-white/80 p-4 shadow-sm">
+                            <p class="font-black text-slate-900">{{ $phaseExit->name }}</p>
+                            <p class="mt-1 text-[10px] font-bold text-violet-700">
+                                {{ $phaseExit->selector_label }} · {{ $phaseExit->contract_label }}
+                            </p>
+                        </article>
+                    @empty
+                        <div class="rounded-2xl border border-dashed border-violet-300 bg-white/70 p-5 text-center sm:col-span-2 xl:col-span-3">
+                            <p class="text-xs font-black text-violet-800">Todavía no existen puertas de salida.</p>
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        @else
         <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
 
             {{-- ================================================= --}}
@@ -1214,12 +1258,13 @@
             </aside>
 
         </div>
+        @endif
 
     </section>
 
 
     {{-- ========================================================= --}}
-    {{-- FUTURO TOURNAMENT GRAPH --}}
+    {{-- USO EN TOURNAMENT GRAPH --}}
     {{-- ========================================================= --}}
 
     <section
@@ -1230,18 +1275,16 @@
             <div>
 
                 <p class="text-xs font-black uppercase tracking-[0.18em] text-violet-600">
-                    Próxima conexión
+                    Uso dentro de torneos
                 </p>
 
                 <h2 class="mt-2 text-2xl font-black text-slate-900">
-                    Esta Fase después será una pieza de un Torneo
+                    Esta fase es una pieza reutilizable del grafo del torneo
                 </h2>
 
                 <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
-                    Cuando implementemos el Tournament Graph,
-                    podrás colocar esta PhaseTemplate dentro de un Torneo,
-                    utilizarla varias veces y conectar cada una de sus
-                    puertas con otras Fases o con resultados terminales.
+                    Puedes colocar esta definición dentro de un torneo, reutilizarla en distintos nodos
+                    y conectar sus puertas con otras fases o con resultados terminales.
                 </p>
 
 
@@ -1256,7 +1299,7 @@
                     </span>
 
                     <span class="rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-600 shadow-sm">
-                        PhaseNode
+                        Nodo de fase
                     </span>
 
                     <span class="text-lg font-black text-violet-500">
@@ -1264,7 +1307,7 @@
                     </span>
 
                     <span class="rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-600 shadow-sm">
-                        Connection
+                        Conexión
                     </span>
 
                     <span class="text-lg font-black text-violet-500">
@@ -1272,7 +1315,7 @@
                     </span>
 
                     <span class="rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-600 shadow-sm">
-                        Siguiente Fase
+                        Siguiente fase
                     </span>
 
                 </div>
@@ -1355,9 +1398,21 @@
     {{-- DANGER ZONE --}}
     {{-- ========================================================= --}}
 
-    <section class="mt-8 rounded-3xl border border-red-200 bg-red-50 p-6">
+    <details class="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white">
 
-        <div class="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
+            <span>
+                <span class="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Administración
+                </span>
+                <span class="mt-1 block text-sm font-black text-slate-800">
+                    Opciones avanzadas de la fase
+                </span>
+            </span>
+            <span class="text-lg font-black text-slate-400">⌄</span>
+        </summary>
+
+        <div class="flex flex-col justify-between gap-5 border-t border-red-100 bg-red-50 p-6 sm:flex-row sm:items-center">
 
             <div>
 
@@ -1397,6 +1452,6 @@
 
         </div>
 
-    </section>
+    </details>
 
 </x-tournament-layout>

@@ -4,12 +4,9 @@
         Group Stage · {{ $phaseTemplate->name }}
     </x-slot>
 
-    <div class="mb-5">
-        <a href="{{ route('tournaments.phase-templates.show', $phaseTemplate) }}"
-            class="inline-flex items-center gap-2 text-sm font-black text-slate-400 transition hover:text-indigo-600">
-            ← Volver a la Fase
-        </a>
-    </div>
+    @include('tournaments.phase-templates.partials.workspace-navigation', [
+        'current' => 'rules',
+    ])
 
 
     {{-- HERO --}}
@@ -25,7 +22,7 @@
             <div class="max-w-3xl">
                 <div
                     class="inline-flex items-center gap-2 rounded-full border border-indigo-300/20 bg-indigo-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-300">
-                    ▦ Group Stage Engine
+                    ▦ Reglas de Fase de Grupos
                 </div>
 
                 <h1 class="mt-5 text-3xl font-black tracking-tight sm:text-4xl">{{ $phaseTemplate->name }}</h1>

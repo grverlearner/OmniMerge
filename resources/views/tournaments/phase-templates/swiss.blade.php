@@ -24,16 +24,9 @@
     @endif
 
 
-    <div class="mb-5">
-
-        <a href="{{ route('tournaments.phase-templates.show', $phaseTemplate) }}"
-            class="inline-flex items-center gap-2 text-sm font-black text-slate-400 transition hover:text-violet-600">
-
-            ← Volver a la Fase
-
-        </a>
-
-    </div>
+    @include('tournaments.phase-templates.partials.workspace-navigation', [
+        'current' => 'rules',
+    ])
 
 
     {{-- ========================================================= --}}
@@ -53,7 +46,7 @@
                 <div
                     class="inline-flex items-center gap-2 rounded-full border border-violet-300/20 bg-violet-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-violet-300">
 
-                    ◆ Swiss Engine
+                    ◆ Reglas del Sistema Suizo
 
                 </div>
 

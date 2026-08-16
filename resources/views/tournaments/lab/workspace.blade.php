@@ -39,7 +39,7 @@
                 <div>
                     <div
                         class="inline-flex rounded-full border border-violet-300/20 bg-violet-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-violet-300">
-                        ⚗ Competition Lab · T9.4
+                        ⚗ Laboratorio de competición
                     </div>
 
                     <h1 class="mt-5 text-3xl font-black">
@@ -60,10 +60,6 @@
                         </span>
                     </span>
 
-                    <a href="{{ route('tournaments.graph.preview.show', $tournamentTemplate) }}"
-                        class="rounded-xl bg-violet-600 px-4 py-3 text-xs font-black text-white">
-                        ← Flow Preview
-                    </a>
                 </div>
             </div>
         </section>

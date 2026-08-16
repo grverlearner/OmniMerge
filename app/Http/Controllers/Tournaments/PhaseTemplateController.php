@@ -266,6 +266,10 @@ class PhaseTemplateController extends Controller
             $phaseTemplate
         );
 
+        $phaseTemplate->loadMissing(
+            'singleEliminationSetting'
+        );
+
         return view(
             'tournaments.phase-templates.edit',
             compact(

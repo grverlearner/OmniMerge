@@ -1,7 +1,13 @@
-<section class="mt-8 overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
+<section x-data="{
+    gateTab: window.location.hash === '#output-gates' ? 'output' : 'input',
+    selectTab(tab) {
+        this.gateTab = tab;
+        history.replaceState(null, '', tab === 'output' ? '#output-gates' : '#input-gates');
+    }
+}" class="mt-8 overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
     <header class="bg-gradient-to-br from-slate-950 via-fuchsia-950 to-indigo-950 p-6 text-white sm:p-8">
         <p class="text-[10px] font-black uppercase tracking-[0.18em] text-fuchsia-300">
-            Etapa 5.5 · Contratos visibles
+            Contrato de participantes
         </p>
 
         <h2 class="mt-2 text-3xl font-black">
@@ -13,24 +19,28 @@
             y qué conjuntos de participantes produce al terminar.
         </p>
 
-        <div class="mt-5 flex flex-wrap gap-2">
-            <a href="#input-gates" class="rounded-xl bg-fuchsia-400 px-4 py-3 text-[10px] font-black text-slate-950">
-                Configurar entradas
-            </a>
+        <div class="mt-5 inline-flex rounded-2xl border border-white/10 bg-white/5 p-1">
+            <button type="button" @click="selectTab('input')"
+                :class="gateTab === 'input' ? 'bg-fuchsia-400 text-slate-950' : 'text-white hover:bg-white/10'"
+                class="rounded-xl px-4 py-3 text-[10px] font-black transition">
+                Entradas · {{ $inputGates->count() }}
+            </button>
 
-            <a href="#output-gates"
-                class="rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-[10px] font-black text-white">
-                Configurar salidas
-            </a>
+            <button type="button" @click="selectTab('output')"
+                :class="gateTab === 'output' ? 'bg-emerald-400 text-slate-950' : 'text-white hover:bg-white/10'"
+                class="rounded-xl px-4 py-3 text-[10px] font-black transition">
+                Salidas · {{ $exits->count() }}
+            </button>
         </div>
     </header>
 
     {{-- Entradas --}}
-    <div id="input-gates" class="scroll-mt-28 border-b border-slate-200 p-5 sm:p-8">
+    <div id="input-gates" x-cloak x-show="gateTab === 'input'" x-transition
+        class="scroll-mt-28 p-5 sm:p-8">
         <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
                 <p class="text-[10px] font-black uppercase tracking-wider text-fuchsia-600">
-                    Input Gate Manager
+                    Entradas hacia la estructura
                 </p>
 
                 <h3 class="mt-1 text-2xl font-black text-slate-900">
@@ -221,10 +231,11 @@
     </div>
 
     {{-- Salidas --}}
-    <div id="output-gates" class="scroll-mt-28 p-5 sm:p-8">
+    <div id="output-gates" x-cloak x-show="gateTab === 'output'" x-transition
+        class="scroll-mt-28 p-5 sm:p-8">
         <div>
             <p class="text-[10px] font-black uppercase tracking-wider text-emerald-600">
-                Output Gate Manager
+                Clasificados que abandonan la fase
             </p>
 
             <h3 class="mt-1 text-2xl font-black text-slate-900">
@@ -233,7 +244,7 @@
 
             <p class="mt-2 text-xs leading-5 text-slate-500">
                 Aquí defines quién abandona la fase. El destino siguiente
-                continuará configurándose en el Tournament Graph.
+                se conecta después desde el grafo del torneo.
             </p>
         </div>
 

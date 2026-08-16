@@ -4,20 +4,6 @@
     </x-slot>
 
     @php
-        $structureStatus = $settings->structure_status ?? 'NOT_GENERATED';
-
-        $statusClasses = match ($structureStatus) {
-            'VALID' => 'border-emerald-300 bg-emerald-100 text-emerald-800',
-
-            'INVALID' => 'border-red-300 bg-red-100 text-red-800',
-
-            'STALE' => 'border-amber-300 bg-amber-100 text-amber-800',
-
-            'GENERATED' => 'border-indigo-300 bg-indigo-100 text-indigo-800',
-
-            default => 'border-slate-300 bg-slate-100 text-slate-700',
-        };
-
         $rememberedParticipants = (int) data_get($settings->settings, 'working_participants', 0);
 
         $defaultParticipants =
@@ -35,6 +21,14 @@
         $initialSelection = request()->query('selected', '');
 
         $initialView = request()->query('view', '');
+
+        $requestedWorkspace = request()->query('workspace');
+
+        $initialWorkspace = in_array($requestedWorkspace, ['AUTO', 'CUSTOM', 'REVIEW'], true)
+            ? $requestedWorkspace
+            : ($settings->structure_mode === 'MANUAL'
+                ? 'CUSTOM'
+                : ($rounds->isNotEmpty() ? 'REVIEW' : 'AUTO'));
     @endphp
 
     <div x-data="singleEliminationStructureVisualizer(
@@ -44,29 +38,9 @@
             initialView: @js($initialView)
         }
     )" class="pb-16">
-        {{-- Navegación --}}
-        <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
-                class="inline-flex items-center gap-2 text-sm font-black text-slate-400 transition hover:text-violet-600">
-                ← Volver a Eliminación Simple
-            </a>
-
-            <div class="flex flex-wrap items-center gap-2">
-                <a href="{{ route('tournaments.single-elimination.structure.io', $phaseTemplate) }}"
-                    class="inline-flex items-center gap-2 rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-100">
-                    ⇄ Configurar puertas
-                </a>
-                <span
-                    class="rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider {{ $statusClasses }}">
-                    {{ $settings->structure_status_label }}
-                </span>
-
-                <span
-                    class="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-[10px] font-bold text-slate-400">
-                    v{{ $settings->structure_version ?? 0 }}
-                </span>
-            </div>
-        </div>
+        @include('tournaments.phase-templates.partials.workspace-navigation', [
+            'current' => 'structure',
+        ])
 
         {{-- Cabecera principal --}}
         <section
@@ -114,7 +88,7 @@
 
                         <span
                             class="rounded-full bg-white/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-slate-300">
-                            {{ $settings->configuration_mode }}
+                            {{ $settings->configuration_mode_label }}
                         </span>
                     </div>
                 </div>
@@ -167,8 +141,58 @@
             </div>
         @endif
 
+        <div x-data="{ workspaceMode: @js($initialWorkspace) }">
+            <section class="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div class="border-b border-slate-100 px-5 py-4">
+                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-violet-600">
+                        Espacio de trabajo
+                    </p>
+                    <h2 class="mt-1 text-lg font-black text-slate-900">
+                        Elige una tarea antes de continuar
+                    </h2>
+                    <p class="mt-1 text-xs leading-5 text-slate-500">
+                        Cada modo conserva una sola responsabilidad: generar, construir o revisar.
+                    </p>
+                </div>
+
+                <div class="grid gap-2 p-3 md:grid-cols-3">
+                    <button type="button" @click="workspaceMode = 'AUTO'"
+                        :class="workspaceMode === 'AUTO'
+                            ? 'border-violet-300 bg-violet-50 text-violet-900 shadow-sm'
+                            : 'border-transparent bg-white text-slate-500 hover:bg-slate-50'"
+                        class="rounded-2xl border p-4 text-left transition">
+                        <span class="text-[9px] font-black uppercase tracking-wider text-violet-600">Automática</span>
+                        <span class="mt-1 block text-sm font-black">Generar desde las reglas</span>
+                        <span class="mt-1 block text-[10px] leading-4 opacity-70">La opción recomendada para cuadros regulares.</span>
+                    </button>
+
+                    <button type="button" @click="workspaceMode = 'CUSTOM'"
+                        :class="workspaceMode === 'CUSTOM'
+                            ? 'border-fuchsia-300 bg-fuchsia-50 text-fuchsia-900 shadow-sm'
+                            : 'border-transparent bg-white text-slate-500 hover:bg-slate-50'"
+                        class="rounded-2xl border p-4 text-left transition">
+                        <span class="text-[9px] font-black uppercase tracking-wider text-fuchsia-600">Personalizada</span>
+                        <span class="mt-1 block text-sm font-black">Construir etapas y rutas</span>
+                        <span class="mt-1 block text-[10px] leading-4 opacity-70">Para encuentros K → Q y conexiones libres.</span>
+                    </button>
+
+                    <button type="button" @click="workspaceMode = 'REVIEW'" @disabled($rounds->isEmpty())
+                        :class="workspaceMode === 'REVIEW'
+                            ? 'border-indigo-300 bg-indigo-50 text-indigo-900 shadow-sm'
+                            : 'border-transparent bg-white text-slate-500 hover:bg-slate-50'"
+                        class="rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-40">
+                        <span class="text-[9px] font-black uppercase tracking-wider text-indigo-600">Revisión</span>
+                        <span class="mt-1 block text-sm font-black">Visualizar y validar</span>
+                        <span class="mt-1 block text-[10px] leading-4 opacity-70">
+                            {{ $rounds->isEmpty() ? 'Disponible después de crear la estructura.' : 'Inspecciona encuentros, slots y conexiones.' }}
+                        </span>
+                    </button>
+                </div>
+            </section>
+
         {{-- Generación y validación --}}
-        <section class="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section x-cloak x-show="workspaceMode === 'AUTO'" x-transition
+            class="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
             <form method="POST"
                 action="{{ route('tournaments.single-elimination.structure.generate', $phaseTemplate) }}"
                 class="rounded-3xl border border-violet-200 bg-white p-5 shadow-sm" data-omni-confirm
@@ -184,7 +208,7 @@
                         </p>
 
                         <h2 class="mt-1 text-xl font-black text-slate-900">
-                            Generar desde la Etapa 3
+                            Generar desde las reglas guardadas
                         </h2>
 
                         <p class="mt-2 max-w-xl text-xs leading-5 text-slate-500">
@@ -195,7 +219,7 @@
 
                     <span
                         class="w-fit rounded-full border border-violet-200 bg-violet-50 px-3 py-2 text-[10px] font-black text-violet-700">
-                        {{ $settings->configuration_mode }}
+                        {{ $settings->configuration_mode_label }}
                     </span>
                 </div>
 
@@ -327,9 +351,27 @@
         </section>
 
         {{-- Diseñador de grafo personalizado --}}
-        @include('tournaments.phase-templates.partials.single-elimination-graph-editor')
+        <div x-cloak x-show="workspaceMode === 'CUSTOM'" x-transition>
+            @include('tournaments.phase-templates.partials.single-elimination-graph-editor')
 
+            @if ($rounds->isNotEmpty())
+                <div class="mt-4 flex flex-col gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-xs font-black text-indigo-900">¿Terminaste esta parte?</p>
+                        <p class="mt-1 text-[10px] leading-4 text-indigo-700">
+                            Revisa el grafo completo y abre el diagnóstico antes de configurar sus puertas.
+                        </p>
+                    </div>
+                    <button type="button"
+                        @click="workspaceMode = 'REVIEW'; $nextTick(() => document.getElementById('structure-review')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))"
+                        class="shrink-0 rounded-xl bg-indigo-600 px-4 py-3 text-xs font-black text-white">
+                        Revisar estructura →
+                    </button>
+                </div>
+            @endif
+        </div>
 
+        <div id="structure-review" x-cloak x-show="workspaceMode === 'REVIEW'" x-transition class="scroll-mt-28">
         @if ($rounds->isEmpty())
             {{-- Estado inicial sin estructura --}}
             <section
@@ -369,5 +411,7 @@
             {{-- Inspector y diagnóstico --}}
             @include('tournaments.phase-templates.partials.single-elimination-visualizer-inspector')
         @endif
+        </div>
+        </div>
     </div>
 </x-tournament-layout>
