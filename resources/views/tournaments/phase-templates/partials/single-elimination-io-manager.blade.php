@@ -285,21 +285,22 @@
                                     </div>
                                 </div>
 
-                                <div class="flex shrink-0 gap-2">
+                                <div class="flex shrink-0 items-start gap-2">
                                     <button type="button" @click="editing = !editing"
-                                        class="rounded-xl border border-emerald-200 px-3 py-2 text-[10px] font-black text-emerald-700">
-                                        Editar
+                                        class="inline-flex h-10 w-24 items-center justify-center rounded-xl border border-emerald-200 bg-white text-[10px] font-black text-emerald-700 transition hover:bg-emerald-50">
+                                        <span x-text="editing ? 'Cerrar' : 'Editar'"></span>
                                     </button>
 
                                     <form method="POST"
-                                        action="{{ route('tournaments.phase-exits.destroy', [$phaseTemplate, $phaseExit]) }}">
+                                        action="{{ route('tournaments.phase-exits.destroy', [$phaseTemplate, $phaseExit]) }}"
+                                        class="shrink-0">
                                         @csrf
                                         @method('DELETE')
 
-                                        <input type="hidden" name="return_to" value="structure">
+                                        <input type="hidden" name="return_to" value="structure_io">
 
                                         <button type="submit"
-                                            class="rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black text-red-600">
+                                            class="inline-flex h-10 w-24 items-center justify-center rounded-xl bg-red-50 text-[10px] font-black text-red-600 transition hover:bg-red-100">
                                             Eliminar
                                         </button>
                                     </form>
@@ -311,7 +312,7 @@
                             @include('tournaments.phase-templates.partials.exit-form', [
                                 'phaseTemplate' => $phaseTemplate,
                                 'phaseExit' => $phaseExit,
-                                'returnTo' => 'structure',
+                                'returnTo' => 'structure_io',
                             ])
                         </div>
                     </article>
@@ -340,7 +341,7 @@
                         @include('tournaments.phase-templates.partials.exit-form', [
                             'phaseTemplate' => $phaseTemplate,
                             'phaseExit' => null,
-                            'returnTo' => 'structure',
+                            'returnTo' => 'structure_io',
                         ])
                     </div>
                 </div>

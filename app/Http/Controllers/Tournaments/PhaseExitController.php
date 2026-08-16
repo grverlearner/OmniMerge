@@ -127,9 +127,14 @@ class PhaseExitController extends Controller
         PhaseTemplate $phaseTemplate
     ): RedirectResponse {
         if (
-            $request->input('return_to')
-            ===
-            'structure'
+            in_array(
+                $request->input('return_to'),
+                [
+                    'structure',
+                    'structure_io',
+                ],
+                true
+            )
             &&
             $phaseTemplate->phase_type
             ===
@@ -137,7 +142,7 @@ class PhaseExitController extends Controller
         ) {
             return redirect()->to(
                 route(
-                    'tournaments.single-elimination.structure.show',
+                    'tournaments.single-elimination.structure.io',
                     $phaseTemplate
                 )
                     .
@@ -156,9 +161,14 @@ class PhaseExitController extends Controller
         PhaseTemplate $phaseTemplate
     ): void {
         if (
-            $request->input('return_to')
-            !==
-            'structure'
+            ! in_array(
+                $request->input('return_to'),
+                [
+                    'structure',
+                    'structure_io',
+                ],
+                true
+            )
             ||
             $phaseTemplate->phase_type
             !==

@@ -65,6 +65,51 @@ class SingleEliminationStructureController extends Controller
         );
     }
 
+    public function io(
+        PhaseTemplate $phaseTemplate
+    ): View {
+        $this->authorize(
+            'update',
+            $phaseTemplate
+        );
+
+        $this->ensureCorrectType(
+            $phaseTemplate
+        );
+
+        $payload =
+            $this->service
+            ->payload(
+                $phaseTemplate
+            );
+
+        return view(
+            'tournaments.phase-templates.single-elimination-io',
+            [
+                'phaseTemplate' =>
+                $phaseTemplate,
+
+                'settings' =>
+                $payload['settings'],
+
+                'inputGates' =>
+                $payload['inputGates'],
+
+                'rounds' =>
+                $payload['rounds'],
+
+                'connections' =>
+                $payload['connections'],
+
+                'exits' =>
+                $payload['exits'],
+
+                'validation' =>
+                $payload['validation'],
+            ]
+        );
+    }
+
     public function generate(
         GenerateSingleEliminationStructureRequest $request,
         PhaseTemplate $phaseTemplate

@@ -132,7 +132,7 @@ class PhaseInputGateController extends Controller
         return redirect()
             ->to(
                 route(
-                    'tournaments.single-elimination.structure.show',
+                    'tournaments.single-elimination.structure.io',
                     $phaseTemplate
                 )
                     .
@@ -158,25 +158,11 @@ class PhaseInputGateController extends Controller
         $validation =
             $result['validation'];
 
-        $gate =
-            $result['gate'];
-
         return redirect()
             ->to(
                 route(
-                    'tournaments.single-elimination.structure.show',
-                    [
-                        'phaseTemplate' =>
-                        $phaseTemplate,
-
-                        'selected' =>
-                        'INPUT_GATE:'
-                            .
-                            $gate->id,
-
-                        'view' =>
-                        'blocks',
-                    ]
+                    'tournaments.single-elimination.structure.io',
+                    $phaseTemplate
                 )
                     .
                     '#input-gates'

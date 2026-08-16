@@ -357,6 +357,15 @@ Route::middleware('auth')->group(function () {
                 )->name(
                     'single-elimination.structure.show'
                 );
+                Route::get(
+                    '/phases/{phaseTemplate}/single-elimination/structure/io',
+                    [
+                        SingleEliminationStructureController::class,
+                        'io',
+                    ]
+                )->name(
+                    'single-elimination.structure.io'
+                );
 
                 Route::post(
                     '/phases/{phaseTemplate}/single-elimination/structure/generate',

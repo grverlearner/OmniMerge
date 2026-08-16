@@ -39,8 +39,7 @@
             initialSelection: @js($initialSelection),
             initialView: @js($initialView)
         }
-    )" )" :class="inspectorOpen ? 'xl:pr-[36rem]' : ''"
-        class="pb-16 transition-[padding] duration-200">
+    )" class="pb-16">
         {{-- Navegación --}}
         <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
             <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
@@ -49,6 +48,10 @@
             </a>
 
             <div class="flex flex-wrap items-center gap-2">
+                <a href="{{ route('tournaments.single-elimination.structure.io', $phaseTemplate) }}"
+                    class="inline-flex items-center gap-2 rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-700 transition hover:border-fuchsia-300 hover:bg-fuchsia-100">
+                    ⇄ Configurar puertas
+                </a>
                 <span
                     class="rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider {{ $statusClasses }}">
                     {{ $settings->structure_status_label }}

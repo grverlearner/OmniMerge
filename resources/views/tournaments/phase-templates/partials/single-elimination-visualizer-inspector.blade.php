@@ -2,7 +2,7 @@
     <div>
         {{-- Fondo del inspector --}}
         <div x-cloak x-show="inspectorOpen" x-transition.opacity @click="closeInspector()"
-            class="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm xl:hidden"></div>
+            class="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm"></div>
 
         {{-- Inspector lateral derecho --}}
         <aside x-cloak x-show="inspectorOpen" x-transition:enter="transition ease-out duration-200"

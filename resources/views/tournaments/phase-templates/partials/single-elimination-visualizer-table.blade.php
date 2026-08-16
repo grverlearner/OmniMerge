@@ -33,11 +33,11 @@
                             <tr @click="select(encounter.key)" :data-structure-key="encounter.key" tabindex="0"
                                 @keydown.enter.prevent="select(encounter.key)"
                                 class="cursor-pointer bg-white transition hover:bg-violet-50/60 focus:bg-violet-50 focus:outline-none"
-                                :class="{
+                                :class="[traceClass(encounter), {
                                     'bg-red-50/60': encounter.issue_level === 'ERROR',
                                     'ring-2 ring-inset ring-violet-500': selectedKey === encounter.key,
                                     'opacity-30': isDimmed(encounter)
-                                }">
+                                }]">
                                 <td class="whitespace-nowrap px-4 py-3">
                                     <p class="text-xs font-black text-slate-800" x-text="round.name"></p>
 
@@ -173,11 +173,11 @@
                         <tr @click="select(connection.key)" :data-structure-key="connection.key" tabindex="0"
                             @keydown.enter.prevent="select(connection.key)"
                             class="cursor-pointer transition hover:bg-indigo-50/60 focus:bg-indigo-50 focus:outline-none"
-                            :class="{
+                            :class="[traceClass(connection), {
                                 'bg-red-50/60': connection.issue_level === 'ERROR',
                                 'ring-2 ring-inset ring-indigo-500': selectedKey === connection.key,
                                 'opacity-25': isDimmed(connection)
-                            }">
+                            }]">
                             <td class="whitespace-nowrap px-4 py-3 font-mono text-[9px] font-bold text-slate-400"
                                 x-text="connection.code"></td>
 
