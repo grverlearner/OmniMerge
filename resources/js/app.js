@@ -4,11 +4,13 @@ import tournamentFlowBuilder from './tournaments/graph/flow-builder';
 import competitionLab from './tournaments/lab/competition-lab';
 import singleEliminationWorkspace from './tournaments/single-elimination/workspace';
 import singleEliminationStructureVisualizer from './tournaments/single-elimination/structure-visualizer';
+import phaseTemplateDesigner from './tournaments/phase-templates/designer';
 
 window.Alpine = Alpine;
 window.tournamentFlowBuilder = tournamentFlowBuilder;
 window.singleEliminationWorkspace = singleEliminationWorkspace;
 window.singleEliminationStructureVisualizer = singleEliminationStructureVisualizer;
+window.phaseTemplateDesigner = phaseTemplateDesigner;
 
 
 window.Alpine =
@@ -94,6 +96,10 @@ document.addEventListener(
         Alpine.data(
             'singleEliminationStructureVisualizer',
             singleEliminationStructureVisualizer
+        );
+        Alpine.data(
+            'phaseTemplateDesigner',
+            phaseTemplateDesigner
         );
 
         Alpine.data(

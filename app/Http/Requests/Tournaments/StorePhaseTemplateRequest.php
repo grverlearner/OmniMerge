@@ -20,6 +20,32 @@ class StorePhaseTemplateRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $capacityMode = strtoupper(
+            (string) $this->input(
+                'capacity_mode',
+                'OPEN'
+            )
+        );
+
+        $contract = match ($capacityMode) {
+            'EXACT' => [
+                'min_participants' =>
+                $this->input('exact_participants'),
+
+                'max_participants' =>
+                $this->input('exact_participants'),
+            ],
+
+            'OPEN' => [
+                'exact_participants' => null,
+                'max_participants' => null,
+            ],
+
+            default => [
+                'exact_participants' => null,
+            ],
+        };
+
         $this->merge([
             'name' => trim(
                 (string) $this->input('name')
@@ -38,6 +64,8 @@ class StorePhaseTemplateRequest extends FormRequest
                     'INDIVIDUAL'
                 )
             ),
+
+            'capacity_mode' => $capacityMode,
 
             'status' => strtoupper(
                 (string) $this->input(
@@ -58,6 +86,8 @@ class StorePhaseTemplateRequest extends FormRequest
 
             'allow_cloning' =>
             $this->boolean('allow_cloning'),
+
+            ...$contract,
         ]);
     }
 
@@ -109,6 +139,15 @@ class StorePhaseTemplateRequest extends FormRequest
                 ]),
             ],
 
+            'capacity_mode' => [
+                'required',
+                Rule::in([
+                    'EXACT',
+                    'RANGE',
+                    'OPEN',
+                ]),
+            ],
+
             'min_participants' => [
                 'required',
                 'integer',
@@ -117,6 +156,10 @@ class StorePhaseTemplateRequest extends FormRequest
             ],
 
             'max_participants' => [
+                Rule::requiredIf(
+                    $this->input('capacity_mode')
+                        === 'RANGE'
+                ),
                 'nullable',
                 'integer',
                 'min:2',
@@ -125,6 +168,10 @@ class StorePhaseTemplateRequest extends FormRequest
             ],
 
             'exact_participants' => [
+                Rule::requiredIf(
+                    $this->input('capacity_mode')
+                        === 'EXACT'
+                ),
                 'nullable',
                 'integer',
                 'min:2',
@@ -186,11 +233,20 @@ class StorePhaseTemplateRequest extends FormRequest
             'phase_type.in' =>
             'El tipo de Fase seleccionado no es válido.',
 
+            'capacity_mode.in' =>
+            'Selecciona un contrato exacto, por rango o abierto.',
+
             'min_participants.min' =>
             'Una Fase debe admitir al menos 2 participantes.',
 
+            'max_participants.required' =>
+            'Indica el máximo del rango.',
+
             'max_participants.gte' =>
             'El máximo no puede ser menor que el mínimo.',
+
+            'exact_participants.required' =>
+            'Indica la cantidad exacta de participantes.',
 
             'best_of.in' =>
             'Selecciona un Best of válido.',

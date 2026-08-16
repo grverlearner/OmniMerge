@@ -242,7 +242,7 @@
 
                     <a href="{{ route('tournaments.phase-templates.edit', $phaseTemplate) }}"
                         class="rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600">
-                        ✎ Editar Fase
+                        ✎ Abrir Phase Designer
                     </a>
 
 
@@ -476,8 +476,8 @@
 
 
             <a href="{{ route('tournaments.phase-templates.edit', $phaseTemplate) }}"
-                class="text-sm font-black text-amber-600">
-                Editar configuración →
+                class="rounded-xl bg-amber-500 px-4 py-3 text-xs font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600">
+                ✎ Configurar en Phase Designer
             </a>
 
         </div>
@@ -666,10 +666,10 @@
                     <div class="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
 
                         <p class="text-[9px] font-black uppercase tracking-wider text-amber-700">
-                            Próxima evolución
+                            Configuración avanzada
                         </p>
 
-                        <p class="mt-2 text-xs leading-5 text-amber-900/70">
+                        <div class="mt-2 text-xs leading-5 text-amber-900/70">
 
                             @if ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION')
                                 <div
@@ -824,7 +824,7 @@
                                 </div>
                             @endif
 
-                        </p>
+                        </div>
 
                     </div>
 

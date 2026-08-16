@@ -241,7 +241,13 @@ class PhaseTemplateController extends Controller
         );
 
         $phaseTemplate
-            ->load('exits')
+            ->load([
+                'exits',
+                'singleEliminationSetting',
+                'roundRobinSetting',
+                'groupStageSetting',
+                'swissSetting',
+            ])
             ->loadCount('exits');
 
         return view(
@@ -272,7 +278,8 @@ class PhaseTemplateController extends Controller
         UpdatePhaseTemplateRequest $request,
         PhaseTemplate $phaseTemplate
     ): RedirectResponse {
-        $this->service
+        $phaseTemplate =
+            $this->service
             ->update(
                 $phaseTemplate,
                 $request->validated(),
@@ -281,7 +288,7 @@ class PhaseTemplateController extends Controller
 
         return redirect()
             ->route(
-                'tournaments.phase-templates.show',
+                'tournaments.phase-templates.edit',
                 $phaseTemplate
             )
             ->with(

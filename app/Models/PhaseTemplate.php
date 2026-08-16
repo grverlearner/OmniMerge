@@ -18,61 +18,35 @@ class PhaseTemplate extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'phase_template_id',
-
-        'configuration_mode',
-        'input_mode',
-        'routing_mode',
-
-        'entrants_per_match',
-        'qualifiers_per_match',
-        'encounter_profile',
-        'remainder_policy',
-
-        'completion_mode',
-        'target_survivors',
-
-        'seeding_mode',
-        'pairing_mode',
-
-        'bye_assignment',
-        'reseed_each_round',
-
-        'series_format',
-        'default_best_of',
-        'fixed_games',
-
-        'structure_mode',
-        'structure_status',
-        'structure_version',
-        'structure_fingerprint',
-        'structure_generated_at',
-        'structure_validated_at',
-
+        'user_id',
+        'source_phase_template_id',
+        'sequence_number',
+        'code',
+        'name',
+        'slug',
+        'description',
+        'image',
+        'phase_type',
+        'participant_mode',
+        'min_participants',
+        'max_participants',
+        'exact_participants',
+        'participant_multiple',
+        'allow_byes',
+        'best_of',
+        'status',
+        'visibility',
+        'allow_cloning',
+        'views_count',
+        'clones_count',
+        'published_at',
         'settings',
+        'metadata',
     ];
 
     protected function casts(): array
     {
         return [
-            'entrants_per_match' =>
-            'integer',
-
-            'qualifiers_per_match' =>
-            'integer',
-
-            'target_survivors' =>
-            'integer',
-
-            'reseed_each_round' =>
-            'boolean',
-
-            'default_best_of' =>
-            'integer',
-
-            'fixed_games' =>
-            'integer',
-
             'sequence_number' => 'integer',
             'min_participants' => 'integer',
             'max_participants' => 'integer',

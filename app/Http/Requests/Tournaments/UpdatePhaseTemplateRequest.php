@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Tournaments;
 
 use App\Models\PhaseTemplate;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
@@ -28,6 +29,37 @@ class UpdatePhaseTemplateRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $phaseTemplate =
+            $this->route('phaseTemplate');
+
+        $capacityMode = strtoupper(
+            (string) $this->input(
+                'capacity_mode',
+                $this->capacityModeFor(
+                    $phaseTemplate
+                )
+            )
+        );
+
+        $contract = match ($capacityMode) {
+            'EXACT' => [
+                'min_participants' =>
+                $this->input('exact_participants'),
+
+                'max_participants' =>
+                $this->input('exact_participants'),
+            ],
+
+            'OPEN' => [
+                'exact_participants' => null,
+                'max_participants' => null,
+            ],
+
+            default => [
+                'exact_participants' => null,
+            ],
+        };
+
         $this->merge([
             'name' => trim(
                 (string) $this->input('name')
@@ -35,7 +67,11 @@ class UpdatePhaseTemplateRequest extends FormRequest
 
             'phase_type' => strtoupper(
                 (string) $this->input(
-                    'phase_type'
+                    'phase_type',
+                    $phaseTemplate
+                        instanceof PhaseTemplate
+                        ? $phaseTemplate->phase_type
+                        : ''
                 )
             ),
 
@@ -45,10 +81,10 @@ class UpdatePhaseTemplateRequest extends FormRequest
                 )
             ),
 
+            'capacity_mode' => $capacityMode,
+
             'status' => strtoupper(
-                (string) $this->input(
-                    'status'
-                )
+                (string) $this->input('status')
             ),
 
             'visibility' => strtoupper(
@@ -65,6 +101,8 @@ class UpdatePhaseTemplateRequest extends FormRequest
 
             'remove_image' =>
             $this->boolean('remove_image'),
+
+            ...$contract,
         ]);
     }
 
@@ -109,6 +147,7 @@ class UpdatePhaseTemplateRequest extends FormRequest
                     'SWISS',
                     'CUSTOM',
                 ]),
+                $this->unchangedPhaseTypeRule(),
             ],
 
             'participant_mode' => [
@@ -120,6 +159,15 @@ class UpdatePhaseTemplateRequest extends FormRequest
                 ]),
             ],
 
+            'capacity_mode' => [
+                'required',
+                Rule::in([
+                    'EXACT',
+                    'RANGE',
+                    'OPEN',
+                ]),
+            ],
+
             'min_participants' => [
                 'required',
                 'integer',
@@ -128,6 +176,10 @@ class UpdatePhaseTemplateRequest extends FormRequest
             ],
 
             'max_participants' => [
+                Rule::requiredIf(
+                    $this->input('capacity_mode')
+                        === 'RANGE'
+                ),
                 'nullable',
                 'integer',
                 'min:2',
@@ -136,6 +188,10 @@ class UpdatePhaseTemplateRequest extends FormRequest
             ],
 
             'exact_participants' => [
+                Rule::requiredIf(
+                    $this->input('capacity_mode')
+                        === 'EXACT'
+                ),
                 'nullable',
                 'integer',
                 'min:2',
@@ -186,5 +242,70 @@ class UpdatePhaseTemplateRequest extends FormRequest
                 'boolean',
             ],
         ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'name.required' =>
+            'El nombre de la Fase es obligatorio.',
+
+            'capacity_mode.in' =>
+            'Selecciona un contrato exacto, por rango o abierto.',
+
+            'min_participants.min' =>
+            'Una Fase debe admitir al menos 2 participantes.',
+
+            'max_participants.required' =>
+            'Indica el máximo del rango.',
+
+            'max_participants.gte' =>
+            'El máximo no puede ser menor que el mínimo.',
+
+            'exact_participants.required' =>
+            'Indica la cantidad exacta de participantes.',
+
+            'best_of.in' =>
+            'Selecciona un Best of válido.',
+        ];
+    }
+
+    private function capacityModeFor(
+        mixed $phaseTemplate
+    ): string {
+        if (! $phaseTemplate instanceof PhaseTemplate) {
+            return 'OPEN';
+        }
+
+        if ($phaseTemplate->exact_participants !== null) {
+            return 'EXACT';
+        }
+
+        return $phaseTemplate->max_participants === null
+            ? 'OPEN'
+            : 'RANGE';
+    }
+
+    private function unchangedPhaseTypeRule(): Closure
+    {
+        return function (
+            string $attribute,
+            mixed $value,
+            Closure $fail
+        ): void {
+            $phaseTemplate =
+                $this->route('phaseTemplate');
+
+            if (
+                $phaseTemplate
+                instanceof PhaseTemplate
+                &&
+                $value !== $phaseTemplate->phase_type
+            ) {
+                $fail(
+                    'El tipo de Fase no puede cambiarse después de crearla porque ya define su Engine.'
+                );
+            }
+        };
     }
 }

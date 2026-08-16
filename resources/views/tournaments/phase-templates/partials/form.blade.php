@@ -1,372 +1,593 @@
 @php
     $editing = isset($phaseTemplate);
 
-    $currentImage = $editing ? $phaseTemplate->image_url : null;
+    $removeImage = (bool) old('remove_image', false);
+
+    $currentImage = $editing && !$removeImage ? $phaseTemplate->image_url : null;
+
+    $capacityMode = old('capacity_mode');
+
+    if (!$capacityMode) {
+        $capacityMode = $editing
+            ? ($phaseTemplate->exact_participants !== null
+                ? 'EXACT'
+                : ($phaseTemplate->max_participants !== null
+                    ? 'RANGE'
+                    : 'OPEN'))
+            : 'OPEN';
+    }
+
+    $phaseType = $editing ? $phaseTemplate->phase_type : old('phase_type', 'SINGLE_ELIMINATION');
+
+    $engine = $editing
+        ? match ($phaseTemplate->phase_type) {
+            'SINGLE_ELIMINATION' => [
+                'name' => 'Single Elimination Engine',
+                'icon' => '⚔',
+                'url' => route('tournaments.single-elimination.show', $phaseTemplate),
+                'description' => 'Seeding, pairing, BYEs, reglas por ronda y estructura interna.',
+                'box' => 'border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50',
+                'eyebrow' => 'text-amber-700',
+                'title' => 'text-amber-950',
+                'body' => 'text-amber-800/80',
+                'button' => 'bg-amber-500 shadow-amber-500/20 hover:bg-amber-600',
+            ],
+            'ROUND_ROBIN' => [
+                'name' => 'Round Robin Engine',
+                'icon' => '↻',
+                'url' => route('tournaments.round-robin.show', $phaseTemplate),
+                'description' => 'Ciclos, calendario, puntuación, empates y criterios de desempate.',
+                'box' => 'border-cyan-200 bg-gradient-to-br from-cyan-50 to-emerald-50',
+                'eyebrow' => 'text-cyan-700',
+                'title' => 'text-cyan-950',
+                'body' => 'text-cyan-800/80',
+                'button' => 'bg-cyan-600 shadow-cyan-600/20 hover:bg-cyan-700',
+            ],
+            'GROUP_STAGE' => [
+                'name' => 'Group Stage Engine',
+                'icon' => '▦',
+                'url' => route('tournaments.group-stage.show', $phaseTemplate),
+                'description' => 'Grupos, distribución, calendario interno y reglas de clasificación.',
+                'box' => 'border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50',
+                'eyebrow' => 'text-indigo-700',
+                'title' => 'text-indigo-950',
+                'body' => 'text-indigo-800/80',
+                'button' => 'bg-indigo-600 shadow-indigo-600/20 hover:bg-indigo-700',
+            ],
+            'SWISS' => [
+                'name' => 'Swiss Engine',
+                'icon' => '◆',
+                'url' => route('tournaments.swiss.show', $phaseTemplate),
+                'description' => 'Rondas, score groups, rematches, BYEs, scoring y desempates.',
+                'box' => 'border-violet-200 bg-gradient-to-br from-violet-50 to-fuchsia-50',
+                'eyebrow' => 'text-violet-700',
+                'title' => 'text-violet-950',
+                'body' => 'text-violet-800/80',
+                'button' => 'bg-violet-600 shadow-violet-600/20 hover:bg-violet-700',
+            ],
+            default => null,
+        }
+        : null;
+
+    $designerConfig = [
+        'editing' => $editing,
+        'currentImage' => $currentImage,
+        'removeImage' => $removeImage,
+        'name' => old('name', $editing ? $phaseTemplate->name : ''),
+        'phaseType' => $phaseType,
+        'participantMode' => old('participant_mode', $editing ? $phaseTemplate->participant_mode : 'INDIVIDUAL'),
+        'capacityMode' => $capacityMode,
+        'minParticipants' => old('min_participants', $editing ? $phaseTemplate->min_participants : 2),
+        'maxParticipants' => old('max_participants', $editing ? $phaseTemplate->max_participants : ''),
+        'exactParticipants' => old('exact_participants', $editing ? $phaseTemplate->exact_participants : ''),
+        'participantMultiple' => old('participant_multiple', $editing ? $phaseTemplate->participant_multiple : ''),
+        'allowByes' => (bool) old('allow_byes', $editing ? $phaseTemplate->allow_byes : false),
+        'bestOf' => (int) old('best_of', $editing ? $phaseTemplate->best_of : 1),
+        'status' => old('status', $editing ? $phaseTemplate->status : 'DRAFT'),
+        'visibility' => old('visibility', $editing ? $phaseTemplate->visibility : 'PRIVATE'),
+        'allowCloning' => (bool) old('allow_cloning', $editing ? $phaseTemplate->allow_cloning : true),
+        'engine' => $engine,
+    ];
 @endphp
 
-<div x-data="{
-    preview: @js($currentImage),
-    removeImage: false,
-
-    loadImage(event) {
-        const file = event.target.files[0];
-
-        if (!file) return;
-
-        this.preview = URL.createObjectURL(file);
-        this.removeImage = false;
-    },
-
-    clearImage() {
-        this.preview = null;
-        this.removeImage = true;
-    }
-}" class="space-y-6">
+<div x-data="phaseTemplateDesigner(@js($designerConfig))" x-init="init()" @input="markDirty()" @change="markDirty()" class="space-y-6">
 
     <input type="hidden" name="remove_image" :value="removeImage ? 1 : 0">
+    <input type="hidden" name="capacity_mode" :value="capacityMode">
 
-    {{-- ===================================================== --}}
-    {{-- IDENTIDAD --}}
-    {{-- ===================================================== --}}
-
-    <section class="rounded-3xl border border-slate-200 bg-white p-6">
-        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">01 · Identidad</p>
-
-        <div class="mt-2">
-            <h3 class="text-xl font-black text-slate-900">Información de la Fase</h3>
-            <p class="mt-1 text-sm leading-6 text-slate-500">
-                La Fase describe cómo funciona una etapa competitiva,
-                independientemente del Torneo que la utilice.
+    @if ($errors->any())
+        <section class="rounded-2xl border border-red-200 bg-red-50 p-5" role="alert">
+            <p class="text-sm font-black text-red-800">
+                No se pudo guardar la Fase. Revisa estos campos:
             </p>
-        </div>
 
-        <div class="mt-6 grid gap-7 lg:grid-cols-[220px_1fr]">
+            <ul class="mt-3 list-disc space-y-1 pl-5 text-xs font-bold text-red-700">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
 
-            {{-- IMAGEN --}}
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
 
-            <div>
-                <div
-                    class="aspect-square overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50">
+        <div class="space-y-6">
 
-                    <template x-if="preview">
-                        <img :src="preview" alt="" class="h-full w-full object-cover">
-                    </template>
+            <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <div
+                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 font-black text-amber-700">
+                        01
+                    </div>
 
-                    <template x-if="!preview">
-                        <div class="flex h-full flex-col items-center justify-center gap-2 text-center">
-                            <span class="text-5xl">⌘</span>
-                            <span class="text-xs font-bold text-slate-400">Sin portada</span>
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">
+                            Identidad
+                        </p>
+                        <h2 class="mt-1 text-xl font-black text-slate-900">
+                            Información principal
+                        </h2>
+                        <p class="mt-1 text-sm leading-6 text-slate-500">
+                            Lo que reconocerás en la Biblioteca y en el Tournament Builder.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-6 grid gap-7 lg:grid-cols-[210px_1fr]">
+
+                    <div>
+                        <div
+                            class="aspect-square overflow-hidden rounded-3xl border border-dashed border-slate-300 bg-slate-50">
+                            <template x-if="preview">
+                                <img :src="preview" alt="Vista previa de la portada"
+                                    class="h-full w-full object-cover">
+                            </template>
+
+                            <template x-if="!preview">
+                                <div class="flex h-full flex-col items-center justify-center gap-2 text-center">
+                                    <span class="text-4xl text-slate-300">◇</span>
+                                    <span class="text-xs font-black text-slate-400">Sin portada</span>
+                                </div>
+                            </template>
                         </div>
-                    </template>
 
+                        <label
+                            class="mt-3 block cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-center text-xs font-black text-slate-700 transition hover:border-amber-300 hover:bg-amber-50">
+                            Seleccionar imagen
+                            <input type="file" name="image" accept="image/png,image/jpeg,image/webp"
+                                @change="loadImage($event)" class="hidden">
+                        </label>
+
+                        <button type="button" x-show="preview" x-cloak @click="clearImage()"
+                            class="mt-2 w-full rounded-xl bg-red-50 px-4 py-2.5 text-xs font-black text-red-600 transition hover:bg-red-100">
+                            Quitar imagen
+                        </button>
+
+                        <x-input-error :messages="$errors->get('image')" class="mt-2" />
+                    </div>
+
+                    <div class="space-y-5">
+                        <div>
+                            <label for="phase-name" class="text-xs font-black uppercase tracking-wider text-slate-500">
+                                Nombre *
+                            </label>
+
+                            <input id="phase-name" type="text" name="name" x-model="name" maxlength="150" required
+                                placeholder="Ej. Eliminación directa principal"
+                                class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
+
+                            <x-input-error :messages="$errors->get('name')" class="mt-2" />
+                        </div>
+
+                        <div>
+                            <label for="phase-description"
+                                class="text-xs font-black uppercase tracking-wider text-slate-500">
+                                Descripción
+                            </label>
+
+                            <textarea id="phase-description" name="description" rows="6" maxlength="5000"
+                                placeholder="Describe el propósito de esta Fase..."
+                                class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">{{ old('description', $editing ? $phaseTemplate->description : '') }}</textarea>
+
+                            <x-input-error :messages="$errors->get('description')" class="mt-2" />
+                        </div>
+
+                        <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                            <p class="text-[9px] font-black uppercase tracking-wider text-amber-700">
+                                Código OmniMerge
+                            </p>
+                            <p class="mt-1 font-mono text-sm font-black text-amber-950">
+                                {{ $editing ? $phaseTemplate->code : $previewCode }}
+                            </p>
+                            <p class="mt-1 text-xs text-amber-800/70">
+                                Se genera automáticamente y no depende del nombre.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <div
+                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 font-black text-amber-700">
+                        02
+                    </div>
+
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">
+                            Comportamiento
+                        </p>
+                        <h2 class="mt-1 text-xl font-black text-slate-900">
+                            Tipo y participación
+                        </h2>
+                    </div>
+                </div>
+
+                <div class="mt-6 grid gap-5 md:grid-cols-2">
+                    <div>
+                        <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+                            Tipo de Fase *
+                        </label>
+
+                        @if ($editing)
+                            <input type="hidden" name="phase_type" value="{{ $phaseTemplate->phase_type }}">
+
+                            <div class="mt-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                <p class="text-sm font-black text-amber-950">
+                                    {{ $phaseTemplate->type_label }}
+                                </p>
+                                <p class="mt-1 text-xs leading-5 text-amber-800/75">
+                                    Bloqueado para no invalidar el Engine, sus reglas ni su estructura.
+                                </p>
+                            </div>
+                        @else
+                            <select name="phase_type" x-model="phaseType" required
+                                class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
+                                <option value="SINGLE_ELIMINATION">Eliminación directa</option>
+                                <option value="ROUND_ROBIN">Todos contra todos</option>
+                                <option value="GROUP_STAGE">Fase de grupos</option>
+                                <option value="LEAGUE">Liga / División</option>
+                                <option value="SWISS">Sistema suizo</option>
+                                <option value="CUSTOM">Personalizada</option>
+                            </select>
+                        @endif
+
+                        <x-input-error :messages="$errors->get('phase_type')" class="mt-2" />
+                    </div>
+
+                    <div>
+                        <label for="participant-mode"
+                            class="text-xs font-black uppercase tracking-wider text-slate-500">
+                            Participación *
+                        </label>
+
+                        <select id="participant-mode" name="participant_mode" x-model="participantMode" required
+                            class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
+                            <option value="INDIVIDUAL">Individual</option>
+                            <option value="TEAM">Equipos</option>
+                            <option value="FLEXIBLE">Flexible</option>
+                        </select>
+
+                        <p class="mt-2 text-xs leading-5 text-slate-400">
+                            Define qué clase de competidor podrá entrar a la Fase.
+                        </p>
+
+                        <x-input-error :messages="$errors->get('participant_mode')" class="mt-2" />
+                    </div>
+                </div>
+            </section>
+
+            <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <div
+                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-50 font-black text-cyan-700">
+                        03
+                    </div>
+
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-600">
+                            Input Contract
+                        </p>
+                        <h2 class="mt-1 text-xl font-black text-slate-900">
+                            Entrada de participantes
+                        </h2>
+                        <p class="mt-1 text-sm leading-6 text-slate-500">
+                            Elige una forma simple de expresar la capacidad. El sistema la convierte
+                            al contrato min/max/exact que consume el grafo.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-6 grid gap-3 md:grid-cols-3">
+                    @foreach ([['value' => 'EXACT', 'title' => 'Exacta', 'description' => 'Solo acepta una cantidad concreta.'], ['value' => 'RANGE', 'title' => 'Por rango', 'description' => 'Acepta entre un mínimo y un máximo.'], ['value' => 'OPEN', 'title' => 'Abierta', 'description' => 'Acepta desde un mínimo, sin máximo.']] as $mode)
+                        <button type="button" @click="chooseCapacityMode('{{ $mode['value'] }}')"
+                            :aria-pressed="capacityMode === '{{ $mode['value'] }}'"
+                            :class="capacityMode === '{{ $mode['value'] }}'
+                                ?
+                                'border-cyan-400 bg-cyan-50 ring-2 ring-cyan-100' :
+                                'border-slate-200 bg-white hover:border-cyan-200 hover:bg-cyan-50/40'"
+                            class="rounded-2xl border p-4 text-left transition">
+                            <span class="block text-sm font-black text-slate-900">
+                                {{ $mode['title'] }}
+                            </span>
+                            <span class="mt-1 block text-xs leading-5 text-slate-500">
+                                {{ $mode['description'] }}
+                            </span>
+                        </button>
+                    @endforeach
+                </div>
+
+                <x-input-error :messages="$errors->get('capacity_mode')" class="mt-3" />
+
+                <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <div x-show="capacityMode === 'EXACT'" x-cloak>
+                        <label for="exact-participants"
+                            class="text-xs font-black uppercase tracking-wider text-slate-500">
+                            Cantidad exacta *
+                        </label>
+                        <input id="exact-participants" type="number" name="exact_participants"
+                            x-model="exactParticipants" min="2" max="512"
+                            :required="capacityMode === 'EXACT'"
+                            class="mt-2 w-full max-w-xs rounded-xl border-slate-300 focus:border-cyan-400 focus:ring-cyan-400">
+                    </div>
+
+                    <div x-show="capacityMode === 'RANGE'" x-cloak class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="range-min" class="text-xs font-black uppercase tracking-wider text-slate-500">
+                                Mínimo *
+                            </label>
+                            <input id="range-min" type="number" name="min_participants" x-model="minParticipants"
+                                min="2" max="512" :required="capacityMode === 'RANGE'"
+                                class="mt-2 w-full rounded-xl border-slate-300 focus:border-cyan-400 focus:ring-cyan-400">
+                        </div>
+
+                        <div>
+                            <label for="range-max" class="text-xs font-black uppercase tracking-wider text-slate-500">
+                                Máximo *
+                            </label>
+                            <input id="range-max" type="number" name="max_participants" x-model="maxParticipants"
+                                min="2" max="512" :required="capacityMode === 'RANGE'"
+                                class="mt-2 w-full rounded-xl border-slate-300 focus:border-cyan-400 focus:ring-cyan-400">
+                        </div>
+                    </div>
+
+                    <div x-show="capacityMode === 'OPEN'" x-cloak>
+                        <label for="open-min" class="text-xs font-black uppercase tracking-wider text-slate-500">
+                            Mínimo *
+                        </label>
+                        <input id="open-min" type="number" name="min_participants" x-model="minParticipants"
+                            min="2" max="512" :required="capacityMode === 'OPEN'"
+                            class="mt-2 w-full max-w-xs rounded-xl border-slate-300 focus:border-cyan-400 focus:ring-cyan-400">
+                        <p class="mt-2 text-xs text-slate-400">Sin límite máximo.</p>
+                    </div>
+
+                    <x-input-error :messages="$errors->get('min_participants')" class="mt-3" />
+                    <x-input-error :messages="$errors->get('max_participants')" class="mt-1" />
+                    <x-input-error :messages="$errors->get('exact_participants')" class="mt-1" />
+                </div>
+
+                <details class="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                    <summary class="cursor-pointer text-xs font-black text-slate-700">
+                        Ajuste opcional de capacidad
+                    </summary>
+
+                    <div class="mt-4 max-w-xs">
+                        <label for="participant-multiple"
+                            class="text-xs font-black uppercase tracking-wider text-slate-500">
+                            Requerir múltiplos de
+                        </label>
+
+                        <input id="participant-multiple" type="number" name="participant_multiple"
+                            x-model="participantMultiple" min="2" max="512" placeholder="Ej. 4"
+                            class="mt-2 w-full rounded-xl border-slate-300 focus:border-cyan-400 focus:ring-cyan-400">
+
+                        <p class="mt-2 text-xs leading-5 text-slate-400">
+                            Úsalo solo cuando la estructura necesite bloques completos.
+                        </p>
+
+                        <x-input-error :messages="$errors->get('participant_multiple')" class="mt-2" />
+                    </div>
+                </details>
+
+                <label
+                    class="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 p-4 transition hover:border-amber-200 hover:bg-amber-50/40">
+                    <input type="checkbox" name="allow_byes" value="1" x-model="allowByes"
+                        class="mt-0.5 rounded border-slate-300 text-amber-500 focus:ring-amber-500">
+
+                    <span>
+                        <span class="block text-sm font-black text-slate-800">Permitir BYE</span>
+                        <span class="mt-1 block text-xs leading-5 text-slate-500">
+                            Autoriza avances automáticos cuando el Engine no completa su estructura ideal.
+                        </span>
+                    </span>
+                </label>
+            </section>
+
+            <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <div
+                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 font-black text-violet-700">
+                        04
+                    </div>
+
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-violet-600">
+                            Base y publicación
+                        </p>
+                        <h2 class="mt-1 text-xl font-black text-slate-900">
+                            Configuración inicial
+                        </h2>
+                    </div>
+                </div>
+
+                <div class="mt-6 grid gap-5 md:grid-cols-3">
+                    <div>
+                        <label for="best-of" class="text-xs font-black uppercase tracking-wider text-slate-500">
+                            Best of
+                        </label>
+                        <select id="best-of" name="best_of" x-model.number="bestOf" required
+                            class="mt-2 w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
+                            @foreach ([1, 3, 5, 7, 9] as $value)
+                                <option value="{{ $value }}">Best of {{ $value }}</option>
+                            @endforeach
+                        </select>
+                        <x-input-error :messages="$errors->get('best_of')" class="mt-2" />
+                    </div>
+
+                    <div>
+                        <label for="phase-status" class="text-xs font-black uppercase tracking-wider text-slate-500">
+                            Estado
+                        </label>
+                        <select id="phase-status" name="status" x-model="status" required
+                            class="mt-2 w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
+                            <option value="DRAFT">Borrador</option>
+                            <option value="ACTIVE">Activa</option>
+                            <option value="ARCHIVED">Archivada</option>
+                        </select>
+                        <x-input-error :messages="$errors->get('status')" class="mt-2" />
+                    </div>
+
+                    <div>
+                        <label for="phase-visibility"
+                            class="text-xs font-black uppercase tracking-wider text-slate-500">
+                            Visibilidad
+                        </label>
+                        <select id="phase-visibility" name="visibility" x-model="visibility" required
+                            class="mt-2 w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
+                            <option value="PRIVATE">Privada</option>
+                            <option value="PUBLIC">Pública</option>
+                            <option value="UNLISTED">No listada</option>
+                        </select>
+                        <x-input-error :messages="$errors->get('visibility')" class="mt-2" />
+                    </div>
                 </div>
 
                 <label
-                    class="mt-3 block cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-center text-xs font-black text-slate-700 transition hover:bg-slate-50">
-                    Seleccionar imagen
-
-                    <input type="file" name="image" accept="image/png,image/jpeg,image/webp"
-                        @change="loadImage($event)" class="hidden">
+                    class="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-violet-200 bg-violet-50/60 p-4">
+                    <input type="checkbox" name="allow_cloning" value="1" x-model="allowCloning"
+                        class="mt-0.5 rounded border-violet-300 text-violet-600 focus:ring-violet-500">
+                    <span>
+                        <span class="block text-sm font-black text-violet-900">
+                            Permitir clonación cuando sea pública
+                        </span>
+                        <span class="mt-1 block text-xs leading-5 text-violet-700">
+                            Solo tendrá efecto cuando la Fase esté activa y con visibilidad pública.
+                        </span>
+                    </span>
                 </label>
+            </section>
 
-                <button type="button" x-show="preview" @click="clearImage()"
-                    class="mt-2 w-full rounded-xl bg-red-50 px-4 py-2.5 text-xs font-black text-red-600">
-                    Quitar imagen
-                </button>
+        </div>
 
-                <x-input-error :messages="$errors->get('image')" class="mt-2" />
-            </div>
-
-            {{-- INFORMACIÓN --}}
-
-            <div class="space-y-5">
-
-                <div>
-                    <label class="text-xs font-black uppercase tracking-wider text-slate-500">Nombre *</label>
-
-                    <input type="text" name="name" value="{{ old('name', $editing ? $phaseTemplate->name : '') }}"
-                        placeholder="Ej. Eliminación directa básica"
-                        class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
-
-                    <x-input-error :messages="$errors->get('name')" class="mt-2" />
-                </div>
-
-                <div>
-                    <label class="text-xs font-black uppercase tracking-wider text-slate-500">Descripción</label>
-
-                    <textarea name="description" rows="6" placeholder="Describe el comportamiento y propósito de esta Fase..."
-                        class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">{{ old('description', $editing ? $phaseTemplate->description : '') }}</textarea>
-
-                    <x-input-error :messages="$errors->get('description')" class="mt-2" />
-                </div>
-
-                <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                    <p class="text-[9px] font-black uppercase tracking-wider text-amber-700">Código OmniMerge</p>
-
-                    <p class="mt-1 font-mono text-sm font-black text-amber-950">
+        <aside class="space-y-5 xl:sticky xl:top-6">
+            <section class="overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 text-white shadow-xl">
+                <div class="border-b border-white/10 bg-gradient-to-br from-amber-400/20 to-violet-500/10 p-6">
+                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">
+                        Live Inspector
+                    </p>
+                    <h2 class="mt-2 break-words text-xl font-black" x-text="name || 'Fase sin nombre'"></h2>
+                    <p class="mt-1 font-mono text-[10px] text-slate-400">
                         {{ $editing ? $phaseTemplate->code : $previewCode }}
                     </p>
-
-                    <p class="mt-1 text-xs text-amber-800/70">
-                        El código se genera automáticamente.
-                    </p>
                 </div>
 
-            </div>
-        </div>
-    </section>
+                <div class="space-y-3 p-6">
+                    <div class="rounded-2xl bg-white/5 p-4">
+                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">Tipo</p>
+                        <p class="mt-2 text-sm font-black" x-text="typeLabel()"></p>
+                    </div>
 
-    {{-- ===================================================== --}}
-    {{-- TIPO --}}
-    {{-- ===================================================== --}}
+                    <div class="rounded-2xl bg-white/5 p-4">
+                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">Participación</p>
+                        <p class="mt-2 text-sm font-black" x-text="participantModeLabel()"></p>
+                    </div>
 
-    <section class="rounded-3xl border border-slate-200 bg-white p-6">
-        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">02 · Comportamiento</p>
+                    <div class="rounded-2xl bg-white/5 p-4">
+                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">Contrato</p>
+                        <p class="mt-2 text-sm font-black" x-text="contractLabel()"></p>
+                        <p class="mt-1 text-xs text-slate-400" x-show="allowByes">BYE permitido</p>
+                    </div>
 
-        <h3 class="mt-2 text-xl font-black text-slate-900">Tipo de Fase</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-2xl bg-white/5 p-4">
+                            <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">Formato</p>
+                            <p class="mt-2 text-sm font-black">BO<span x-text="bestOf"></span></p>
+                        </div>
 
-        <p class="mt-1 text-sm leading-6 text-slate-500">
-            El tipo determina qué motor competitivo utilizará
-            la Fase cuando se ejecute.
-        </p>
+                        <div class="rounded-2xl bg-white/5 p-4">
+                            <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">Publicación</p>
+                            <p class="mt-2 text-xs font-black" x-text="statusLabel()"></p>
+                            <p class="mt-1 text-[10px] text-slate-400" x-text="visibilityLabel()"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-        <div class="mt-6 grid gap-5 md:grid-cols-2">
+            @if ($engine)
+                <section class="rounded-3xl border p-5 {{ $engine['box'] }}">
+                    <p class="text-[9px] font-black uppercase tracking-wider {{ $engine['eyebrow'] }}">
+                        {{ $engine['name'] }}
+                    </p>
+                    <h3 class="mt-2 text-sm font-black {{ $engine['title'] }}">
+                        {{ $engine['icon'] }} Configuración avanzada separada
+                    </h3>
+                    <p class="mt-2 text-xs leading-5 {{ $engine['body'] }}">
+                        {{ $engine['description'] }}
+                    </p>
+                    <a href="{{ $engine['url'] }}"
+                        class="mt-4 block rounded-xl px-4 py-3 text-center text-xs font-black text-white shadow-lg transition {{ $engine['button'] }}">
+                        {{ $engine['icon'] }} Abrir Engine
+                    </a>
+                </section>
+            @else
+                <section class="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                        Separación de responsabilidades
+                    </p>
+                    <p class="mt-2 text-xs leading-5 text-slate-600">
+                        Este formulario solo define la Fase. Brackets, calendarios, grupos,
+                        emparejamientos y reglas avanzadas pertenecen al Engine.
+                    </p>
+                </section>
+            @endif
+        </aside>
 
-            <div>
-                <label class="text-xs font-black uppercase text-slate-500">Tipo *</label>
+    </div>
 
-                <select name="phase_type"
-                    class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
+    <div
+        class="sticky bottom-4 z-20 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-2xl shadow-slate-900/10 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
 
-                    @foreach ([
-        'SINGLE_ELIMINATION' => 'Eliminación directa',
-        'ROUND_ROBIN' => 'Todos contra todos',
-        'GROUP_STAGE' => 'Fase de grupos',
-        'LEAGUE' => 'Liga / División',
-        'SWISS' => 'Sistema suizo',
-        'CUSTOM' => 'Personalizada',
-    ] as $value => $label)
-                        <option value="{{ $value }}" @selected(old('phase_type', $editing ? $phaseTemplate->phase_type : 'SINGLE_ELIMINATION') === $value)>
-                            {{ $label }}
-                        </option>
-                    @endforeach
-                </select>
-
-                <p class="mt-2 text-xs text-slate-400">
-                    En este Sprint la infraestructura es común.
-                    El primer motor completo será Eliminación directa.
-                </p>
-            </div>
-
-            <div>
-                <label class="text-xs font-black uppercase text-slate-500">Participación</label>
-
-                <select name="participant_mode"
-                    class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
-
-                    @foreach ([
-        'INDIVIDUAL' => 'Individual',
-        'TEAM' => 'Equipos',
-        'FLEXIBLE' => 'Flexible',
-    ] as $value => $label)
-                        <option value="{{ $value }}" @selected(old('participant_mode', $editing ? $phaseTemplate->participant_mode : 'INDIVIDUAL') === $value)>
-                            {{ $label }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-        </div>
-    </section>
-
-    {{-- ===================================================== --}}
-    {{-- CONTRATO DE ENTRADA --}}
-    {{-- ===================================================== --}}
-
-    <section class="rounded-3xl border border-slate-200 bg-white p-6">
-        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">03 · Entrada</p>
-
-        <h3 class="mt-2 text-xl font-black text-slate-900">Contrato de participantes</h3>
-
-        <p class="mt-1 text-sm leading-6 text-slate-500">
-            La Fase declara qué cantidad de competidores puede recibir.
-            El futuro Tournament Builder utilizará estos valores para
-            validar conexiones.
-        </p>
-
-        <div class="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-
-            <div>
-                <label class="text-xs font-black uppercase text-slate-500">Mínimo *</label>
-
-                <input type="number" name="min_participants" min="2" max="512"
-                    value="{{ old('min_participants', $editing ? $phaseTemplate->min_participants : 2) }}"
-                    class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
-            </div>
-
-            <div>
-                <label class="text-xs font-black uppercase text-slate-500">Máximo</label>
-
-                <input type="number" name="max_participants" min="2" max="512"
-                    value="{{ old('max_participants', $editing ? $phaseTemplate->max_participants : '') }}"
-                    placeholder="Sin límite"
-                    class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
-            </div>
-
-            <div>
-                <label class="text-xs font-black uppercase text-slate-500">Cantidad exacta</label>
-
-                <input type="number" name="exact_participants" min="2" max="512"
-                    value="{{ old('exact_participants', $editing ? $phaseTemplate->exact_participants : '') }}"
-                    placeholder="Opcional"
-                    class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
-
-                <p class="mt-2 text-[11px] leading-4 text-slate-400">
-                    Si se establece, reemplaza mínimo y máximo.
-                </p>
-            </div>
-
-            <div>
-                <label class="text-xs font-black uppercase text-slate-500">Múltiplo de</label>
-
-                <input type="number" name="participant_multiple" min="2" max="512"
-                    value="{{ old('participant_multiple', $editing ? $phaseTemplate->participant_multiple : '') }}"
-                    placeholder="Ej. 4"
-                    class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
-
-                <p class="mt-2 text-[11px] leading-4 text-slate-400">
-                    Útil para grupos de tamaño fijo.
-                </p>
-            </div>
-
-        </div>
-
-        <x-input-error :messages="$errors->get('min_participants')" class="mt-3" />
-        <x-input-error :messages="$errors->get('max_participants')" class="mt-1" />
-        <x-input-error :messages="$errors->get('exact_participants')" class="mt-1" />
-        <x-input-error :messages="$errors->get('participant_multiple')" class="mt-1" />
-
-        <label class="mt-6 flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 p-4">
-            <input type="checkbox" name="allow_byes" value="1" @checked(old('allow_byes', $editing ? $phaseTemplate->allow_byes : false))
-                class="mt-0.5 rounded border-slate-300 text-amber-500 focus:ring-amber-500">
-
-            <span>
-                <span class="block text-sm font-black text-slate-800">Permitir BYE</span>
-
-                <span class="mt-1 block text-xs leading-5 text-slate-500">
-                    La Fase podrá admitir avances automáticos cuando
-                    la cantidad de participantes no complete la estructura ideal.
-                </span>
+        <div class="min-h-5 text-xs font-bold">
+            <span x-show="dirty && !submitting" x-cloak class="text-amber-700">
+                ● Hay cambios sin guardar
             </span>
-        </label>
-    </section>
-
-    {{-- ===================================================== --}}
-    {{-- CONFIGURACIÓN INICIAL --}}
-    {{-- ===================================================== --}}
-
-    <section class="rounded-3xl border border-slate-200 bg-white p-6">
-        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">04 · Configuración</p>
-
-        <h3 class="mt-2 text-xl font-black text-slate-900">Configuración competitiva básica</h3>
-
-        <div class="mt-6 max-w-sm">
-            <label class="text-xs font-black uppercase text-slate-500">Best of</label>
-
-            <select name="best_of"
-                class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
-
-                @foreach ([1, 3, 5, 7, 9] as $value)
-                    <option value="{{ $value }}" @selected((int) old('best_of', $editing ? $phaseTemplate->best_of : 1) === $value)>
-                        Best of {{ $value }}
-                    </option>
-                @endforeach
-            </select>
-
-            <p class="mt-2 text-xs text-slate-400">
-                Esta propiedad será especialmente importante
-                para las Fases eliminatorias.
-            </p>
-        </div>
-    </section>
-
-    {{-- ===================================================== --}}
-    {{-- PUBLICACIÓN --}}
-    {{-- ===================================================== --}}
-
-    <section class="rounded-3xl border border-slate-200 bg-white p-6">
-        <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">05 · Organización</p>
-
-        <div class="mt-5 grid gap-5 md:grid-cols-2">
-
-            <div>
-                <label class="text-xs font-black uppercase text-slate-500">Estado</label>
-
-                <select name="status"
-                    class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
-
-                    @foreach ([
-        'DRAFT' => 'Borrador',
-        'ACTIVE' => 'Activa',
-        'ARCHIVED' => 'Archivada',
-    ] as $value => $label)
-                        <option value="{{ $value }}" @selected(old('status', $editing ? $phaseTemplate->status : 'DRAFT') === $value)>
-                            {{ $label }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div>
-                <label class="text-xs font-black uppercase text-slate-500">Visibilidad</label>
-
-                <select name="visibility"
-                    class="mt-2 w-full rounded-xl border-slate-300 focus:border-amber-400 focus:ring-amber-400">
-
-                    @foreach ([
-        'PRIVATE' => 'Privada',
-        'PUBLIC' => 'Pública',
-        'UNLISTED' => 'No listada',
-    ] as $value => $label)
-                        <option value="{{ $value }}" @selected(old('visibility', $editing ? $phaseTemplate->visibility : 'PRIVATE') === $value)>
-                            {{ $label }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-        </div>
-
-        <label
-            class="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-violet-200 bg-violet-50/50 p-4">
-            <input type="checkbox" name="allow_cloning" value="1" @checked(old('allow_cloning', $editing ? $phaseTemplate->allow_cloning : true))
-                class="mt-0.5 rounded border-violet-300 text-violet-600 focus:ring-violet-500">
-
-            <span>
-                <span class="block text-sm font-black text-violet-900">
-                    Permitir clonación cuando sea pública
-                </span>
-
-                <span class="mt-1 block text-xs leading-5 text-violet-700">
-                    Esta configuración prepara la Fase para la futura
-                    Comunidad de Torneos.
-                </span>
+            <span x-show="!dirty && !submitting" class="text-slate-400">
+                Todo listo para continuar
             </span>
-        </label>
-    </section>
+            <span x-show="submitting" x-cloak class="text-emerald-700">
+                Guardando la Fase…
+            </span>
+        </div>
 
-    <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <a href="{{ $editing
-            ? route('tournaments.phase-templates.show', $phaseTemplate)
-            : route('tournaments.phase-templates.index') }}"
-            class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-center text-sm font-black text-slate-600">
-            Cancelar
-        </a>
+        <div class="flex flex-col-reverse gap-3 sm:flex-row">
+            <a href="{{ $editing
+                ? route('tournaments.phase-templates.show', $phaseTemplate)
+                : route('tournaments.phase-templates.index') }}"
+                class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-center text-sm font-black text-slate-600 transition hover:bg-slate-50">
+                Cancelar
+            </a>
 
-        <button type="submit"
-            class="rounded-xl bg-amber-500 px-6 py-3 text-sm font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600">
-            {{ $editing ? 'Guardar cambios' : 'Crear Fase' }}
-        </button>
+            <button type="submit" :disabled="submitting"
+                class="rounded-xl bg-amber-500 px-6 py-3 text-sm font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600 disabled:cursor-wait disabled:opacity-60">
+                <span x-show="!submitting">
+                    {{ $editing ? 'Guardar cambios' : 'Crear Fase' }}
+                </span>
+                <span x-show="submitting" x-cloak>Guardando…</span>
+            </button>
+        </div>
+
     </div>
 
 </div>

@@ -142,6 +142,13 @@ class PhaseTemplateService
             $data['remove_image']
         );
 
+        /*
+        * El tipo define el Engine y no se cambia desde
+        * el editor básico una vez creada la Fase.
+        */
+        $data['phase_type'] =
+            $phaseTemplate->phase_type;
+
         $data =
             $this->normalizeContract(
                 $data
@@ -227,20 +234,44 @@ class PhaseTemplateService
                         ->singleEliminationSetting()
                         ->exists()
                     ) {
+                        $singleEliminationSetting =
+                            $phaseTemplate
+                            ->singleEliminationSetting()
+                            ->firstOrFail();
+
                         $phaseTemplate
                             ->singleEliminationSetting()
                             ->update([
                                 'default_best_of' =>
                                 (int)
                                 $phaseTemplate->best_of,
+
+                                'remainder_policy' =>
+                                $phaseTemplate->allow_byes
+                                    ? (
+                                        $singleEliminationSetting
+                                        ->remainder_policy
+                                        === 'REJECT'
+                                        ? 'BYE'
+                                        : $singleEliminationSetting
+                                        ->remainder_policy
+                                    )
+                                    : (
+                                        $singleEliminationSetting
+                                        ->remainder_policy
+                                        === 'BYE'
+                                        ? 'REJECT'
+                                        : $singleEliminationSetting
+                                        ->remainder_policy
+                                    ),
                             ]);
                     }
 
                     /*
-|--------------------------------------------------------------------------
-| Mantener T1 y T3 sincronizados
-|--------------------------------------------------------------------------
-*/
+                    |--------------------------------------------------------------------------
+                    | Mantener T1 y T3 sincronizados
+                    |--------------------------------------------------------------------------
+                    */
 
                     if (
                         $phaseTemplate->phase_type
@@ -1278,10 +1309,18 @@ class PhaseTemplateService
     | Contrato
     |--------------------------------------------------------------------------
     */
-
     private function normalizeContract(
         array $data
     ): array {
+        /*
+     * capacity_mode solo simplifica la interfaz.
+     * El contrato persistido continúa usando las
+     * columnas min/max/exact del dominio.
+     */
+        unset(
+            $data['capacity_mode']
+        );
+
         $exact =
             $data['exact_participants']
             ?? null;
