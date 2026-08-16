@@ -101,6 +101,26 @@
                                     <span x-text="round.encounter_count"></span>
                                     encuentros
                                 </p>
+                                <div x-show="round.encounter_global_from"
+                                    class="mt-3 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-[9px] font-black text-white shadow-sm">
+                                    <span class="text-violet-300">
+                                        Numeración global
+                                    </span>
+
+                                    <span>
+                                        #
+
+                                        <span x-text="round.encounter_global_from"></span>
+
+                                        <template x-if="round.encounter_global_from !== round.encounter_global_to">
+                                            <span>
+                                                –#
+
+                                                <span x-text="round.encounter_global_to"></span>
+                                            </span>
+                                        </template>
+                                    </span>
+                                </div>
                             </div>
 
                             <div class="grid grid-cols-3 gap-2 sm:min-w-[320px]">

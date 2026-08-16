@@ -134,6 +134,26 @@
                         <span x-text="round.encounter_count"></span>
                         encuentros
                     </p>
+                    <div x-show="round.encounter_global_from"
+                        class="mt-3 inline-flex items-center gap-2 rounded-xl bg-violet-400/15 px-3 py-2 text-[9px] font-black text-violet-200">
+                        <span>
+                            Encuentros globales
+                        </span>
+
+                        <span class="text-white">
+                            #
+
+                            <span x-text="round.encounter_global_from"></span>
+
+                            <template x-if="round.encounter_global_from !== round.encounter_global_to">
+                                <span>
+                                    –#
+
+                                    <span x-text="round.encounter_global_to"></span>
+                                </span>
+                            </template>
+                        </span>
+                    </div>
                 </button>
 
                 <div class="flex flex-wrap items-center gap-2">
@@ -189,11 +209,25 @@
                                     </div>
 
                                     <h4 class="mt-1 truncate font-black text-slate-900" x-text="encounter.name"></h4>
+
+                                    <p class="mt-1 text-[9px] font-bold text-slate-400">
+                                        Número dentro de esta ronda:
+
+                                        <span class="text-slate-600" x-text="'#' + encounter.local_number"></span>
+                                    </p>
                                 </div>
 
-                                <span
-                                    class="shrink-0 rounded-xl bg-violet-100 px-3 py-2 text-xs font-black text-violet-700"
-                                    x-text="encounter.format"></span>
+                                <div class="flex shrink-0 flex-col items-end gap-2">
+                                    <span
+                                        class="rounded-xl bg-slate-950 px-3 py-2 text-[10px] font-black text-white shadow-md shadow-slate-900/10">
+                                        Global
+
+                                        <span class="text-violet-300" x-text="'#' + encounter.global_number"></span>
+                                    </span>
+
+                                    <span class="rounded-xl bg-violet-100 px-3 py-2 text-xs font-black text-violet-700"
+                                        x-text="encounter.format"></span>
+                                </div>
                             </div>
 
                             <div class="mt-3 flex flex-wrap gap-2 text-[9px] font-black">
@@ -235,6 +269,23 @@
 
                                                 <span class="text-[8px] font-black text-slate-400"
                                                     x-text="slot.type_label"></span>
+                                            </div>
+
+                                            <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                                                <span
+                                                    class="rounded-lg bg-slate-950 px-2 py-1 text-[8px] font-black text-white">
+                                                    Global
+
+                                                    <span class="text-fuchsia-300"
+                                                        x-text="'#' + slot.global_number"></span>
+                                                </span>
+
+                                                <span
+                                                    class="rounded-lg bg-fuchsia-100 px-2 py-1 text-[8px] font-black text-fuchsia-700">
+                                                    En encuentro
+
+                                                    <span x-text="'#' + slot.local_number"></span>
+                                                </span>
                                             </div>
 
                                             <p class="mt-1 truncate text-[9px] font-bold text-fuchsia-700"

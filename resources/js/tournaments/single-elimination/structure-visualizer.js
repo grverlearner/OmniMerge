@@ -714,9 +714,24 @@ export default function singleEliminationStructureVisualizer(
             const searchable = [
                 encounter.name,
                 encounter.code,
+                encounter.global_label,
+                `Encuentro global ${encounter.global_number}`,
+                `Encuentro de ronda ${encounter.local_number}`,
                 encounter.round_name,
                 encounter.profile,
                 encounter.series,
+
+                ...(encounter.slots || [])
+                    .flatMap(
+                        (slot) => [
+                            slot.name,
+                            slot.code,
+                            slot.global_label,
+                            `Slot global ${slot.global_number}`,
+                            `Slot de encuentro ${slot.local_number}`,
+                        ]
+                    ),
+
                 ...(encounter.source_labels || []),
                 ...(encounter.destination_labels || []),
             ]

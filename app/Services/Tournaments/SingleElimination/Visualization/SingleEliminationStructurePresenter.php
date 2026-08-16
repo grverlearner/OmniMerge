@@ -10,14 +10,29 @@ class SingleEliminationStructurePresenter
 {
     private array $issuesByEntity = [];
 
+    private int $globalEncounterNumber = 0;
+
+    private int $globalSlotNumber = 0;
+
     public function present(
         PhaseTemplate $phaseTemplate,
         $settings,
         array $validation
     ): array {
-        $this->issuesByEntity = $this->indexIssues($validation);
+        $this->issuesByEntity =
+            $this->indexIssues(
+                $validation
+            );
 
-        $rounds = $phaseTemplate->singleEliminationRounds;
+        $this->globalEncounterNumber =
+            0;
+
+        $this->globalSlotNumber =
+            0;
+
+        $rounds =
+            $phaseTemplate
+            ->singleEliminationRounds;
 
         $encounterRoundMap = $rounds->flatMap(
             fn($round) => $round->encounters->mapWithKeys(
@@ -86,7 +101,7 @@ class SingleEliminationStructurePresenter
                     'description' => $phaseTemplate->description,
                     'status' => $phaseTemplate->status,
                     'contract' =>
-                        $phaseTemplate->participant_contract_label,
+                    $phaseTemplate->participant_contract_label,
                     'generation_source' => 'CONFIGURED',
                     'locked' => false,
                     'route_keys' => [],
@@ -94,8 +109,8 @@ class SingleEliminationStructurePresenter
                         [
                             'label' => 'Contrato',
                             'value' =>
-                                $phaseTemplate
-                                    ->participant_contract_label,
+                            $phaseTemplate
+                                ->participant_contract_label,
                         ],
                         [
                             'label' => 'Tipo',
@@ -107,73 +122,71 @@ class SingleEliminationStructurePresenter
 
             'structure' => [
                 'status' =>
-                    $settings->structure_status
+                $settings->structure_status
                     ??
                     'NOT_GENERATED',
 
                 'status_label' =>
-                    $settings->structure_status_label,
+                $settings->structure_status_label,
 
                 'version' =>
-                    (int) (
-                        $settings->structure_version
-                        ??
-                        0
-                    ),
+                (int) (
+                    $settings->structure_version
+                    ??
+                    0
+                ),
 
                 'generated_at' =>
-                    $settings
-                        ->structure_generated_at
-                        ?->toIso8601String(),
+                $settings
+                    ->structure_generated_at
+                    ?->toIso8601String(),
 
                 'generated_at_label' =>
-                    $settings
-                        ->structure_generated_at
-                        ?->diffForHumans(),
+                $settings
+                    ->structure_generated_at
+                    ?->diffForHumans(),
 
                 'validated_at' =>
-                    $settings
-                        ->structure_validated_at
-                        ?->toIso8601String(),
+                $settings
+                    ->structure_validated_at
+                    ?->toIso8601String(),
 
                 'configuration_mode' =>
-                    $settings->configuration_mode,
+                $settings->configuration_mode,
 
                 'executable' =>
-                    (bool) $validation['executable'],
+                (bool) $validation['executable'],
             ],
 
             'stats' =>
-                $stats,
+            $stats,
 
             'counts' =>
-                $validation['counts'],
+            $validation['counts'],
 
             'input_gates' =>
-                $inputGates->all(),
+            $inputGates->all(),
 
             'rounds' =>
-                $presentedRounds->all(),
+            $presentedRounds->all(),
 
             'connections' =>
-                $connections->all(),
+            $connections->all(),
 
             'exits' =>
-                $exits->all(),
+            $exits->all(),
 
             'issues' =>
-                $this->allIssues(
-                    $validation
-                ),
+            $this->allIssues(
+                $validation
+            ),
 
             'options' => [
-                'default_view' =>
-                    ($stats['encounters'] ?? 0) > 32
-                        ? 'compact'
-                        : 'blocks',
+                'default_view' => ($stats['encounters'] ?? 0) > 32
+                    ? 'compact'
+                    : 'blocks',
 
-                'large_structure' =>
-                    ($stats['encounters'] ?? 0) > 32,
+                'large_structure' => ($stats['encounters'] ?? 0) > 32,
             ],
         ];
     }
@@ -212,20 +225,20 @@ class SingleEliminationStructurePresenter
                 'required' => (bool) $gate->is_required,
                 'accepts_batch' => (bool) $gate->accepts_batch,
                 'generation_source' =>
-                    $gate->generation_source,
+                $gate->generation_source,
                 'locked' => (bool) $gate->is_locked,
                 'route_keys' => $routeKeys,
 
                 'routes' =>
-                    $this->routesFromKeys(
-                        $routeKeys,
-                        $connectionIndex
-                    ),
+                $this->routesFromKeys(
+                    $routeKeys,
+                    $connectionIndex
+                ),
 
                 'contextual_ports' =>
-                    $gate
-                        ->contextualEntryPorts
-                        ->count(),
+                $gate
+                    ->contextualEntryPorts
+                    ->count(),
 
                 'details' => [
                     [
@@ -290,41 +303,50 @@ class SingleEliminationStructurePresenter
                 'description' => $round->description,
                 'status' => $round->status,
                 'stage_number' =>
-                    (int) $round->stage_number,
+                (int) $round->stage_number,
                 'branch' => $round->branch_label,
                 'type_label' => $round->type_label,
                 'participants_expected' =>
-                    (int) $round->participants_expected,
+                (int) $round->participants_expected,
                 'qualifiers_expected' =>
-                    (int) $round->qualifiers_expected,
+                (int) $round->qualifiers_expected,
 
                 'byes' =>
-                    (int) (
-                        $round->settings['byes']
-                        ??
-                        0
-                    ),
+                (int) (
+                    $round->settings['byes']
+                    ??
+                    0
+                ),
 
                 'generation_source' =>
-                    $round->generation_source,
+                $round->generation_source,
 
                 'locked' =>
-                    (bool) $round->is_locked,
+                (bool) $round->is_locked,
 
                 'encounter_count' =>
-                    $encounters->count(),
+                $encounters->count(),
+
+                'encounter_global_from' =>
+                $encounters->min(
+                    'global_number'
+                ),
+
+                'encounter_global_to' =>
+                $encounters->max(
+                    'global_number'
+                ),
 
                 'route_keys' =>
-                    $routeKeys,
-
+                $routeKeys,
                 'encounters' =>
-                    $encounters->all(),
+                $encounters->all(),
 
                 'details' => [
                     [
                         'label' => 'Etapa topológica',
                         'value' =>
-                            (string) $round->stage_number,
+                        (string) $round->stage_number,
                     ],
                     [
                         'label' => 'Rama',
@@ -336,19 +358,19 @@ class SingleEliminationStructurePresenter
                     ],
                     [
                         'label' =>
-                            'Participantes esperados',
+                        'Participantes esperados',
 
                         'value' =>
-                            (string)
-                            $round->participants_expected,
+                        (string)
+                        $round->participants_expected,
                     ],
                     [
                         'label' =>
-                            'Clasificados esperados',
+                        'Clasificados esperados',
 
                         'value' =>
-                            (string)
-                            $round->qualifiers_expected,
+                        (string)
+                        $round->qualifiers_expected,
                     ],
                 ],
             ]
@@ -375,6 +397,9 @@ class SingleEliminationStructurePresenter
         $round,
         Collection $connectionIndex
     ): array {
+        $globalNumber =
+            ++$this->globalEncounterNumber;
+
         $slots = $encounter
             ->slots
             ->map(
@@ -441,77 +466,88 @@ class SingleEliminationStructurePresenter
                 'description' => $encounter->description,
                 'status' => $encounter->status,
                 'position' =>
-                    (int) $encounter->position,
+                (int) $encounter->position,
+
+                'local_number' =>
+                (int) $encounter->position,
+
+                'global_number' =>
+                $globalNumber,
+
+                'global_label' =>
+                'Encuentro global #'
+                    .
+                    $globalNumber,
 
                 'round_id' =>
-                    $round->id,
+                $round->id,
 
                 'round_key' =>
-                    $this->key(
-                        'ROUND',
-                        $round->id
-                    ),
+                $this->key(
+                    'ROUND',
+                    $round->id
+                ),
 
                 'round_name' =>
-                    $round->name,
+                $round->name,
 
                 'stage_number' =>
-                    (int) $round->stage_number,
+                (int) $round->stage_number,
 
                 'format' =>
-                    $encounter
-                        ->competitive_format_label,
+                $encounter
+                    ->competitive_format_label,
 
                 'entrants' =>
-                    (int) $encounter->entrants_count,
+                (int) $encounter->entrants_count,
 
                 'qualifiers' =>
-                    (int) $encounter->qualifiers_count,
+                (int) $encounter->qualifiers_count,
 
                 'profile' =>
-                    $encounter->profile_label,
+                $encounter->profile_label,
 
                 'series' =>
-                    $encounter->series_label,
+                $encounter->series_label,
 
                 'allows_incomplete' =>
-                    (bool)
-                    $encounter->allows_incomplete,
+                (bool)
+                $encounter->allows_incomplete,
 
                 'generation_source' =>
-                    $encounter->generation_source,
+                $encounter->generation_source,
 
                 'locked' =>
-                    (bool) $encounter->is_locked,
+                (bool) $encounter->is_locked,
 
                 'slots' =>
-                    $slots->all(),
+                $slots->all(),
 
                 'results' =>
-                    $results->all(),
+                $results->all(),
 
                 'route_keys' =>
-                    collect($incomingRouteKeys)
-                        ->merge($outgoingRouteKeys)
-                        ->unique()
-                        ->values()
-                        ->all(),
+                collect($incomingRouteKeys)
+                    ->merge($outgoingRouteKeys)
+                    ->unique()
+                    ->values()
+                    ->all(),
 
                 'source_labels' =>
-                    collect($sources)
-                        ->pluck('source_label')
-                        ->filter()
-                        ->unique()
-                        ->values()
-                        ->all(),
+                collect($sources)
+                    ->pluck('source_label')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all(),
 
                 'destination_labels' =>
-                    collect($destinations)
-                        ->pluck('target_label')
-                        ->filter()
-                        ->unique()
-                        ->values()
-                        ->all(),
+                collect($destinations)
+                    ->pluck('target_label')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all(),
 
                 'details' => [
                     [
@@ -519,26 +555,44 @@ class SingleEliminationStructurePresenter
                         'value' => $round->name,
                     ],
                     [
+                        'label' =>
+                        'Número global',
+
+                        'value' =>
+                        'Encuentro #'
+                            .
+                            $globalNumber,
+                    ],
+                    [
+                        'label' =>
+                        'Número en la ronda',
+
+                        'value' =>
+                        'Encuentro #'
+                            .
+                            $encounter->position,
+                    ],
+                    [
                         'label' => 'Formato',
                         'value' =>
-                            $encounter
-                                ->competitive_format_label,
+                        $encounter
+                            ->competitive_format_label,
                     ],
                     [
                         'label' => 'Perfil',
                         'value' =>
-                            $encounter->profile_label,
+                        $encounter->profile_label,
                     ],
                     [
                         'label' => 'Serie',
                         'value' =>
-                            $encounter->series_label,
+                        $encounter->series_label,
                     ],
                     [
                         'label' => 'Activación',
                         'value' =>
-                            $encounter
-                                ->activation_policy,
+                        $encounter
+                            ->activation_policy,
                     ],
                 ],
             ]
@@ -568,6 +622,9 @@ class SingleEliminationStructurePresenter
         $round,
         Collection $connectionIndex
     ): array {
+        $globalNumber =
+            ++$this->globalSlotNumber;
+
         $routeKeys = $slot
             ->incomingConnections
             ->map(
@@ -589,49 +646,81 @@ class SingleEliminationStructurePresenter
                 'id' => $slot->id,
                 'code' => $slot->code,
                 'name' =>
-                    'Slot '
+                'Slot '
                     .
                     $slot->position,
 
                 'description' => null,
                 'status' => $slot->status,
-                'position' => (int) $slot->position,
-                'type_label' => $slot->type_label,
+                'position' =>
+                (int) $slot->position,
+
+                'local_number' =>
+                (int) $slot->position,
+
+                'global_number' =>
+                $globalNumber,
+
+                'global_label' =>
+                'Slot global #'
+                    .
+                    $globalNumber,
+
+                'type_label' =>
+                $slot->type_label,
                 'capacity' => (int) $slot->capacity,
                 'required' => (bool) $slot->is_required,
                 'source_policy' =>
-                    $slot->source_policy_label,
+                $slot->source_policy_label,
                 'empty_behavior' =>
-                    $slot->empty_behavior,
+                $slot->empty_behavior,
                 'generation_source' =>
-                    $slot->generation_source,
+                $slot->generation_source,
                 'locked' => (bool) $slot->is_locked,
 
                 'parent_key' =>
-                    $this->key(
-                        'ENCOUNTER',
-                        $encounter->id
-                    ),
+                $this->key(
+                    'ENCOUNTER',
+                    $encounter->id
+                ),
 
                 'round_key' =>
-                    $this->key(
-                        'ROUND',
-                        $round->id
-                    ),
+                $this->key(
+                    'ROUND',
+                    $round->id
+                ),
 
                 'route_keys' =>
-                    $routeKeys,
+                $routeKeys,
 
                 'routes' =>
-                    $this->routesFromKeys(
-                        $routeKeys,
-                        $connectionIndex
-                    ),
+                $this->routesFromKeys(
+                    $routeKeys,
+                    $connectionIndex
+                ),
 
                 'details' => [
                     [
                         'label' => 'Encuentro',
                         'value' => $encounter->name,
+                    ],
+                    [
+                        'label' =>
+                        'Número global',
+
+                        'value' =>
+                        'Slot #'
+                            .
+                            $globalNumber,
+                    ],
+                    [
+                        'label' =>
+                        'Número en el encuentro',
+
+                        'value' =>
+                        'Slot #'
+                            .
+                            $slot->position,
                     ],
                     [
                         'label' => 'Tipo',
@@ -640,20 +729,20 @@ class SingleEliminationStructurePresenter
                     [
                         'label' => 'Capacidad',
                         'value' =>
-                            (string) $slot->capacity,
+                        (string) $slot->capacity,
                     ],
                     [
                         'label' =>
-                            'Política de fuente',
+                        'Política de fuente',
 
                         'value' =>
-                            $slot
-                                ->source_policy_label,
+                        $slot
+                            ->source_policy_label,
                     ],
                     [
                         'label' => 'Si queda vacío',
                         'value' =>
-                            $slot->empty_behavior,
+                        $slot->empty_behavior,
                     ],
                 ],
             ]
@@ -692,40 +781,40 @@ class SingleEliminationStructurePresenter
                 'type_label' => $result->type_label,
                 'quantity' => (int) $result->quantity,
                 'quantity_label' =>
-                    $result->quantity_label,
+                $result->quantity_label,
                 'position_label' =>
-                    $result->position_label,
+                $result->position_label,
                 'participant_status' =>
-                    $result->participant_status,
+                $result->participant_status,
                 'required' =>
-                    (bool) $result->is_required,
+                (bool) $result->is_required,
                 'splittable' =>
-                    (bool) $result->is_splittable,
+                (bool) $result->is_splittable,
                 'generation_source' =>
-                    $result->generation_source,
+                $result->generation_source,
                 'locked' =>
-                    (bool) $result->is_locked,
+                (bool) $result->is_locked,
 
                 'parent_key' =>
-                    $this->key(
-                        'ENCOUNTER',
-                        $encounter->id
-                    ),
+                $this->key(
+                    'ENCOUNTER',
+                    $encounter->id
+                ),
 
                 'round_key' =>
-                    $this->key(
-                        'ROUND',
-                        $round->id
-                    ),
+                $this->key(
+                    'ROUND',
+                    $round->id
+                ),
 
                 'route_keys' =>
-                    $routeKeys,
+                $routeKeys,
 
                 'routes' =>
-                    $this->routesFromKeys(
-                        $routeKeys,
-                        $connectionIndex
-                    ),
+                $this->routesFromKeys(
+                    $routeKeys,
+                    $connectionIndex
+                ),
 
                 'details' => [
                     [
@@ -735,27 +824,27 @@ class SingleEliminationStructurePresenter
                     [
                         'label' => 'Tipo',
                         'value' =>
-                            $result->type_label,
+                        $result->type_label,
                     ],
                     [
                         'label' => 'Cantidad',
                         'value' =>
-                            $result->quantity_label,
+                        $result->quantity_label,
                     ],
                     [
                         'label' => 'Posición',
                         'value' =>
-                            $result->position_label
+                        $result->position_label
                             ??
                             'No aplica',
                     ],
                     [
                         'label' =>
-                            'Estado producido',
+                        'Estado producido',
 
                         'value' =>
-                            $result
-                                ->participant_status,
+                        $result
+                            ->participant_status,
                     ],
                 ],
             ]
@@ -768,13 +857,13 @@ class SingleEliminationStructurePresenter
     ): array {
         $sourceEncounter =
             $connection
-                ->sourceResult
-                ?->encounter;
+            ->sourceResult
+            ?->encounter;
 
         $targetEncounter =
             $connection
-                ->targetSlot
-                ?->encounter;
+            ->targetSlot
+            ?->encounter;
 
         $sourceRound = $sourceEncounter
             ? $encounterRoundMap->get(
@@ -792,29 +881,29 @@ class SingleEliminationStructurePresenter
             $connection->source_type
             ===
             'INPUT_GATE'
-                ? $this->key(
-                    'INPUT_GATE',
-                    $connection
-                        ->source_input_gate_id
-                )
-                : $this->key(
-                    'RESULT',
-                    $connection->source_result_id
-                );
+            ? $this->key(
+                'INPUT_GATE',
+                $connection
+                    ->source_input_gate_id
+            )
+            : $this->key(
+                'RESULT',
+                $connection->source_result_id
+            );
 
         $targetKey =
             $connection->target_type
             ===
             'PHASE_EXIT'
-                ? $this->key(
-                    'PHASE_EXIT',
-                    $connection
-                        ->target_phase_exit_id
-                )
-                : $this->key(
-                    'SLOT',
-                    $connection->target_slot_id
-                );
+            ? $this->key(
+                'PHASE_EXIT',
+                $connection
+                    ->target_phase_exit_id
+            )
+            : $this->key(
+                'SLOT',
+                $connection->target_slot_id
+            );
 
         $sourceOwnerKey = $sourceEncounter
             ? $this->key(
@@ -851,76 +940,76 @@ class SingleEliminationStructurePresenter
                 'code' => $connection->code,
 
                 'name' =>
-                    $connection->label
+                $connection->label
                     ??
                     $connection->code,
 
                 'description' =>
-                    $connection->description,
+                $connection->description,
 
                 'status' =>
-                    $connection->status,
+                $connection->status,
 
                 'source_type' =>
-                    $connection->source_type,
+                $connection->source_type,
 
                 'source_key' =>
-                    $sourceKey,
+                $sourceKey,
 
                 'source_owner_key' =>
-                    $sourceOwnerKey,
+                $sourceOwnerKey,
 
                 'source_label' =>
-                    $connection->source_label,
+                $connection->source_label,
 
                 'source_round_key' =>
-                    $sourceRound
-                        ? $this->key(
-                            'ROUND',
-                            $sourceRound->id
-                        )
-                        : null,
+                $sourceRound
+                    ? $this->key(
+                        'ROUND',
+                        $sourceRound->id
+                    )
+                    : null,
 
                 'target_type' =>
-                    $connection->target_type,
+                $connection->target_type,
 
                 'target_key' =>
-                    $targetKey,
+                $targetKey,
 
                 'target_owner_key' =>
-                    $targetOwnerKey,
+                $targetOwnerKey,
 
                 'target_label' =>
-                    $connection->target_label,
+                $connection->target_label,
 
                 'target_round_key' =>
-                    $targetRound
-                        ? $this->key(
-                            'ROUND',
-                            $targetRound->id
-                        )
-                        : null,
+                $targetRound
+                    ? $this->key(
+                        'ROUND',
+                        $targetRound->id
+                    )
+                    : null,
 
                 'allocation' =>
-                    $connection->allocation_label,
+                $connection->allocation_label,
 
                 'allocation_mode' =>
-                    $connection->allocation_mode,
+                $connection->allocation_mode,
 
                 'allocation_value' =>
-                    $connection->allocation_value,
+                $connection->allocation_value,
 
                 'condition_type' =>
-                    $connection->condition_type,
+                $connection->condition_type,
 
                 'priority' =>
-                    (int) $connection->priority,
+                (int) $connection->priority,
 
                 'generation_source' =>
-                    $connection->generation_source,
+                $connection->generation_source,
 
                 'locked' =>
-                    (bool) $connection->is_locked,
+                (bool) $connection->is_locked,
 
                 'route_keys' => [
                     $key,
@@ -930,30 +1019,30 @@ class SingleEliminationStructurePresenter
                     [
                         'label' => 'Origen',
                         'value' =>
-                            $connection->source_label,
+                        $connection->source_label,
                     ],
                     [
                         'label' => 'Destino',
                         'value' =>
-                            $connection->target_label,
+                        $connection->target_label,
                     ],
                     [
                         'label' => 'Asignación',
                         'value' =>
-                            $connection
-                                ->allocation_label,
+                        $connection
+                            ->allocation_label,
                     ],
                     [
                         'label' => 'Condición',
                         'value' =>
-                            $connection
-                                ->condition_type,
+                        $connection
+                            ->condition_type,
                     ],
                     [
                         'label' => 'Prioridad',
                         'value' =>
-                            (string)
-                            $connection->priority,
+                        (string)
+                        $connection->priority,
                     ],
                 ],
             ]
@@ -991,44 +1080,44 @@ class SingleEliminationStructurePresenter
                 'summary' => $exit->selection_summary,
                 'contract' => $exit->contract_label,
                 'resolution_mode' =>
-                    $exit->resolution_mode_label,
+                $exit->resolution_mode_label,
                 'generation_source' => 'CONFIGURED',
                 'locked' => false,
                 'route_keys' => $routeKeys,
 
                 'routes' =>
-                    $this->routesFromKeys(
-                        $routeKeys,
-                        $connectionIndex
-                    ),
+                $this->routesFromKeys(
+                    $routeKeys,
+                    $connectionIndex
+                ),
 
                 'details' => [
                     [
                         'label' => 'Selector',
                         'value' =>
-                            $exit->selector_label,
+                        $exit->selector_label,
                     ],
                     [
                         'label' => 'Capacidad',
                         'value' =>
-                            $exit->contract_label,
+                        $exit->contract_label,
                     ],
                     [
                         'label' => 'Resolución',
                         'value' =>
-                            $exit
-                                ->resolution_mode_label,
+                        $exit
+                            ->resolution_mode_label,
                     ],
                     [
                         'label' => 'Momento',
                         'value' =>
-                            $exit->exit_timing,
+                        $exit->exit_timing,
                     ],
                     [
                         'label' => 'Rutas entrantes',
                         'value' =>
-                            (string)
-                            count($routeKeys),
+                        (string)
+                        count($routeKeys),
                     ],
                 ],
             ]
@@ -1068,20 +1157,20 @@ class SingleEliminationStructurePresenter
             ...$item,
 
             'key' =>
-                $key,
+            $key,
 
             'issues' =>
-                $issues,
+            $issues,
 
             'issue_count' =>
-                count($issues),
+            count($issues),
 
             'issue_level' =>
-                $this->highestLevel(
-                    collect($issues)
-                        ->pluck('severity')
-                        ->all()
-                ),
+            $this->highestLevel(
+                collect($issues)
+                    ->pluck('severity')
+                    ->all()
+            ),
         ];
     }
 
@@ -1108,13 +1197,13 @@ class SingleEliminationStructurePresenter
     ): array {
         return collect([
             'ERROR' =>
-                $validation['errors'],
+            $validation['errors'],
 
             'WARNING' =>
-                $validation['warnings'],
+            $validation['warnings'],
 
             'RECOMMENDATION' =>
-                $validation['recommendations'],
+            $validation['recommendations'],
         ])
             ->flatMap(
                 fn(
@@ -1127,19 +1216,15 @@ class SingleEliminationStructurePresenter
                             ...$issue,
 
                             'severity' =>
-                                $severity,
+                            $severity,
 
                             'entity_key' =>
-                                $issue['entity_id']
-                                    ? $this->key(
-                                        $issue[
-                                            'entity_type'
-                                        ],
-                                        $issue[
-                                            'entity_id'
-                                        ]
-                                    )
-                                    : null,
+                            $issue['entity_id']
+                                ? $this->key(
+                                    $issue['entity_type'],
+                                    $issue['entity_id']
+                                )
+                                : null,
                         ]
                     )
             )
@@ -1213,7 +1298,7 @@ class SingleEliminationStructurePresenter
             ->filter()
             ->sortByDesc(
                 fn(string $level) =>
-                    $ranking[$level]
+                $ranking[$level]
                     ??
                     0
             )

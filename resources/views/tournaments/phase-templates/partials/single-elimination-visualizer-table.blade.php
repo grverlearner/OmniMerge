@@ -46,6 +46,22 @@
                                 </td>
 
                                 <td class="px-4 py-3">
+                                    <div class="mb-2 flex flex-wrap items-center gap-1.5">
+                                        <span
+                                            class="rounded-lg bg-slate-950 px-2.5 py-1.5 text-[9px] font-black text-white">
+                                            Global
+
+                                            <span class="text-violet-300" x-text="'#' + encounter.global_number"></span>
+                                        </span>
+
+                                        <span
+                                            class="rounded-lg bg-slate-100 px-2.5 py-1.5 text-[9px] font-black text-slate-600">
+                                            En ronda
+
+                                            <span x-text="'#' + encounter.local_number"></span>
+                                        </span>
+                                    </div>
+
                                     <p class="text-xs font-black text-slate-900" x-text="encounter.name"></p>
 
                                     <div class="mt-1 flex items-center gap-2">
