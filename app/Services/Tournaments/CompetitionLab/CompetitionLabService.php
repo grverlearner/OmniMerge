@@ -95,6 +95,12 @@ class CompetitionLabService
                     $payload
                 ),
 
+                'SUBMIT_ENCOUNTER_RESULT' =>
+                $this->submitEncounterResult(
+                    $state,
+                    $payload
+                ),
+
                 'SIMULATE_MATCH' =>
                 $this->simulateMatch(
                     $state,
@@ -436,6 +442,11 @@ class CompetitionLabService
             ->with([
                 'phaseTemplate.singleEliminationSetting',
                 'phaseTemplate.singleEliminationRoundRules',
+                'phaseTemplate.inputGates.outgoingConnections',
+                'phaseTemplate.singleEliminationRounds.encounters.slots',
+                'phaseTemplate.singleEliminationRounds.encounters.results.outgoingConnections',
+                'phaseTemplate.singleEliminationConnections',
+                'phaseTemplate.exits',
 
                 'phaseTemplate.roundRobinSetting',
                 'phaseTemplate.roundRobinTiebreakers',
@@ -578,6 +589,26 @@ class CompetitionLabService
         );
     }
 
+    private function submitEncounterResult(
+        array $state,
+        array $payload
+    ): array {
+        $this->requireRunning(
+            $state
+        );
+
+        return $this->applySelectionResult(
+            $state,
+            (int)
+            ($payload['node_id'] ?? 0),
+            (string)
+            ($payload['match_id'] ?? ''),
+            array_values(
+                $payload['qualifier_ids'] ?? []
+            )
+        );
+    }
+
     private function simulateMatch(
         array $state,
         array $payload
@@ -598,6 +629,19 @@ class CompetitionLabService
         if (! $runtime) {
             $this->fail(
                 'Primero debes preparar el nodo.'
+            );
+        }
+
+        if (
+            ($runtime['mode'] ?? null)
+            ===
+            'STRUCTURE_GRAPH'
+        ) {
+            return $this->applySimulatedSelection(
+                $state,
+                $nodeId,
+                (string)
+                ($payload['match_id'] ?? '')
             );
         }
 
@@ -651,6 +695,26 @@ class CompetitionLabService
             );
         }
 
+
+        $isStructureGraph =
+            ($runtime['mode'] ?? null)
+            ===
+            'STRUCTURE_GRAPH';
+
+        $isExecutableMatch =
+            fn(array $match): bool =>
+            ($match['status'] ?? null)
+                ===
+                'PENDING'
+            &&
+            (
+                $isStructureGraph
+                    ? count($match['participant_ids'] ?? [])
+                        >= (int) ($match['qualifiers_count'] ?? 1)
+                    : ! empty($match['participant_a_id'])
+                        && ! empty($match['participant_b_id'])
+            );
+
         $round =
             collect(
                 $runtime['rounds']
@@ -665,13 +729,7 @@ class CompetitionLabService
                         []
                 )
                     ->contains(
-                        fn($match) => ($match['status'] ?? null)
-                            ===
-                            'PENDING'
-                            &&
-                            ! empty($match['participant_a_id'])
-                            &&
-                            ! empty($match['participant_b_id'])
+                        $isExecutableMatch
                     )
             );
 
@@ -696,13 +754,7 @@ class CompetitionLabService
                 $round['matches']
             )
             ->filter(
-                fn($match) => ($match['status'] ?? null)
-                    ===
-                    'PENDING'
-                    &&
-                    ! empty($match['participant_a_id'])
-                    &&
-                    ! empty($match['participant_b_id'])
+                $isExecutableMatch
             )
             ->pluck('id')
             ->values()
@@ -719,6 +771,18 @@ class CompetitionLabService
             as
             $matchId
         ) {
+            if ($isStructureGraph) {
+                $state =
+                    $this->applySimulatedSelection(
+                        $state,
+                        $nodeId,
+                        $matchId,
+                        false
+                    );
+
+                continue;
+            }
+
             $currentRuntime =
                 $state['nodes'][$nodeId]['runtime'];
 
@@ -754,6 +818,97 @@ class CompetitionLabService
         return $state;
     }
 
+    private function applySelectionResult(
+        array $state,
+        int $nodeId,
+        string $matchId,
+        array $qualifierIds,
+        bool $registerEvent = true
+    ): array {
+        $runtime =
+            $state['nodes'][$nodeId]['runtime']
+            ??
+            null;
+
+        if (! $runtime) {
+            $this->fail(
+                'Primero debes preparar el nodo.'
+            );
+        }
+
+        $runtime =
+            $this->engineManager
+            ->submitSelection(
+                $state['nodes'][$nodeId]['phase_type'],
+                $runtime,
+                $matchId,
+                $qualifierIds
+            );
+
+        $state =
+            $this->applyRuntimeState(
+                $state,
+                $nodeId,
+                $runtime
+            );
+
+        if ($registerEvent) {
+            $this->addEvent(
+                $state,
+                'ENCOUNTER_COMPLETED',
+                'SUCCESS',
+                count($qualifierIds)
+                    . " clasificado(s) registrados en {$matchId}."
+            );
+        }
+
+        return $state;
+    }
+
+    private function applySimulatedSelection(
+        array $state,
+        int $nodeId,
+        string $matchId,
+        bool $registerEvent = true
+    ): array {
+        $runtime =
+            $state['nodes'][$nodeId]['runtime']
+            ??
+            null;
+
+        if (! $runtime) {
+            $this->fail(
+                'Primero debes preparar el nodo.'
+            );
+        }
+
+        $runtime =
+            $this->engineManager
+            ->simulateSelection(
+                $state['nodes'][$nodeId]['phase_type'],
+                $runtime,
+                $matchId
+            );
+
+        $state =
+            $this->applyRuntimeState(
+                $state,
+                $nodeId,
+                $runtime
+            );
+
+        if ($registerEvent) {
+            $this->addEvent(
+                $state,
+                'ENCOUNTER_SIMULATED',
+                'INFO',
+                "El encuentro {$matchId} fue simulado."
+            );
+        }
+
+        return $state;
+    }
+
     private function applyResult(
         array $state,
         int $nodeId,
@@ -783,6 +938,30 @@ class CompetitionLabService
                 $scoreB
             );
 
+        $state =
+            $this->applyRuntimeState(
+                $state,
+                $nodeId,
+                $runtime
+            );
+
+        if ($registerEvent) {
+            $this->addEvent(
+                $state,
+                'MATCH_COMPLETED',
+                'SUCCESS',
+                "Resultado {$scoreA}-{$scoreB} registrado en {$matchId}."
+            );
+        }
+
+        return $state;
+    }
+
+    private function applyRuntimeState(
+        array $state,
+        int $nodeId,
+        array $runtime
+    ): array {
         $state['nodes'][$nodeId]['runtime'] =
             $runtime;
 
@@ -815,15 +994,6 @@ class CompetitionLabService
                 $nodeId
             );
 
-        if ($registerEvent) {
-            $this->addEvent(
-                $state,
-                'MATCH_COMPLETED',
-                'SUCCESS',
-                "Resultado {$scoreA}-{$scoreB} registrado en {$matchId}."
-            );
-        }
-
         return $state;
     }
 
@@ -833,6 +1003,19 @@ class CompetitionLabService
     ): void {
         $runtime =
             $state['nodes'][$nodeId]['runtime'];
+
+        if (
+            ($runtime['mode'] ?? null)
+            ===
+            'STRUCTURE_GRAPH'
+        ) {
+            $this->syncStructureGraphStatistics(
+                $state,
+                $runtime
+            );
+
+            return;
+        }
 
         if (
             in_array(
@@ -927,6 +1110,46 @@ class CompetitionLabService
         ) {
             $state['participants'][$participantId]['statistics'] =
                 $values;
+        }
+    }
+
+    private function syncStructureGraphStatistics(
+        array &$state,
+        array $runtime
+    ): void {
+        $statistics = [];
+
+        foreach ($runtime['rounds'] ?? [] as $round) {
+            foreach ($round['matches'] ?? [] as $match) {
+                if (($match['status'] ?? null) !== 'COMPLETED') {
+                    continue;
+                }
+
+                foreach ($match['participant_ids'] ?? [] as $participantId) {
+                    $statistics[$participantId] ??= [
+                        'matches' => 0,
+                        'wins' => 0,
+                        'draws' => 0,
+                        'losses' => 0,
+                        'points' => 0,
+                    ];
+                    $statistics[$participantId]['matches']++;
+                }
+
+                foreach ($match['qualifier_ids'] ?? [] as $participantId) {
+                    $statistics[$participantId]['wins']++;
+                }
+
+                foreach ($match['eliminated_ids'] ?? [] as $participantId) {
+                    $statistics[$participantId]['losses']++;
+                }
+            }
+        }
+
+        foreach ($statistics as $participantId => $values) {
+            if (isset($state['participants'][$participantId])) {
+                $state['participants'][$participantId]['statistics'] = $values;
+            }
         }
     }
 

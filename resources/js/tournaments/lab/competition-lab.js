@@ -774,11 +774,116 @@ export default function competitionLab(config) {
                     match.score_b
                     ??
                     0,
+
+                qualifier_ids:
+                    [
+                        ...(match.qualifier_ids ?? []),
+                    ],
             };
 
             return this.resultForms[
                 match.id
             ];
+        },
+
+        usesQualifierSelection(match) {
+            return (
+                this.selectedNode()
+                    ?.runtime
+                    ?.mode
+                ===
+                'STRUCTURE_GRAPH'
+                &&
+                (
+                    match.resolution_mode
+                    !==
+                    'SCORE'
+                    ||
+                    (match.participant_ids ?? []).length
+                    !==
+                    2
+                    ||
+                    Number(match.qualifiers_count ?? 1)
+                    !==
+                    1
+                )
+            );
+        },
+
+        qualifierIsSelected(match, participantId) {
+            return this.resultForm(match)
+                .qualifier_ids
+                .includes(participantId);
+        },
+
+        toggleQualifier(match, participantId) {
+            const form =
+                this.resultForm(match);
+
+            /*
+             * Si el participante ya estaba seleccionado,
+             * se elimina de la lista.
+             */
+            if (
+                form.qualifier_ids
+                    .includes(participantId)
+            ) {
+                form.qualifier_ids =
+                    form.qualifier_ids
+                        .filter(
+                            id =>
+                                id !== participantId
+                        );
+
+                return;
+            }
+
+            /*
+             * No permite seleccionar más participantes
+             * que la cantidad Q configurada.
+             */
+            if (
+                form.qualifier_ids.length
+                >=
+                Number(
+                    match.qualifiers_count
+                    ??
+                    1
+                )
+            ) {
+                return;
+            }
+
+            /*
+             * El orden de selección representa:
+             * Clasificado 1, Clasificado 2, etc.
+             */
+            form.qualifier_ids = [
+                ...form.qualifier_ids,
+                participantId,
+            ];
+        },
+
+        async submitQualifiers(match) {
+            const qualifierIds =
+                this.resultForm(match)
+                    .qualifier_ids;
+
+            await this.execute(
+                'SUBMIT_ENCOUNTER_RESULT',
+                {
+                    node_id:
+                        Number(
+                            this.selectedNodeId
+                        ),
+
+                    match_id:
+                        match.id,
+
+                    qualifier_ids:
+                        qualifierIds,
+                }
+            );
         },
 
         async submitResult(match) {

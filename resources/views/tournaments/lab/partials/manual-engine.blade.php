@@ -242,7 +242,8 @@
 
                             <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
 
-                                <p class="text-[8px] font-black text-violet-600" x-text="match.id">
+                                <p class="text-[8px] font-black text-violet-600"
+                                    x-text="match.label ?? match.id">
                                 </p>
                                 <p class="mt-1 text-[9px] font-bold text-slate-400"
                                     x-text="match.series_label
@@ -252,7 +253,7 @@
                                                 : ''
                                         )">
                                 </p>
-                                <div
+                                <div x-show="!usesQualifierSelection(match)"
                                     class="mt-3 grid grid-cols-[minmax(0,1fr)_50px_14px_50px_minmax(0,1fr)] items-center gap-2">
 
                                     <p class="truncate text-right text-[10px] font-black"
@@ -302,6 +303,41 @@
                                     </p>
                                 </div>
 
+                                <div x-show="usesQualifierSelection(match)" class="mt-3">
+
+                                    <div class="flex items-center justify-between gap-3">
+                                        <p class="text-[9px] font-black uppercase text-slate-500">
+                                            Clasifican
+                                            <span x-text="match.qualifiers_count"></span>
+                                        </p>
+
+                                        <p class="text-[9px] font-bold text-violet-700">
+                                            <span x-text="resultForm(match).qualifier_ids.length"></span>
+                                            / <span x-text="match.qualifiers_count"></span> elegidos
+                                        </p>
+                                    </div>
+
+                                    <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                                        <template x-for="participantId in match.participant_ids" :key="participantId">
+                                            <button type="button"
+                                                @click="match.status === 'PENDING' && toggleQualifier(match, participantId)"
+                                                :disabled="match.status !== 'PENDING' || loading"
+                                                class="flex items-center justify-between rounded-xl border px-3 py-2 text-left text-[10px] font-black"
+                                                :class="qualifierIsSelected(match, participantId)
+                                                    ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
+                                                    : 'border-slate-200 bg-white text-slate-600'">
+
+                                                <span class="truncate" x-text="participantName(participantId)"></span>
+                                                <span x-show="qualifierIsSelected(match, participantId)" class="text-emerald-600">✓</span>
+                                            </button>
+                                        </template>
+                                    </div>
+
+                                    <p x-show="match.status === 'WAITING'" class="mt-3 text-[9px] font-bold text-amber-700">
+                                        Esperando que los encuentros anteriores completen todos sus slots.
+                                    </p>
+                                </div>
+
                                 <div x-show="match.status === 'PENDING'" class="mt-3 flex justify-end gap-2">
 
                                     <button type="button" @click="simulateMatch(match)" :disabled="loading"
@@ -310,10 +346,19 @@
                                         Simular
                                     </button>
 
-                                    <button type="button" @click="submitResult(match)" :disabled="loading"
+                                    <button type="button" x-show="!usesQualifierSelection(match)"
+                                        @click="submitResult(match)" :disabled="loading"
                                         class="rounded-lg bg-violet-600 px-3 py-2 text-[9px] font-black text-white">
 
                                         Guardar
+                                    </button>
+
+                                    <button type="button" x-show="usesQualifierSelection(match)"
+                                        @click="submitQualifiers(match)"
+                                        :disabled="loading || resultForm(match).qualifier_ids.length !== Number(match.qualifiers_count)"
+                                        class="rounded-lg bg-emerald-600 px-3 py-2 text-[9px] font-black text-white disabled:opacity-40">
+
+                                        Guardar clasificados
                                     </button>
                                 </div>
                             </div>

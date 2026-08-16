@@ -811,6 +811,11 @@ class TournamentGraphRuntimeService
         $runtime =
             $state['nodes'][$nodeId]['runtime'];
 
+        $isStructureGraph =
+            ($runtime['mode'] ?? null)
+            ===
+            'STRUCTURE_GRAPH';
+
         $match =
             collect(
                 $runtime['rounds']
@@ -826,10 +831,14 @@ class TournamentGraphRuntimeService
                 $match['status']
                     ===
                     'PENDING'
-                    &&
-                    $match['participant_a_id']
-                    &&
-                    $match['participant_b_id']
+                &&
+                (
+                    $isStructureGraph
+                        ? count($match['participant_ids'] ?? [])
+                            >= (int) ($match['qualifiers_count'] ?? 1)
+                        : $match['participant_a_id']
+                            && $match['participant_b_id']
+                )
             );
 
         if (! $match) {
@@ -850,6 +859,49 @@ class TournamentGraphRuntimeService
             ];
 
             return $state;
+        }
+
+        if ($isStructureGraph) {
+            $runtime =
+                $this->engineManager
+                ->simulateSelection(
+                    $state['nodes'][$nodeId]['phase_type'],
+                    $runtime,
+                    $match['id']
+                );
+
+            $state['nodes'][$nodeId]['runtime'] =
+                $runtime;
+
+            $state['nodes'][$nodeId]['status'] =
+                $runtime['status'];
+
+            $this->syncStatistics(
+                $state,
+                $runtime
+            );
+
+            $completedMatch =
+                collect($runtime['rounds'])
+                ->flatMap(fn($round) => $round['matches'] ?? [])
+                ->firstWhere('id', $match['id']);
+
+            $this->event(
+                $state,
+                'ENCOUNTER_SIMULATED',
+                'INFO',
+                $match['id']
+                    . ' seleccionó '
+                    . count(
+                        $completedMatch['qualifier_ids'] ?? []
+                    )
+                    . ' clasificado(s).'
+            );
+
+            return $this->afterNodeResult(
+                $state,
+                $nodeId
+            );
         }
 
         [
@@ -1406,6 +1458,10 @@ class TournamentGraphRuntimeService
 
             'graphNodes.phaseTemplate.singleEliminationSetting',
             'graphNodes.phaseTemplate.singleEliminationRoundRules',
+            'graphNodes.phaseTemplate.inputGates.outgoingConnections',
+            'graphNodes.phaseTemplate.singleEliminationRounds.encounters.slots',
+            'graphNodes.phaseTemplate.singleEliminationRounds.encounters.results.outgoingConnections',
+            'graphNodes.phaseTemplate.singleEliminationConnections',
 
             'graphNodes.phaseTemplate.roundRobinSetting',
             'graphNodes.phaseTemplate.roundRobinTiebreakers',

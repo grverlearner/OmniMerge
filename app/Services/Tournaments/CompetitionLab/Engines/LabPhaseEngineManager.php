@@ -56,6 +56,48 @@ class LabPhaseEngineManager
             );
     }
 
+    public function submitSelection(
+        string $phaseType,
+        array $runtime,
+        string $matchId,
+        array $qualifierIds
+    ): array {
+        if (
+            $phaseType
+            !==
+            'SINGLE_ELIMINATION'
+        ) {
+            $this->failSelection();
+        }
+
+        return $this->singleElimination
+            ->submitSelection(
+                $runtime,
+                $matchId,
+                $qualifierIds
+            );
+    }
+
+    public function simulateSelection(
+        string $phaseType,
+        array $runtime,
+        string $matchId
+    ): array {
+        if (
+            $phaseType
+            !==
+            'SINGLE_ELIMINATION'
+        ) {
+            $this->failSelection();
+        }
+
+        return $this->singleElimination
+            ->simulateSelection(
+                $runtime,
+                $matchId
+            );
+    }
+    
     private function engine(
         string $phaseType
     ): LabPhaseEngine {
@@ -81,6 +123,15 @@ class LabPhaseEngineManager
         throw ValidationException::withMessages([
             'node_id' => [
                 'El Competition Lab no tiene un motor compatible con esta fase.',
+            ],
+        ]);
+    }
+
+    private function failSelection(): never
+    {
+        throw ValidationException::withMessages([
+            'match_id' => [
+                'Esta fase no admite selección manual de varios clasificados.',
             ],
         ]);
     }

@@ -15,7 +15,10 @@ implements LabPhaseEngine
         SingleEliminationValidator $validator,
 
         private readonly
-        SingleEliminationConfigurationInspector $inspector
+        SingleEliminationConfigurationInspector $inspector,
+
+        private readonly
+        SingleEliminationGraphRuntime $graphRuntime
     ) {}
 
     public function supports(
@@ -46,27 +49,6 @@ implements LabPhaseEngine
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | El modo avanzado todavía no se ejecuta en Competition Lab
-        |--------------------------------------------------------------------------
-        |
-        | La Etapa 3 permite guardar, validar y previsualizar su estructura.
-        | La ejecución requiere los encuentros, slots y rutas internas de las
-        | Etapas 4 y 6.
-        |
-        */
-
-        if (
-            $settings->configuration_mode
-            ===
-            'ADVANCED'
-        ) {
-            $this->fail(
-                'La definición avanzada ya puede guardarse y previsualizarse. Su ejecución en Competition Lab se habilitará en la Etapa 6.'
-            );
-        }
-
         $participantIds =
             array_values(
                 array_unique(
@@ -88,6 +70,41 @@ implements LabPhaseEngine
                     "El participante {$participantId} no pertenece al Lab."
                 );
             }
+        }
+
+        if (
+            $settings->configuration_mode
+            ===
+            'ADVANCED'
+            &&
+            in_array(
+                $settings->structure_mode,
+                [
+                    'MANUAL',
+                    'HYBRID',
+                ],
+                true
+            )
+            &&
+            $phase->singleEliminationRounds()
+                ->where('status', 'ACTIVE')
+                ->exists()
+        ) {
+            return $this->graphRuntime
+                ->prepare(
+                    $phase,
+                    $participantIds
+                );
+        }
+
+        if (
+            $settings->configuration_mode
+            ===
+            'ADVANCED'
+        ) {
+            $this->fail(
+                'La configuración avanzada necesita un grafo interno manual o híbrido validado antes de ejecutarse en Competition Lab.'
+            );
         }
 
         $errors =
@@ -254,6 +271,20 @@ implements LabPhaseEngine
         int $scoreB
     ): array {
         if (
+            ($runtime['mode'] ?? null)
+            ===
+            'STRUCTURE_GRAPH'
+        ) {
+            return $this->graphRuntime
+                ->submitScore(
+                    $runtime,
+                    $matchId,
+                    $scoreA,
+                    $scoreB
+                );
+        }
+
+        if (
             ($runtime['status'] ?? null)
             !==
             'RUNNING'
@@ -366,6 +397,50 @@ implements LabPhaseEngine
         return $this->advanceAutomatic(
             $runtime
         );
+    }
+
+    public function submitSelection(
+        array $runtime,
+        string $matchId,
+        array $qualifierIds
+    ): array {
+        if (
+            ($runtime['mode'] ?? null)
+            !==
+            'STRUCTURE_GRAPH'
+        ) {
+            $this->fail(
+                'La selección de varios clasificados solo está disponible en un grafo interno.'
+            );
+        }
+
+        return $this->graphRuntime
+            ->submitSelection(
+                $runtime,
+                $matchId,
+                $qualifierIds
+            );
+    }
+
+    public function simulateSelection(
+        array $runtime,
+        string $matchId
+    ): array {
+        if (
+            ($runtime['mode'] ?? null)
+            !==
+            'STRUCTURE_GRAPH'
+        ) {
+            $this->fail(
+                'La simulación por selección solo está disponible en un grafo interno.'
+            );
+        }
+
+        return $this->graphRuntime
+            ->simulate(
+                $runtime,
+                $matchId
+            );
     }
 
     private function advanceAutomatic(

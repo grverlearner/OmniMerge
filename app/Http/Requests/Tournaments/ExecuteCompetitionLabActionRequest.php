@@ -69,6 +69,7 @@ extends FormRequest
                     'RESET',
                     'PREPARE_NODE',
                     'SUBMIT_MATCH_RESULT',
+                    'SUBMIT_ENCOUNTER_RESULT',
                     'SIMULATE_MATCH',
                     'SIMULATE_ROUND',
                     'START_TOURNAMENT',
@@ -105,6 +106,18 @@ extends FormRequest
             'match_id' => [
                 'nullable',
                 'string',
+                'max:100',
+            ],
+
+            'qualifier_ids' => [
+                'nullable',
+                'array',
+                'max:64',
+            ],
+
+            'qualifier_ids.*' => [
+                'string',
+                'distinct',
                 'max:100',
             ],
 
@@ -157,10 +170,20 @@ extends FormRequest
                 $input->action,
                 [
                     'SUBMIT_MATCH_RESULT',
+                    'SUBMIT_ENCOUNTER_RESULT',
                     'SIMULATE_MATCH',
                 ],
                 true
             )
+        );
+
+        $validator->sometimes(
+            'qualifier_ids',
+            'required',
+            fn($input) =>
+            $input->action
+                ===
+                'SUBMIT_ENCOUNTER_RESULT'
         );
 
         $validator->sometimes(

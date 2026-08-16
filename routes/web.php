@@ -59,6 +59,7 @@ use App\Http\Controllers\Tournaments\TournamentGraphPresetController;
 use App\Http\Controllers\Tournaments\TournamentFlowPreviewController;
 
 use App\Http\Controllers\Tournaments\SingleEliminationStructureController;
+use App\Http\Controllers\Tournaments\SingleEliminationGraphController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -412,6 +413,52 @@ Route::middleware('auth')->group(function () {
                     ->name(
                         'single-elimination.structure.elements.update'
                     );
+
+                /*
+                |--------------------------------------------------------------------------
+                | Diseñador de grafo interno personalizado
+                |--------------------------------------------------------------------------
+                */
+
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/structure/custom/initialize',
+                    [SingleEliminationGraphController::class, 'initialize']
+                )->name('single-elimination.graph.initialize');
+
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/structure/custom/stages',
+                    [SingleEliminationGraphController::class, 'storeStage']
+                )->name('single-elimination.graph.stages.store');
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/single-elimination/structure/custom/stages/{round}',
+                    [SingleEliminationGraphController::class, 'destroyStage']
+                )->name('single-elimination.graph.stages.destroy');
+
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/structure/custom/encounters',
+                    [SingleEliminationGraphController::class, 'storeEncounter']
+                )->name('single-elimination.graph.encounters.store');
+
+                Route::put(
+                    '/phases/{phaseTemplate}/single-elimination/structure/custom/encounters/{encounter}',
+                    [SingleEliminationGraphController::class, 'updateEncounter']
+                )->name('single-elimination.graph.encounters.update');
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/single-elimination/structure/custom/encounters/{encounter}',
+                    [SingleEliminationGraphController::class, 'destroyEncounter']
+                )->name('single-elimination.graph.encounters.destroy');
+
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/structure/custom/routes',
+                    [SingleEliminationGraphController::class, 'storeRoute']
+                )->name('single-elimination.graph.routes.store');
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/single-elimination/structure/custom/routes/{connection}',
+                    [SingleEliminationGraphController::class, 'destroyRoute']
+                )->name('single-elimination.graph.routes.destroy');
 
                 /*
                 |--------------------------------------------------------------------------

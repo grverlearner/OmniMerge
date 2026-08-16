@@ -326,6 +326,9 @@
             </aside>
         </section>
 
+        {{-- Diseñador de grafo personalizado --}}
+        @include('tournaments.phase-templates.partials.single-elimination-graph-editor')
+
 
         @if ($rounds->isEmpty())
             {{-- Estado inicial sin estructura --}}

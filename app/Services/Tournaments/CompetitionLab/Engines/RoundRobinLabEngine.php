@@ -13,7 +13,7 @@ implements LabPhaseEngine
         private readonly
         RoundRobinValidator $validator
     ) {}
-
+    
     public function supports(
         string $phaseType
     ): bool {
