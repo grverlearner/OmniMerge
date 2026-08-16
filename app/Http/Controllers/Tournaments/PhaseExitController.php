@@ -8,13 +8,18 @@ use App\Http\Requests\Tournaments\UpdatePhaseExitRequest;
 use App\Models\PhaseExit;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\PhaseExitService;
+use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureService;
+use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 
 class PhaseExitController extends Controller
 {
     public function __construct(
         private readonly
-        PhaseExitService $service
+        PhaseExitService $service,
+
+        private readonly
+        SingleEliminationStructureService $structureService
     ) {}
 
     public function store(
@@ -27,15 +32,18 @@ class PhaseExitController extends Controller
                 $request->validated()
             );
 
-        return redirect()
-            ->route(
-                'tournaments.phase-templates.show',
-                $phaseTemplate
-            )
-            ->with(
-                'success',
-                'Puerta de salida creada correctamente.'
-            );
+        $this->validateInternalStructureWhenNeeded(
+            $request,
+            $phaseTemplate
+        );
+
+        return $this->redirectAfterMutation(
+            $request,
+            $phaseTemplate
+        )->with(
+            'success',
+            'Puerta de salida creada correctamente.'
+        );
     }
 
     public function update(
@@ -54,18 +62,22 @@ class PhaseExitController extends Controller
                 $request->validated()
             );
 
-        return redirect()
-            ->route(
-                'tournaments.phase-templates.show',
-                $phaseTemplate
-            )
-            ->with(
-                'success',
-                'Puerta de salida actualizada correctamente.'
-            );
+        $this->validateInternalStructureWhenNeeded(
+            $request,
+            $phaseTemplate
+        );
+
+        return $this->redirectAfterMutation(
+            $request,
+            $phaseTemplate
+        )->with(
+            'success',
+            'Puerta de salida actualizada correctamente.'
+        );
     }
 
     public function destroy(
+        Request $request,
         PhaseTemplate $phaseTemplate,
         PhaseExit $phaseExit
     ): RedirectResponse {
@@ -84,15 +96,18 @@ class PhaseExitController extends Controller
                 $phaseExit
             );
 
-        return redirect()
-            ->route(
-                'tournaments.phase-templates.show',
-                $phaseTemplate
-            )
-            ->with(
-                'success',
-                'Puerta de salida eliminada correctamente.'
-            );
+        $this->validateInternalStructureWhenNeeded(
+            $request,
+            $phaseTemplate
+        );
+
+        return $this->redirectAfterMutation(
+            $request,
+            $phaseTemplate
+        )->with(
+            'success',
+            'Puerta de salida eliminada correctamente.'
+        );
     }
 
     private function ensureBelongsToPhase(
@@ -105,5 +120,56 @@ class PhaseExitController extends Controller
                 $phaseTemplate->id,
             404
         );
+    }
+
+    private function redirectAfterMutation(
+        Request $request,
+        PhaseTemplate $phaseTemplate
+    ): RedirectResponse {
+        if (
+            $request->input('return_to')
+            ===
+            'structure'
+            &&
+            $phaseTemplate->phase_type
+            ===
+            'SINGLE_ELIMINATION'
+        ) {
+            return redirect()->to(
+                route(
+                    'tournaments.single-elimination.structure.show',
+                    $phaseTemplate
+                )
+                    .
+                    '#output-gates'
+            );
+        }
+
+        return redirect()->route(
+            'tournaments.phase-templates.show',
+            $phaseTemplate
+        );
+    }
+
+    private function validateInternalStructureWhenNeeded(
+        Request $request,
+        PhaseTemplate $phaseTemplate
+    ): void {
+        if (
+            $request->input('return_to')
+            !==
+            'structure'
+            ||
+            $phaseTemplate->phase_type
+            !==
+            'SINGLE_ELIMINATION'
+        ) {
+            return;
+        }
+
+        $this->structureService
+            ->validateAndPersist(
+                $phaseTemplate->fresh()
+            );
     }
 }

@@ -163,7 +163,7 @@ class SingleEliminationStructureService
          */
         $phaseTemplate->load([
             'inputGates.contextualEntryPorts',
-            'inputGates.outgoingConnections',
+            'inputGates.outgoingConnections.targetSlot.encounter.round',
 
             'singleEliminationRounds.encounters.slots.incomingConnections',
             'singleEliminationRounds.encounters.results.outgoingConnections',
@@ -173,7 +173,8 @@ class SingleEliminationStructureService
             'singleEliminationConnections.targetSlot.encounter',
             'singleEliminationConnections.targetPhaseExit',
 
-            'exits.incomingInternalConnections',
+            'exits.incomingInternalConnections.sourceInputGate',
+            'exits.incomingInternalConnections.sourceResult.encounter',
         ]);
 
         $freshSettings =

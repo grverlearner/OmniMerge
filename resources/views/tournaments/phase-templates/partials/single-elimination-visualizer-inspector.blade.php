@@ -2,7 +2,7 @@
     <div>
         {{-- Fondo del inspector --}}
         <div x-cloak x-show="inspectorOpen" x-transition.opacity @click="closeInspector()"
-            class="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm"></div>
+            class="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm xl:hidden"></div>
 
         {{-- Inspector lateral derecho --}}
         <aside x-cloak x-show="inspectorOpen" x-transition:enter="transition ease-out duration-200"
@@ -62,6 +62,20 @@
                                 </button>
                             @endforeach
                         </div>
+                        <div class="mt-3 flex items-start justify-between gap-3 rounded-2xl bg-white/5 p-3">
+                            <div>
+                                <p class="text-[9px] font-black uppercase text-violet-200" x-text="traceModeLabel()">
+                                </p>
+
+                                <p class="mt-1 text-[10px] leading-4 text-slate-300" x-text="traceModeDescription()">
+                                </p>
+                            </div>
+
+                            <button type="button" @click="clearSelection()"
+                                class="rounded-xl border border-white/10 px-3 py-2 text-[9px] font-black text-white">
+                                Limpiar
+                            </button>
+                        </div>
                     </header>
 
                     <div class="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
@@ -92,11 +106,11 @@
                             </dl>
                         </section>
 
-                        {{-- Rutas relacionadas --}}
+                        {{-- Recorrido visible --}}
                         <section class="mt-6">
                             <div class="flex items-center justify-between gap-3">
                                 <h3 class="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-500">
-                                    Rutas relacionadas
+                                    Recorrido visible
                                 </h3>
 
                                 <span
@@ -105,28 +119,43 @@
                             </div>
 
                             <div class="mt-3 space-y-2">
-                                <template x-for="routeKey in selected.route_keys || []" :key="routeKey">
-                                    <button type="button" x-show="connectionIndex[routeKey]"
-                                        @click="select(routeKey, false)"
-                                        class="block w-full rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-left transition hover:border-indigo-300">
-                                        <p class="font-mono text-[8px] font-bold text-indigo-400"
-                                            x-text="connectionIndex[routeKey]?.code"></p>
+                                <template x-for="route in traceConnections()" :key="route.key">
+                                    <button type="button" @click="select(route.key, false)"
+                                        class="block w-full rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-left">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <p class="font-mono text-[8px] font-bold text-indigo-400"
+                                                x-text="route.code"></p>
+
+                                            <span class="rounded-full px-2 py-1 text-[8px] font-black"
+                                                :class="traceUpstreamKeys.includes(route.key) && traceDownstreamKeys.includes(
+                                                        route.key) ?
+                                                    'bg-amber-100 text-amber-700' :
+                                                    traceUpstreamKeys.includes(route.key) ?
+                                                    'bg-sky-100 text-sky-700' :
+                                                    traceDownstreamKeys.includes(route.key) ?
+                                                    'bg-emerald-100 text-emerald-700' :
+                                                    'bg-violet-100 text-violet-700'"
+                                                x-text="traceUpstreamKeys.includes(route.key) && traceDownstreamKeys.includes(route.key)
+                        ? 'Cruce'
+                        : traceUpstreamKeys.includes(route.key)
+                            ? 'Origen'
+                            : traceDownstreamKeys.includes(route.key)
+                                ? 'Destino'
+                                : 'Directa'"></span>
+                                        </div>
 
                                         <p class="mt-1 truncate text-[10px] font-black text-slate-700">
-                                            <span x-text="connectionIndex[routeKey]?.source_label"></span>
-
-                                            <span class="px-1 text-indigo-500">
-                                                →
-                                            </span>
-
-                                            <span x-text="connectionIndex[routeKey]?.target_label"></span>
+                                            <span x-text="route.source_label"></span>
+                                            <span class="px-1 text-indigo-500">→</span>
+                                            <span x-text="route.target_label"></span>
                                         </p>
                                     </button>
                                 </template>
 
-                                <p x-show="!(selected.route_keys || []).length"
+                                <p x-show="traceConnections().length === 0"
                                     class="rounded-2xl border border-dashed border-slate-300 p-4 text-center text-[10px] font-bold text-slate-400">
-                                    Este elemento no tiene rutas relacionadas.
+                                    Este modo no encontró conexiones registradas.
+                                    Puede existir solamente el paso interno slot → resultado.
                                 </p>
                             </div>
                         </section>

@@ -152,4 +152,52 @@
             </button>
         </div>
     </div>
+    <div x-cloak x-show="selected"
+        class="mt-3 flex flex-col gap-3 rounded-2xl border border-violet-200 bg-violet-50 p-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="rounded-full bg-violet-600 px-2.5 py-1 text-[8px] font-black uppercase text-white">
+                    Trazado activo
+                </span>
+
+                <span class="truncate text-xs font-black text-slate-900" x-text="selected?.name"></span>
+
+                <span class="rounded-full bg-white px-2.5 py-1 text-[9px] font-black text-violet-700"
+                    x-text="traceModeLabel()"></span>
+            </div>
+
+            <div class="mt-2 flex flex-wrap gap-3 text-[9px] font-black">
+                <span class="text-sky-700">
+                    ● Origen
+                </span>
+
+                <span class="text-emerald-700">
+                    ● Destino
+                </span>
+
+                <span class="text-amber-700">
+                    ● Cruce
+                </span>
+
+                <span class="text-slate-500">
+                    <span x-text="traceNodeCount()"></span>
+                    nodos ·
+                    <span x-text="traceConnections().length"></span>
+                    conexiones
+                </span>
+            </div>
+        </div>
+
+        <div class="flex gap-2">
+            <button type="button" @click="openInspector()"
+                class="rounded-xl bg-violet-600 px-4 py-2.5 text-[10px] font-black text-white">
+                Abrir inspector
+            </button>
+
+            <button type="button" @click="clearSelection()"
+                class="rounded-xl border border-violet-200 bg-white px-4 py-2.5 text-[10px] font-black text-violet-700">
+                Limpiar trazado
+            </button>
+        </div>
+    </div>
 </section>

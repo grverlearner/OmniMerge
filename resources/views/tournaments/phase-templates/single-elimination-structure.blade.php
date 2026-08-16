@@ -39,7 +39,8 @@
             initialSelection: @js($initialSelection),
             initialView: @js($initialView)
         }
-    )" class="pb-16">
+    )" )" :class="inspectorOpen ? 'xl:pr-[36rem]' : ''"
+        class="pb-16 transition-[padding] duration-200">
         {{-- Navegación --}}
         <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
             <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
@@ -317,6 +318,7 @@
                 </form>
             </aside>
         </section>
+
 
         @if ($rounds->isEmpty())
             {{-- Estado inicial sin estructura --}}

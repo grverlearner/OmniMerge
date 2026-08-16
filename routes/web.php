@@ -51,6 +51,7 @@ use App\Http\Controllers\Tournaments\SwissAdvancementRuleController;
 use App\Http\Controllers\Tournaments\TournamentGraphController;
 use App\Http\Controllers\Tournaments\TournamentPhaseNodeController;
 use App\Http\Controllers\Tournaments\PhaseEntryPortController;
+use App\Http\Controllers\Tournaments\PhaseInputGateController;
 use App\Http\Controllers\Tournaments\TournamentStartController;
 use App\Http\Controllers\Tournaments\TournamentTerminalController;
 use App\Http\Controllers\Tournaments\TournamentPhaseConnectionController;
@@ -402,6 +403,52 @@ Route::middleware('auth')->group(function () {
                     ->name(
                         'single-elimination.structure.elements.update'
                     );
+
+                /*
+                |--------------------------------------------------------------------------
+                | Puertas de entrada y mapeo hacia slots
+                |--------------------------------------------------------------------------
+                */
+
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/input-gates',
+                    [
+                        PhaseInputGateController::class,
+                        'store',
+                    ]
+                )->name(
+                    'single-elimination.input-gates.store'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/single-elimination/input-gates/{phaseInputGate}',
+                    [
+                        PhaseInputGateController::class,
+                        'update',
+                    ]
+                )->name(
+                    'single-elimination.input-gates.update'
+                );
+
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/input-gates/{phaseInputGate}/duplicate',
+                    [
+                        PhaseInputGateController::class,
+                        'duplicate',
+                    ]
+                )->name(
+                    'single-elimination.input-gates.duplicate'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/single-elimination/input-gates/{phaseInputGate}',
+                    [
+                        PhaseInputGateController::class,
+                        'destroy',
+                    ]
+                )->name(
+                    'single-elimination.input-gates.destroy'
+                );
 
                 /*
                 |--------------------------------------------------------------------------

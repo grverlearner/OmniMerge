@@ -28,10 +28,10 @@
         <template x-for="gate in payload.input_gates" :key="gate.key">
             <article :data-structure-key="gate.key"
                 class="rounded-3xl border border-fuchsia-200 bg-white p-5 shadow-sm transition"
-                :class="{
+                :class="[traceClass(gate), {
                     'ring-2 ring-fuchsia-400 ring-offset-2': selectedKey === gate.key,
                     'opacity-30': isDimmed(gate)
-                }">
+                }]">
                 <button type="button" @click="select(gate.key)" class="w-full text-left">
                     <div class="flex items-start justify-between gap-3">
                         <div>
@@ -97,10 +97,10 @@
     <template x-for="round in visibleRounds()" :key="round.key">
         <article :data-structure-key="round.key"
             class="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm"
-            :class="{
+            :class="[traceClass(round), {
                 'ring-2 ring-violet-400 ring-offset-2': selectedKey === round.key,
                 'opacity-40': isDimmed(round)
-            }">
+            }]">
             <div
                 class="flex flex-col justify-between gap-4 bg-gradient-to-r from-slate-950 via-violet-950 to-indigo-950 p-5 text-white sm:flex-row sm:items-center">
                 <button type="button" @click="select(round.key)" class="min-w-0 text-left">
@@ -180,16 +180,10 @@
                 <template x-for="encounter in round.visible_encounters" :key="encounter.key">
                     <article :data-structure-key="encounter.key"
                         class="rounded-3xl border bg-white shadow-sm transition"
-                        :class="{
-                            'border-red-300 ring-2 ring-red-100': encounter.issue_level === 'ERROR',
-                            'border-amber-300': encounter.issue_level === 'WARNING',
-                            'border-cyan-200': encounter.issue_level === 'RECOMMENDATION',
-                            'border-slate-200': encounter.issue_level === 'NONE',
+                        :class="[traceClass(encounter), {
                             'ring-2 ring-violet-500 ring-offset-2': selectedKey === encounter.key,
-                            'opacity-25': isDimmed(encounter),
-                            'p-3': density === 'dense',
-                            'p-4': density === 'comfortable'
-                        }">
+                            'opacity-25': isDimmed(encounter)
+                        }]">
                         <button type="button" @click="select(encounter.key)" class="w-full text-left">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
@@ -257,12 +251,10 @@
                                         <button type="button" @click="select(slot.key)"
                                             :data-structure-key="slot.key"
                                             class="block w-full rounded-xl border bg-white p-2.5 text-left transition hover:border-fuchsia-300"
-                                            :class="{
-                                                'border-red-300': slot.issue_level === 'ERROR',
-                                                'border-amber-300': slot.issue_level === 'WARNING',
-                                                'border-slate-200': !['ERROR', 'WARNING'].includes(slot.issue_level),
-                                                'ring-2 ring-fuchsia-400': selectedKey === slot.key
-                                            }">
+                                            :class="[traceClass(slot), {
+                                                'ring-2 ring-fuchsia-400': selectedKey === slot.key,
+                                                'opacity-25': isDimmed(slot)
+                                            }]">
                                             <div class="flex items-center justify-between gap-2">
                                                 <span class="text-[10px] font-black text-slate-800"
                                                     x-text="slot.name"></span>
@@ -311,12 +303,10 @@
                                         <button type="button" @click="select(result.key)"
                                             :data-structure-key="result.key"
                                             class="block w-full rounded-xl border bg-white p-2.5 text-left transition hover:border-emerald-300"
-                                            :class="{
-                                                'border-red-300': result.issue_level === 'ERROR',
-                                                'border-amber-300': result.issue_level === 'WARNING',
-                                                'border-slate-200': !['ERROR', 'WARNING'].includes(result.issue_level),
-                                                'ring-2 ring-emerald-400': selectedKey === result.key
-                                            }">
+                                            :class="[traceClass(result), {
+                                                'ring-2 ring-emerald-400': selectedKey === result.key,
+                                                'opacity-25': isDimmed(result)
+                                            }]">
                                             <div class="flex items-center justify-between gap-2">
                                                 <span class="text-[10px] font-black text-slate-800"
                                                     x-text="result.name"></span>
@@ -357,10 +347,10 @@
         <template x-for="exit in payload.exits" :key="exit.key">
             <article :data-structure-key="exit.key"
                 class="rounded-3xl border border-emerald-200 bg-white p-5 shadow-sm transition"
-                :class="{
+                :class="[traceClass(exit), {
                     'ring-2 ring-emerald-400 ring-offset-2': selectedKey === exit.key,
                     'opacity-30': isDimmed(exit)
-                }">
+                }]">
                 <button type="button" @click="select(exit.key)" class="w-full text-left">
                     <div class="flex items-start justify-between gap-3">
                         <div>

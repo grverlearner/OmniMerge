@@ -905,25 +905,17 @@ class SingleEliminationStructurePresenter
                 $connection->target_slot_id
             );
 
-        $sourceOwnerKey = $sourceEncounter
-            ? $this->key(
-                'ENCOUNTER',
-                $sourceEncounter->id
-            )
-            : $this->key(
-                'INPUT_GATE',
-                $connection->source_input_gate_id
-            );
+        /*
+        * Las conexiones reales salen de INPUT_GATE o RESULT
+        * y llegan a SLOT o PHASE_EXIT.
+        *
+        * ENCOUNTER es solamente un contenedor visual.
+        */
+        $sourceOwnerKey =
+            $sourceKey;
 
-        $targetOwnerKey = $targetEncounter
-            ? $this->key(
-                'ENCOUNTER',
-                $targetEncounter->id
-            )
-            : $this->key(
-                'PHASE_EXIT',
-                $connection->target_phase_exit_id
-            );
+        $targetOwnerKey =
+            $targetKey;
 
         $key = $this->key(
             'CONNECTION',

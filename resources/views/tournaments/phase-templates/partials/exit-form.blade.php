@@ -10,6 +10,10 @@
 
     @csrf
 
+    @if (!empty($returnTo))
+        <input type="hidden" name="return_to" value="{{ $returnTo }}">
+    @endif
+
     @if ($editingExit)
         @method('PUT')
     @endif

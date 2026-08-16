@@ -5,6 +5,7 @@ namespace App\Services\Tournaments;
 use App\Models\PhaseExit;
 use App\Models\PhaseTemplate;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PhaseExitService
 {
@@ -88,6 +89,28 @@ class PhaseExitService
     public function delete(
         PhaseExit $phaseExit
     ): void {
+        if (
+            $phaseExit
+            ->incomingInternalConnections()
+            ->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'phase_exit' =>
+                'No puedes eliminar esta salida porque recibe rutas del grafo interno. Reasigna primero esos resultados.',
+            ]);
+        }
+
+        if (
+            $phaseExit
+            ->graphConnections()
+            ->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'phase_exit' =>
+                'No puedes eliminar esta salida porque ya está conectada a otra fase del Tournament Graph.',
+            ]);
+        }
+
         $phaseExit->delete();
     }
 

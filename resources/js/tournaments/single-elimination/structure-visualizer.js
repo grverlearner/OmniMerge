@@ -41,6 +41,12 @@ export default function singleEliminationStructureVisualizer(
 
         highlightedKeys: [],
 
+        traceDirectKeys: [],
+
+        traceUpstreamKeys: [],
+
+        traceDownstreamKeys: [],
+
         preferenceKey:
             `omnimerge:single-elimination-visualizer:${initialPayload.phase?.id || "unknown"}`,
 
@@ -135,6 +141,34 @@ export default function singleEliminationStructureVisualizer(
 
                                     (encounter.results || [])
                                         .forEach(register);
+
+                                    /*
+                                    * Un encuentro consume slots y produce resultados.
+                                    * Esta arista existe lógicamente, aunque no tenga
+                                    * un registro CONNECTION propio.
+                                    */
+                                    (encounter.slots || [])
+                                        .forEach(
+                                            (slot) =>
+                                                (encounter.results || [])
+                                                    .forEach(
+                                                        (result) => {
+                                                            this.addAdjacency(
+                                                                this.adjacencyForward,
+                                                                slot.key,
+                                                                result.key,
+                                                                null
+                                                            );
+
+                                                            this.addAdjacency(
+                                                                this.adjacencyBackward,
+                                                                result.key,
+                                                                slot.key,
+                                                                null
+                                                            );
+                                                        }
+                                                    )
+                                        );
                                 }
                             );
                     }
@@ -153,15 +187,15 @@ export default function singleEliminationStructureVisualizer(
 
                         this.addAdjacency(
                             this.adjacencyForward,
-                            connection.source_owner_key,
-                            connection.target_owner_key,
+                            connection.source_key,
+                            connection.target_key,
                             connection.key
                         );
 
                         this.addAdjacency(
                             this.adjacencyBackward,
-                            connection.target_owner_key,
-                            connection.source_owner_key,
+                            connection.target_key,
+                            connection.source_key,
                             connection.key
                         );
                     }
@@ -337,6 +371,26 @@ export default function singleEliminationStructureVisualizer(
             this.inspectorOpen =
                 false;
 
+            /*
+             * Cerrar el inspector no elimina
+             * el trazado seleccionado.
+             */
+            this.syncUrl();
+        },
+
+        openInspector() {
+            if (!this.selected) {
+                return;
+            }
+
+            this.inspectorOpen =
+                true;
+        },
+
+        clearSelection() {
+            this.inspectorOpen =
+                false;
+
             this.selectedKey =
                 null;
 
@@ -344,6 +398,15 @@ export default function singleEliminationStructureVisualizer(
                 null;
 
             this.highlightedKeys =
+                [];
+
+            this.traceDirectKeys =
+                [];
+
+            this.traceUpstreamKeys =
+                [];
+
+            this.traceDownstreamKeys =
                 [];
 
             this.syncUrl();
@@ -423,28 +486,35 @@ export default function singleEliminationStructureVisualizer(
         rebuildTrace() {
             if (!this.selected) {
                 this.highlightedKeys = [];
+                this.traceDirectKeys = [];
+                this.traceUpstreamKeys = [];
+                this.traceDownstreamKeys = [];
 
                 return;
             }
 
-            const originKey =
-                this.ownerKey(
-                    this.selected
-                );
-
             const highlighted =
                 new Set([
                     this.selected.key,
-                    originKey,
                 ]);
 
-            (this.selected.route_keys || [])
-                .forEach(
-                    (connectionKey) =>
-                        highlighted.add(
-                            connectionKey
-                        )
+            const direct =
+                new Set();
+
+            const upstream =
+                new Set();
+
+            const downstream =
+                new Set();
+
+            const originKeys =
+                this.traceOriginKeys(
+                    this.selected
                 );
+
+            originKeys.forEach(
+                (key) => highlighted.add(key)
+            );
 
             if (
                 this.selected.kind
@@ -453,20 +523,90 @@ export default function singleEliminationStructureVisualizer(
             ) {
                 (this.selected.encounters || [])
                     .forEach(
-                        (encounter) => {
+                        (encounter) =>
                             highlighted.add(
                                 encounter.key
-                            );
-
-                            (encounter.route_keys || [])
-                                .forEach(
-                                    (connectionKey) =>
-                                        highlighted.add(
-                                            connectionKey
-                                        )
-                                );
-                        }
+                            )
                     );
+            }
+
+            if (
+                this.selected.kind
+                ===
+                "ENCOUNTER"
+            ) {
+                [
+                    ...(this.selected.slots || []),
+                    ...(this.selected.results || []),
+                ].forEach(
+                    (child) =>
+                        highlighted.add(
+                            child.key
+                        )
+                );
+            }
+
+            if (
+                this.selected.kind
+                ===
+                "CONNECTION"
+            ) {
+                highlighted.add(
+                    this.selected.source_key
+                );
+
+                highlighted.add(
+                    this.selected.target_key
+                );
+
+                direct.add(
+                    this.selected.key
+                );
+
+                direct.add(
+                    this.selected.source_key
+                );
+
+                direct.add(
+                    this.selected.target_key
+                );
+
+                if (
+                    [
+                        "UPSTREAM",
+                        "FULL",
+                    ].includes(this.traceMode)
+                ) {
+                    this.walkGraph(
+                        this.selected.source_key,
+                        this.adjacencyBackward,
+                        highlighted,
+                        upstream
+                    );
+                }
+
+                if (
+                    [
+                        "DOWNSTREAM",
+                        "FULL",
+                    ].includes(this.traceMode)
+                ) {
+                    this.walkGraph(
+                        this.selected.target_key,
+                        this.adjacencyForward,
+                        highlighted,
+                        downstream
+                    );
+                }
+
+                this.storeTraceSets(
+                    highlighted,
+                    direct,
+                    upstream,
+                    downstream
+                );
+
+                return;
             }
 
             if (
@@ -474,9 +614,13 @@ export default function singleEliminationStructureVisualizer(
                 ===
                 "DIRECT"
             ) {
-                this.collectDirect(
-                    originKey,
-                    highlighted
+                originKeys.forEach(
+                    (originKey) =>
+                        this.collectDirect(
+                            originKey,
+                            highlighted,
+                            direct
+                        )
                 );
             }
 
@@ -486,10 +630,14 @@ export default function singleEliminationStructureVisualizer(
                     "FULL",
                 ].includes(this.traceMode)
             ) {
-                this.walkGraph(
-                    originKey,
-                    this.adjacencyBackward,
-                    highlighted
+                originKeys.forEach(
+                    (originKey) =>
+                        this.walkGraph(
+                            originKey,
+                            this.adjacencyBackward,
+                            highlighted,
+                            upstream
+                        )
                 );
             }
 
@@ -499,56 +647,103 @@ export default function singleEliminationStructureVisualizer(
                     "FULL",
                 ].includes(this.traceMode)
             ) {
-                this.walkGraph(
-                    originKey,
-                    this.adjacencyForward,
-                    highlighted
+                originKeys.forEach(
+                    (originKey) =>
+                        this.walkGraph(
+                            originKey,
+                            this.adjacencyForward,
+                            highlighted,
+                            downstream
+                        )
                 );
             }
 
-            this.highlightedKeys =
-                Array.from(
-                    highlighted
-                );
+            this.storeTraceSets(
+                highlighted,
+                direct,
+                upstream,
+                downstream
+            );
         },
 
-        ownerKey(item) {
-            if (item.parent_key) {
-                return item.parent_key;
+        traceOriginKeys(item) {
+            if (!item) {
+                return [];
+            }
+
+            if (item.kind === "ROUND") {
+                return (item.encounters || [])
+                    .flatMap(
+                        (encounter) => [
+                            ...(encounter.slots || []),
+                            ...(encounter.results || []),
+                        ]
+                    )
+                    .map(
+                        (child) => child.key
+                    );
+            }
+
+            if (item.kind === "ENCOUNTER") {
+                return [
+                    ...(item.slots || []),
+                    ...(item.results || []),
+                ].map(
+                    (child) => child.key
+                );
             }
 
             if (item.kind === "CONNECTION") {
-                return item.source_owner_key;
+                return [
+                    item.source_key,
+                    item.target_key,
+                ].filter(Boolean);
             }
 
-            return item.key;
+            return item.key
+                ? [item.key]
+                : [];
         },
 
         collectDirect(
             originKey,
-            highlighted
+            highlighted,
+            direct
         ) {
+            highlighted.add(originKey);
+            direct.add(originKey);
+
             [
                 ...(this.adjacencyForward[originKey] || []),
                 ...(this.adjacencyBackward[originKey] || []),
-            ]
-                .forEach(
-                    (edge) => {
-                        highlighted.add(
-                            edge.target
-                        );
+            ].forEach(
+                (edge) => {
+                    highlighted.add(
+                        edge.target
+                    );
 
+                    direct.add(
+                        edge.target
+                    );
+
+                    if (edge.connectionKey) {
                         highlighted.add(
                             edge.connectionKey
                         );
+
+                        direct.add(
+                            edge.connectionKey
+                        );
                     }
-                );
+                }
+            );
         },
 
         walkGraph(
             originKey,
             adjacency,
-            highlighted
+            highlighted,
+            direction
         ) {
             const queue =
                 [originKey];
@@ -566,19 +761,34 @@ export default function singleEliminationStructureVisualizer(
 
                 visited.add(current);
                 highlighted.add(current);
+                direction.add(current);
 
                 (adjacency[current] || [])
                     .forEach(
                         (edge) => {
-                            highlighted.add(
-                                edge.connectionKey
-                            );
+                            if (edge.connectionKey) {
+                                highlighted.add(
+                                    edge.connectionKey
+                                );
+
+                                direction.add(
+                                    edge.connectionKey
+                                );
+                            }
 
                             highlighted.add(
                                 edge.target
                             );
 
-                            if (!visited.has(edge.target)) {
+                            direction.add(
+                                edge.target
+                            );
+
+                            if (
+                                !visited.has(
+                                    edge.target
+                                )
+                            ) {
                                 queue.push(
                                     edge.target
                                 );
@@ -588,9 +798,76 @@ export default function singleEliminationStructureVisualizer(
             }
         },
 
+        storeTraceSets(
+            highlighted,
+            direct,
+            upstream,
+            downstream
+        ) {
+            this.highlightedKeys =
+                Array.from(highlighted);
+
+            this.traceDirectKeys =
+                Array.from(direct);
+
+            this.traceUpstreamKeys =
+                Array.from(upstream);
+
+            this.traceDownstreamKeys =
+                Array.from(downstream);
+        },
+
         isHighlighted(key) {
             return this.highlightedKeys
                 .includes(key);
+        },
+
+        itemTraceKeys(item) {
+            if (!item) {
+                return [];
+            }
+
+            const keys =
+                new Set([
+                    item.key,
+                    ...(item.route_keys || []),
+                ]);
+
+            if (item.kind === "ROUND") {
+                (item.encounters || [])
+                    .forEach(
+                        (encounter) => {
+                            keys.add(
+                                encounter.key
+                            );
+
+                            [
+                                ...(encounter.slots || []),
+                                ...(encounter.results || []),
+                            ].forEach(
+                                (child) =>
+                                    keys.add(
+                                        child.key
+                                    )
+                            );
+                        }
+                    );
+            }
+
+            if (item.kind === "ENCOUNTER") {
+                [
+                    ...(item.slots || []),
+                    ...(item.results || []),
+                ].forEach(
+                    (child) =>
+                        keys.add(
+                            child.key
+                        )
+                );
+            }
+
+            return Array.from(keys)
+                .filter(Boolean);
         },
 
         isDimmed(item) {
@@ -602,13 +879,139 @@ export default function singleEliminationStructureVisualizer(
                 return false;
             }
 
-            return !this.isHighlighted(
-                this.ownerKey(item)
-            )
-                &&
-                !this.isHighlighted(
-                    item.key
+            return !this.itemTraceKeys(item)
+                .some(
+                    (key) =>
+                        this.isHighlighted(key)
                 );
+        },
+
+        traceState(item) {
+            if (
+                !item
+                ||
+                item.key === this.selectedKey
+            ) {
+                return "SELECTED";
+            }
+
+            const keys =
+                this.itemTraceKeys(item);
+
+            const hasUpstream =
+                keys.some(
+                    (key) =>
+                        this.traceUpstreamKeys
+                            .includes(key)
+                );
+
+            const hasDownstream =
+                keys.some(
+                    (key) =>
+                        this.traceDownstreamKeys
+                            .includes(key)
+                );
+
+            if (
+                hasUpstream
+                &&
+                hasDownstream
+            ) {
+                return "BOTH";
+            }
+
+            if (hasUpstream) {
+                return "UPSTREAM";
+            }
+
+            if (hasDownstream) {
+                return "DOWNSTREAM";
+            }
+
+            if (
+                keys.some(
+                    (key) =>
+                        this.traceDirectKeys
+                            .includes(key)
+                )
+            ) {
+                return "DIRECT";
+            }
+
+            return "NONE";
+        },
+
+        traceClass(item) {
+            return {
+                DIRECT:
+                    "ring-2 ring-violet-400 ring-offset-2",
+
+                UPSTREAM:
+                    "ring-2 ring-sky-400 ring-offset-2",
+
+                DOWNSTREAM:
+                    "ring-2 ring-emerald-400 ring-offset-2",
+
+                BOTH:
+                    "ring-2 ring-amber-400 ring-offset-2",
+            }[this.traceState(item)]
+                || "";
+        },
+
+        traceConnections() {
+            return (this.payload.connections || [])
+                .filter(
+                    (connection) =>
+                        this.highlightedKeys
+                            .includes(
+                                connection.key
+                            )
+                );
+        },
+
+        traceNodeCount() {
+            return this.highlightedKeys
+                .filter(
+                    (key) =>
+                        !key.startsWith(
+                            "CONNECTION:"
+                        )
+                )
+                .length;
+        },
+
+        traceModeLabel() {
+            return {
+                DIRECT:
+                    "Rutas directas",
+
+                UPSTREAM:
+                    "Solo origen",
+
+                DOWNSTREAM:
+                    "Solo destino",
+
+                FULL:
+                    "Ruta completa",
+            }[this.traceMode]
+                || this.traceMode;
+        },
+
+        traceModeDescription() {
+            return {
+                DIRECT:
+                    "Muestra únicamente las rutas que tocan el elemento seleccionado.",
+
+                UPSTREAM:
+                    "Retrocede hasta encontrar las puertas o resultados que lo alimentan.",
+
+                DOWNSTREAM:
+                    "Avanza hasta los encuentros y salidas alcanzables.",
+
+                FULL:
+                    "Combina el recorrido anterior y posterior.",
+            }[this.traceMode]
+                || "";
         },
 
         /*
