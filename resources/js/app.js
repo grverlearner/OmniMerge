@@ -31,7 +31,18 @@ const approvedConfirmForms =
     new WeakSet();
 
 
+const pendingConfirmRequests =
+    new Map();
+
+let confirmRequestSequence =
+    0;
+
+
 window.OmniConfirm = {
+
+    ready:
+        false,
+
 
     approve(form) {
 
@@ -67,6 +78,117 @@ window.OmniConfirm = {
         approvedConfirmForms.delete(
             form
         );
+    },
+
+
+    markReady() {
+
+        this.ready =
+            true;
+    },
+
+
+    request(options = {}) {
+
+        options =
+            options
+            &&
+            typeof options
+            ===
+            'object'
+                ? options
+                : {};
+
+
+        /*
+         * No dejamos una Promise pendiente cuando el layout
+         * actual no tiene OmniConfirm inicializado.
+         */
+        if (!this.ready) {
+
+            console.warn(
+                '[OmniConfirm] El modal global todavía no está disponible.'
+            );
+
+            return Promise.resolve(
+                false
+            );
+        }
+
+
+        const requestId =
+            `omni-confirm-request-${++confirmRequestSequence}`;
+
+        const triggerElement =
+            document.activeElement
+            instanceof
+            HTMLElement
+                ? document.activeElement
+                : null;
+
+
+        return new Promise(
+            (resolve) => {
+
+                pendingConfirmRequests.set(
+                    requestId,
+                    resolve
+                );
+
+
+                window.dispatchEvent(
+                    new CustomEvent(
+                        'omni-confirm:open',
+
+                        {
+                            detail: {
+                                requestId,
+                                options,
+                                triggerElement,
+                            },
+                        }
+                    )
+                );
+            }
+        );
+    },
+
+
+    settle(
+        requestId,
+        accepted
+    ) {
+        if (
+            !requestId
+            ||
+            !pendingConfirmRequests.has(
+                requestId
+            )
+        ) {
+
+            return false;
+        }
+
+
+        const resolve =
+            pendingConfirmRequests.get(
+                requestId
+            );
+
+
+        pendingConfirmRequests.delete(
+            requestId
+        );
+
+
+        resolve(
+            Boolean(
+                accepted
+            )
+        );
+
+
+        return true;
     },
 };
 
@@ -115,6 +237,20 @@ document.addEventListener(
 
                 form:
                     null,
+
+                requestId:
+                    null,
+
+                restoreFocusTo:
+                    null,
+
+
+                init() {
+
+                    window
+                        .OmniConfirm
+                        .markReady();
+                },
 
 
                 /*
@@ -173,6 +309,146 @@ document.addEventListener(
 
                 openFromEvent(event) {
 
+                    const requestId =
+                        event.detail
+                            ?.requestId;
+
+
+                    /*
+                     * El modal atiende una sola confirmación.
+                     * Una segunda solicitud programática no puede quedar
+                     * pendiente y cualquier segundo formulario se ignora.
+                     */
+                    if (
+                        this.open
+                        ||
+                        this.submitting
+                    ) {
+                        if (requestId) {
+
+                            window
+                                .OmniConfirm
+                                .settle(
+                                    requestId,
+                                    false
+                                );
+                        }
+
+                        return;
+                    }
+
+
+                    if (requestId) {
+
+                        const options =
+                            event.detail
+                                ?.options
+                            ??
+                            {};
+
+                        const allowedVariants = [
+                            'danger',
+                            'warning',
+                            'primary',
+                            'violet',
+                            'success',
+                        ];
+
+
+                        this.form =
+                            null;
+
+                        this.requestId =
+                            requestId;
+
+                        this.restoreFocusTo =
+                            event.detail
+                                ?.triggerElement
+                            instanceof
+                            HTMLElement
+                                ? event.detail
+                                    .triggerElement
+                                : null;
+
+
+                        this.title =
+                            options.title
+                            ||
+                            'Confirmar acción';
+
+                        this.message =
+                            options.message
+                            ||
+                            '¿Deseas continuar?';
+
+                        this.detail =
+                            options.detail
+                            ||
+                            '';
+
+                        this.subject =
+                            options.subject
+                            ||
+                            '';
+
+                        this.image =
+                            options.image
+                            ||
+                            '';
+
+                        this.actionLabel =
+                            options.actionLabel
+                            ||
+                            'Confirmar';
+
+                        this.cancelLabel =
+                            options.cancelLabel
+                            ||
+                            'Cancelar';
+
+                        this.variant =
+                            allowedVariants.includes(
+                                options.variant
+                            )
+                                ? options.variant
+                                : 'warning';
+
+                        this.icon =
+                            options.icon
+                            ||
+                            this.defaultIcon(
+                                this.variant
+                            );
+
+
+                        this.submitting =
+                            false;
+
+                        this.open =
+                            true;
+
+
+                        document.body
+                            .classList
+                            .add(
+                                'overflow-hidden'
+                            );
+
+
+                        this.$nextTick(
+                            () => {
+
+                                this.$refs
+                                    .confirmAction
+                                    ?.focus();
+                            }
+                        );
+
+
+                        return;
+                    }
+
+
                     const form =
                         event.detail
                             ?.form;
@@ -196,6 +472,24 @@ document.addEventListener(
 
                     this.form =
                         form;
+
+                    this.requestId =
+                        null;
+
+                    this.restoreFocusTo =
+                        event.detail
+                            ?.triggerElement
+                        instanceof
+                        HTMLElement
+                            ? event.detail
+                                .triggerElement
+                            : (
+                                document.activeElement
+                                instanceof
+                                HTMLElement
+                                    ? document.activeElement
+                                    : null
+                            );
 
 
                     this.title =
@@ -356,21 +650,29 @@ document.addEventListener(
                 |--------------------------------------------------------------------------
                 */
 
-                close() {
+                finish(
+                    accepted = false
+                ) {
+                    const requestId =
+                        this.requestId;
 
-                    if (
-                        this.submitting
-                    ) {
-
-                        return;
-                    }
+                    const restoreFocusTo =
+                        this.restoreFocusTo;
 
 
                     this.open =
                         false;
 
+                    this.submitting =
+                        false;
 
                     this.form =
+                        null;
+
+                    this.requestId =
+                        null;
+
+                    this.restoreFocusTo =
                         null;
 
 
@@ -379,6 +681,55 @@ document.addEventListener(
                         .remove(
                             'overflow-hidden'
                         );
+
+
+                    if (requestId) {
+
+                        window
+                            .OmniConfirm
+                            .settle(
+                                requestId,
+                                accepted
+                            );
+                    }
+
+
+                    if (
+                        restoreFocusTo
+                        instanceof
+                        HTMLElement
+                        &&
+                        restoreFocusTo.isConnected
+                    ) {
+
+                        this.$nextTick(
+                            () => {
+
+                                restoreFocusTo.focus({
+                                    preventScroll:
+                                        true,
+                                });
+                            }
+                        );
+                    }
+                },
+
+
+                close() {
+
+                    if (
+                        this.submitting
+                        ||
+                        !this.open
+                    ) {
+
+                        return;
+                    }
+
+
+                    this.finish(
+                        false
+                    );
                 },
 
                 /*
@@ -388,18 +739,40 @@ document.addEventListener(
                 |
                 | IMPORTANTE:
                 | Este método NO utiliza window.confirm().
-                | Solamente autoriza el formulario que ya fue
-                | aceptado desde nuestro modal de OmniMerge.
+                |
+                | - En formularios autoriza exactamente un nuevo submit.
+                | - En solicitudes JavaScript resuelve la Promise en true.
                 |
                 */
 
                 approveAndSubmit() {
 
                     if (
-                        !this.form
-                        ||
                         this.submitting
+                        ||
+                        !this.open
                     ) {
+
+                        return;
+                    }
+
+
+                    if (this.requestId) {
+
+                        this.submitting =
+                            true;
+
+
+                        this.finish(
+                            true
+                        );
+
+
+                        return;
+                    }
+
+
+                    if (!this.form) {
 
                         return;
                     }
@@ -434,6 +807,15 @@ document.addEventListener(
 
                     this.open =
                         false;
+
+                    this.form =
+                        null;
+
+                    this.requestId =
+                        null;
+
+                    this.restoreFocusTo =
+                        null;
 
 
                     document.body
@@ -474,6 +856,10 @@ document.addEventListener(
                                 .forget(
                                     form
                                 );
+
+
+                            this.submitting =
+                                false;
                         },
                         0
                     );
@@ -563,6 +949,13 @@ document.addEventListener(
                     detail: {
                         form:
                             form,
+
+                        triggerElement:
+                            document.activeElement
+                            instanceof
+                            HTMLElement
+                                ? document.activeElement
+                                : null,
                     },
                 }
             )

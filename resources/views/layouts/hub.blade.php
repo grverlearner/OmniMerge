@@ -587,6 +587,8 @@
 
     </div>
 
+    <x-omni-confirm-modal />
+
 </body>
 
 </html>

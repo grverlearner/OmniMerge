@@ -5,7 +5,7 @@
 </style>
 
 
-<div x-data="omniConfirmModal" x-show="open" x-cloak
+<div x-data="omniConfirmModal" x-show="open" x-cloak data-omni-confirm-modal
     @omni-confirm:open.window="
         openFromEvent(
             $event
@@ -19,7 +19,12 @@
         inset-0
         z-[9999]
         overflow-y-auto
-    " role="dialog" aria-modal="true">
+    "
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="omni-confirm-title"
+    aria-describedby="omni-confirm-message"
+    :aria-busy="submitting ? 'true' : 'false'">
 
     {{-- ===================================================== --}}
     {{-- FONDO --}}
@@ -207,7 +212,7 @@
                             </p>
 
 
-                            <h2 class="
+                            <h2 id="omni-confirm-title" class="
                                     mt-1
                                     text-xl
                                     font-black
@@ -220,7 +225,7 @@
                             </h2>
 
 
-                            <p class="
+                            <p id="omni-confirm-message" class="
                                     mt-2
                                     text-xs
                                     leading-5
@@ -241,6 +246,7 @@
                             close()
                         "
                         :disabled="submitting"
+                        aria-label="Cerrar confirmación"
                         class="
                             flex
                             h-9
