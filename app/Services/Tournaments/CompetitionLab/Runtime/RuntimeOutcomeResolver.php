@@ -3,6 +3,7 @@
 namespace App\Services\Tournaments\CompetitionLab\Runtime;
 
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 class RuntimeOutcomeResolver
 {
@@ -18,7 +19,14 @@ class RuntimeOutcomeResolver
                     []
             )
             ->sortBy(
-                'position'
+                fn($row) =>
+                (int) (
+                    $row['position_from']
+                    ??
+                    $row['position']
+                    ??
+                    PHP_INT_MAX
+                )
             )
             ->values();
 
@@ -120,6 +128,18 @@ class RuntimeOutcomeResolver
                 }
 
                 if (
+                    isset($selected[$participantId])
+                    &&
+                    (int) $selected[$participantId]
+                    !==
+                    (int) $exitId
+                ) {
+                    $this->fail(
+                        "El participante {$participantId} fue producido por más de una Phase Exit. Stable V1 no permite fan-out competitivo implícito."
+                    );
+                }
+
+                if (
                     ! in_array(
                         $participantId,
                         $outcomes[$exitId]['participant_ids'],
@@ -131,7 +151,7 @@ class RuntimeOutcomeResolver
                 }
 
                 $selected[$participantId] =
-                    true;
+                    (int) $exitId;
             }
         }
 
@@ -178,6 +198,17 @@ class RuntimeOutcomeResolver
                     )
                 );
 
+            /*
+             * Un selector describe posiciones/resultados globales de la fase.
+             * Solo REMAINING se evalúa deliberadamente sobre lo que no fue
+             * consumido por una salida anterior. Reinterpretar TOP_N sobre
+             * "los mejores que quedan" produciría resultados falsos.
+             */
+            $selectionUniverse =
+                $exit->selector_type === 'REMAINING'
+                ? $available
+                : $participantIds;
+
             $selection =
                 $this->select(
                     $exit->selector_type,
@@ -186,7 +217,7 @@ class RuntimeOutcomeResolver
                     $exit->selector_round_size,
                     $runtime,
                     $standings,
-                    $available
+                    $selectionUniverse
                 );
 
             $selection =
@@ -197,12 +228,28 @@ class RuntimeOutcomeResolver
                             fn($participantId) =>
                             in_array(
                                 $participantId,
-                                $available,
+                                $participantIds,
                                 true
                             )
                         )
                     )
                 );
+
+            $overlap =
+                array_values(
+                    array_filter(
+                        $selection,
+                        fn($participantId) =>
+                        isset($selected[$participantId])
+                    )
+                );
+
+            if ($overlap !== []) {
+                $this->fail(
+                    'Las Phase Exits intentan consumir al mismo participante más de una vez. '
+                    . 'Stable V1 no permite fan-out competitivo implícito.'
+                );
+            }
 
             foreach (
                 $selection
@@ -210,7 +257,7 @@ class RuntimeOutcomeResolver
                 $participantId
             ) {
                 $selected[$participantId] =
-                    true;
+                    (int) $exit->id;
             }
 
             $outcomes[$exit->id] = [
@@ -311,65 +358,46 @@ class RuntimeOutcomeResolver
                 $availableMap
             ),
 
+            'WINNER' =>
+            $this->rankPositionIds(
+                $ranked,
+                1,
+                true
+            ),
+
+            'RUNNER_UP' =>
+            $this->rankPositionIds(
+                $ranked,
+                2,
+                true
+            ),
+
             'TOP_N' =>
-            $ranked
-                ->take(
-                    max(
-                        0,
-                        (int)
-                        $from
-                    )
-                )
-                ->pluck(
-                    'participant_id'
-                )
-                ->all(),
+            $this->topNIds(
+                $ranked,
+                max(0, (int) $from)
+            ),
 
             'BOTTOM_N' =>
-            $ranked
-                ->reverse()
-                ->take(
-                    max(
-                        0,
-                        (int)
-                        $from
-                    )
-                )
-                ->pluck(
-                    'participant_id'
-                )
-                ->all(),
+            $this->bottomNIds(
+                $ranked,
+                max(0, (int) $from)
+            ),
 
+            'POSITION',
             'RANK_POSITION' =>
-            $ranked
-                ->where(
-                    'position',
-                    (int)
-                    $from
-                )
-                ->pluck(
-                    'participant_id'
-                )
-                ->all(),
+            $this->rankPositionIds(
+                $ranked,
+                (int) $from,
+                true
+            ),
 
             'RANK_RANGE' =>
-            $ranked
-                ->filter(
-                    fn($row) =>
-                    $row['position']
-                        >=
-                        (int)
-                        $from
-                        &&
-                        $row['position']
-                        <=
-                        (int)
-                        $to
-                )
-                ->pluck(
-                    'participant_id'
-                )
-                ->all(),
+            $this->rankRangeIds(
+                $ranked,
+                (int) $from,
+                (int) $to
+            ),
 
             'MATCH_WINNERS' =>
             $this->matchResultIds(
@@ -410,6 +438,40 @@ class RuntimeOutcomeResolver
 
         $eliminated = [];
 
+        foreach ($runtime['eliminations'] ?? [] as $event) {
+            $eventRoundSize =
+                (int) (
+                    $event['round_participants']
+                    ??
+                    $this->roundParticipantsForEvent(
+                        $runtime,
+                        $event
+                    )
+                );
+
+            if ($eventRoundSize !== $roundSize) {
+                continue;
+            }
+
+            $participantId =
+                $event['participant_id']
+                ??
+                null;
+
+            if (
+                $participantId !== null
+                &&
+                isset($availableMap[$participantId])
+            ) {
+                $eliminated[] =
+                    $participantId;
+            }
+        }
+
+        if ($eliminated !== []) {
+            return array_values(array_unique($eliminated));
+        }
+
         foreach ($runtime['rounds'] ?? [] as $round) {
             if ((int) ($round['participants_in_round'] ?? 0) !== $roundSize) {
                 continue;
@@ -433,6 +495,256 @@ class RuntimeOutcomeResolver
         }
 
         return array_values(array_unique($eliminated));
+    }
+
+
+    private function topNIds(
+        Collection $ranked,
+        int $quantity
+    ): array {
+        if ($quantity <= 0) {
+            return [];
+        }
+
+        foreach ($ranked as $row) {
+            [$from, $to] =
+                $this->placementRange(
+                    $row
+                );
+
+            if ($from <= $quantity && $to > $quantity) {
+                $this->fail(
+                    "TOP_N={$quantity} corta una banda de empate {$from}–{$to}. "
+                    . 'Define una salida que incluya la banda completa o resuelve esa posición competitivamente.'
+                );
+            }
+        }
+
+        return $ranked
+            ->filter(function ($row) use ($quantity) {
+                [, $to] =
+                    $this->placementRange(
+                        $row
+                    );
+
+                return $to <= $quantity;
+            })
+            ->pluck('participant_id')
+            ->values()
+            ->all();
+    }
+
+    private function bottomNIds(
+        Collection $ranked,
+        int $quantity
+    ): array {
+        if ($quantity <= 0 || $ranked->isEmpty()) {
+            return [];
+        }
+
+        $maximum =
+            $ranked
+            ->map(
+                fn($row) =>
+                $this->placementRange($row)[1]
+            )
+            ->max();
+
+        $fromPosition =
+            max(
+                1,
+                (int) $maximum - $quantity + 1
+            );
+
+        foreach ($ranked as $row) {
+            [$from, $to] =
+                $this->placementRange(
+                    $row
+                );
+
+            if ($from < $fromPosition && $to >= $fromPosition) {
+                $this->fail(
+                    "BOTTOM_N={$quantity} corta una banda de empate {$from}–{$to}."
+                );
+            }
+        }
+
+        return $ranked
+            ->filter(function ($row) use ($fromPosition) {
+                [$from] =
+                    $this->placementRange(
+                        $row
+                    );
+
+                return $from >= $fromPosition;
+            })
+            ->pluck('participant_id')
+            ->values()
+            ->all();
+    }
+
+    private function rankPositionIds(
+        Collection $ranked,
+        int $position,
+        bool $requireUniqueBand
+    ): array {
+        if ($position < 1) {
+            return [];
+        }
+
+        $rows =
+            $ranked
+            ->filter(function ($row) use ($position) {
+                [$from, $to] =
+                    $this->placementRange(
+                        $row
+                    );
+
+                return $from <= $position && $to >= $position;
+            })
+            ->values();
+
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        [$from, $to] =
+            $this->placementRange(
+                $rows->first()
+            );
+
+        if ($requireUniqueBand && $from !== $to) {
+            $this->fail(
+                "La posición {$position} pertenece a una banda empatada {$from}–{$to}; no existe una posición individual demostrada."
+            );
+        }
+
+        return $rows
+            ->pluck('participant_id')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function rankRangeIds(
+        Collection $ranked,
+        int $fromPosition,
+        int $toPosition
+    ): array {
+        if (
+            $fromPosition < 1
+            ||
+            $toPosition < $fromPosition
+        ) {
+            return [];
+        }
+
+        foreach ($ranked as $row) {
+            [$from, $to] =
+                $this->placementRange(
+                    $row
+                );
+
+            $intersects =
+                $from <= $toPosition
+                &&
+                $to >= $fromPosition;
+
+            if (! $intersects) {
+                continue;
+            }
+
+            if (
+                $from < $fromPosition
+                ||
+                $to > $toPosition
+            ) {
+                $this->fail(
+                    "El rango {$fromPosition}–{$toPosition} corta una banda de empate {$from}–{$to}."
+                );
+            }
+        }
+
+        return $ranked
+            ->filter(function ($row) use ($fromPosition, $toPosition) {
+                [$from, $to] =
+                    $this->placementRange(
+                        $row
+                    );
+
+                return
+                    $from >= $fromPosition
+                    &&
+                    $to <= $toPosition;
+            })
+            ->pluck('participant_id')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function placementRange(
+        array $row
+    ): array {
+        $from =
+            max(
+                1,
+                (int) (
+                    $row['position_from']
+                    ??
+                    $row['position']
+                    ??
+                    1
+                )
+            );
+
+        $to =
+            max(
+                $from,
+                (int) (
+                    $row['position_to']
+                    ??
+                    $row['position']
+                    ??
+                    $from
+                )
+            );
+
+        return [
+            $from,
+            $to,
+        ];
+    }
+
+    private function roundParticipantsForEvent(
+        array $runtime,
+        array $event
+    ): int {
+        $roundNumber =
+            (int) (
+                $event['round_number']
+                ??
+                0
+            );
+
+        $round =
+            collect(
+                $runtime['rounds']
+                ??
+                []
+            )
+            ->first(
+                fn($candidate) =>
+                (int) ($candidate['number'] ?? 0)
+                ===
+                $roundNumber
+            );
+
+        return (int) (
+            $round['participants_in_round']
+            ??
+            0
+        );
     }
 
     private function matchResultIds(
@@ -494,6 +806,23 @@ class RuntimeOutcomeResolver
                     continue;
                 }
 
+                foreach (
+                    $match['eliminated_ids']
+                    ??
+                    []
+                    as
+                    $participantId
+                ) {
+                    if (isset($availableMap[$participantId])) {
+                        $losers[] =
+                            $participantId;
+                    }
+                }
+
+                if (($match['eliminated_ids'] ?? []) !== []) {
+                    continue;
+                }
+
                 $winnerId =
                     $match['winner_id']
                     ??
@@ -537,5 +866,15 @@ class RuntimeOutcomeResolver
                 $losers
             )
         );
+    }
+
+    private function fail(
+        string $message
+    ): never {
+        throw ValidationException::withMessages([
+            'outcomes' => [
+                $message,
+            ],
+        ]);
     }
 }

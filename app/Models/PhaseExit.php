@@ -127,6 +127,12 @@ class PhaseExit extends Model
             'SURVIVORS' =>
             'Supervivientes',
 
+            'WINNER' =>
+            'Ganador',
+
+            'RUNNER_UP' =>
+            'Subcampeón',
+
             'ELIMINATED' =>
             'Eliminados',
 
@@ -151,6 +157,7 @@ class PhaseExit extends Model
             'BOTTOM_N' =>
             'Últimos N',
 
+            'POSITION',
             'RANK_POSITION' =>
             'Posición específica',
 
@@ -183,6 +190,12 @@ class PhaseExit extends Model
             'SURVIVORS' =>
             'Competidores que permanecen al finalizar la Fase',
 
+            'WINNER' =>
+            'Ganador demostrado de la Fase',
+
+            'RUNNER_UP' =>
+            'Subcampeón demostrado de la Fase',
+
             'ELIMINATED' =>
             'Todos los competidores eliminados durante la Fase',
 
@@ -211,6 +224,7 @@ class PhaseExit extends Model
             'Los últimos '
                 . ($this->selector_from ?: '?'),
 
+            'POSITION',
             'RANK_POSITION' =>
             'Posición '
                 . ($this->selector_from ?: '?'),

@@ -83,6 +83,17 @@ class TournamentGraphRuntimeService
             'stranded_participant_ids' =>
             [],
 
+            /*
+             * Ledger lógico de emisiones. Una salida temporizada puede
+             * recalcularse muchas veces, pero el mismo evento competitivo no
+             * debe cruzar físicamente el Tournament Graph más de una vez.
+             */
+            'emission_ledger' =>
+            [],
+
+            'phase_exit_emissions' =>
+            [],
+
             'started_at' =>
             now()->toIso8601String(),
 
@@ -685,92 +696,577 @@ class TournamentGraphRuntimeService
         TournamentTemplate $template,
         int $nodeId
     ): array {
-        $nodeModel = $template
+        $nodeModel =
+            $template
             ->graphNodes
-            ->firstWhere('id', $nodeId);
+            ->firstWhere(
+                'id',
+                $nodeId
+            );
 
         if (
             ! $nodeModel
-            || ! isset($state['nodes'][$nodeId]['runtime'])
+            ||
+            ! isset(
+                $state['nodes'][$nodeId]['runtime']
+            )
         ) {
             return $state;
         }
 
-        $runtime = &$state['nodes'][$nodeId]['runtime'];
+        $state['graph_runtime']['emission_ledger'] ??= [];
+        $state['graph_runtime']['phase_exit_emissions'] ??= [];
+
+        $runtime =
+            &$state['nodes'][$nodeId]['runtime'];
+
         $runtime['timed_outcomes'] ??= [];
 
         foreach (
-            $nodeModel->phaseTemplate->exits
-                ->where('status', 'ACTIVE')
-                ->whereIn('exit_timing', ['ON_ELIMINATION', 'ON_RULE_TRIGGER'])
-            as $exit
-        ) {
-            if (
-                $exit->exit_timing === 'ON_RULE_TRIGGER'
-                && ! collect($runtime['outcomes'] ?? [])->contains(
-                    fn($outcome) =>
-                    (int) ($outcome['exit_id'] ?? 0) === (int) $exit->id
+            $nodeModel
+                ->phaseTemplate
+                ->exits
+                ->where(
+                    'status',
+                    'ACTIVE'
                 )
+                ->whereIn(
+                    'exit_timing',
+                    [
+                        'ON_ELIMINATION',
+                        'ON_RULE_TRIGGER',
+                    ]
+                )
+                ->sortBy(
+                    fn($exit) =>
+                    sprintf(
+                        '%010d:%010d:%010d',
+                        (int) $exit->priority,
+                        (int) $exit->sort_order,
+                        (int) $exit->id
+                    )
+                )
+            as
+            $exit
+        ) {
+            $events =
+                $this->timedEventsForExit(
+                    $runtime,
+                    $exit,
+                    $nodeId,
+                    $state['nodes'][$nodeId]['participant_ids']
+                );
+
+            $newEvents = [];
+
+            foreach (
+                $events
+                as
+                $event
             ) {
+                $eventId =
+                    (string) $event['id'];
+
+                $key =
+                    $this->emissionKey(
+                        $nodeId,
+                        (int) $exit->id,
+                        $eventId
+                    );
+
+                if (
+                    isset(
+                        $state['graph_runtime']['emission_ledger'][$key]
+                    )
+                ) {
+                    continue;
+                }
+
+                $event['ledger_key'] =
+                    $key;
+
+                $newEvents[] =
+                    $event;
+            }
+
+            if ($newEvents === []) {
                 continue;
             }
 
-            $resolutionRuntime = $runtime;
-            unset($resolutionRuntime['timed_outcomes']);
+            $participantIds =
+                array_values(
+                    array_unique(
+                        array_column(
+                            $newEvents,
+                            'participant_id'
+                        )
+                    )
+                );
 
-            $resolution = $this->outcomeResolver->resolve(
-                collect([$exit]),
-                $resolutionRuntime,
-                $state['nodes'][$nodeId]['participant_ids']
+            if ($participantIds === []) {
+                continue;
+            }
+
+            $currentTimed =
+                $runtime['timed_outcomes'][$exit->id]['participant_ids']
+                ??
+                [];
+
+            $cumulativeTimed =
+                array_values(
+                    array_unique([
+                        ...$currentTimed,
+                        ...$participantIds,
+                    ])
+                );
+
+            $this->assertTimedExitCapacity(
+                $exit,
+                $cumulativeTimed
             );
-
-            $outcome = collect($resolution['outcomes'])
-                ->firstWhere('exit_id', (int) $exit->id);
-
-            if (! $outcome) {
-                continue;
-            }
-
-            $participantIds = array_values(array_unique(
-                $outcome['participant_ids'] ?? []
-            ));
 
             $runtime['timed_outcomes'][$exit->id] = [
-                'exit_id' => (int) $exit->id,
-                'exit_name' => $exit->name,
-                'participant_ids' => $participantIds,
+                'exit_id' =>
+                (int) $exit->id,
+
+                'exit_name' =>
+                $exit->name,
+
+                'selector_type' =>
+                $exit->selector_type,
+
+                'exit_timing' =>
+                $exit->exit_timing,
+
+                'participant_ids' =>
+                $cumulativeTimed,
             ];
 
-            $connections = $template
+            /*
+             * El router recibe únicamente el delta. Él conserva su propio
+             * payload acumulado por conexión, de modo que una emisión anterior
+             * puede finalizarse al PHASE_END sin duplicar journeys.
+             */
+            unset($runtime);
+
+            $connections =
+                $template
                 ->graphConnections
-                ->where('source_type', 'PHASE_EXIT')
-                ->where('source_node_id', $nodeId)
-                ->where('source_phase_exit_id', $exit->id);
+                ->where(
+                    'source_type',
+                    'PHASE_EXIT'
+                )
+                ->where(
+                    'source_node_id',
+                    $nodeId
+                )
+                ->where(
+                    'source_phase_exit_id',
+                    $exit->id
+                );
 
-            $result = $this->connectionRouter->route(
-                $state,
-                $connections,
-                $participantIds,
-                'NODE',
+            $result =
+                $this->connectionRouter
+                ->route(
+                    $state,
+                    $connections,
+                    $participantIds,
+                    'NODE',
+                    $nodeId,
+                    (int) $exit->id,
+                    false
+                );
+
+            $state =
+                $result['state'];
+
+            $runtime =
+                &$state['nodes'][$nodeId]['runtime'];
+
+            $eventIds = [];
+
+            foreach (
+                $newEvents
+                as
+                $event
+            ) {
+                $key =
+                    $event['ledger_key'];
+
+                $eventIds[] =
+                    (string) $event['id'];
+
+                $state['graph_runtime']['emission_ledger'][$key] = [
+                    'key' =>
+                    $key,
+
+                    'node_id' =>
+                    $nodeId,
+
+                    'exit_id' =>
+                    (int) $exit->id,
+
+                    'exit_timing' =>
+                    $exit->exit_timing,
+
+                    'event_id' =>
+                    (string) $event['id'],
+
+                    'participant_id' =>
+                    $event['participant_id'],
+
+                    'event_type' =>
+                    $event['type']
+                    ??
+                    null,
+
+                    'match_id' =>
+                    $event['match_id']
+                    ??
+                    null,
+
+                    'round_number' =>
+                    $event['round_number']
+                    ??
+                    null,
+                ];
+            }
+
+            $state['graph_runtime']['phase_exit_emissions'][] = [
+                'node_id' =>
                 $nodeId,
+
+                'exit_id' =>
                 (int) $exit->id,
-                false
-            );
 
-            $state = $result['state'];
-            $runtime = &$state['nodes'][$nodeId]['runtime'];
+                'exit_name' =>
+                $exit->name,
 
-            foreach ($result['touched_node_ids'] as $targetNodeId) {
+                'exit_timing' =>
+                $exit->exit_timing,
+
+                'event_ids' =>
+                array_values(
+                    array_unique(
+                        $eventIds
+                    )
+                ),
+
+                'participant_ids' =>
+                $participantIds,
+            ];
+
+            foreach (
+                $result['touched_node_ids']
+                as
+                $targetNodeId
+            ) {
                 $this->enqueueNodeEvaluation(
                     $state,
                     (int) $targetNodeId
                 );
             }
+
+            $this->event(
+                $state,
+                'PHASE_EXIT_EMITTED',
+                'INFO',
+                $exit->name
+                    . ' emitió '
+                    . count($participantIds)
+                    . ' participante(s) desde '
+                    . $state['nodes'][$nodeId]['name']
+                    . '.'
+            );
         }
 
         unset($runtime);
 
         return $state;
+    }
+
+    /**
+     * Devuelve eventos lógicos, no un snapshot acumulado. Ese detalle permite
+     * deduplicar por causa competitiva y no solamente por participant_id.
+     */
+    private function timedEventsForExit(
+        array $runtime,
+        $exit,
+        int $nodeId,
+        array $participantIds
+    ): array {
+        if ($exit->exit_timing === 'ON_ELIMINATION') {
+            if (
+                ! in_array(
+                    $exit->selector_type,
+                    [
+                        'ELIMINATED',
+                        'ELIMINATED_IN_ROUND',
+                        'MATCH_LOSERS',
+                    ],
+                    true
+                )
+            ) {
+                $this->fail(
+                    "La salida {$exit->name} usa ON_ELIMINATION con un selector no soportado por Stable V1."
+                );
+            }
+
+            $events = [];
+
+            foreach (
+                $runtime['eliminations']
+                ??
+                []
+                as
+                $event
+            ) {
+                $participantId =
+                    $event['participant_id']
+                    ??
+                    null;
+
+                if (
+                    $participantId === null
+                    ||
+                    ! in_array(
+                        $participantId,
+                        $participantIds,
+                        true
+                    )
+                    ||
+                    ! $this->eliminationMatchesExit(
+                        $runtime,
+                        $event,
+                        $exit
+                    )
+                ) {
+                    continue;
+                }
+
+                $matchId =
+                    (string) (
+                        $event['match_id']
+                        ??
+                        'UNKNOWN_MATCH'
+                    );
+
+                $eventId =
+                    (string) (
+                        $event['id']
+                        ??
+                        'ELIMINATION:'
+                            . $matchId
+                            . ':'
+                            . $participantId
+                    );
+
+                $events[] = [
+                    'id' =>
+                    $eventId,
+
+                    'type' =>
+                    'ELIMINATION',
+
+                    'participant_id' =>
+                    $participantId,
+
+                    'match_id' =>
+                    $matchId,
+
+                    'round_number' =>
+                    (int) ($event['round_number'] ?? 0),
+
+                    'round_participants' =>
+                    (int) (
+                        $event['round_participants']
+                        ??
+                        $this->roundParticipantsForElimination(
+                            $runtime,
+                            $event
+                        )
+                    ),
+                ];
+            }
+
+            return $events;
+        }
+
+        /*
+         * ON_RULE_TRIGGER solo existe cuando el Engine declaró explícitamente
+         * ese outcome. No se debe ejecutar un selector genérico antes de que
+         * la regla competitiva haya ocurrido.
+         */
+        $triggered =
+            collect(
+                $runtime['outcomes']
+                ??
+                []
+            )
+            ->contains(
+                fn($outcome) =>
+                (int) ($outcome['exit_id'] ?? 0)
+                ===
+                (int) $exit->id
+            );
+
+        if (! $triggered) {
+            return [];
+        }
+
+        /*
+         * ON_RULE_TRIGGER todavía no posee un event store específico por
+         * Engine. Se convierte su outcome actual en eventos deterministas por
+         * participante, garantizando exactamente-una-emisión mientras ese
+         * participante permanezca seleccionado por la regla.
+         */
+        $resolutionRuntime =
+            $runtime;
+
+        unset(
+            $resolutionRuntime['timed_outcomes']
+        );
+
+        $resolution =
+            $this->outcomeResolver
+            ->resolve(
+                collect([
+                    $exit,
+                ]),
+                $resolutionRuntime,
+                $participantIds
+            );
+
+        $outcome =
+            collect(
+                $resolution['outcomes']
+            )
+            ->firstWhere(
+                'exit_id',
+                (int) $exit->id
+            );
+
+        if (! $outcome) {
+            return [];
+        }
+
+        return collect(
+            $outcome['participant_ids']
+            ??
+            []
+        )
+            ->unique()
+            ->values()
+            ->map(
+                fn($participantId) => [
+                    'id' =>
+                    'RULE_TRIGGER:'
+                        . $nodeId
+                        . ':'
+                        . $exit->id
+                        . ':'
+                        . $participantId,
+
+                    'type' =>
+                    'RULE_TRIGGER',
+
+                    'participant_id' =>
+                    $participantId,
+                ]
+            )
+            ->all();
+    }
+
+    private function eliminationMatchesExit(
+        array $runtime,
+        array $event,
+        $exit
+    ): bool {
+        if (
+            in_array(
+                $exit->selector_type,
+                [
+                    'ELIMINATED',
+                    'MATCH_LOSERS',
+                ],
+                true
+            )
+        ) {
+            return true;
+        }
+
+        $expectedRoundSize =
+            (int) (
+                $exit->selector_round_size
+                ??
+                0
+            );
+
+        if ($expectedRoundSize <= 1) {
+            return false;
+        }
+
+        $actualRoundSize =
+            (int) (
+                $event['round_participants']
+                ??
+                $this->roundParticipantsForElimination(
+                    $runtime,
+                    $event
+                )
+            );
+
+        return
+            $actualRoundSize
+            ===
+            $expectedRoundSize;
+    }
+
+    private function roundParticipantsForElimination(
+        array $runtime,
+        array $event
+    ): int {
+        $roundNumber =
+            (int) (
+                $event['round_number']
+                ??
+                0
+            );
+
+        $round =
+            collect(
+                $runtime['rounds']
+                ??
+                []
+            )
+            ->first(
+                fn($candidate) =>
+                (int) ($candidate['number'] ?? 0)
+                ===
+                $roundNumber
+            );
+
+        return (int) (
+            $round['participants_in_round']
+            ??
+            $round['participants_count']
+            ??
+            0
+        );
+    }
+
+    private function emissionKey(
+        int $nodeId,
+        int $exitId,
+        string $eventId
+    ): string {
+        return
+            'NODE:'
+            . $nodeId
+            . ':EXIT:'
+            . $exitId
+            . ':EVENT:'
+            . $eventId;
     }
 
     private function routeNode(
@@ -830,6 +1326,22 @@ class TournamentGraphRuntimeService
             as
             $outcome
         ) {
+            $exit =
+                $nodeModel
+                ->phaseTemplate
+                ->exits
+                ->firstWhere(
+                    'id',
+                    (int) $outcome['exit_id']
+                );
+
+            if ($exit) {
+                $this->assertExitContract(
+                    $exit,
+                    $outcome['participant_ids']
+                );
+            }
+
             $connections =
                 $template
                 ->graphConnections
@@ -915,6 +1427,84 @@ class TournamentGraphRuntimeService
         unset($node);
 
         return $state;
+    }
+
+    private function assertTimedExitCapacity(
+        $exit,
+        array $participantIds
+    ): void {
+        $count =
+            count(
+                array_values(
+                    array_unique(
+                        $participantIds
+                    )
+                )
+            );
+
+        if (
+            $exit->exact_participants !== null
+            &&
+            $count > (int) $exit->exact_participants
+        ) {
+            $this->fail(
+                "La salida temporizada {$exit->name} superó su contrato exacto de {$exit->exact_participants} participante(s)."
+            );
+        }
+
+        if (
+            $exit->max_participants !== null
+            &&
+            $count > (int) $exit->max_participants
+        ) {
+            $this->fail(
+                "La salida temporizada {$exit->name} superó su máximo de {$exit->max_participants} participante(s)."
+            );
+        }
+    }
+
+    private function assertExitContract(
+        $exit,
+        array $participantIds
+    ): void {
+        $count =
+            count(
+                array_values(
+                    array_unique(
+                        $participantIds
+                    )
+                )
+            );
+
+        if (
+            $exit->exact_participants !== null
+            &&
+            $count !== (int) $exit->exact_participants
+        ) {
+            $this->fail(
+                "La salida {$exit->name} debe producir exactamente {$exit->exact_participants} participante(s), pero produjo {$count}."
+            );
+        }
+
+        if (
+            $exit->min_participants !== null
+            &&
+            $count < (int) $exit->min_participants
+        ) {
+            $this->fail(
+                "La salida {$exit->name} no alcanzó su mínimo de {$exit->min_participants} participante(s)."
+            );
+        }
+
+        if (
+            $exit->max_participants !== null
+            &&
+            $count > (int) $exit->max_participants
+        ) {
+            $this->fail(
+                "La salida {$exit->name} superó su máximo de {$exit->max_participants} participante(s)."
+            );
+        }
     }
 
     private function simulateOneMatch(
@@ -1522,18 +2112,61 @@ class TournamentGraphRuntimeService
     private function progressFingerprint(
         array $state
     ): string {
+        $nodeProgress =
+            collect(
+                $state['nodes']
+            )
+            ->mapWithKeys(
+                fn($node, $nodeId) => [
+                    $nodeId => [
+                        'status' =>
+                        $node['status']
+                        ??
+                        null,
+
+                        'runtime_status' =>
+                        $node['runtime']['status']
+                        ??
+                        null,
+
+                        'matches_completed' =>
+                        (int) (
+                            $node['runtime']['matches_completed']
+                            ??
+                            0
+                        ),
+
+                        'eliminations' =>
+                        count(
+                            $node['runtime']['eliminations']
+                            ??
+                            []
+                        ),
+
+                        'series_games' =>
+                        collect(
+                            $node['runtime']['series']
+                            ??
+                            []
+                        )
+                        ->sum(
+                            fn($series) =>
+                            count(
+                                $series['games']
+                                ??
+                                []
+                            )
+                        ),
+                    ],
+                ]
+            )
+            ->all();
+
         return md5(
             json_encode([
                 $state['graph_runtime']['operation_queue'],
                 $state['graph_runtime']['operation_count'],
-                collect(
-                    $state['nodes']
-                )
-                    ->pluck(
-                        'status',
-                        'id'
-                    )
-                    ->all(),
+                $nodeProgress,
                 collect(
                     $state['terminals']
                 )
@@ -1542,6 +2175,11 @@ class TournamentGraphRuntimeService
                         'id'
                     )
                     ->all(),
+                count(
+                    $state['graph_runtime']['emission_ledger']
+                    ??
+                    []
+                ),
                 $state['summary']['completed_matches']
                     ??
                     0,

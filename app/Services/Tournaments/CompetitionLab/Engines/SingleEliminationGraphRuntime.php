@@ -131,6 +131,7 @@ class SingleEliminationGraphRuntime
             'mode' => 'STRUCTURE_GRAPH',
             'status' => 'RUNNING',
             'structure_fingerprint' => $currentFingerprint,
+            'initial_participant_count' => count($participantIds),
             'rounds' => [],
             'round_order' => [],
             'encounters' => [],
@@ -143,6 +144,7 @@ class SingleEliminationGraphRuntime
             'standings' => [],
             'survivor_ids' => [],
             'eliminated_ids' => [],
+            'eliminations' => [],
             'matches_total' => 0,
             'matches_completed' => 0,
             'current_round' => 1,
@@ -153,6 +155,10 @@ class SingleEliminationGraphRuntime
                 'id' => (int) $exit->id,
                 'name' => $exit->name,
                 'selector_type' => $exit->selector_type,
+                'exit_timing' => $exit->exit_timing,
+                'selector_round_size' => $exit->selector_round_size === null
+                    ? null
+                    : (int) $exit->selector_round_size,
             ];
             $runtime['exit_participants'][$exit->id] = [];
         }
@@ -198,6 +204,11 @@ class SingleEliminationGraphRuntime
                 $runtime['encounters'][$encounter->id] = [
                     'id' => (int) $encounter->id,
                     'round_id' => (int) $round->id,
+                    'round_number' => (int) $round->stage_number,
+                    'round_participants' => (int) (
+                        $round->participants_expected
+                        ?: $round->encounters->where('status', 'ACTIVE')->sum('entrants_count')
+                    ),
                     'match_id' => 'SE-G-' . $encounter->id,
                     'code' => $encounter->code,
                     'name' => $encounter->name,
@@ -387,6 +398,13 @@ class SingleEliminationGraphRuntime
         $runtime['encounters'][$encounterId]['qualifier_ids'] = $qualifierIds;
         $runtime['encounters'][$encounterId]['eliminated_ids'] = $eliminatedIds;
 
+        $this->recordEliminations(
+            $runtime,
+            $eliminatedIds,
+            $match,
+            $encounterId
+        );
+
         foreach ($runtime['results'] as $result) {
             if ((int) $result['encounter_id'] !== $encounterId) {
                 continue;
@@ -421,10 +439,6 @@ class SingleEliminationGraphRuntime
             $runtime = $this->routeSource($runtime, 'RESULT', (int) $result['id'], $ids);
         }
 
-        $runtime['eliminated_ids'] = array_values(array_unique([
-            ...$runtime['eliminated_ids'],
-            ...$eliminatedIds,
-        ]));
         $runtime['matches_completed']++;
 
         return $this->refresh($runtime);
@@ -634,6 +648,8 @@ class SingleEliminationGraphRuntime
                 $round['matches'][] = [
                     'id' => $encounter['match_id'],
                     'number' => count($round['matches']) + 1,
+                    'round_number' => $encounter['round_number'],
+                    'round_participants' => $encounter['round_participants'],
                     'label' => $encounter['name'],
                     'participant_ids' => $encounter['participant_ids'],
                     'participant_a_id' => $encounter['participant_ids'][0] ?? null,
@@ -698,25 +714,10 @@ class SingleEliminationGraphRuntime
 
         if ($completed) {
             $runtime['status'] = 'COMPLETED';
-            $position = 1;
-            $runtime['standings'] = [];
-            foreach ($runtime['survivor_ids'] as $participantId) {
-                $runtime['standings'][] = [
-                    'position' => $position++,
-                    'participant_id' => $participantId,
-                    'status' => 'SURVIVOR',
-                ];
-            }
-            foreach (array_reverse($runtime['eliminated_ids']) as $participantId) {
-                if (in_array($participantId, $runtime['survivor_ids'], true)) {
-                    continue;
-                }
-                $runtime['standings'][] = [
-                    'position' => $position++,
-                    'participant_id' => $participantId,
-                    'status' => 'ELIMINATED',
-                ];
-            }
+            $runtime['standings'] =
+                $this->standings(
+                    $runtime
+                );
         } elseif (! $pending && $waiting) {
             $this->fail(
                 'El grafo interno quedó bloqueado: existen encuentros en espera y ninguna transición puede producir nuevos participantes.'
@@ -724,6 +725,135 @@ class SingleEliminationGraphRuntime
         }
 
         return $runtime;
+    }
+
+    private function recordEliminations(
+        array &$runtime,
+        array $participantIds,
+        array $match,
+        int $encounterId
+    ): void {
+        foreach ($participantIds as $participantId) {
+            $duplicate = collect(
+                $runtime['eliminations'] ?? []
+            )->contains(
+                fn($event) =>
+                ($event['participant_id'] ?? null)
+                ===
+                $participantId
+            );
+
+            if ($duplicate) {
+                $this->fail(
+                    "El participante {$participantId} ya había sido eliminado en esta fase."
+                );
+            }
+
+            $eventId =
+                'ELIMINATION:'
+                . $match['id']
+                . ':'
+                . $participantId;
+
+            $runtime['eliminations'][] = [
+                'id' => $eventId,
+                'participant_id' => $participantId,
+                'round_number' => (int) ($match['round_number'] ?? 0),
+                'round_participants' => (int) ($match['round_participants'] ?? 0),
+                'match_id' => $match['id'],
+                'encounter_id' => $encounterId,
+                'source' => 'MATCH_RESULT',
+            ];
+
+            $runtime['eliminated_ids'][] =
+                $participantId;
+        }
+
+        $runtime['eliminated_ids'] =
+            array_values(
+                array_unique(
+                    $runtime['eliminated_ids']
+                )
+            );
+    }
+
+    private function standings(
+        array $runtime
+    ): array {
+        $standings = [];
+        $survivors =
+            array_values(
+                array_unique(
+                    $runtime['survivor_ids'] ?? []
+                )
+            );
+
+        $survivorCount =
+            count($survivors);
+
+        foreach ($survivors as $participantId) {
+            $standings[] = [
+                'position' => 1,
+                'position_from' => 1,
+                'position_to' => max(1, $survivorCount),
+                'participant_id' => $participantId,
+                'status' => 'SURVIVOR',
+                'placement_status' => $survivorCount === 1
+                    ? 'RANKED'
+                    : 'UNRANKED_SURVIVOR',
+            ];
+        }
+
+        $eventsByRound = [];
+
+        foreach ($runtime['eliminations'] ?? [] as $event) {
+            $eventsByRound[(int) ($event['round_number'] ?? 0)][] =
+                $event;
+        }
+
+        krsort(
+            $eventsByRound,
+            SORT_NUMERIC
+        );
+
+        $positionFrom =
+            $survivorCount + 1;
+
+        foreach ($eventsByRound as $roundNumber => $events) {
+            usort(
+                $events,
+                fn($left, $right) =>
+                    strcmp(
+                        (string) ($left['participant_id'] ?? ''),
+                        (string) ($right['participant_id'] ?? '')
+                    )
+            );
+
+            $positionTo =
+                $positionFrom
+                + count($events)
+                - 1;
+
+            foreach ($events as $event) {
+                $standings[] = [
+                    'position' => $positionFrom,
+                    'position_from' => $positionFrom,
+                    'position_to' => $positionTo,
+                    'participant_id' => $event['participant_id'],
+                    'status' => 'ELIMINATED',
+                    'placement_status' => $positionFrom === $positionTo
+                        ? 'RANKED'
+                        : 'TIED_BAND',
+                    'eliminated_round' => $roundNumber,
+                    'match_id' => $event['match_id'],
+                ];
+            }
+
+            $positionFrom =
+                $positionTo + 1;
+        }
+
+        return $standings;
     }
 
     private function participantsForResult(
