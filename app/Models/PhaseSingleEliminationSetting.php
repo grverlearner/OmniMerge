@@ -329,6 +329,9 @@ class PhaseSingleEliminationSetting extends Model
             'INVALID' =>
             'Requiere correcciones',
 
+            'BLOCKED' =>
+            'Válida, pero no ejecutable',
+
             'STALE' =>
             'Estructura desactualizada',
 

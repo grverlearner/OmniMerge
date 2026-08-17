@@ -3,18 +3,55 @@
 namespace App\Services\Tournaments\CompetitionLab\Engines;
 
 use App\Models\PhaseTemplate;
+use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureExecutionPolicy;
+use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureFingerprint;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureValidator;
 use Illuminate\Validation\ValidationException;
 
 class SingleEliminationGraphRuntime
 {
     public function __construct(
-        private readonly SingleEliminationStructureValidator $validator
+        private readonly
+        SingleEliminationStructureValidator $validator,
+
+        private readonly
+        SingleEliminationStructureExecutionPolicy $executionPolicy,
+
+        private readonly
+        SingleEliminationStructureFingerprint $fingerprint
     ) {}
 
     public function prepare(PhaseTemplate $phase, array $participantIds): array
     {
-        $validation = $this->validator->validate($phase);
+        $phase->loadMissing(
+            'singleEliminationSetting'
+        );
+
+        $settings =
+            $phase->singleEliminationSetting;
+
+        if (! $settings) {
+            $this->fail(
+                'La fase no tiene configuración Single Elimination.'
+            );
+        }
+
+        if ($settings->structure_status !== 'VALID') {
+            $this->fail(
+                'La estructura avanzada no está lista para ejecutarse. Estado actual: '
+                . $settings->structure_status_label
+                . '.'
+            );
+        }
+
+        $validation =
+            $this->executionPolicy
+            ->apply(
+                $this->validator
+                ->validate(
+                    $phase
+                )
+            );
 
         if (! $validation['valid'] || ! $validation['executable']) {
             $messages = collect([
@@ -28,6 +65,33 @@ class SingleEliminationGraphRuntime
             );
         }
 
+        $currentFingerprint =
+            $this->fingerprint
+            ->forPhase(
+                $phase
+            );
+
+        $storedFingerprint =
+            (string) (
+                $settings->structure_fingerprint
+                ??
+                ''
+            );
+
+        if (
+            $storedFingerprint === ''
+            ||
+            ! hash_equals(
+                $storedFingerprint,
+                $currentFingerprint
+            )
+        ) {
+            $this->fail(
+                'La estructura avanzada cambió después de su última validación. '
+                . 'Vuelve a validarla antes de ejecutarla.'
+            );
+        }
+
         $phase->load([
             'singleEliminationSetting',
             'inputGates.outgoingConnections',
@@ -37,11 +101,25 @@ class SingleEliminationGraphRuntime
             'exits',
         ]);
 
-        $participantIds = array_values(array_unique($participantIds));
+        $participantIds =
+            array_values(
+                $participantIds
+            );
+
+        if (
+            count($participantIds)
+            !==
+            count(array_unique($participantIds))
+        ) {
+            $this->fail(
+                'La entrada del grafo interno contiene participantes duplicados.'
+            );
+        }
+
         $expected = (int) data_get(
             $phase->singleEliminationSetting?->settings,
             'custom_graph_participants',
-            0
+            $phase->exact_participants ?? 0
         );
 
         if ($expected > 0 && count($participantIds) !== $expected) {
@@ -52,6 +130,7 @@ class SingleEliminationGraphRuntime
             'engine' => 'SINGLE_ELIMINATION',
             'mode' => 'STRUCTURE_GRAPH',
             'status' => 'RUNNING',
+            'structure_fingerprint' => $currentFingerprint,
             'rounds' => [],
             'round_order' => [],
             'encounters' => [],
@@ -124,6 +203,12 @@ class SingleEliminationGraphRuntime
                     'name' => $encounter->name,
                     'entrants_count' => (int) $encounter->entrants_count,
                     'qualifiers_count' => (int) $encounter->qualifiers_count,
+                    'min_entrants_to_start' => max(
+                        1,
+                        (int) $encounter->min_entrants_to_start
+                    ),
+                    'allows_incomplete' => (bool) $encounter->allows_incomplete,
+                    'activation_policy' => $encounter->activation_policy,
                     'profile' => $encounter->encounter_profile,
                     'resolution_mode' => data_get($encounter->settings, 'resolution_mode',
                         $encounter->encounter_profile === 'DUEL' ? 'SCORE' : 'RANKING'
@@ -150,6 +235,7 @@ class SingleEliminationGraphRuntime
                         'encounter_id' => (int) $encounter->id,
                         'position' => (int) $slot->position,
                         'required' => (bool) $slot->is_required,
+                        'empty_behavior' => $slot->empty_behavior,
                         'participant_id' => null,
                     ];
                 }
@@ -166,6 +252,8 @@ class SingleEliminationGraphRuntime
                         'position_from' => $result->position_from === null ? null : (int) $result->position_from,
                         'position_to' => $result->position_to === null ? null : (int) $result->position_to,
                         'quantity' => (int) $result->quantity,
+                        'flow_mode' => $result->flow_mode,
+                        'result_type' => $result->result_type,
                         'participant_status' => $result->participant_status,
                     ];
                 }
@@ -173,12 +261,34 @@ class SingleEliminationGraphRuntime
         }
 
         $remaining = $participantIds;
-        foreach ($phase->inputGates->where('status', 'ACTIVE') as $gate) {
+        $inputGates = $phase->inputGates
+            ->where('status', 'ACTIVE')
+            ->sortBy(
+                fn($gate) => sprintf(
+                    '%010d:%010d:%010d:%010d',
+                    (int) $gate->priority,
+                    (int) $gate->sort_order,
+                    (int) $gate->sequence_number,
+                    (int) $gate->id
+                )
+            )
+            ->values();
+
+        foreach ($inputGates as $gate) {
             $take = $gate->exact_participants ?? $gate->max_participants ?? count($remaining);
             $gateParticipants = array_splice($remaining, 0, min((int) $take, count($remaining)));
+            $received = count($gateParticipants);
 
-            if ($gate->exact_participants !== null && count($gateParticipants) !== (int) $gate->exact_participants) {
+            if ($gate->exact_participants !== null && $received !== (int) $gate->exact_participants) {
                 $this->fail("La puerta {$gate->name} no recibió su cantidad exacta de participantes.");
+            }
+
+            if ($gate->min_participants !== null && $received < (int) $gate->min_participants) {
+                $this->fail("La puerta {$gate->name} no alcanzó su mínimo de participantes.");
+            }
+
+            if ($gate->max_participants !== null && $received > (int) $gate->max_participants) {
+                $this->fail("La puerta {$gate->name} superó su máximo de participantes.");
             }
 
             $runtime = $this->routeSource($runtime, 'INPUT_GATE', (int) $gate->id, $gateParticipants);
@@ -243,7 +353,21 @@ class SingleEliminationGraphRuntime
             $this->fail('El encuentro no está listo o ya fue completado.');
         }
 
-        $qualifierIds = array_values(array_unique($qualifierIds));
+        $qualifierIds =
+            array_values(
+                $qualifierIds
+            );
+
+        if (
+            count($qualifierIds)
+            !==
+            count(array_unique($qualifierIds))
+        ) {
+            $this->fail(
+                'La selección contiene participantes clasificados duplicados.'
+            );
+        }
+
         if (count($qualifierIds) !== (int) $match['qualifiers_count']) {
             $this->fail("Debes seleccionar exactamente {$match['qualifiers_count']} clasificados.");
         }
@@ -268,13 +392,30 @@ class SingleEliminationGraphRuntime
                 continue;
             }
 
-            if ($result['participant_status'] === 'ACTIVE') {
-                $position = max(1, (int) $result['position_from']);
-                $ids = isset($qualifierIds[$position - 1]) ? [$qualifierIds[$position - 1]] : [];
-            } elseif ($result['participant_status'] === 'ELIMINATED') {
-                $ids = $eliminatedIds;
-            } else {
-                $ids = [];
+            $ids =
+                $this->participantsForResult(
+                    $result,
+                    $qualifierIds,
+                    $eliminatedIds
+                );
+
+            if (
+                ($result['flow_mode'] ?? null) === 'CONSUME'
+                &&
+                in_array(
+                    $result['participant_status'] ?? null,
+                    [
+                        'ACTIVE',
+                        'ELIMINATED',
+                    ],
+                    true
+                )
+                &&
+                count($ids) !== (int) $result['quantity']
+            ) {
+                $this->fail(
+                    'Un resultado competitivo no produjo la cantidad de participantes definida por la estructura.'
+                );
             }
 
             $runtime = $this->routeSource($runtime, 'RESULT', (int) $result['id'], $ids);
@@ -327,7 +468,13 @@ class SingleEliminationGraphRuntime
         $connections = collect($runtime['connections'])
             ->where('source_type', $sourceType)
             ->where('source_id', $sourceId)
-            ->sortBy('priority')
+            ->sortBy(
+                fn($connection) => sprintf(
+                    '%010d:%010d',
+                    (int) ($connection['priority'] ?? 0),
+                    (int) ($connection['id'] ?? 0)
+                )
+            )
             ->values();
         $remaining = array_values($participantIds);
 
@@ -375,15 +522,103 @@ class SingleEliminationGraphRuntime
                 continue;
             }
 
-            $participantIds = collect($runtime['slots'])
-                ->where('encounter_id', (int) $encounterId)
+            $encounterSlots =
+                collect($runtime['slots'])
+                ->where(
+                    'encounter_id',
+                    (int) $encounterId
+                )
                 ->sortBy('position')
+                ->values();
+
+            $participantIds =
+                $encounterSlots
                 ->pluck('participant_id')
-                ->filter(fn($id) => $id !== null)
+                ->filter(
+                    fn($id) =>
+                    $id !== null
+                )
                 ->values()
                 ->all();
-            $encounter['participant_ids'] = $participantIds;
-            $encounter['status'] = count($participantIds) === (int) $encounter['entrants_count']
+
+            if (
+                count($participantIds)
+                >
+                (int) $encounter['entrants_count']
+            ) {
+                $this->fail(
+                    'Un encuentro recibió más participantes que su capacidad K.'
+                );
+            }
+
+            $requiredSlotsFilled =
+                $encounterSlots
+                ->filter(
+                    fn($slot) =>
+                    (bool) ($slot['required'] ?? false)
+                )
+                ->every(
+                    fn($slot) =>
+                    ($slot['participant_id'] ?? null)
+                    !==
+                    null
+                );
+
+            $minimum =
+                max(
+                    1,
+                    (int) (
+                        $encounter['min_entrants_to_start']
+                        ??
+                        $encounter['entrants_count']
+                    )
+                );
+
+            $allowsIncomplete =
+                (bool) (
+                    $encounter['allows_incomplete']
+                    ??
+                    false
+                );
+
+            $hasEnoughParticipants =
+                count($participantIds)
+                >=
+                $minimum;
+
+            $hasFullCapacity =
+                count($participantIds)
+                ===
+                (int) $encounter['entrants_count'];
+
+            $ready =
+                $requiredSlotsFilled
+                &&
+                $hasEnoughParticipants
+                &&
+                (
+                    $allowsIncomplete
+                    ||
+                    $hasFullCapacity
+                );
+
+            if (
+                $ready
+                &&
+                count($participantIds)
+                <=
+                (int) $encounter['qualifiers_count']
+            ) {
+                $this->fail(
+                    'Un encuentro ejecutable debe tener más participantes que clasificados.'
+                );
+            }
+
+            $encounter['participant_ids'] =
+                $participantIds;
+
+            $encounter['status'] =
+                $ready
                 ? 'PENDING'
                 : 'WAITING';
         }
@@ -483,10 +718,56 @@ class SingleEliminationGraphRuntime
                 ];
             }
         } elseif (! $pending && $waiting) {
-            $runtime['warnings'] = ['El grafo está esperando participantes de encuentros anteriores.'];
+            $this->fail(
+                'El grafo interno quedó bloqueado: existen encuentros en espera y ninguna transición puede producir nuevos participantes.'
+            );
         }
 
         return $runtime;
+    }
+
+    private function participantsForResult(
+        array $result,
+        array $qualifierIds,
+        array $eliminatedIds
+    ): array {
+        $quantity =
+            max(
+                0,
+                (int) ($result['quantity'] ?? 0)
+            );
+
+        if ($quantity === 0) {
+            return [];
+        }
+
+        if (($result['participant_status'] ?? null) === 'ACTIVE') {
+            $position =
+                max(
+                    1,
+                    (int) ($result['position_from'] ?? 1)
+                );
+
+            return array_values(
+                array_slice(
+                    $qualifierIds,
+                    $position - 1,
+                    $quantity
+                )
+            );
+        }
+
+        if (($result['participant_status'] ?? null) === 'ELIMINATED') {
+            return array_values(
+                array_slice(
+                    $eliminatedIds,
+                    0,
+                    $quantity
+                )
+            );
+        }
+
+        return [];
     }
 
     private function findMatch(array $runtime, string $matchId): array

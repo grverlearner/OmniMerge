@@ -1,0 +1,2474 @@
+diff --git a/app/Models/PhaseSingleEliminationSetting.php b/app/Models/PhaseSingleEliminationSetting.php
+index 056302e..a7db3fd 100644
+--- a/app/Models/PhaseSingleEliminationSetting.php
++++ b/app/Models/PhaseSingleEliminationSetting.php
+@@ -329,6 +329,9 @@ class PhaseSingleEliminationSetting extends Model
+             'INVALID' =>
+             'Requiere correcciones',
+ 
++            'BLOCKED' =>
++            'Válida, pero no ejecutable',
++
+             'STALE' =>
+             'Estructura desactualizada',
+ 
+diff --git a/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationGraphRuntime.php b/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationGraphRuntime.php
+index dfc3632..e5c6cfc 100644
+--- a/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationGraphRuntime.php
++++ b/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationGraphRuntime.php
+@@ -3,18 +3,55 @@
+ namespace App\Services\Tournaments\CompetitionLab\Engines;
+ 
+ use App\Models\PhaseTemplate;
++use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureExecutionPolicy;
++use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureFingerprint;
+ use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureValidator;
+ use Illuminate\Validation\ValidationException;
+ 
+ class SingleEliminationGraphRuntime
+ {
+     public function __construct(
+-        private readonly SingleEliminationStructureValidator $validator
++        private readonly
++        SingleEliminationStructureValidator $validator,
++
++        private readonly
++        SingleEliminationStructureExecutionPolicy $executionPolicy,
++
++        private readonly
++        SingleEliminationStructureFingerprint $fingerprint
+     ) {}
+ 
+     public function prepare(PhaseTemplate $phase, array $participantIds): array
+     {
+-        $validation = $this->validator->validate($phase);
++        $phase->loadMissing(
++            'singleEliminationSetting'
++        );
++
++        $settings =
++            $phase->singleEliminationSetting;
++
++        if (! $settings) {
++            $this->fail(
++                'La fase no tiene configuración Single Elimination.'
++            );
++        }
++
++        if ($settings->structure_status !== 'VALID') {
++            $this->fail(
++                'La estructura avanzada no está lista para ejecutarse. Estado actual: '
++                . $settings->structure_status_label
++                . '.'
++            );
++        }
++
++        $validation =
++            $this->executionPolicy
++            ->apply(
++                $this->validator
++                ->validate(
++                    $phase
++                )
++            );
+ 
+         if (! $validation['valid'] || ! $validation['executable']) {
+             $messages = collect([
+@@ -28,6 +65,33 @@ class SingleEliminationGraphRuntime
+             );
+         }
+ 
++        $currentFingerprint =
++            $this->fingerprint
++            ->forPhase(
++                $phase
++            );
++
++        $storedFingerprint =
++            (string) (
++                $settings->structure_fingerprint
++                ??
++                ''
++            );
++
++        if (
++            $storedFingerprint === ''
++            ||
++            ! hash_equals(
++                $storedFingerprint,
++                $currentFingerprint
++            )
++        ) {
++            $this->fail(
++                'La estructura avanzada cambió después de su última validación. '
++                . 'Vuelve a validarla antes de ejecutarla.'
++            );
++        }
++
+         $phase->load([
+             'singleEliminationSetting',
+             'inputGates.outgoingConnections',
+@@ -37,11 +101,25 @@ class SingleEliminationGraphRuntime
+             'exits',
+         ]);
+ 
+-        $participantIds = array_values(array_unique($participantIds));
++        $participantIds =
++            array_values(
++                $participantIds
++            );
++
++        if (
++            count($participantIds)
++            !==
++            count(array_unique($participantIds))
++        ) {
++            $this->fail(
++                'La entrada del grafo interno contiene participantes duplicados.'
++            );
++        }
++
+         $expected = (int) data_get(
+             $phase->singleEliminationSetting?->settings,
+             'custom_graph_participants',
+-            0
++            $phase->exact_participants ?? 0
+         );
+ 
+         if ($expected > 0 && count($participantIds) !== $expected) {
+@@ -52,6 +130,7 @@ class SingleEliminationGraphRuntime
+             'engine' => 'SINGLE_ELIMINATION',
+             'mode' => 'STRUCTURE_GRAPH',
+             'status' => 'RUNNING',
++            'structure_fingerprint' => $currentFingerprint,
+             'rounds' => [],
+             'round_order' => [],
+             'encounters' => [],
+@@ -124,6 +203,12 @@ class SingleEliminationGraphRuntime
+                     'name' => $encounter->name,
+                     'entrants_count' => (int) $encounter->entrants_count,
+                     'qualifiers_count' => (int) $encounter->qualifiers_count,
++                    'min_entrants_to_start' => max(
++                        1,
++                        (int) $encounter->min_entrants_to_start
++                    ),
++                    'allows_incomplete' => (bool) $encounter->allows_incomplete,
++                    'activation_policy' => $encounter->activation_policy,
+                     'profile' => $encounter->encounter_profile,
+                     'resolution_mode' => data_get($encounter->settings, 'resolution_mode',
+                         $encounter->encounter_profile === 'DUEL' ? 'SCORE' : 'RANKING'
+@@ -150,6 +235,7 @@ class SingleEliminationGraphRuntime
+                         'encounter_id' => (int) $encounter->id,
+                         'position' => (int) $slot->position,
+                         'required' => (bool) $slot->is_required,
++                        'empty_behavior' => $slot->empty_behavior,
+                         'participant_id' => null,
+                     ];
+                 }
+@@ -166,6 +252,8 @@ class SingleEliminationGraphRuntime
+                         'position_from' => $result->position_from === null ? null : (int) $result->position_from,
+                         'position_to' => $result->position_to === null ? null : (int) $result->position_to,
+                         'quantity' => (int) $result->quantity,
++                        'flow_mode' => $result->flow_mode,
++                        'result_type' => $result->result_type,
+                         'participant_status' => $result->participant_status,
+                     ];
+                 }
+@@ -173,14 +261,36 @@ class SingleEliminationGraphRuntime
+         }
+ 
+         $remaining = $participantIds;
+-        foreach ($phase->inputGates->where('status', 'ACTIVE') as $gate) {
++        $inputGates = $phase->inputGates
++            ->where('status', 'ACTIVE')
++            ->sortBy(
++                fn($gate) => sprintf(
++                    '%010d:%010d:%010d:%010d',
++                    (int) $gate->priority,
++                    (int) $gate->sort_order,
++                    (int) $gate->sequence_number,
++                    (int) $gate->id
++                )
++            )
++            ->values();
++
++        foreach ($inputGates as $gate) {
+             $take = $gate->exact_participants ?? $gate->max_participants ?? count($remaining);
+             $gateParticipants = array_splice($remaining, 0, min((int) $take, count($remaining)));
++            $received = count($gateParticipants);
+ 
+-            if ($gate->exact_participants !== null && count($gateParticipants) !== (int) $gate->exact_participants) {
++            if ($gate->exact_participants !== null && $received !== (int) $gate->exact_participants) {
+                 $this->fail("La puerta {$gate->name} no recibió su cantidad exacta de participantes.");
+             }
+ 
++            if ($gate->min_participants !== null && $received < (int) $gate->min_participants) {
++                $this->fail("La puerta {$gate->name} no alcanzó su mínimo de participantes.");
++            }
++
++            if ($gate->max_participants !== null && $received > (int) $gate->max_participants) {
++                $this->fail("La puerta {$gate->name} superó su máximo de participantes.");
++            }
++
+             $runtime = $this->routeSource($runtime, 'INPUT_GATE', (int) $gate->id, $gateParticipants);
+         }
+ 
+@@ -243,7 +353,21 @@ class SingleEliminationGraphRuntime
+             $this->fail('El encuentro no está listo o ya fue completado.');
+         }
+ 
+-        $qualifierIds = array_values(array_unique($qualifierIds));
++        $qualifierIds =
++            array_values(
++                $qualifierIds
++            );
++
++        if (
++            count($qualifierIds)
++            !==
++            count(array_unique($qualifierIds))
++        ) {
++            $this->fail(
++                'La selección contiene participantes clasificados duplicados.'
++            );
++        }
++
+         if (count($qualifierIds) !== (int) $match['qualifiers_count']) {
+             $this->fail("Debes seleccionar exactamente {$match['qualifiers_count']} clasificados.");
+         }
+@@ -268,13 +392,30 @@ class SingleEliminationGraphRuntime
+                 continue;
+             }
+ 
+-            if ($result['participant_status'] === 'ACTIVE') {
+-                $position = max(1, (int) $result['position_from']);
+-                $ids = isset($qualifierIds[$position - 1]) ? [$qualifierIds[$position - 1]] : [];
+-            } elseif ($result['participant_status'] === 'ELIMINATED') {
+-                $ids = $eliminatedIds;
+-            } else {
+-                $ids = [];
++            $ids =
++                $this->participantsForResult(
++                    $result,
++                    $qualifierIds,
++                    $eliminatedIds
++                );
++
++            if (
++                ($result['flow_mode'] ?? null) === 'CONSUME'
++                &&
++                in_array(
++                    $result['participant_status'] ?? null,
++                    [
++                        'ACTIVE',
++                        'ELIMINATED',
++                    ],
++                    true
++                )
++                &&
++                count($ids) !== (int) $result['quantity']
++            ) {
++                $this->fail(
++                    'Un resultado competitivo no produjo la cantidad de participantes definida por la estructura.'
++                );
+             }
+ 
+             $runtime = $this->routeSource($runtime, 'RESULT', (int) $result['id'], $ids);
+@@ -327,7 +468,13 @@ class SingleEliminationGraphRuntime
+         $connections = collect($runtime['connections'])
+             ->where('source_type', $sourceType)
+             ->where('source_id', $sourceId)
+-            ->sortBy('priority')
++            ->sortBy(
++                fn($connection) => sprintf(
++                    '%010d:%010d',
++                    (int) ($connection['priority'] ?? 0),
++                    (int) ($connection['id'] ?? 0)
++                )
++            )
+             ->values();
+         $remaining = array_values($participantIds);
+ 
+@@ -375,15 +522,103 @@ class SingleEliminationGraphRuntime
+                 continue;
+             }
+ 
+-            $participantIds = collect($runtime['slots'])
+-                ->where('encounter_id', (int) $encounterId)
++            $encounterSlots =
++                collect($runtime['slots'])
++                ->where(
++                    'encounter_id',
++                    (int) $encounterId
++                )
+                 ->sortBy('position')
++                ->values();
++
++            $participantIds =
++                $encounterSlots
+                 ->pluck('participant_id')
+-                ->filter(fn($id) => $id !== null)
++                ->filter(
++                    fn($id) =>
++                    $id !== null
++                )
+                 ->values()
+                 ->all();
+-            $encounter['participant_ids'] = $participantIds;
+-            $encounter['status'] = count($participantIds) === (int) $encounter['entrants_count']
++
++            if (
++                count($participantIds)
++                >
++                (int) $encounter['entrants_count']
++            ) {
++                $this->fail(
++                    'Un encuentro recibió más participantes que su capacidad K.'
++                );
++            }
++
++            $requiredSlotsFilled =
++                $encounterSlots
++                ->filter(
++                    fn($slot) =>
++                    (bool) ($slot['required'] ?? false)
++                )
++                ->every(
++                    fn($slot) =>
++                    ($slot['participant_id'] ?? null)
++                    !==
++                    null
++                );
++
++            $minimum =
++                max(
++                    1,
++                    (int) (
++                        $encounter['min_entrants_to_start']
++                        ??
++                        $encounter['entrants_count']
++                    )
++                );
++
++            $allowsIncomplete =
++                (bool) (
++                    $encounter['allows_incomplete']
++                    ??
++                    false
++                );
++
++            $hasEnoughParticipants =
++                count($participantIds)
++                >=
++                $minimum;
++
++            $hasFullCapacity =
++                count($participantIds)
++                ===
++                (int) $encounter['entrants_count'];
++
++            $ready =
++                $requiredSlotsFilled
++                &&
++                $hasEnoughParticipants
++                &&
++                (
++                    $allowsIncomplete
++                    ||
++                    $hasFullCapacity
++                );
++
++            if (
++                $ready
++                &&
++                count($participantIds)
++                <=
++                (int) $encounter['qualifiers_count']
++            ) {
++                $this->fail(
++                    'Un encuentro ejecutable debe tener más participantes que clasificados.'
++                );
++            }
++
++            $encounter['participant_ids'] =
++                $participantIds;
++
++            $encounter['status'] =
++                $ready
+                 ? 'PENDING'
+                 : 'WAITING';
+         }
+@@ -483,12 +718,58 @@ class SingleEliminationGraphRuntime
+                 ];
+             }
+         } elseif (! $pending && $waiting) {
+-            $runtime['warnings'] = ['El grafo está esperando participantes de encuentros anteriores.'];
++            $this->fail(
++                'El grafo interno quedó bloqueado: existen encuentros en espera y ninguna transición puede producir nuevos participantes.'
++            );
+         }
+ 
+         return $runtime;
+     }
+ 
++    private function participantsForResult(
++        array $result,
++        array $qualifierIds,
++        array $eliminatedIds
++    ): array {
++        $quantity =
++            max(
++                0,
++                (int) ($result['quantity'] ?? 0)
++            );
++
++        if ($quantity === 0) {
++            return [];
++        }
++
++        if (($result['participant_status'] ?? null) === 'ACTIVE') {
++            $position =
++                max(
++                    1,
++                    (int) ($result['position_from'] ?? 1)
++                );
++
++            return array_values(
++                array_slice(
++                    $qualifierIds,
++                    $position - 1,
++                    $quantity
++                )
++            );
++        }
++
++        if (($result['participant_status'] ?? null) === 'ELIMINATED') {
++            return array_values(
++                array_slice(
++                    $eliminatedIds,
++                    0,
++                    $quantity
++                )
++            );
++        }
++
++        return [];
++    }
++
+     private function findMatch(array $runtime, string $matchId): array
+     {
+         $match = collect($runtime['rounds'])
+diff --git a/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureExecutionPolicy.php b/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureExecutionPolicy.php
+new file mode 100644
+index 0000000..3b5c60b
+--- /dev/null
++++ b/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureExecutionPolicy.php
+@@ -0,0 +1,43 @@
++<?php
++
++namespace App\Services\Tournaments\SingleElimination\Structure;
++
++final class SingleEliminationStructureExecutionPolicy
++{
++    private const BLOCKING_WARNING_CODES = [
++        'INPUT_PLACEHOLDER_REQUIRES_REVIEW',
++    ];
++
++    public function apply(
++        array $validation
++    ): array {
++        $blockingIssues =
++            collect(
++                $validation['warnings']
++                ??
++                []
++            )
++            ->filter(
++                fn(array $issue) =>
++                in_array(
++                    $issue['code'] ?? null,
++                    self::BLOCKING_WARNING_CODES,
++                    true
++                )
++            )
++            ->values()
++            ->all();
++
++        $validation['blocking_issues'] =
++            $blockingIssues;
++
++        $validation['executable'] =
++            (bool) ($validation['valid'] ?? false)
++            &&
++            (bool) ($validation['executable'] ?? false)
++            &&
++            $blockingIssues === [];
++
++        return $validation;
++    }
++}
+diff --git a/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureFingerprint.php b/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureFingerprint.php
+new file mode 100644
+index 0000000..156f3b1
+--- /dev/null
++++ b/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureFingerprint.php
+@@ -0,0 +1,653 @@
++<?php
++
++namespace App\Services\Tournaments\SingleElimination\Structure;
++
++use App\Models\PhaseTemplate;
++
++final class SingleEliminationStructureFingerprint
++{
++    public function forPhase(
++        PhaseTemplate $phaseTemplate
++    ): string {
++        $phaseTemplate->load([
++            'singleEliminationSetting',
++            'singleEliminationRoundRules',
++            'inputGates',
++            'singleEliminationRounds.encounters.slots',
++            'singleEliminationRounds.encounters.results',
++            'exits',
++        ]);
++
++        $settings =
++            $phaseTemplate->singleEliminationSetting;
++
++        $connections =
++            $phaseTemplate
++            ->singleEliminationConnections()
++            ->orderBy('priority')
++            ->orderBy('sequence_number')
++            ->orderBy('id')
++            ->get();
++
++        $payload = [
++            'schema' =>
++            1,
++
++            'phase_contract' => [
++                'phase_type' =>
++                $phaseTemplate->phase_type,
++
++                'participant_mode' =>
++                $phaseTemplate->participant_mode,
++
++                'min_participants' =>
++                $phaseTemplate->min_participants,
++
++                'max_participants' =>
++                $phaseTemplate->max_participants,
++
++                'exact_participants' =>
++                $phaseTemplate->exact_participants,
++
++                'participant_multiple' =>
++                $phaseTemplate->participant_multiple,
++
++                'allow_byes' =>
++                (bool) $phaseTemplate->allow_byes,
++            ],
++
++            'settings' =>
++            $settings
++                ? [
++                    'configuration_mode' =>
++                    $settings->configuration_mode,
++
++                    'input_mode' =>
++                    $settings->input_mode,
++
++                    'routing_mode' =>
++                    $settings->routing_mode,
++
++                    'entrants_per_match' =>
++                    (int) $settings->entrants_per_match,
++
++                    'qualifiers_per_match' =>
++                    (int) $settings->qualifiers_per_match,
++
++                    'encounter_profile' =>
++                    $settings->encounter_profile,
++
++                    'remainder_policy' =>
++                    $settings->remainder_policy,
++
++                    'completion_mode' =>
++                    $settings->completion_mode,
++
++                    'target_survivors' =>
++                    (int) $settings->target_survivors,
++
++                    'seeding_mode' =>
++                    $settings->seeding_mode,
++
++                    'pairing_mode' =>
++                    $settings->pairing_mode,
++
++                    'bye_assignment' =>
++                    $settings->bye_assignment,
++
++                    'reseed_each_round' =>
++                    (bool) $settings->reseed_each_round,
++
++                    'series_format' =>
++                    $settings->series_format,
++
++                    'default_best_of' =>
++                    (int) $settings->default_best_of,
++
++                    'fixed_games' =>
++                    (int) $settings->fixed_games,
++
++                    'custom_graph_participants' =>
++                    (int) data_get(
++                        $settings->settings,
++                        'custom_graph_participants',
++                        0
++                    ),
++                ]
++                : null,
++
++            'round_rules' =>
++            $phaseTemplate
++                ->singleEliminationRoundRules
++                ->sortBy([
++                    ['participants_in_round', 'desc'],
++                    ['sort_order', 'asc'],
++                    ['id', 'asc'],
++                ])
++                ->values()
++                ->map(
++                    fn($rule) => [
++                        'participants_in_round' =>
++                        (int) $rule->participants_in_round,
++
++                        'entrants_per_match' =>
++                        $rule->entrants_per_match === null
++                            ? null
++                            : (int) $rule->entrants_per_match,
++
++                        'qualifiers_per_match' =>
++                        $rule->qualifiers_per_match === null
++                            ? null
++                            : (int) $rule->qualifiers_per_match,
++
++                        'encounter_profile' =>
++                        $rule->encounter_profile,
++
++                        'series_format' =>
++                        $rule->series_format,
++
++                        'best_of' =>
++                        $rule->best_of === null
++                            ? null
++                            : (int) $rule->best_of,
++
++                        'fixed_games' =>
++                        $rule->fixed_games === null
++                            ? null
++                            : (int) $rule->fixed_games,
++
++                        'sort_order' =>
++                        (int) $rule->sort_order,
++                    ]
++                )
++                ->all(),
++
++            'input_gates' =>
++            $phaseTemplate
++                ->inputGates
++                ->sortBy([
++                    ['priority', 'asc'],
++                    ['sort_order', 'asc'],
++                    ['sequence_number', 'asc'],
++                    ['id', 'asc'],
++                ])
++                ->values()
++                ->map(
++                    fn($gate) => [
++                        'id' =>
++                        (int) $gate->id,
++
++                        'sequence_number' =>
++                        (int) $gate->sequence_number,
++
++                        'code' =>
++                        $gate->code,
++
++                        'input_type' =>
++                        $gate->input_type,
++
++                        'merge_policy' =>
++                        $gate->merge_policy,
++
++                        'distribution_mode' =>
++                        $gate->distribution_mode,
++
++                        'empty_behavior' =>
++                        $gate->empty_behavior,
++
++                        'min_participants' =>
++                        $gate->min_participants === null
++                            ? null
++                            : (int) $gate->min_participants,
++
++                        'max_participants' =>
++                        $gate->max_participants === null
++                            ? null
++                            : (int) $gate->max_participants,
++
++                        'exact_participants' =>
++                        $gate->exact_participants === null
++                            ? null
++                            : (int) $gate->exact_participants,
++
++                        'is_required' =>
++                        (bool) $gate->is_required,
++
++                        'accepts_batch' =>
++                        (bool) $gate->accepts_batch,
++
++                        'accepts_multiple_connections' =>
++                        (bool) $gate->accepts_multiple_connections,
++
++                        'priority' =>
++                        (int) $gate->priority,
++
++                        'sort_order' =>
++                        (int) $gate->sort_order,
++
++                        'status' =>
++                        $gate->status,
++
++                        'seed' =>
++                        data_get(
++                            $gate->settings,
++                            'seed'
++                        ),
++
++                        'generated_placeholder' =>
++                        (bool) data_get(
++                            $gate->settings,
++                            'generated_placeholder',
++                            false
++                        ),
++                    ]
++                )
++                ->all(),
++
++            'rounds' =>
++            $phaseTemplate
++                ->singleEliminationRounds
++                ->sortBy([
++                    ['stage_number', 'asc'],
++                    ['sequence_number', 'asc'],
++                    ['id', 'asc'],
++                ])
++                ->values()
++                ->map(
++                    fn($round) => [
++                        'id' =>
++                        (int) $round->id,
++
++                        'sequence_number' =>
++                        (int) $round->sequence_number,
++
++                        'code' =>
++                        $round->code,
++
++                        'stage_number' =>
++                        (int) $round->stage_number,
++
++                        'branch_code' =>
++                        $round->branch_code,
++
++                        'round_type' =>
++                        $round->round_type,
++
++                        'participants_expected' =>
++                        $round->participants_expected === null
++                            ? null
++                            : (int) $round->participants_expected,
++
++                        'qualifiers_expected' =>
++                        $round->qualifiers_expected === null
++                            ? null
++                            : (int) $round->qualifiers_expected,
++
++                        'sort_order' =>
++                        (int) $round->sort_order,
++
++                        'status' =>
++                        $round->status,
++
++                        'byes' =>
++                        (int) data_get(
++                            $round->settings,
++                            'byes',
++                            0
++                        ),
++
++                        'remainder_policy' =>
++                        data_get(
++                            $round->settings,
++                            'remainder_policy'
++                        ),
++
++                        'encounters' =>
++                        $round
++                            ->encounters
++                            ->sortBy([
++                                ['position', 'asc'],
++                                ['sequence_number', 'asc'],
++                                ['id', 'asc'],
++                            ])
++                            ->values()
++                            ->map(
++                                fn($encounter) => [
++                                    'id' =>
++                                    (int) $encounter->id,
++
++                                    'sequence_number' =>
++                                    (int) $encounter->sequence_number,
++
++                                    'code' =>
++                                    $encounter->code,
++
++                                    'position' =>
++                                    (int) $encounter->position,
++
++                                    'entrants_count' =>
++                                    (int) $encounter->entrants_count,
++
++                                    'qualifiers_count' =>
++                                    (int) $encounter->qualifiers_count,
++
++                                    'min_entrants_to_start' =>
++                                    (int) $encounter->min_entrants_to_start,
++
++                                    'encounter_profile' =>
++                                    $encounter->encounter_profile,
++
++                                    'activation_policy' =>
++                                    $encounter->activation_policy,
++
++                                    'allows_incomplete' =>
++                                    (bool) $encounter->allows_incomplete,
++
++                                    'series_format' =>
++                                    $encounter->series_format,
++
++                                    'best_of' =>
++                                    $encounter->best_of === null
++                                        ? null
++                                        : (int) $encounter->best_of,
++
++                                    'fixed_games' =>
++                                    $encounter->fixed_games === null
++                                        ? null
++                                        : (int) $encounter->fixed_games,
++
++                                    'sort_order' =>
++                                    (int) $encounter->sort_order,
++
++                                    'status' =>
++                                    $encounter->status,
++
++                                    'actual_entrants' =>
++                                    (int) data_get(
++                                        $encounter->settings,
++                                        'actual_entrants',
++                                        $encounter->entrants_count
++                                    ),
++
++                                    'resolution_mode' =>
++                                    data_get(
++                                        $encounter->settings,
++                                        'resolution_mode'
++                                    ),
++
++                                    'qualifier_ordering' =>
++                                    data_get(
++                                        $encounter->settings,
++                                        'qualifier_ordering'
++                                    ),
++
++                                    'slots' =>
++                                    $encounter
++                                        ->slots
++                                        ->sortBy([
++                                            ['position', 'asc'],
++                                            ['id', 'asc'],
++                                        ])
++                                        ->values()
++                                        ->map(
++                                            fn($slot) => [
++                                                'id' =>
++                                                (int) $slot->id,
++
++                                                'code' =>
++                                                $slot->code,
++
++                                                'position' =>
++                                                (int) $slot->position,
++
++                                                'slot_type' =>
++                                                $slot->slot_type,
++
++                                                'capacity' =>
++                                                (int) $slot->capacity,
++
++                                                'is_required' =>
++                                                (bool) $slot->is_required,
++
++                                                'source_policy' =>
++                                                $slot->source_policy,
++
++                                                'empty_behavior' =>
++                                                $slot->empty_behavior,
++
++                                                'assignment_rule' =>
++                                                $slot->assignment_rule,
++
++                                                'sort_order' =>
++                                                (int) $slot->sort_order,
++
++                                                'status' =>
++                                                $slot->status,
++                                            ]
++                                        )
++                                        ->all(),
++
++                                    'results' =>
++                                    $encounter
++                                        ->results
++                                        ->sortBy([
++                                            ['sort_order', 'asc'],
++                                            ['sequence_number', 'asc'],
++                                            ['id', 'asc'],
++                                        ])
++                                        ->values()
++                                        ->map(
++                                            fn($result) => [
++                                                'id' =>
++                                                (int) $result->id,
++
++                                                'sequence_number' =>
++                                                (int) $result->sequence_number,
++
++                                                'code' =>
++                                                $result->code,
++
++                                                'result_type' =>
++                                                $result->result_type,
++
++                                                'position_from' =>
++                                                $result->position_from === null
++                                                    ? null
++                                                    : (int) $result->position_from,
++
++                                                'position_to' =>
++                                                $result->position_to === null
++                                                    ? null
++                                                    : (int) $result->position_to,
++
++                                                'quantity' =>
++                                                (int) $result->quantity,
++
++                                                'flow_mode' =>
++                                                $result->flow_mode,
++
++                                                'participant_status' =>
++                                                $result->participant_status,
++
++                                                'is_required' =>
++                                                (bool) $result->is_required,
++
++                                                'is_splittable' =>
++                                                (bool) $result->is_splittable,
++
++                                                'accepts_multiple_connections' =>
++                                                (bool) $result->accepts_multiple_connections,
++
++                                                'priority' =>
++                                                (int) $result->priority,
++
++                                                'sort_order' =>
++                                                (int) $result->sort_order,
++
++                                                'status' =>
++                                                $result->status,
++                                            ]
++                                        )
++                                        ->all(),
++                                ]
++                            )
++                            ->all(),
++                    ]
++                )
++                ->all(),
++
++            'connections' =>
++            $connections
++                ->map(
++                    fn($connection) => [
++                        'id' =>
++                        (int) $connection->id,
++
++                        'sequence_number' =>
++                        (int) $connection->sequence_number,
++
++                        'code' =>
++                        $connection->code,
++
++                        'source_type' =>
++                        $connection->source_type,
++
++                        'source_input_gate_id' =>
++                        $connection->source_input_gate_id === null
++                            ? null
++                            : (int) $connection->source_input_gate_id,
++
++                        'source_result_id' =>
++                        $connection->source_result_id === null
++                            ? null
++                            : (int) $connection->source_result_id,
++
++                        'target_type' =>
++                        $connection->target_type,
++
++                        'target_slot_id' =>
++                        $connection->target_slot_id === null
++                            ? null
++                            : (int) $connection->target_slot_id,
++
++                        'target_phase_exit_id' =>
++                        $connection->target_phase_exit_id === null
++                            ? null
++                            : (int) $connection->target_phase_exit_id,
++
++                        'allocation_mode' =>
++                        $connection->allocation_mode,
++
++                        'allocation_value' =>
++                        $connection->allocation_value === null
++                            ? null
++                            : (int) $connection->allocation_value,
++
++                        'priority' =>
++                        (int) $connection->priority,
++
++                        'condition_type' =>
++                        $connection->condition_type,
++
++                        'condition' =>
++                        $connection->condition,
++
++                        'status' =>
++                        $connection->status,
++
++                    ]
++                )
++                ->all(),
++
++            'exits' =>
++            $phaseTemplate
++                ->exits
++                ->sortBy([
++                    ['priority', 'asc'],
++                    ['sort_order', 'asc'],
++                    ['sequence_number', 'asc'],
++                    ['id', 'asc'],
++                ])
++                ->values()
++                ->map(
++                    fn($exit) => [
++                        'id' =>
++                        (int) $exit->id,
++
++                        'sequence_number' =>
++                        (int) $exit->sequence_number,
++
++                        'code' =>
++                        $exit->code,
++
++                        'selector_type' =>
++                        $exit->selector_type,
++
++                        'resolution_mode' =>
++                        $exit->resolution_mode,
++
++                        'exit_timing' =>
++                        $exit->exit_timing,
++
++                        'min_participants' =>
++                        $exit->min_participants === null
++                            ? null
++                            : (int) $exit->min_participants,
++
++                        'max_participants' =>
++                        $exit->max_participants === null
++                            ? null
++                            : (int) $exit->max_participants,
++
++                        'exact_participants' =>
++                        $exit->exact_participants === null
++                            ? null
++                            : (int) $exit->exact_participants,
++
++                        'priority' =>
++                        (int) $exit->priority,
++
++                        'sort_order' =>
++                        (int) $exit->sort_order,
++
++                        'status' =>
++                        $exit->status,
++                    ]
++                )
++                ->all(),
++        ];
++
++        return hash(
++            'sha256',
++            json_encode(
++                $this->normalize(
++                    $payload
++                ),
++                JSON_THROW_ON_ERROR
++                    | JSON_UNESCAPED_UNICODE
++                    | JSON_UNESCAPED_SLASHES
++            )
++        );
++    }
++
++    private function normalize(
++        mixed $value
++    ): mixed {
++        if (! is_array($value)) {
++            return $value;
++        }
++
++        if (! array_is_list($value)) {
++            ksort($value);
++        }
++
++        foreach ($value as $key => $item) {
++            $value[$key] =
++                $this->normalize(
++                    $item
++                );
++        }
++
++        return $value;
++    }
++}
+diff --git a/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureService.php b/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureService.php
+index 1f53714..60700f8 100644
+--- a/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureService.php
++++ b/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureService.php
+@@ -17,6 +17,12 @@ class SingleEliminationStructureService
+         private readonly
+         SingleEliminationStructureValidator $validator,
+ 
++        private readonly
++        SingleEliminationStructureExecutionPolicy $executionPolicy,
++
++        private readonly
++        SingleEliminationStructureFingerprint $fingerprint,
++
+         private readonly
+         SingleEliminationSettingsService $settingsService,
+ 
+@@ -46,11 +52,33 @@ class SingleEliminationStructureService
+                 $replaceManual
+             );
+ 
++        $settings =
++            $this->settingsService
++            ->ensure(
++                $phaseTemplate->fresh()
++            );
++
++        $metadata =
++            is_array($settings->settings)
++            ? $settings->settings
++            : [];
++
++        $metadata['custom_graph_participants'] =
++            $participants;
++
++        $settings->update([
++            'settings' =>
++            $metadata,
++        ]);
++
+         $validation =
+             $this->validateAndPersist(
+                 $phaseTemplate->fresh()
+             );
+ 
++        $generation['fingerprint'] =
++            $validation['fingerprint'];
++
+         return [
+             'generation' =>
+             $generation,
+@@ -80,22 +108,56 @@ class SingleEliminationStructureService
+                     );
+ 
+                 $validation =
+-                    $this->validator
+-                    ->validate(
+-                        $phaseTemplate
++                    $this->executionPolicy
++                    ->apply(
++                        $this->validator
++                        ->validate(
++                            $phaseTemplate
++                        )
++                    );
++
++                $fingerprint =
++                    $this->fingerprint
++                    ->forPhase(
++                        $phaseTemplate->fresh()
++                    );
++
++                $structureStatus =
++                    ! ($validation['valid'] ?? false)
++                    ? 'INVALID'
++                    : (
++                        ! ($validation['executable'] ?? false)
++                        ? 'BLOCKED'
++                        : 'VALID'
+                     );
+ 
+                 $settings->update([
+                     'structure_status' =>
+-                    $validation['valid']
+-                        ? 'VALID'
+-                        : 'INVALID',
++                    $structureStatus,
++
++                    'structure_fingerprint' =>
++                    $fingerprint,
+ 
+                     'structure_validated_at' =>
+                     now(),
+                 ]);
+ 
+-                return $validation;
++                return array_merge(
++                    $validation,
++                    [
++                        'structure_status' =>
++                        $structureStatus,
++
++                        'fingerprint' =>
++                        $fingerprint,
++
++                        'fingerprint_matches' =>
++                        true,
++
++                        'runtime_ready' =>
++                        $structureStatus === 'VALID',
++                    ]
++                );
+             }
+         );
+     }
+@@ -151,9 +213,18 @@ class SingleEliminationStructureService
+             );
+ 
+         $validation =
+-            $this->validator
+-            ->validate(
+-                $phaseTemplate
++            $this->executionPolicy
++            ->apply(
++                $this->validator
++                ->validate(
++                    $phaseTemplate
++                )
++            );
++
++        $currentFingerprint =
++            $this->fingerprint
++            ->forPhase(
++                $phaseTemplate->fresh()
+             );
+ 
+         /*
+@@ -180,6 +251,39 @@ class SingleEliminationStructureService
+         $freshSettings =
+             $settings->fresh();
+ 
++        $storedFingerprint =
++            (string) (
++                $freshSettings->structure_fingerprint
++                ??
++                ''
++            );
++
++        $fingerprintMatches =
++            $storedFingerprint !== ''
++            &&
++            hash_equals(
++                $storedFingerprint,
++                $currentFingerprint
++            );
++
++        $validation['structure_status'] =
++            $freshSettings->structure_status;
++
++        $validation['fingerprint'] =
++            $currentFingerprint;
++
++        $validation['fingerprint_matches'] =
++            $fingerprintMatches;
++
++        $validation['runtime_ready'] =
++            $freshSettings->structure_status === 'VALID'
++            &&
++            ($validation['valid'] ?? false)
++            &&
++            ($validation['executable'] ?? false)
++            &&
++            $fingerprintMatches;
++
+         $visualizer =
+             $this->presenter
+             ->present(
+diff --git a/tests/Feature/Tournaments/SingleEliminationAdvancedRuntimeContractTest.php b/tests/Feature/Tournaments/SingleEliminationAdvancedRuntimeContractTest.php
+new file mode 100644
+index 0000000..a76863b
+--- /dev/null
++++ b/tests/Feature/Tournaments/SingleEliminationAdvancedRuntimeContractTest.php
+@@ -0,0 +1,924 @@
++<?php
++
++namespace Tests\Feature\Tournaments;
++
++use App\Models\PhaseSingleEliminationSetting;
++use App\Models\PhaseTemplate;
++use App\Models\User;
++use App\Services\Tournaments\CompetitionLab\Engines\SingleEliminationGraphRuntime;
++use App\Services\Tournaments\SingleElimination\SingleEliminationSettingsService;
++use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureFingerprint;
++use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureService;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Validation\ValidationException;
++use Tests\TestCase;
++
++class SingleEliminationAdvancedRuntimeContractTest extends TestCase
++{
++    use RefreshDatabase;
++
++    public function test_valid_executable_structure_persists_canonical_fingerprint_and_runtime_can_prepare(): void
++    {
++        $phase =
++            $this->createAdvancedPhase(
++                4
++            );
++
++        $result =
++            app(
++                SingleEliminationStructureService::class
++            )
++            ->generate(
++                $phase,
++                4
++            );
++
++        $phase->refresh();
++
++        $settings =
++            $phase
++            ->singleEliminationSetting()
++            ->firstOrFail();
++
++        $this->assertTrue(
++            $result['validation']['valid']
++        );
++
++        $this->assertTrue(
++            $result['validation']['executable']
++        );
++
++        $this->assertSame(
++            'VALID',
++            $settings->structure_status
++        );
++
++        $this->assertNotEmpty(
++            $settings->structure_fingerprint
++        );
++
++        $this->assertSame(
++            $settings->structure_fingerprint,
++            $result['validation']['fingerprint']
++        );
++
++        $this->assertSame(
++            $settings->structure_fingerprint,
++            $result['generation']['fingerprint']
++        );
++
++        $runtime =
++            app(
++                SingleEliminationGraphRuntime::class
++            )
++            ->prepare(
++                $phase->fresh(),
++                $this->participantIds(4)
++            );
++
++        $this->assertSame(
++            'RUNNING',
++            $runtime['status']
++        );
++
++        $this->assertSame(
++            $settings->structure_fingerprint,
++            $runtime['structure_fingerprint']
++        );
++
++        $this->assertTrue(
++            collect($runtime['rounds'])
++                ->flatMap(
++                    fn(array $round) =>
++                    $round['matches']
++                )
++                ->contains(
++                    fn(array $match) =>
++                    $match['status'] === 'PENDING'
++                )
++        );
++    }
++
++    public function test_invalid_structure_is_persisted_as_invalid_after_revalidation(): void
++    {
++        $phase =
++            $this->createAdvancedPhase(
++                4
++            );
++
++        $service =
++            app(
++                SingleEliminationStructureService::class
++            );
++
++        $service->generate(
++            $phase,
++            4
++        );
++
++        $slot =
++            $phase
++            ->singleEliminationEncounters()
++            ->orderBy('sequence_number')
++            ->firstOrFail()
++            ->slots()
++            ->orderBy('position')
++            ->firstOrFail();
++
++        $phase
++            ->singleEliminationConnections()
++            ->where(
++                'target_slot_id',
++                $slot->id
++            )
++            ->delete();
++
++        $validation =
++            $service
++            ->validateAndPersist(
++                $phase->fresh()
++            );
++
++        $this->assertFalse(
++            $validation['valid']
++        );
++
++        $this->assertSame(
++            'INVALID',
++            $validation['structure_status']
++        );
++
++        $this->assertSame(
++            'INVALID',
++            $phase
++                ->singleEliminationSetting()
++                ->firstOrFail()
++                ->structure_status
++        );
++    }
++
++    public function test_configuration_change_marks_valid_structure_stale_and_runtime_refuses_it(): void
++    {
++        $phase =
++            $this->createAdvancedPhase(
++                4
++            );
++
++        app(
++            SingleEliminationStructureService::class
++        )
++            ->generate(
++                $phase,
++                4
++            );
++
++        $settings =
++            $phase
++            ->singleEliminationSetting()
++            ->firstOrFail();
++
++        $data =
++            $settings->only([
++                'configuration_mode',
++                'input_mode',
++                'routing_mode',
++                'entrants_per_match',
++                'qualifiers_per_match',
++                'encounter_profile',
++                'remainder_policy',
++                'completion_mode',
++                'target_survivors',
++                'seeding_mode',
++                'pairing_mode',
++                'bye_assignment',
++                'reseed_each_round',
++                'series_format',
++                'default_best_of',
++                'fixed_games',
++            ]);
++
++        $data['default_best_of'] =
++            3;
++
++        app(
++            SingleEliminationSettingsService::class
++        )
++            ->update(
++                $phase->fresh(),
++                $data
++            );
++
++        $this->assertSame(
++            'STALE',
++            $settings->fresh()->structure_status
++        );
++
++        $this->expectException(
++            ValidationException::class
++        );
++
++        $this->expectExceptionMessage(
++            'Estructura desactualizada'
++        );
++
++        app(
++            SingleEliminationGraphRuntime::class
++        )
++            ->prepare(
++                $phase->fresh(),
++                $this->participantIds(4)
++            );
++    }
++
++    public function test_runtime_rejects_structure_whose_fingerprint_changed_after_validation(): void
++    {
++        $phase =
++            $this->createAdvancedPhase(
++                4
++            );
++
++        app(
++            SingleEliminationStructureService::class
++        )
++            ->generate(
++                $phase,
++                4
++            );
++
++        $connection =
++            $phase
++            ->singleEliminationConnections()
++            ->orderBy('id')
++            ->firstOrFail();
++
++        $connection->update([
++            'priority' =>
++            (int) $connection->priority
++                +
++                1,
++        ]);
++
++        $this->expectException(
++            ValidationException::class
++        );
++
++        $this->expectExceptionMessage(
++            'cambió después de su última validación'
++        );
++
++        app(
++            SingleEliminationGraphRuntime::class
++        )
++            ->prepare(
++                $phase->fresh(),
++                $this->participantIds(4)
++            );
++    }
++
++    public function test_valid_but_unsupported_placeholder_structure_is_persisted_as_blocked(): void
++    {
++        $phase =
++            $this->createAdvancedPhase(
++                4,
++                [
++                    'input_mode' =>
++                    'GROUPED',
++                ]
++            );
++
++        $result =
++            app(
++                SingleEliminationStructureService::class
++            )
++            ->generate(
++                $phase,
++                4
++            );
++
++        $settings =
++            $phase
++            ->singleEliminationSetting()
++            ->firstOrFail();
++
++        $this->assertTrue(
++            $result['validation']['valid']
++        );
++
++        $this->assertFalse(
++            $result['validation']['executable']
++        );
++
++        $this->assertSame(
++            'BLOCKED',
++            $result['validation']['structure_status']
++        );
++
++        $this->assertSame(
++            'BLOCKED',
++            $settings->fresh()->structure_status
++        );
++
++        $this->assertSame(
++            'Válida, pero no ejecutable',
++            $settings->fresh()->structure_status_label
++        );
++
++        $this->assertContains(
++            'INPUT_PLACEHOLDER_REQUIRES_REVIEW',
++            collect(
++                $result['validation']['blocking_issues']
++            )
++                ->pluck('code')
++                ->all()
++        );
++
++        $this->expectException(
++            ValidationException::class
++        );
++
++        $this->expectExceptionMessage(
++            'no está lista para ejecutarse'
++        );
++
++        app(
++            SingleEliminationGraphRuntime::class
++        )
++            ->prepare(
++                $phase->fresh(),
++                $this->participantIds(4)
++            );
++    }
++
++    public function test_duplicate_graph_participants_are_rejected_instead_of_deduplicated(): void
++    {
++        $phase =
++            $this->createAdvancedPhase(
++                4
++            );
++
++        app(
++            SingleEliminationStructureService::class
++        )
++            ->generate(
++                $phase,
++                4
++            );
++
++        $this->expectException(
++            ValidationException::class
++        );
++
++        $this->expectExceptionMessage(
++            'participantes duplicados'
++        );
++
++        app(
++            SingleEliminationGraphRuntime::class
++        )
++            ->prepare(
++                $phase->fresh(),
++                [
++                    'P1',
++                    'P2',
++                    'P2',
++                    'P4',
++                ]
++            );
++    }
++
++    public function test_k_to_q_selection_is_ordered_and_duplicate_qualifiers_are_rejected(): void
++    {
++        $phase =
++            $this->createAdvancedPhase(
++                4,
++                [
++                    'entrants_per_match' =>
++                    4,
++
++                    'qualifiers_per_match' =>
++                    2,
++
++                    'encounter_profile' =>
++                    'MULTI_COMPETITOR',
++
++                    'remainder_policy' =>
++                    'REJECT',
++
++                    'completion_mode' =>
++                    'SURVIVORS',
++
++                    'target_survivors' =>
++                    2,
++                ]
++            );
++
++        app(
++            SingleEliminationStructureService::class
++        )
++            ->generate(
++                $phase,
++                4
++            );
++
++        $engine =
++            app(
++                SingleEliminationGraphRuntime::class
++            );
++
++        $runtime =
++            $engine
++            ->prepare(
++                $phase->fresh(),
++                $this->participantIds(4)
++            );
++
++        $match =
++            collect(
++                $runtime['rounds']
++            )
++            ->flatMap(
++                fn(array $round) =>
++                $round['matches']
++            )
++            ->first();
++
++        $this->assertIsArray(
++            $match
++        );
++
++        $this->assertSame(
++            2,
++            $match['qualifiers_count']
++        );
++
++        try {
++            $engine->submitSelection(
++                $runtime,
++                $match['id'],
++                [
++                    'P3',
++                    'P3',
++                ]
++            );
++
++            $this->fail(
++                'La selección duplicada debía ser rechazada.'
++            );
++        } catch (ValidationException $exception) {
++            $this->assertStringContainsString(
++                'clasificados duplicados',
++                $exception->getMessage()
++            );
++        }
++
++        $runtime =
++            $engine
++            ->submitSelection(
++                $runtime,
++                $match['id'],
++                [
++                    'P3',
++                    'P1',
++                ]
++            );
++
++        $this->assertSame(
++            'COMPLETED',
++            $runtime['status']
++        );
++
++        $this->assertSame(
++            [
++                'P3',
++                'P1',
++            ],
++            $runtime['survivor_ids']
++        );
++
++        $this->assertEqualsCanonicalizing(
++            [
++                'P2',
++                'P4',
++            ],
++            $runtime['eliminated_ids']
++        );
++    }
++
++    public function test_incomplete_advanced_encounter_becomes_pending_at_its_persisted_minimum(): void
++    {
++        $phase =
++            $this->createAdvancedPhase(
++                5,
++                [
++                    'entrants_per_match' =>
++                    3,
++
++                    'qualifiers_per_match' =>
++                    1,
++
++                    'encounter_profile' =>
++                    'MULTI_COMPETITOR',
++
++                    'remainder_policy' =>
++                    'INCOMPLETE_MATCH',
++
++                    'completion_mode' =>
++                    'SURVIVORS',
++
++                    'target_survivors' =>
++                    2,
++                ]
++            );
++
++        $result =
++            app(
++                SingleEliminationStructureService::class
++            )
++            ->generate(
++                $phase,
++                5
++            );
++
++        $this->assertTrue(
++            $result['validation']['valid']
++        );
++
++        $this->assertTrue(
++            $result['validation']['executable']
++        );
++
++        $runtime =
++            app(
++                SingleEliminationGraphRuntime::class
++            )
++            ->prepare(
++                $phase->fresh(),
++                $this->participantIds(5)
++            );
++
++        $matches =
++            collect(
++                $runtime['rounds'][0]['matches']
++            )
++            ->sortBy('number')
++            ->values();
++
++        $this->assertCount(
++            2,
++            $matches
++        );
++
++        $this->assertSame(
++            'PENDING',
++            $matches[0]['status']
++        );
++
++        $this->assertSame(
++            'PENDING',
++            $matches[1]['status']
++        );
++
++        $secondEncounterId =
++            (int) str_replace(
++                'SE-G-',
++                '',
++                $matches[1]['id']
++            );
++
++        $secondEncounter =
++            $runtime['encounters'][$secondEncounterId];
++
++        $this->assertTrue(
++            $secondEncounter['allows_incomplete']
++        );
++
++        $this->assertSame(
++            2,
++            $secondEncounter['min_entrants_to_start']
++        );
++
++        $this->assertCount(
++            2,
++            $secondEncounter['participant_ids']
++        );
++    }
++
++    public function test_advanced_bye_bypass_is_executable_without_fake_participants(): void
++    {
++        $phase =
++            $this->createAdvancedPhase(
++                5,
++                [
++                    'remainder_policy' =>
++                    'BYE',
++                ]
++            );
++
++        app(
++            SingleEliminationStructureService::class
++        )
++            ->generate(
++                $phase,
++                5
++            );
++
++        $runtime =
++            app(
++                SingleEliminationGraphRuntime::class
++            )
++            ->prepare(
++                $phase->fresh(),
++                $this->participantIds(5)
++            );
++
++        $assignedIds =
++            collect(
++                $runtime['slots']
++            )
++            ->pluck('participant_id')
++            ->filter()
++            ->values()
++            ->all();
++
++        $this->assertCount(
++            5,
++            $assignedIds
++        );
++
++        $this->assertEqualsCanonicalizing(
++            $this->participantIds(5),
++            $assignedIds
++        );
++
++        $this->assertSame(
++            count($assignedIds),
++            count(array_unique($assignedIds))
++        );
++
++        $this->assertSame(
++            'RUNNING',
++            $runtime['status']
++        );
++    }
++
++    public function test_cosmetic_encounter_name_change_does_not_invalidate_competitive_fingerprint(): void
++    {
++        $phase =
++            $this->createAdvancedPhase(
++                4
++            );
++
++        app(
++            SingleEliminationStructureService::class
++        )
++            ->generate(
++                $phase,
++                4
++            );
++
++        $settings =
++            $phase
++            ->singleEliminationSetting()
++            ->firstOrFail();
++
++        $stored =
++            $settings->structure_fingerprint;
++
++        $encounter =
++            $phase
++            ->singleEliminationEncounters()
++            ->orderBy('sequence_number')
++            ->firstOrFail();
++
++        $encounter->update([
++            'name' =>
++            'Nombre visual actualizado',
++        ]);
++
++        $current =
++            app(
++                SingleEliminationStructureFingerprint::class
++            )
++            ->forPhase(
++                $phase->fresh()
++            );
++
++        $this->assertSame(
++            $stored,
++            $current
++        );
++
++        $runtime =
++            app(
++                SingleEliminationGraphRuntime::class
++            )
++            ->prepare(
++                $phase->fresh(),
++                $this->participantIds(4)
++            );
++
++        $this->assertSame(
++            'RUNNING',
++            $runtime['status']
++        );
++    }
++
++    public function test_working_participant_preference_does_not_invalidate_structure_fingerprint(): void
++    {
++        $phase =
++            $this->createAdvancedPhase(
++                4
++            );
++
++        app(
++            SingleEliminationStructureService::class
++        )
++            ->generate(
++                $phase,
++                4
++            );
++
++        $settings =
++            $phase
++            ->singleEliminationSetting()
++            ->firstOrFail();
++
++        $stored =
++            $settings->structure_fingerprint;
++
++        app(
++            SingleEliminationSettingsService::class
++        )
++            ->rememberParticipants(
++                $phase->fresh(),
++                8
++            );
++
++        $current =
++            app(
++                SingleEliminationStructureFingerprint::class
++            )
++            ->forPhase(
++                $phase->fresh()
++            );
++
++        $this->assertSame(
++            $stored,
++            $current
++        );
++
++        $runtime =
++            app(
++                SingleEliminationGraphRuntime::class
++            )
++            ->prepare(
++                $phase->fresh(),
++                $this->participantIds(4)
++            );
++
++        $this->assertSame(
++            'RUNNING',
++            $runtime['status']
++        );
++    }
++
++    private function createAdvancedPhase(
++        int $participants,
++        array $overrides = []
++    ): PhaseTemplate {
++        $user =
++            User::factory()
++            ->create();
++
++        $phase =
++            $user
++            ->phaseTemplates()
++            ->create([
++                'sequence_number' =>
++                1,
++
++                'code' =>
++                'PHS000001',
++
++                'name' =>
++                'Single Elimination Advanced Contract',
++
++                'slug' =>
++                'single-elimination-advanced-contract',
++
++                'phase_type' =>
++                'SINGLE_ELIMINATION',
++
++                'participant_mode' =>
++                'INDIVIDUAL',
++
++                'min_participants' =>
++                2,
++
++                'max_participants' =>
++                512,
++
++                'exact_participants' =>
++                $participants,
++
++                'participant_multiple' =>
++                null,
++
++                'allow_byes' =>
++                true,
++
++                'best_of' =>
++                1,
++
++                'status' =>
++                'DRAFT',
++
++                'visibility' =>
++                'PRIVATE',
++
++                'allow_cloning' =>
++                true,
++            ]);
++
++        $settings =
++            new PhaseSingleEliminationSetting();
++
++        $settings->forceFill(
++            array_merge(
++                [
++                    'configuration_mode' =>
++                    'ADVANCED',
++
++                    'input_mode' =>
++                    'POOL',
++
++                    'routing_mode' =>
++                    'AUTOMATIC',
++
++                    'entrants_per_match' =>
++                    2,
++
++                    'qualifiers_per_match' =>
++                    1,
++
++                    'encounter_profile' =>
++                    'DUEL',
++
++                    'remainder_policy' =>
++                    'BYE',
++
++                    'completion_mode' =>
++                    'WINNER',
++
++                    'target_survivors' =>
++                    1,
++
++                    'seeding_mode' =>
++                    'INPUT_ORDER',
++
++                    'pairing_mode' =>
++                    'STANDARD_SEEDED',
++
++                    'bye_assignment' =>
++                    'TOP_SEEDS',
++
++                    'reseed_each_round' =>
++                    false,
++
++                    'series_format' =>
++                    'BEST_OF',
++
++                    'default_best_of' =>
++                    1,
++
++                    'fixed_games' =>
++                    1,
++                ],
++                $overrides
++            )
++        );
++
++        $phase
++            ->singleEliminationSetting()
++            ->create(
++                $settings->getAttributes()
++            );
++
++        return $phase->fresh();
++    }
++
++    private function participantIds(
++        int $count
++    ): array {
++        return array_map(
++            fn(int $index) =>
++            'P'
++                .
++                $index,
++            range(
++                1,
++                $count
++            )
++        );
++    }
++}
+diff --git a/tests/Unit/Tournaments/CompetitionLab/SingleEliminationGraphRuntimeLivenessTest.php b/tests/Unit/Tournaments/CompetitionLab/SingleEliminationGraphRuntimeLivenessTest.php
+new file mode 100644
+index 0000000..9d1fb30
+--- /dev/null
++++ b/tests/Unit/Tournaments/CompetitionLab/SingleEliminationGraphRuntimeLivenessTest.php
+@@ -0,0 +1,193 @@
++<?php
++
++namespace Tests\Unit\Tournaments\CompetitionLab;
++
++use App\Services\Tournaments\CompetitionLab\Engines\SingleEliminationGraphRuntime;
++use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureExecutionPolicy;
++use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureFingerprint;
++use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureValidator;
++use Illuminate\Validation\ValidationException;
++use PHPUnit\Framework\TestCase;
++use ReflectionMethod;
++
++class SingleEliminationGraphRuntimeLivenessTest extends TestCase
++{
++    public function test_refresh_rejects_a_waiting_graph_with_no_possible_runtime_progress(): void
++    {
++        $runtime =
++            new SingleEliminationGraphRuntime(
++                $this->createMock(
++                    SingleEliminationStructureValidator::class
++                ),
++                new SingleEliminationStructureExecutionPolicy(),
++                new SingleEliminationStructureFingerprint()
++            );
++
++        $state = [
++            'status' =>
++            'RUNNING',
++
++            'encounters' => [
++                10 => [
++                    'id' =>
++                    10,
++
++                    'round_id' =>
++                    1,
++
++                    'match_id' =>
++                    'SE-G-10',
++
++                    'name' =>
++                    'Encuentro bloqueado',
++
++                    'entrants_count' =>
++                    2,
++
++                    'qualifiers_count' =>
++                    1,
++
++                    'min_entrants_to_start' =>
++                    2,
++
++                    'allows_incomplete' =>
++                    false,
++
++                    'resolution_mode' =>
++                    'SCORE',
++
++                    'qualifier_ordering' =>
++                    'ORDERED',
++
++                    'series_format' =>
++                    'BEST_OF',
++
++                    'best_of' =>
++                    1,
++
++                    'fixed_games' =>
++                    null,
++
++                    'status' =>
++                    'WAITING',
++
++                    'participant_ids' =>
++                    [],
++
++                    'qualifier_ids' =>
++                    [],
++
++                    'eliminated_ids' =>
++                    [],
++
++                    'score_a' =>
++                    null,
++
++                    'score_b' =>
++                    null,
++                ],
++            ],
++
++            'slots' => [
++                100 => [
++                    'id' =>
++                    100,
++
++                    'encounter_id' =>
++                    10,
++
++                    'position' =>
++                    1,
++
++                    'required' =>
++                    true,
++
++                    'participant_id' =>
++                    null,
++                ],
++
++                101 => [
++                    'id' =>
++                    101,
++
++                    'encounter_id' =>
++                    10,
++
++                    'position' =>
++                    2,
++
++                    'required' =>
++                    true,
++
++                    'participant_id' =>
++                    null,
++                ],
++            ],
++
++            'rounds' => [
++                [
++                    'id' =>
++                    1,
++
++                    'number' =>
++                    1,
++
++                    'label' =>
++                    'Ronda 1',
++
++                    'status' =>
++                    'WAITING',
++
++                    'matches' =>
++                    [],
++                ],
++            ],
++
++            'exit_participants' =>
++            [],
++
++            'exit_definitions' =>
++            [],
++
++            'eliminated_ids' =>
++            [],
++
++            'outcomes' =>
++            [],
++
++            'standings' =>
++            [],
++
++            'survivor_ids' =>
++            [],
++
++            'matches_total' =>
++            0,
++
++            'matches_completed' =>
++            0,
++
++            'current_round' =>
++            1,
++        ];
++
++        $method =
++            new ReflectionMethod(
++                SingleEliminationGraphRuntime::class,
++                'refresh'
++            );
++
++        $this->expectException(
++            ValidationException::class
++        );
++
++        $this->expectExceptionMessage(
++            'ninguna transición puede producir nuevos participantes'
++        );
++
++        $method->invoke(
++            $runtime,
++            $state
++        );
++    }
++}
