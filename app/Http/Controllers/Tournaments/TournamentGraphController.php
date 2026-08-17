@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tournaments;
 use App\Http\Controllers\Controller;
 use App\Models\PhaseTemplate;
 use App\Models\TournamentTemplate;
+use App\Services\Tournaments\CompetitionLab\Engines\LabPhaseEngineManager;
 use App\Services\Tournaments\Graph\TournamentGraphLayoutService;
 use App\Services\Tournaments\Graph\TournamentGraphValidationService;
 use App\Services\Tournaments\Graph\Flow\TournamentGraphFlowAnalysisService;
@@ -31,7 +32,10 @@ extends Controller
         TournamentGraphPayloadService $payloadService,
 
         private readonly
-        TournamentGraphFlowValidationService $flowValidationService
+        TournamentGraphFlowValidationService $flowValidationService,
+
+        private readonly
+        LabPhaseEngineManager $engineManager
     ) {}
 
     public function show(
@@ -78,7 +82,14 @@ extends Controller
                 ),
             ])
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(
+                fn(PhaseTemplate $phaseTemplate) =>
+                $this->engineManager->supports(
+                    $phaseTemplate->phase_type
+                )
+            )
+            ->values();
 
         $graphValidation =
             $this->validationService->validate(

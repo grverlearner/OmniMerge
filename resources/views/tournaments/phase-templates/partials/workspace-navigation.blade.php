@@ -1,5 +1,6 @@
 @php
     $current = $current ?? 'summary';
+    $canUpdatePhase = auth()->user()?->can('update', $phaseTemplate) ?? false;
 
     $rulesRouteName = match ($phaseTemplate->phase_type) {
         'SINGLE_ELIMINATION' => 'tournaments.single-elimination.show',
@@ -78,16 +79,19 @@
             'icon' => '⌂',
             'url' => route('tournaments.phase-templates.show', $phaseTemplate),
         ],
-        [
+    ];
+
+    if ($canUpdatePhase) {
+        $tabs[] = [
             'key' => 'definition',
             'label' => 'Definición',
             'description' => 'Identidad y contrato',
             'icon' => '✎',
             'url' => route('tournaments.phase-templates.edit', $phaseTemplate),
-        ],
-    ];
+        ];
+    }
 
-    if ($rulesRouteName !== null && Route::has($rulesRouteName)) {
+    if ($canUpdatePhase && $rulesRouteName !== null && Route::has($rulesRouteName)) {
         $tabs[] = [
             'key' => 'rules',
             'label' => 'Reglas',
@@ -97,7 +101,7 @@
         ];
     }
 
-    if ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION') {
+    if ($canUpdatePhase && $phaseTemplate->phase_type === 'SINGLE_ELIMINATION') {
         $tabs[] = [
             'key' => 'structure',
             'label' => 'Estructura',

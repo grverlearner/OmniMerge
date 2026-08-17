@@ -367,17 +367,22 @@
             <select name="default_best_of" class="mt-2 w-full rounded-xl border-slate-300">
 
                 @foreach ([1, 3, 5, 7, 9] as $bestOf)
-                    <option value="{{ $bestOf }}" @selected((int) old('default_best_of', $settings->default_best_of) === $bestOf)>
+                    <option value="{{ $bestOf }}"
+                        @selected((int) old('default_best_of', $settings->default_best_of) === $bestOf)
+                        @disabled($bestOf !== 1 && (int) old('default_best_of', $settings->default_best_of) !== $bestOf)>
 
                         BO{{ $bestOf }}
-                        ·
-                        {{ intdiv($bestOf, 2) + 1 }}
-                        {{ intdiv($bestOf, 2) + 1 === 1 ? 'victoria' : 'victorias' }}
+                        {{ $bestOf === 1 ? '' : '· Próximamente' }}
 
                     </option>
                 @endforeach
 
             </select>
+
+            <p class="mt-2 text-[11px] leading-5 text-amber-700">
+                BO3+ se conserva para configuraciones existentes, pero el Lab todavía
+                resuelve un resultado por encuentro.
+            </p>
 
         </div>
 
@@ -408,8 +413,9 @@
             <select name="bye_policy" x-model="byePolicy" class="mt-2 w-full rounded-xl border-slate-300">
 
                 @foreach ($byePolicies as $value => $label)
-                    <option value="{{ $value }}">
-                        {{ $label }}
+                    <option value="{{ $value }}"
+                        @disabled($value === 'MANUAL' && old('bye_policy', $settings->bye_policy) !== 'MANUAL')>
+                        {{ $label }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
                     </option>
                 @endforeach
 
@@ -585,9 +591,11 @@
                 <select name="cutoff_tie_policy" class="mt-2 w-full rounded-xl border-slate-300">
 
                     @foreach ($cutoffPolicies as $value => $label)
-                        <option value="{{ $value }}" @selected(old('cutoff_tie_policy', $settings->cutoff_tie_policy) === $value)>
+                        <option value="{{ $value }}"
+                            @selected(old('cutoff_tie_policy', $settings->cutoff_tie_policy) === $value)
+                            @disabled($value === 'MANUAL_RESOLUTION' && old('cutoff_tie_policy', $settings->cutoff_tie_policy) !== 'MANUAL_RESOLUTION')>
 
-                            {{ $label }}
+                            {{ $label }}{{ $value === 'MANUAL_RESOLUTION' ? ' · Próximamente' : '' }}
 
                         </option>
                     @endforeach
@@ -606,9 +614,11 @@
                 <select name="fallback_policy" class="mt-2 w-full rounded-xl border-slate-300">
 
                     @foreach ($fallbackPolicies as $value => $label)
-                        <option value="{{ $value }}" @selected(old('fallback_policy', $settings->fallback_policy) === $value)>
+                        <option value="{{ $value }}"
+                            @selected(old('fallback_policy', $settings->fallback_policy) === $value)
+                            @disabled($value === 'MANUAL_RESOLUTION' && old('fallback_policy', $settings->fallback_policy) !== 'MANUAL_RESOLUTION')>
 
-                            {{ $label }}
+                            {{ $label }}{{ $value === 'MANUAL_RESOLUTION' ? ' · Próximamente' : '' }}
 
                         </option>
                     @endforeach

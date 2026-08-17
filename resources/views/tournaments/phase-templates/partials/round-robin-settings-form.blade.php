@@ -68,8 +68,10 @@
         'RANKING' => 'Ranking',
         'MANUAL' => 'Manual',
     ] as $value => $label)
-                        <option value="{{ $value }}" @selected(old('initial_order_mode', $settings->initial_order_mode) === $value)>
-                            {{ $label }}
+                        <option value="{{ $value }}"
+                            @selected(old('initial_order_mode', $settings->initial_order_mode) === $value)
+                            @disabled($value === 'MANUAL' && old('initial_order_mode', $settings->initial_order_mode) !== 'MANUAL')>
+                            {{ $label }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
                         </option>
                     @endforeach
 
@@ -141,15 +143,20 @@
                 class="mt-2 w-full rounded-xl border-slate-300 focus:border-cyan-400 focus:ring-cyan-400">
 
                 @foreach ([1, 3, 5, 7, 9] as $value)
-                    <option value="{{ $value }}" @selected((int) old('default_best_of', $settings->default_best_of) === $value)>
+                    <option value="{{ $value }}"
+                        @selected((int) old('default_best_of', $settings->default_best_of) === $value)
+                        @disabled($value !== 1 && (int) old('default_best_of', $settings->default_best_of) !== $value)>
                         BO{{ $value }}
-                        ·
-                        {{ intdiv($value, 2) + 1 }}
-                        {{ intdiv($value, 2) + 1 === 1 ? 'victoria' : 'victorias' }}
+                        {{ $value === 1 ? '' : '· Próximamente' }}
                     </option>
                 @endforeach
 
             </select>
+
+            <p class="mt-2 text-[11px] leading-5 text-amber-700">
+                El Runtime actual resuelve un resultado por encuentro. BO3+ queda visible
+                únicamente como configuración heredada hasta incorporar series reales.
+            </p>
 
         </div>
 

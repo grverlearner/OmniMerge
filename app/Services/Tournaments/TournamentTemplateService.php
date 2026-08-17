@@ -281,8 +281,6 @@ class TournamentTemplateService
     ): TournamentTemplate {
 
         $source->load([
-            'phases',
-
             'graphNodes.entryPorts',
 
             'graphStarts',
@@ -400,63 +398,13 @@ class TournamentTemplateService
 
 
                     /*
-                    |--------------------------------------------------------------------------
-                    | Copiar fases
-                    |--------------------------------------------------------------------------
-                    */
-
-                    foreach (
-                        $source->phases
-                        as
-                        $phase
-                    ) {
-
-                        $copy
-                            ->phases()
-                            ->create([
-
-                                'sequence_number' =>
-                                $phase->sequence_number,
-
-                                'code' =>
-                                $phase->code,
-
-                                'name' =>
-                                $phase->name,
-
-                                'description' =>
-                                $phase->description,
-
-                                'phase_type' =>
-                                $phase->phase_type,
-
-                                'sort_order' =>
-                                $phase->sort_order,
-
-                                'input_participants' =>
-                                $phase->input_participants,
-
-                                'qualifiers_count' =>
-                                $phase->qualifiers_count,
-
-                                'best_of' =>
-                                $phase->best_of,
-
-                                'allow_byes' =>
-                                $phase->allow_byes,
-
-                                'status' =>
-                                $phase->status,
-
-                                'settings' =>
-                                $phase->settings,
-                            ]);
-                    }
-
-                    /*
 |--------------------------------------------------------------------------
 | TOURNAMENT GRAPH
 |--------------------------------------------------------------------------
+|
+| El grafo es el flujo vigente. TournamentPhase pertenece al sistema
+| anterior y ya no se replica en nuevas copias.
+|
 */
 
                     $nodeIdMap = [];

@@ -21,6 +21,26 @@ class LabPhaseEngineManager
         SwissLabEngine $swiss
     ) {}
 
+    /**
+     * Permite que Builder, validadores y Runtime consulten la misma verdad
+     * sobre compatibilidad sin duplicar listas de motores en cada capa.
+     */
+    public function supports(
+        string $phaseType
+    ): bool {
+        foreach (
+            $this->engines()
+            as
+            $engine
+        ) {
+            if ($engine->supports($phaseType)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function prepare(
         PhaseTemplate $phase,
         array $participantIds,
@@ -98,16 +118,24 @@ class LabPhaseEngineManager
             );
     }
     
+    /**
+     * @return array<int, LabPhaseEngine>
+     */
+    private function engines(): array
+    {
+        return [
+            $this->singleElimination,
+            $this->roundRobin,
+            $this->groupStage,
+            $this->swiss,
+        ];
+    }
+
     private function engine(
         string $phaseType
     ): LabPhaseEngine {
         foreach (
-            [
-                $this->singleElimination,
-                $this->roundRobin,
-                $this->groupStage,
-                $this->swiss,
-            ]
+            $this->engines()
             as
             $engine
         ) {

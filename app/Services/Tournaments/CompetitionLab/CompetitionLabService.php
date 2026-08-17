@@ -24,11 +24,67 @@ class CompetitionLabService
         TournamentGraphRuntimeService $graphRuntime
     ) {}
 
+    public function compatibility(
+        TournamentTemplate $template
+    ): array {
+        $template->loadMissing(
+            'graphNodes.phaseTemplate'
+        );
+
+        $errors = [];
+
+        foreach (
+            $template->graphNodes
+            as
+            $node
+        ) {
+            $phase = $node->phaseTemplate;
+
+            if (! $phase) {
+                $errors[] = [
+                    'code' => 'LAB_PHASE_MISSING',
+                    'message' =>
+                    'El nodo “'
+                    . $node->name
+                    . '” no tiene una PhaseTemplate disponible.',
+                ];
+
+                continue;
+            }
+
+            if (
+                ! $this->engineManager->supports(
+                    $phase->phase_type
+                )
+            ) {
+                $errors[] = [
+                    'code' => 'LAB_ENGINE_UNAVAILABLE',
+                    'message' =>
+                    'El nodo “'
+                    . $node->name
+                    . '” usa '
+                    . $phase->type_label
+                    . ', un tipo que todavía no tiene motor de ejecución.',
+                ];
+            }
+        }
+
+        return [
+            'valid' => count($errors) === 0,
+            'errors' => $errors,
+            'warnings' => [],
+        ];
+    }
+
     public function initialize(
         TournamentTemplate $template,
         User $user,
         array $configuration
     ): array {
+        $this->assertCompatibleGraph(
+            $template
+        );
+
         $state =
             $this->stateFactory
             ->create(
@@ -60,6 +116,23 @@ class CompetitionLabService
             $template,
             $user
         );
+
+        if (
+            in_array(
+                $action,
+                [
+                    'PREPARE_NODE',
+                    'START_TOURNAMENT',
+                    'STEP_RUNTIME',
+                    'RUN_TOURNAMENT',
+                ],
+                true
+            )
+        ) {
+            $this->assertCompatibleGraph(
+                $template
+            );
+        }
 
         $state =
             match ($action) {
@@ -151,6 +224,28 @@ class CompetitionLabService
         );
     }
 
+
+    private function assertCompatibleGraph(
+        TournamentTemplate $template
+    ): void {
+        $compatibility =
+            $this->compatibility(
+                $template
+            );
+
+        if ($compatibility['valid']) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'graph' => collect(
+                $compatibility['errors']
+            )
+                ->pluck('message')
+                ->values()
+                ->all(),
+        ]);
+    }
 
     private function start(
         array $state

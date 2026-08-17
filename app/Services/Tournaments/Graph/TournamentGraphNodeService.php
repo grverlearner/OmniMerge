@@ -5,20 +5,30 @@ namespace App\Services\Tournaments\Graph;
 use App\Models\PhaseTemplate;
 use App\Models\TournamentPhaseNode;
 use App\Models\TournamentTemplate;
+use App\Services\Tournaments\CompetitionLab\Engines\LabPhaseEngineManager;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationEntryPortSynchronizer;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class TournamentGraphNodeService
 {
     public function __construct(
         private readonly
-        SingleEliminationEntryPortSynchronizer $entryPortSynchronizer
+        SingleEliminationEntryPortSynchronizer $entryPortSynchronizer,
+
+        private readonly
+        LabPhaseEngineManager $engineManager
     ) {}
+
     public function create(
         TournamentTemplate $tournamentTemplate,
         PhaseTemplate $phaseTemplate,
         array $data
     ): TournamentPhaseNode {
+        $this->assertExecutablePhase(
+            $phaseTemplate
+        );
+
         return DB::transaction(
             function () use (
                 $tournamentTemplate,
@@ -191,13 +201,19 @@ class TournamentGraphNodeService
     public function duplicate(
         TournamentPhaseNode $source
     ): TournamentPhaseNode {
+        $source->loadMissing([
+            'entryPorts',
+            'phaseTemplate',
+        ]);
+
+        $this->assertExecutablePhase(
+            $source->phaseTemplate
+        );
+
         return DB::transaction(
             function () use (
                 $source
             ) {
-                $source->load(
-                    'entryPorts'
-                );
 
                 $template =
                     TournamentTemplate::query()
@@ -391,6 +407,25 @@ class TournamentGraphNodeService
                     );
             }
         );
+    }
+
+
+    private function assertExecutablePhase(
+        ?PhaseTemplate $phaseTemplate
+    ): void {
+        if (
+            ! $phaseTemplate
+            ||
+            ! $this->engineManager->supports(
+                $phaseTemplate->phase_type
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'phase_template_id' => [
+                    'La Fase seleccionada todavía no tiene un motor compatible con Competition Lab.',
+                ],
+            ]);
+        }
     }
 
 

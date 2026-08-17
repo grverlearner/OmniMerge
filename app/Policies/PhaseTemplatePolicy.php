@@ -34,6 +34,14 @@ class PhaseTemplatePolicy
         return $phaseTemplate->user_id === $user->id;
     }
 
+    public function duplicate(
+        User $user,
+        PhaseTemplate $phaseTemplate
+    ): bool {
+        return $phaseTemplate->user_id === $user->id
+            || $phaseTemplate->canBeCloned();
+    }
+
     public function delete(
         User $user,
         PhaseTemplate $phaseTemplate

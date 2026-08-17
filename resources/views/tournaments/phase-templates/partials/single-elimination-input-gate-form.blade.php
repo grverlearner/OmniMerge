@@ -100,8 +100,8 @@
         'HYBRID' => 'Híbrida',
         'CUSTOM' => 'Personalizada',
     ] as $value => $label)
-                    <option value="{{ $value }}" @selected($gateValue('input_type', $editingGate ? $phaseInputGate->input_type : $settings->input_mode ?? 'POOL') === $value)>
-                        {{ $label }}
+                    <option value="{{ $value }}" @selected($gateValue('input_type', $editingGate ? $phaseInputGate->input_type : $settings->input_mode ?? 'POOL') === $value) @disabled($value === 'CUSTOM' && $gateValue('input_type', $editingGate ? $phaseInputGate->input_type : $settings->input_mode ?? 'POOL') !== 'CUSTOM')>
+                        {{ $label }}{{ $value === 'CUSTOM' ? ' · Próximamente' : '' }}
                     </option>
                 @endforeach
             </select>
@@ -141,8 +141,8 @@
         'MANUAL' => 'Manual',
         'CUSTOM' => 'Personalizada',
     ] as $value => $label)
-                    <option value="{{ $value }}" @selected($gateValue('distribution_mode', $editingGate ? $phaseInputGate->distribution_mode : $settings->seeding_mode ?? 'INPUT_ORDER') === $value)>
-                        {{ $label }}
+                    <option value="{{ $value }}" @selected($gateValue('distribution_mode', $editingGate ? $phaseInputGate->distribution_mode : $settings->seeding_mode ?? 'INPUT_ORDER') === $value) @disabled(in_array($value, ['MANUAL', 'CUSTOM'], true) && $gateValue('distribution_mode', $editingGate ? $phaseInputGate->distribution_mode : $settings->seeding_mode ?? 'INPUT_ORDER') !== $value)>
+                        {{ $label }}{{ in_array($value, ['MANUAL', 'CUSTOM'], true) ? ' · Próximamente' : '' }}
                     </option>
                 @endforeach
             </select>
@@ -161,12 +161,22 @@
         'ALLOW_EMPTY' => 'Permitir vacío',
         'MANUAL' => 'Manual',
     ] as $value => $label)
-                    <option value="{{ $value }}" @selected($gateValue('empty_behavior', $editingGate ? $phaseInputGate->empty_behavior : 'ERROR') === $value)>
-                        {{ $label }}
+                    <option value="{{ $value }}" @selected($gateValue('empty_behavior', $editingGate ? $phaseInputGate->empty_behavior : 'ERROR') === $value) @disabled($value === 'MANUAL' && $gateValue('empty_behavior', $editingGate ? $phaseInputGate->empty_behavior : 'ERROR') !== 'MANUAL')>
+                        {{ $label }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
                     </option>
                 @endforeach
             </select>
         </label>
+    </div>
+
+    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <p class="text-xs font-black text-amber-900">
+            Contratos manuales y personalizados · Próximamente
+        </p>
+        <p class="mt-1 text-[10px] leading-5 text-amber-800">
+            OmniMerge conserva estas opciones en el dominio para estructuras heredadas, pero Competition Lab
+            todavía no ejecuta su semántica completa. Las configuraciones nuevas deben usar modos automáticos.
+        </p>
     </div>
 
     <div class="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 p-4">

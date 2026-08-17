@@ -95,6 +95,9 @@
             default => null,
         };
 
+        $canUpdatePhase = auth()->user()?->can('update', $phaseTemplate) ?? false;
+        $canDuplicatePhase = auth()->user()?->can('duplicate', $phaseTemplate) ?? false;
+
     @endphp
 
     @include('tournaments.phase-templates.partials.workspace-navigation', [
@@ -237,18 +240,21 @@
 
                 <div class="mt-8 flex flex-wrap items-center gap-3">
 
-                    <a href="{{ $rulesRouteName && Route::has($rulesRouteName)
-                        ? route($rulesRouteName, $phaseTemplate)
-                        : route('tournaments.phase-templates.edit', $phaseTemplate) }}"
-                        class="rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600">
-                        {{ $rulesRouteName && Route::has($rulesRouteName) ? 'Continuar en reglas →' : 'Completar definición →' }}
-                    </a>
+                    @if ($canUpdatePhase)
+                        <a href="{{ $rulesRouteName && Route::has($rulesRouteName)
+                            ? route($rulesRouteName, $phaseTemplate)
+                            : route('tournaments.phase-templates.edit', $phaseTemplate) }}"
+                            class="rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600">
+                            {{ $rulesRouteName && Route::has($rulesRouteName) ? 'Continuar en reglas →' : 'Completar definición →' }}
+                        </a>
 
-                    <a href="{{ route('tournaments.phase-templates.edit', $phaseTemplate) }}"
-                        class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-amber-300 hover:bg-amber-50">
-                        Editar definición
-                    </a>
+                        <a href="{{ route('tournaments.phase-templates.edit', $phaseTemplate) }}"
+                            class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-amber-300 hover:bg-amber-50">
+                            Editar definición
+                        </a>
+                    @endif
 
+                    @if ($canDuplicatePhase || ($canUpdatePhase && $phaseTemplate->status !== 'ARCHIVED'))
                     <details class="relative">
                         <summary
                             class="cursor-pointer list-none rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-500 transition hover:bg-slate-50">
@@ -257,16 +263,18 @@
 
                         <div
                             class="absolute right-0 z-20 mt-2 w-56 space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
-                            <form method="POST"
-                                action="{{ route('tournaments.phase-templates.duplicate', $phaseTemplate) }}">
-                                @csrf
-                                <button type="submit"
-                                    class="w-full rounded-xl px-3 py-2 text-left text-xs font-black text-slate-700 transition hover:bg-slate-50">
-                                    ⧉ Duplicar fase
-                                </button>
-                            </form>
+                            @if ($canDuplicatePhase)
+                                <form method="POST"
+                                    action="{{ route('tournaments.phase-templates.duplicate', $phaseTemplate) }}">
+                                    @csrf
+                                    <button type="submit"
+                                        class="w-full rounded-xl px-3 py-2 text-left text-xs font-black text-slate-700 transition hover:bg-slate-50">
+                                        ⧉ Duplicar fase
+                                    </button>
+                                </form>
+                            @endif
 
-                            @if ($phaseTemplate->status !== 'ARCHIVED')
+                            @if ($canUpdatePhase && $phaseTemplate->status !== 'ARCHIVED')
                                 <form method="POST"
                                     action="{{ route('tournaments.phase-templates.archive', $phaseTemplate) }}"
                                     data-omni-confirm data-confirm-variant="warning" data-confirm-icon="!"
@@ -285,6 +293,7 @@
                             @endif
                         </div>
                     </details>
+                    @endif
 
                 </div>
 
@@ -324,7 +333,11 @@
         ],
         [
             'label' => 'Formato',
-            'value' => $phaseTemplate->phase_type === 'SINGLE_ELIMINATION' && $phaseTemplate->singleEliminationSetting ? $phaseTemplate->singleEliminationSetting->series_label : 'BO' . $phaseTemplate->best_of,
+            'value' => (
+                $phaseTemplate->phase_type === 'SINGLE_ELIMINATION' && $phaseTemplate->singleEliminationSetting
+                    ? $phaseTemplate->singleEliminationSetting->series_label
+                    : 'BO' . $phaseTemplate->best_of
+            ) . ($phaseTemplate->best_of > 1 ? ' · Próximamente' : ''),
             'icon' => '×',
         ],
         [
@@ -703,10 +716,16 @@
 
                                         </div>
 
-                                        <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
-                                            class="shrink-0 rounded-xl bg-amber-500 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-amber-500/20">
-                                            Configurar reglas →
-                                        </a>
+                                        @if ($canUpdatePhase)
+                                            <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
+                                                class="shrink-0 rounded-xl bg-amber-500 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-amber-500/20">
+                                                Configurar reglas →
+                                            </a>
+                                        @else
+                                            <span class="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-black text-slate-400">
+                                                Solo lectura
+                                            </span>
+                                        @endif
 
                                     </div>
 
@@ -735,10 +754,16 @@
 
                                         </div>
 
-                                        <a href="{{ route('tournaments.round-robin.show', $phaseTemplate) }}"
-                                            class="shrink-0 rounded-xl bg-cyan-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-cyan-600/20">
-                                            Configurar reglas →
-                                        </a>
+                                        @if ($canUpdatePhase)
+                                            <a href="{{ route('tournaments.round-robin.show', $phaseTemplate) }}"
+                                                class="shrink-0 rounded-xl bg-cyan-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-cyan-600/20">
+                                                Configurar reglas →
+                                            </a>
+                                        @else
+                                            <span class="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-black text-slate-400">
+                                                Solo lectura
+                                            </span>
+                                        @endif
 
                                     </div>
 
@@ -765,10 +790,16 @@
                                             </p>
                                         </div>
 
-                                        <a href="{{ route('tournaments.group-stage.show', $phaseTemplate) }}"
-                                            class="shrink-0 rounded-xl bg-indigo-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-indigo-600/20">
-                                            Configurar reglas →
-                                        </a>
+                                        @if ($canUpdatePhase)
+                                            <a href="{{ route('tournaments.group-stage.show', $phaseTemplate) }}"
+                                                class="shrink-0 rounded-xl bg-indigo-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-indigo-600/20">
+                                                Configurar reglas →
+                                            </a>
+                                        @else
+                                            <span class="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-black text-slate-400">
+                                                Solo lectura
+                                            </span>
+                                        @endif
 
                                     </div>
 
@@ -811,12 +842,18 @@
 
                                         </div>
 
-                                        <a href="{{ route('tournaments.swiss.show', $phaseTemplate) }}"
-                                            class="shrink-0 rounded-xl bg-violet-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-violet-600/20">
+                                        @if ($canUpdatePhase)
+                                            <a href="{{ route('tournaments.swiss.show', $phaseTemplate) }}"
+                                                class="shrink-0 rounded-xl bg-violet-600 px-4 py-3 text-center text-xs font-black text-white shadow-lg shadow-violet-600/20">
 
-                                            Configurar reglas →
+                                                Configurar reglas →
 
-                                        </a>
+                                            </a>
+                                        @else
+                                            <span class="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-black text-slate-400">
+                                                Solo lectura
+                                            </span>
+                                        @endif
 
                                     </div>
 
@@ -896,10 +933,12 @@
                         </p>
                     </div>
 
-                    <a href="{{ route('tournaments.single-elimination.structure.io', $phaseTemplate) }}"
-                        class="shrink-0 rounded-xl bg-violet-600 px-5 py-3 text-center text-xs font-black text-white shadow-lg shadow-violet-600/20">
-                        Administrar puertas →
-                    </a>
+                    @if ($canUpdatePhase)
+                        <a href="{{ route('tournaments.single-elimination.structure.io', $phaseTemplate) }}"
+                            class="shrink-0 rounded-xl bg-violet-600 px-5 py-3 text-center text-xs font-black text-white shadow-lg shadow-violet-600/20">
+                            Administrar puertas →
+                        </a>
+                    @endif
                 </div>
 
                 <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -1116,6 +1155,7 @@
 
                                         {{-- ACTIONS --}}
 
+                                        @if ($canUpdatePhase)
                                         <div class="flex shrink-0 gap-2">
 
                                             <button type="button" @click="editing = !editing"
@@ -1144,6 +1184,7 @@
                                             </form>
 
                                         </div>
+                                        @endif
 
                                     </div>
 
@@ -1152,6 +1193,7 @@
 
                                 {{-- EDITOR INLINE --}}
 
+                                @if ($canUpdatePhase)
                                 <div x-show="editing" x-transition style="display: none;"
                                     class="border-t border-slate-100 bg-slate-50/70 p-5">
 
@@ -1174,6 +1216,7 @@
                                     ])
 
                                 </div>
+                                @endif
 
                             </article>
                         @endforeach
@@ -1189,6 +1232,7 @@
             {{-- CREAR SALIDA --}}
             {{-- ================================================= --}}
 
+            @if ($canUpdatePhase)
             <aside class="h-fit xl:sticky xl:top-28">
 
                 <div class="overflow-hidden rounded-3xl border border-amber-200 bg-white shadow-sm">
@@ -1256,6 +1300,7 @@
                 </div>
 
             </aside>
+            @endif
 
         </div>
         @endif
@@ -1398,6 +1443,7 @@
     {{-- DANGER ZONE --}}
     {{-- ========================================================= --}}
 
+    @can('delete', $phaseTemplate)
     <details class="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white">
 
         <summary class="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
@@ -1453,5 +1499,6 @@
         </div>
 
     </details>
+    @endcan
 
 </x-tournament-layout>

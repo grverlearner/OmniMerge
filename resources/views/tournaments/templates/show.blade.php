@@ -155,50 +155,26 @@
                         gap-3
                     ">
 
-                    <a href="{{ route('tournaments.templates.edit', $tournamentTemplate) }}"
-                        class="
-                            rounded-xl
-                            bg-amber-500
-                            px-4
-                            py-2.5
-                            text-xs
-                            font-black
-                            text-white
-                        ">
-                        Editar
-                    </a>
-
-
-                    <form method="POST" action="{{ route('tournaments.templates.duplicate', $tournamentTemplate) }}">
-
-                        @csrf
-
-
-                        <button type="submit"
+                    @can('update', $tournamentTemplate)
+                        <a href="{{ route('tournaments.templates.edit', $tournamentTemplate) }}"
                             class="
                                 rounded-xl
-                                border
-                                border-slate-200
-                                bg-white
+                                bg-amber-500
                                 px-4
                                 py-2.5
                                 text-xs
                                 font-black
-                                text-slate-700
+                                text-white
                             ">
-                            ⧉ Duplicar
-                        </button>
+                            Editar
+                        </a>
+                    @endcan
 
-                    </form>
 
-
-                    @if ($tournamentTemplate->status !== 'ARCHIVED')
-                        <form method="POST"
-                            action="{{ route('tournaments.templates.archive', $tournamentTemplate) }}">
+                    @can('duplicate', $tournamentTemplate)
+                        <form method="POST" action="{{ route('tournaments.templates.duplicate', $tournamentTemplate) }}">
 
                             @csrf
-
-                            @method('PATCH')
 
 
                             <button type="submit"
@@ -211,13 +187,43 @@
                                     py-2.5
                                     text-xs
                                     font-black
-                                    text-slate-500
+                                    text-slate-700
                                 ">
-                                Archivar
+                                ⧉ Duplicar
                             </button>
 
                         </form>
-                    @endif
+                    @endcan
+
+
+                    @can('update', $tournamentTemplate)
+                        @if ($tournamentTemplate->status !== 'ARCHIVED')
+                            <form method="POST"
+                                action="{{ route('tournaments.templates.archive', $tournamentTemplate) }}">
+
+                                @csrf
+
+                                @method('PATCH')
+
+
+                                <button type="submit"
+                                    class="
+                                        rounded-xl
+                                        border
+                                        border-slate-200
+                                        bg-white
+                                        px-4
+                                        py-2.5
+                                        text-xs
+                                        font-black
+                                        text-slate-500
+                                    ">
+                                    Archivar
+                                </button>
+
+                            </form>
+                        @endif
+                    @endcan
 
                 </div>
 
@@ -403,12 +409,18 @@
                 </div>
 
 
-                <a href="{{ route('tournaments.graph.show', $tournamentTemplate) }}"
-                    class="mt-4 rounded-xl bg-amber-500 px-5 py-3.5 text-center text-sm font-black text-white shadow-lg shadow-amber-500/20">
+                @can('update', $tournamentTemplate)
+                    <a href="{{ route('tournaments.graph.show', $tournamentTemplate) }}"
+                        class="mt-4 rounded-xl bg-amber-500 px-5 py-3.5 text-center text-sm font-black text-white shadow-lg shadow-amber-500/20">
 
-                    ◇ Abrir Tournament Graph
+                        ◇ Abrir Tournament Graph
 
-                </a>
+                    </a>
+                @else
+                    <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-5 py-3.5 text-center text-xs font-black text-slate-400">
+                        Tournament Graph · solo lectura
+                    </div>
+                @endcan
 
             </div>
 
@@ -418,6 +430,7 @@
 
     {{-- DANGER ZONE --}}
 
+    @can('delete', $tournamentTemplate)
     <section x-data="{
         deleting: false
     }"
@@ -566,5 +579,6 @@
         </div>
 
     </section>
+    @endcan
 
 </x-tournament-layout>

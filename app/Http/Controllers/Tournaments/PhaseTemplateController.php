@@ -306,7 +306,7 @@ class PhaseTemplateController extends Controller
         PhaseTemplate $phaseTemplate
     ): RedirectResponse {
         $this->authorize(
-            'view',
+            'duplicate',
             $phaseTemplate
         );
 

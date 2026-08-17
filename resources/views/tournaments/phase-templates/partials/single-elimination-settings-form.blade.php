@@ -127,8 +127,10 @@
         'RANKING' => 'Ranking',
         'MANUAL' => 'Manual',
     ] as $value => $label)
-                            <option value="{{ $value }}" @selected(old('seeding_mode', $settings->seeding_mode) === $value)>
-                                {{ $label }}
+                            <option value="{{ $value }}"
+                                @selected(old('seeding_mode', $settings->seeding_mode) === $value)
+                                @disabled($value === 'MANUAL' && old('seeding_mode', $settings->seeding_mode) !== 'MANUAL')>
+                                {{ $label }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
                             </option>
                         @endforeach
                     </select>
@@ -206,8 +208,10 @@
         'RANDOM' => 'Aleatoriamente',
         'MANUAL' => 'Manual',
     ] as $value => $label)
-                        <option value="{{ $value }}" @selected(old('bye_assignment', $settings->bye_assignment) === $value)>
-                            {{ $label }}
+                        <option value="{{ $value }}"
+                            @selected(old('bye_assignment', $settings->bye_assignment) === $value)
+                            @disabled($value === 'MANUAL' && old('bye_assignment', $settings->bye_assignment) !== 'MANUAL')>
+                            {{ $label }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
                         </option>
                     @endforeach
                 </select>
@@ -291,7 +295,8 @@
                         'border-slate-200 bg-white'">
                     <span class="flex items-start gap-3">
                         <input type="radio" name="series_format" value="FIXED_GAMES" x-model="draft.seriesFormat"
-                            class="mt-0.5 border-slate-300 text-cyan-600 focus:ring-cyan-500">
+                            @disabled(old('series_format', $settings->series_format) !== 'FIXED_GAMES')
+                            class="mt-0.5 border-slate-300 text-cyan-600 focus:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-50">
 
                         <span>
                             <span class="block text-sm font-black text-slate-900">
@@ -314,14 +319,19 @@
                 <select name="default_best_of" x-model.number="draft.defaultBestOf"
                     class="mt-2 w-full rounded-xl border-slate-300 bg-white text-sm focus:border-violet-400 focus:ring-violet-400">
                     @foreach ([1, 3, 5, 7, 9] as $value)
-                        <option value="{{ $value }}" @selected((int) old('default_best_of', $settings->default_best_of) === $value)>
+                        <option value="{{ $value }}"
+                            @selected((int) old('default_best_of', $settings->default_best_of) === $value)
+                            @disabled($value !== 1 && (int) old('default_best_of', $settings->default_best_of) !== $value)>
                             BO{{ $value }}
-                            ·
-                            {{ intdiv($value, 2) + 1 }}
-                            {{ intdiv($value, 2) + 1 === 1 ? 'victoria' : 'victorias' }}
+                            {{ $value === 1 ? '' : '· Próximamente' }}
                         </option>
                     @endforeach
                 </select>
+
+                <p class="mt-2 text-[11px] leading-5 text-amber-700">
+                    BO3+ y cantidad fija siguen visibles si ya estaban guardados, pero
+                    el Runtime todavía no ejecuta series de múltiples juegos.
+                </p>
 
                 <x-input-error :messages="$errors->get('default_best_of')" class="mt-2" />
             </div>

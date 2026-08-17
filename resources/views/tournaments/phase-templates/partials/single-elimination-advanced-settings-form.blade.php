@@ -211,8 +211,9 @@
                         Híbrida
                     </option>
 
-                    <option value="CUSTOM">
-                        Personalizada · requiere configurar puertas
+                    <option value="CUSTOM"
+                        @disabled(old('input_mode', $settings->input_mode) !== 'CUSTOM')>
+                        Personalizada · Próximamente
                     </option>
                 </select>
 

@@ -84,8 +84,9 @@
                     Best of
                 </option>
 
-                <option value="FIXED_GAMES">
-                    Cantidad fija
+                <option value="FIXED_GAMES"
+                    @disabled($initialSeriesFormat !== 'FIXED_GAMES')>
+                    Cantidad fija · Próximamente
                 </option>
             </select>
 
@@ -101,10 +102,11 @@
                 <select name="best_of"
                     class="mt-2 w-full min-w-0 rounded-xl border-slate-300 bg-white text-sm focus:border-violet-400 focus:ring-violet-400">
                     @foreach ([1, 3, 5, 7, 9] as $value)
-                        <option value="{{ $value }}" @selected((int) old('best_of', $editingRoundRule ? $roundRule->best_of : $settings->default_best_of) === $value)>
+                        <option value="{{ $value }}"
+                            @selected((int) old('best_of', $editingRoundRule ? $roundRule->best_of : 1) === $value)
+                            @disabled($value !== 1 && (int) old('best_of', $editingRoundRule ? $roundRule->best_of : 1) !== $value)>
                             BO{{ $value }}
-                            ·
-                            {{ intdiv($value, 2) + 1 }}V
+                            {{ $value === 1 ? '' : '· Próximamente' }}
                         </option>
                     @endforeach
                 </select>

@@ -115,7 +115,7 @@ class TournamentTemplateController extends Controller
                 $user
             )
             ->withCount(
-                'phases'
+                'graphNodes'
             )
 
 
@@ -188,9 +188,11 @@ class TournamentTemplateController extends Controller
                 'name'
             ),
 
+            // Conservamos el valor del query-string por compatibilidad con
+            // enlaces existentes, pero el conteo vigente es el del Graph.
             'phases_desc' =>
             $query->orderByDesc(
-                'phases_count'
+                'graph_nodes_count'
             ),
 
             default =>
@@ -309,8 +311,6 @@ class TournamentTemplateController extends Controller
 
         $tournamentTemplate
             ->load([
-                'phases',
-
                 'graphNodes',
 
                 'graphStarts',
@@ -318,8 +318,6 @@ class TournamentTemplateController extends Controller
                 'graphTerminals',
             ])
             ->loadCount([
-                'phases',
-
                 'graphNodes',
 
                 'graphConnections',
@@ -415,7 +413,7 @@ class TournamentTemplateController extends Controller
     ): RedirectResponse {
 
         $this->authorize(
-            'view',
+            'duplicate',
             $tournamentTemplate
         );
 

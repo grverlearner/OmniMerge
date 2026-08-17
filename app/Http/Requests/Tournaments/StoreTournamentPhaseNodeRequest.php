@@ -4,6 +4,7 @@ namespace App\Http\Requests\Tournaments;
 
 use App\Models\PhaseTemplate;
 use App\Models\TournamentTemplate;
+use App\Services\Tournaments\CompetitionLab\Engines\LabPhaseEngineManager;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -144,6 +145,26 @@ extends FormRequest
                         ->add(
                             'phase_template_id',
                             'Solo puedes colocar en el grafo Fases de tu propia biblioteca.'
+                        );
+
+                    return;
+                }
+
+                $engineManager =
+                    app(
+                        LabPhaseEngineManager::class
+                    );
+
+                if (
+                    ! $engineManager->supports(
+                        $phaseTemplate->phase_type
+                    )
+                ) {
+                    $validator
+                        ->errors()
+                        ->add(
+                            'phase_template_id',
+                            'La Fase seleccionada todavía no tiene un motor compatible con Competition Lab.'
                         );
                 }
             }

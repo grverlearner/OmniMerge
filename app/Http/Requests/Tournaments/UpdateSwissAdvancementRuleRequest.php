@@ -2,28 +2,12 @@
 
 namespace App\Http\Requests\Tournaments;
 
-use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Foundation\Http\FormRequest;
-
-class UpdateSwissAdvancementRuleRequest extends FormRequest
+/**
+ * La edición comparte exactamente el mismo contrato de autorización y
+ * validación que la creación. Los Store* ya ignoran el registro actual
+ * cuando corresponde, por lo que mantener dos copias de reglas solo
+ * volvería a introducir divergencias.
+ */
+class UpdateSwissAdvancementRuleRequest extends StoreSwissAdvancementRuleRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
-    {
-        return false;
-    }
-
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
-    public function rules(): array
-    {
-        return [
-            //
-        ];
-    }
 }

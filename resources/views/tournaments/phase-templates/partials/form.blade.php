@@ -248,9 +248,9 @@
                                 <option value="SINGLE_ELIMINATION">Eliminación directa</option>
                                 <option value="ROUND_ROBIN">Todos contra todos</option>
                                 <option value="GROUP_STAGE">Fase de grupos</option>
-                                <option value="LEAGUE">Liga / División</option>
+                                <option value="LEAGUE" disabled>Liga / División · Próximamente</option>
                                 <option value="SWISS">Sistema suizo</option>
-                                <option value="CUSTOM">Personalizada</option>
+                                <option value="CUSTOM" disabled>Personalizada · Próximamente</option>
                             </select>
                         @endif
 
@@ -430,9 +430,19 @@
                         <select id="best-of" name="best_of" x-model.number="bestOf" required
                             class="mt-2 w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
                             @foreach ([1, 3, 5, 7, 9] as $value)
-                                <option value="{{ $value }}">Best of {{ $value }}</option>
+                                <option value="{{ $value }}"
+                                    @disabled($value !== 1 && (int) old('best_of', $editing ? $phaseTemplate->best_of : 1) !== $value)>
+                                    Best of {{ $value }}
+                                    {{ $value === 1 ? '' : '· Próximamente' }}
+                                </option>
                             @endforeach
                         </select>
+
+                        <p class="mt-2 text-[11px] leading-5 text-amber-700">
+                            BO3+ se conserva para configuraciones existentes, pero no debe usarse
+                            como una serie ejecutable hasta incorporar el motor de series.
+                        </p>
+
                         <x-input-error :messages="$errors->get('best_of')" class="mt-2" />
                     </div>
 

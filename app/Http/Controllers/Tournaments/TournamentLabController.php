@@ -200,11 +200,19 @@ extends Controller
                 $analysis
             );
 
+        $compatibility =
+            $this->labService
+            ->compatibility(
+                $template
+            );
+
         return [
             'valid' =>
             $structural['valid']
                 &&
-                $flow['valid'],
+                $flow['valid']
+                &&
+                $compatibility['valid'],
 
             'errors' =>
             collect(
@@ -212,6 +220,9 @@ extends Controller
             )
                 ->merge(
                     $flow['errors']
+                )
+                ->merge(
+                    $compatibility['errors']
                 )
                 ->unique(
                     fn($problem) =>
@@ -230,6 +241,9 @@ extends Controller
             )
                 ->merge(
                     $flow['warnings']
+                )
+                ->merge(
+                    $compatibility['warnings']
                 )
                 ->unique(
                     fn($problem) =>

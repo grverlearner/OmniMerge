@@ -10,42 +10,49 @@
             Resumen
         </a>
 
-        <a href="{{ route('tournaments.graph.show', $tournamentTemplate) }}"
-            class="{{ request()->routeIs(
-                'tournaments.graph.show',
-                'tournaments.graph.nodes.*',
-                'tournaments.graph.starts.*',
-                'tournaments.graph.terminals.*',
-                'tournaments.graph.connections.*',
-                'tournaments.graph.entry-ports.*',
-                'tournaments.graph.presets.*',
-            )
-                ? 'bg-amber-500 text-white'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900' }}
+        @can('update', $tournamentTemplate)
+            <a href="{{ route('tournaments.graph.show', $tournamentTemplate) }}"
+                class="{{ request()->routeIs(
+                    'tournaments.graph.show',
+                    'tournaments.graph.nodes.*',
+                    'tournaments.graph.starts.*',
+                    'tournaments.graph.terminals.*',
+                    'tournaments.graph.connections.*',
+                    'tournaments.graph.entry-ports.*',
+                    'tournaments.graph.presets.*',
+                )
+                    ? 'bg-amber-500 text-white'
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900' }}
+                    rounded-xl px-4 py-2.5 text-xs font-black transition">
+
+                ◇ Camino
+
+            </a>
+
+            <a href="{{ route('tournaments.graph.preview.show', $tournamentTemplate) }}"
+                class="{{ request()->routeIs('tournaments.graph.preview.*')
+                    ? 'bg-violet-600 text-white'
+                    : 'text-slate-500 hover:bg-violet-50 hover:text-violet-700' }}
+                    rounded-xl px-4 py-2.5 text-xs font-black transition">
+
+                ▶ Vista previa
+
+            </a>
+
+            <a href="{{ route('tournaments.lab.show', $tournamentTemplate) }}"
+                class="{{ request()->routeIs('tournaments.lab.*')
+                    ? 'bg-violet-600 text-white'
+                    : 'text-slate-500 hover:bg-violet-50 hover:text-violet-700' }}
                 rounded-xl px-4 py-2.5 text-xs font-black transition">
 
-            ◇ Camino
+                ⚗ Laboratorio
 
-        </a>
-        <a href="{{ route('tournaments.graph.preview.show', $tournamentTemplate) }}"
-            class="{{ request()->routeIs('tournaments.graph.preview.*')
-                ? 'bg-violet-600 text-white'
-                : 'text-slate-500 hover:bg-violet-50 hover:text-violet-700' }}
-                rounded-xl px-4 py-2.5 text-xs font-black transition">
-
-            ▶ Vista previa
-
-        </a>
-
-        <a href="{{ route('tournaments.lab.show', $tournamentTemplate) }}"
-            class="{{ request()->routeIs('tournaments.lab.*')
-                ? 'bg-violet-600 text-white'
-                : 'text-slate-500 hover:bg-violet-50 hover:text-violet-700' }}
-        rounded-xl px-4 py-2.5 text-xs font-black transition">
-
-            ⚗ Laboratorio
-
-        </a>
+            </a>
+        @else
+            <span class="rounded-xl bg-slate-50 px-4 py-2.5 text-xs font-black text-slate-400">
+                Solo lectura
+            </span>
+        @endcan
 
     </div>
 

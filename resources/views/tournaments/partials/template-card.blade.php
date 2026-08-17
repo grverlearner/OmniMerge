@@ -268,7 +268,7 @@
                             uppercase
                             text-slate-400
                         ">
-                        Fases
+                        Fases del grafo
                     </p>
 
 
@@ -279,7 +279,7 @@
                             font-black
                             text-slate-700
                         ">
-                        {{ $template->phases_count ?? $template->phases()->count() }}
+                        {{ $template->graph_nodes_count ?? $template->graphNodes()->count() }}
                     </p>
 
                 </div>

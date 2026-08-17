@@ -101,14 +101,22 @@
         <select name="best_of" class="mt-2 w-full rounded-xl border-slate-300">
 
             @foreach ([1, 3, 5, 7, 9] as $bestOf)
-                <option value="{{ $bestOf }}" @selected((int) old('best_of', $editingRoundRule ? $roundRule->best_of : 3) === $bestOf)>
+                <option value="{{ $bestOf }}"
+                    @selected((int) old('best_of', $editingRoundRule ? $roundRule->best_of : 1) === $bestOf)
+                    @disabled($bestOf !== 1 && (int) old('best_of', $editingRoundRule ? $roundRule->best_of : 1) !== $bestOf)>
 
                     BO{{ $bestOf }}
+                    {{ $bestOf === 1 ? '' : '· Próximamente' }}
 
                 </option>
             @endforeach
 
         </select>
+
+        <p class="mt-2 text-[11px] leading-5 text-amber-700">
+            El override BO3+ seguirá visible si ya existía, pero no se crea uno nuevo
+            hasta disponer del motor de series.
+        </p>
 
     </div>
 

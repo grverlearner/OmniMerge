@@ -50,6 +50,20 @@ class TournamentTemplatePolicy
     }
 
 
+    public function duplicate(
+        User $user,
+        TournamentTemplate $tournamentTemplate
+    ): bool {
+
+        return
+            $tournamentTemplate->user_id
+            ===
+            $user->id
+            ||
+            $tournamentTemplate->canBeCloned();
+    }
+
+
     public function delete(
         User $user,
         TournamentTemplate $tournamentTemplate

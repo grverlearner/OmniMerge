@@ -124,9 +124,7 @@ class StorePhaseTemplateRequest extends FormRequest
                     'SINGLE_ELIMINATION',
                     'ROUND_ROBIN',
                     'GROUP_STAGE',
-                    'LEAGUE',
                     'SWISS',
-                    'CUSTOM',
                 ]),
             ],
 
@@ -191,12 +189,10 @@ class StorePhaseTemplateRequest extends FormRequest
 
             'best_of' => [
                 'required',
+                // BO3+ todavía es metadata histórica. Hasta disponer del
+                // motor real de series, una fase nueva nace como BO1.
                 Rule::in([
                     1,
-                    3,
-                    5,
-                    7,
-                    9,
                 ]),
             ],
 
@@ -231,7 +227,7 @@ class StorePhaseTemplateRequest extends FormRequest
             'El nombre de la Fase es obligatorio.',
 
             'phase_type.in' =>
-            'El tipo de Fase seleccionado no es válido.',
+            'Ese tipo de Fase todavía no tiene un motor de ejecución disponible.',
 
             'capacity_mode.in' =>
             'Selecciona un contrato exacto, por rango o abierto.',
@@ -249,7 +245,7 @@ class StorePhaseTemplateRequest extends FormRequest
             'Indica la cantidad exacta de participantes.',
 
             'best_of.in' =>
-            'Selecciona un Best of válido.',
+            'Por ahora las Fases nuevas solo pueden ejecutarse como BO1. BO3+ llegará con el motor de series.',
         ];
     }
 }
