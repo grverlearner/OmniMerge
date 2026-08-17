@@ -3,15 +3,19 @@
 namespace App\Services\Tournaments\CompetitionLab\Engines;
 
 use App\Models\PhaseTemplate;
+use App\Services\Tournaments\CompetitionLab\Runtime\CutoffPolicyResolver;
 use App\Services\Tournaments\GroupStage\GroupStageAllocator;
 use Illuminate\Validation\ValidationException;
 
 class GroupStageLabEngine
-implements LabPhaseEngine
+implements LabPhaseEngine, SupportsManualDecision
 {
     public function __construct(
         private readonly
-        GroupStageAllocator $allocator
+        GroupStageAllocator $allocator,
+
+        private readonly
+        CutoffPolicyResolver $cutoffResolver
     ) {}
 
     public function supports(
@@ -307,6 +311,9 @@ implements LabPhaseEngine
 
             'cutoff_tie_policy' =>
             $settings->cutoff_tie_policy,
+
+            'resolved_cutoffs' =>
+            [],
 
             'groups' =>
             $groups,
@@ -622,6 +629,11 @@ implements LabPhaseEngine
                     $row['score_for']
                     -
                     $row['score_against'];
+
+                $games = $this->gameMetrics($runtime, $row['participant_id']);
+                $row['game_wins'] = $games['game_wins'];
+                $row['game_losses'] = $games['game_losses'];
+                $row['game_difference'] = $games['game_difference'];
             }
 
             unset($row);
@@ -746,6 +758,42 @@ implements LabPhaseEngine
                     $runtime,
                     $rule
                 );
+
+            $cutoffPool = $this->cutoffPoolForRule(
+                $eligible,
+                $runtime['groups'],
+                $runtime,
+                $rule
+            );
+
+            if ($cutoffPool !== null && (int) ($rule['take'] ?? 0) > 0) {
+                $decisionKey = 'GROUP_STAGE:CUTOFF:' . $rule['id'];
+                $resolvedIds = $runtime['resolved_cutoffs'][$decisionKey] ?? null;
+
+                if (is_array($resolvedIds)) {
+                    $selection = $cutoffPool
+                        ->filter(fn($row) => in_array($row['participant_id'], $resolvedIds, true))
+                        ->values();
+                } else {
+                    $resolved = $this->cutoffResolver->resolve(
+                        $cutoffPool->all(),
+                        (int) $rule['take'],
+                        $runtime['cutoff_tie_policy'] ?? 'USE_TIEBREAKERS',
+                        fn(array $left, array $right): bool =>
+                            $this->competitivelyTied($left, $right, $runtime),
+                        $decisionKey,
+                        'Resolver empate entre grupos'
+                    );
+
+                    if ($resolved['decision'] !== null) {
+                        $runtime['status'] = 'AWAITING_DECISION';
+                        $runtime['manual_decision'] = $resolved['decision'];
+                        return $runtime;
+                    }
+
+                    $selection = collect($resolved['selected']);
+                }
+            }
 
             $exitKey =
                 $rule['exit_id']
@@ -1120,10 +1168,10 @@ implements LabPhaseEngine
             'score_for',
 
             'GAME_DIFFERENCE' =>
-            'score_difference',
+            'game_difference',
 
             'GAME_WINS' =>
-            'score_for',
+            'game_wins',
 
             'SEED' =>
             'seed',
@@ -1405,8 +1453,14 @@ implements LabPhaseEngine
                         'winner_id' =>
                         null,
 
+                        'series_format' =>
+                        'BEST_OF',
+
                         'best_of' =>
                         $bestOf,
+
+                        'fixed_games' =>
+                        1,
 
                         'status' =>
                         'PENDING',
@@ -1469,6 +1523,148 @@ implements LabPhaseEngine
         }
 
         return $rounds;
+    }
+
+    public function resolveManualDecision(
+        array $runtime,
+        array $payload
+    ): array {
+        $decision = $runtime['manual_decision'] ?? null;
+
+        if (! is_array($decision) || ($payload['decision_id'] ?? null) !== ($decision['id'] ?? null)) {
+            $this->fail('La decisión de grupos ya no corresponde al estado actual.');
+        }
+
+        if (! in_array($decision['type'] ?? '', ['CUTOFF_SELECTION', 'PLAYOFF_SELECTION'], true)) {
+            $this->fail('La decisión pendiente no pertenece a un desempate de grupos.');
+        }
+
+        $eligible = array_values($decision['eligible_participant_ids'] ?? []);
+        $selected = array_values(array_unique($payload['selected_participant_ids'] ?? []));
+        $required = (int) ($decision['required_selection_count'] ?? 0);
+
+        if (count($selected) !== $required) {
+            $this->fail("Debes seleccionar exactamente {$required} participante(s).");
+        }
+
+        foreach ($selected as $participantId) {
+            if (! in_array($participantId, $eligible, true)) {
+                $this->fail('La selección contiene un participante no elegible.');
+            }
+        }
+
+        $key = data_get($decision, 'context.decision_key');
+        if (! $key) {
+            $this->fail('El desempate no contiene una clave de resolución.');
+        }
+
+        $runtime['resolved_cutoffs'][$key] = array_values(array_unique([
+            ...data_get($decision, 'context.guaranteed_participant_ids', []),
+            ...$selected,
+        ]));
+        unset($runtime['manual_decision']);
+        $runtime['status'] = 'RUNNING';
+
+        return $this->complete($runtime);
+    }
+
+    private function cutoffPoolForRule(
+        $eligible,
+        array $groups,
+        array $runtime,
+        array $rule
+    ) {
+        $type = $rule['rule_type'];
+
+        if (in_array($type, ['CROSS_GROUP_POSITION_TOP_N', 'CROSS_GROUP_POSITION_BOTTOM_N'], true)) {
+            $pool = $this->sortCrossGroup(
+                $eligible->where('position', (int) $rule['position_from'])->values(),
+                $runtime
+            );
+
+            return $type === 'CROSS_GROUP_POSITION_BOTTOM_N'
+                ? $pool->reverse()->values()
+                : $pool;
+        }
+
+        if (in_array($type, ['BEST_REMAINING', 'WORST_REMAINING'], true)) {
+            $pool = $this->sortCrossGroup($eligible, $runtime);
+            return $type === 'WORST_REMAINING'
+                ? $pool->reverse()->values()
+                : $pool;
+        }
+
+        return null;
+    }
+
+    private function competitivelyTied(array $left, array $right, array $runtime): bool
+    {
+        $criteria = [
+            ['criterion' => 'POINTS', 'direction' => 'DESC', 'normalization' => 'DEFAULT'],
+            ...$runtime['tiebreakers'],
+        ];
+
+        foreach ($criteria as $criterion) {
+            if (($criterion['criterion'] ?? null) === 'SEED') {
+                continue;
+            }
+
+            $field = match ($criterion['criterion'] ?? null) {
+                'POINTS' => 'points',
+                'WINS' => 'wins',
+                'SCORE_DIFFERENCE' => 'score_difference',
+                'SCORE_FOR' => 'score_for',
+                'GAME_DIFFERENCE' => 'game_difference',
+                'GAME_WINS' => 'game_wins',
+                default => null,
+            };
+
+            if (! $field) {
+                continue;
+            }
+
+            $leftValue = $left[$field] ?? 0;
+            $rightValue = $right[$field] ?? 0;
+            $normalization = ($criterion['normalization'] ?? 'DEFAULT') === 'DEFAULT'
+                ? ($runtime['cross_group_normalization'] ?? 'RAW')
+                : $criterion['normalization'];
+
+            if (
+                $normalization === 'PER_MATCH'
+                && in_array($field, ['points', 'wins', 'score_difference', 'score_for', 'game_difference', 'game_wins'], true)
+            ) {
+                $leftValue = ($left['played'] ?? 0) > 0 ? $leftValue / $left['played'] : 0;
+                $rightValue = ($right['played'] ?? 0) > 0 ? $rightValue / $right['played'] : 0;
+            }
+
+            if ($leftValue != $rightValue) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function gameMetrics(array $runtime, string $participantId): array
+    {
+        $wins = 0;
+        $losses = 0;
+
+        foreach ($runtime['series'] ?? [] as $series) {
+            if (($series['participant_a_id'] ?? null) === $participantId) {
+                $wins += (int) ($series['game_wins_a'] ?? 0);
+                $losses += (int) ($series['game_wins_b'] ?? 0);
+            } elseif (($series['participant_b_id'] ?? null) === $participantId) {
+                $wins += (int) ($series['game_wins_b'] ?? 0);
+                $losses += (int) ($series['game_wins_a'] ?? 0);
+            }
+        }
+
+        return [
+            'game_wins' => $wins,
+            'game_losses' => $losses,
+            'game_difference' => $wins - $losses,
+        ];
     }
 
     private function orderParticipants(

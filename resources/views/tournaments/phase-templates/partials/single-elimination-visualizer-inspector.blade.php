@@ -262,6 +262,111 @@
                                     </label>
                                 </template>
 
+                                <template x-if="selected.kind === 'ROUND'">
+                                    <div class="grid gap-3 sm:grid-cols-2">
+                                        <label class="block">
+                                            <span class="text-[9px] font-black uppercase text-slate-500">Etapa</span>
+                                            <input type="number" name="stage_number" min="1" max="1000" x-model.number="selected.stage_number"
+                                                class="mt-2 w-full rounded-xl border-slate-300 text-sm">
+                                        </label>
+                                        <label class="block">
+                                            <span class="text-[9px] font-black uppercase text-slate-500">Rama</span>
+                                            <select name="branch_code" x-model="selected.branch_code" class="mt-2 w-full rounded-xl border-slate-300 text-sm">
+                                                <option value="MAIN">Principal</option><option value="SECONDARY">Secundaria</option>
+                                                <option value="REPECHAGE">Repechaje</option><option value="CUSTOM">Personalizada</option>
+                                            </select>
+                                        </label>
+                                        <label class="block">
+                                            <span class="text-[9px] font-black uppercase text-slate-500">Tipo de ronda</span>
+                                            <select name="round_type" x-model="selected.round_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm">
+                                                <option value="PRELIMINARY">Preliminar</option><option value="MAIN">Principal</option>
+                                                <option value="REPECHAGE">Repechaje</option><option value="PLACEMENT">Posicionamiento</option>
+                                                <option value="CUSTOM">Personalizada</option>
+                                            </select>
+                                        </label>
+                                        <label class="block">
+                                            <span class="text-[9px] font-black uppercase text-slate-500">Orden</span>
+                                            <input type="number" name="sort_order" min="0" x-model.number="selected.sort_order"
+                                                class="mt-2 w-full rounded-xl border-slate-300 text-sm">
+                                        </label>
+                                        <label class="block"><span class="text-[9px] font-black uppercase text-slate-500">Participantes esperados</span>
+                                            <input type="number" name="participants_expected" min="1" max="512" x-model.number="selected.participants_expected" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label class="block"><span class="text-[9px] font-black uppercase text-slate-500">Clasificados esperados</span>
+                                            <input type="number" name="qualifiers_expected" min="1" max="512" x-model.number="selected.qualifiers_expected" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                    </div>
+                                </template>
+
+                                <template x-if="selected.kind === 'ENCOUNTER'">
+                                    <div class="grid gap-3 sm:grid-cols-2">
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Posición</span><input type="number" name="position" min="1" x-model.number="selected.position" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Orden</span><input type="number" name="sort_order" min="0" x-model.number="selected.sort_order" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Participantes K</span><input type="number" name="entrants_count" min="2" max="64" x-model.number="selected.entrants_count" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Clasifican Q</span><input type="number" name="qualifiers_count" min="1" max="63" x-model.number="selected.qualifiers_count" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Mínimo para iniciar</span><input type="number" name="min_entrants_to_start" min="1" max="64" x-model.number="selected.min_entrants_to_start" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Perfil</span><select name="encounter_profile" x-model="selected.encounter_profile" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="DUEL">Duelo</option><option value="MULTI_COMPETITOR">Multicompetidor</option><option value="CUSTOM">Personalizado</option></select></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Activación</span><select name="activation_policy" x-model="selected.activation_policy" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="ALL_SLOTS_FILLED">Todos los slots</option><option value="MINIMUM_REACHED">Mínimo alcanzado</option><option value="MANUAL">Manual</option></select></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Serie</span><select name="series_format" x-model="selected.series_format" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="NONE">Sin serie</option><option value="BEST_OF">Best of</option><option value="FIXED_GAMES">Juegos fijos</option></select></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Best of</span><select name="best_of" x-model.number="selected.best_of" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="1">BO1</option><option value="3">BO3</option><option value="5">BO5</option><option value="7">BO7</option><option value="9">BO9</option><option value="11">BO11</option></select></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Juegos fijos</span><input type="number" name="fixed_games" min="1" max="99" x-model.number="selected.fixed_games" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label class="sm:col-span-2 flex items-center gap-3 rounded-xl border border-slate-200 p-3"><input type="hidden" name="allows_incomplete" value="0"><input type="checkbox" name="allows_incomplete" value="1" x-model="selected.allows_incomplete" class="rounded border-slate-300 text-violet-600"><span class="text-xs font-black text-slate-700">Permitir encuentro incompleto</span></label>
+                                    </div>
+                                </template>
+
+                                <template x-if="selected.kind === 'INPUT_GATE'">
+                                    <div class="grid gap-3 sm:grid-cols-2">
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Tipo</span><select name="input_type" x-model="selected.input_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="POOL">Pool</option><option value="PER_SEED">Por seed</option><option value="GROUPED">Agrupada</option><option value="HYBRID">Híbrida</option><option value="CUSTOM">Personalizada</option></select></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Merge</span><select name="merge_policy" x-model="selected.merge_policy" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="APPEND">Append</option><option value="WAIT_ALL">Wait all</option><option value="FIRST_AVAILABLE">Primera disponible</option><option value="PRIORITY">Prioridad</option></select></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Distribución</span><select name="distribution_mode" x-model="selected.distribution_mode" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="INPUT_ORDER">Orden entrada</option><option value="RANKING">Ranking</option><option value="RANDOM">Aleatoria</option><option value="BALANCED">Balanceada</option><option value="EXTREMES">Extremos</option><option value="MANUAL">Manual</option><option value="CUSTOM">Personalizada</option></select></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Si está vacía</span><input name="empty_behavior" maxlength="80" x-model="selected.empty_behavior" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Mínimo</span><input type="number" name="min_participants" min="0" max="512" x-model.number="selected.min_participants" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Máximo</span><input type="number" name="max_participants" min="0" max="512" x-model.number="selected.max_participants" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Exactos</span><input type="number" name="exact_participants" min="0" max="512" x-model.number="selected.exact_participants" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Prioridad</span><input type="number" name="priority" min="0" x-model.number="selected.priority" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label class="flex items-center gap-3"><input type="hidden" name="is_required" value="0"><input type="checkbox" name="is_required" value="1" x-model="selected.required"><span class="text-xs font-bold">Obligatoria</span></label>
+                                        <label class="flex items-center gap-3"><input type="hidden" name="accepts_batch" value="0"><input type="checkbox" name="accepts_batch" value="1" x-model="selected.accepts_batch"><span class="text-xs font-bold">Aceptar lote</span></label>
+                                        <label class="flex items-center gap-3"><input type="hidden" name="accepts_multiple_connections" value="0"><input type="checkbox" name="accepts_multiple_connections" value="1" x-model="selected.accepts_multiple_connections"><span class="text-xs font-bold">Múltiples conexiones</span></label>
+                                    </div>
+                                </template>
+
+                                <template x-if="selected.kind === 'SLOT'">
+                                    <div class="grid gap-3 sm:grid-cols-2">
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Posición</span><input type="number" name="position" min="1" x-model.number="selected.position" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Capacidad</span><input type="number" name="capacity" min="1" max="64" x-model.number="selected.capacity" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Tipo</span><select name="slot_type" x-model="selected.slot_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="PARTICIPANT">Participante</option><option value="BYE">BYE</option><option value="OPTIONAL">Opcional</option><option value="MANUAL">Manual</option></select></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Fuente</span><select name="source_policy" x-model="selected.source_policy_value" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="SINGLE">Única</option><option value="FIRST_AVAILABLE">Primera</option><option value="PRIORITY">Prioridad</option><option value="CONDITIONAL">Condicional</option><option value="MANUAL">Manual</option></select></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Vacío</span><input name="empty_behavior" maxlength="80" x-model="selected.empty_behavior" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Regla asignación</span><input name="assignment_rule" maxlength="120" x-model="selected.assignment_rule" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label class="flex items-center gap-3"><input type="hidden" name="is_required" value="0"><input type="checkbox" name="is_required" value="1" x-model="selected.required"><span class="text-xs font-bold">Requerido</span></label>
+                                    </div>
+                                </template>
+
+                                <template x-if="selected.kind === 'RESULT'">
+                                    <div class="grid gap-3 sm:grid-cols-2">
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Tipo</span><select name="result_type" x-model="selected.result_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="WINNER">Ganador</option><option value="LOSER">Perdedor</option><option value="POSITION">Posición</option><option value="TOP_N">Top N</option><option value="QUALIFIED">Clasificados</option><option value="ELIMINATED">Eliminados</option><option value="SURVIVOR">Supervivientes</option><option value="MANUAL">Manual</option><option value="CUSTOM">Custom</option></select></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Cantidad</span><input type="number" name="quantity" min="1" max="64" x-model.number="selected.quantity" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Desde posición</span><input type="number" name="position_from" min="1" max="64" x-model.number="selected.position_from" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Hasta posición</span><input type="number" name="position_to" min="1" max="64" x-model.number="selected.position_to" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Estado producido</span><input name="participant_status" maxlength="80" x-model="selected.participant_status" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Prioridad</span><input type="number" name="priority" min="0" x-model.number="selected.priority" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label class="flex items-center gap-3"><input type="hidden" name="is_splittable" value="0"><input type="checkbox" name="is_splittable" value="1" x-model="selected.splittable"><span class="text-xs font-bold">Divisible</span></label>
+                                    </div>
+                                </template>
+
+                                <template x-if="selected.kind === 'CONNECTION'">
+                                    <div class="grid gap-3 sm:grid-cols-2">
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Origen</span><select name="source_type" x-model="selected.source_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="INPUT_GATE">Puerta</option><option value="RESULT">Resultado</option></select></label>
+                                        <label x-show="selected.source_type === 'INPUT_GATE'"><span class="text-[9px] font-black uppercase text-slate-500">ID puerta origen</span><input type="number" name="source_input_gate_id" min="1" x-model.number="selected.source_input_gate_id" :disabled="selected.source_type !== 'INPUT_GATE'" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label x-show="selected.source_type === 'RESULT'"><span class="text-[9px] font-black uppercase text-slate-500">ID resultado origen</span><input type="number" name="source_result_id" min="1" x-model.number="selected.source_result_id" :disabled="selected.source_type !== 'RESULT'" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Destino</span><select name="target_type" x-model="selected.target_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="SLOT">Slot</option><option value="PHASE_EXIT">Salida</option></select></label>
+                                        <label x-show="selected.target_type === 'SLOT'"><span class="text-[9px] font-black uppercase text-slate-500">ID slot destino</span><input type="number" name="target_slot_id" min="1" x-model.number="selected.target_slot_id" :disabled="selected.target_type !== 'SLOT'" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label x-show="selected.target_type === 'PHASE_EXIT'"><span class="text-[9px] font-black uppercase text-slate-500">ID salida destino</span><input type="number" name="target_phase_exit_id" min="1" x-model.number="selected.target_phase_exit_id" :disabled="selected.target_type !== 'PHASE_EXIT'" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Asignación</span><select name="allocation_mode" x-model="selected.allocation_mode" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="ALL">Todo</option><option value="TAKE_N">Tomar N</option><option value="POSITION">Posición</option><option value="REMAINDER">Restante</option><option value="CONDITIONAL">Condicional</option></select></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Valor</span><input type="number" step="0.01" name="allocation_value" min="0" x-model.number="selected.allocation_value" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Prioridad</span><input type="number" name="priority" min="0" x-model.number="selected.priority" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Condición</span><input name="condition_type" maxlength="80" x-model="selected.condition_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
+                                    </div>
+                                </template>
+
                                 <label class="block">
                                     <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">
                                         Estado

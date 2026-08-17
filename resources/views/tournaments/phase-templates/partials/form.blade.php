@@ -430,17 +430,14 @@
                         <select id="best-of" name="best_of" x-model.number="bestOf" required
                             class="mt-2 w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
                             @foreach ([1, 3, 5, 7, 9] as $value)
-                                <option value="{{ $value }}"
-                                    @disabled($value !== 1 && (int) old('best_of', $editing ? $phaseTemplate->best_of : 1) !== $value)>
+                                <option value="{{ $value }}">
                                     Best of {{ $value }}
-                                    {{ $value === 1 ? '' : '· Próximamente' }}
                                 </option>
                             @endforeach
                         </select>
 
-                        <p class="mt-2 text-[11px] leading-5 text-amber-700">
-                            BO3+ se conserva para configuraciones existentes, pero no debe usarse
-                            como una serie ejecutable hasta incorporar el motor de series.
+                        <p class="mt-2 text-[11px] leading-5 text-emerald-700">
+                            BO3+ utiliza el motor de series de Competition Lab y registra cada juego por separado.
                         </p>
 
                         <x-input-error :messages="$errors->get('best_of')" class="mt-2" />

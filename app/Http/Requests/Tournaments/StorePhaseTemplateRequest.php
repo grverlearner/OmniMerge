@@ -189,10 +189,12 @@ class StorePhaseTemplateRequest extends FormRequest
 
             'best_of' => [
                 'required',
-                // BO3+ todavía es metadata histórica. Hasta disponer del
-                // motor real de series, una fase nueva nace como BO1.
                 Rule::in([
                     1,
+                    3,
+                    5,
+                    7,
+                    9,
                 ]),
             ],
 
@@ -245,7 +247,7 @@ class StorePhaseTemplateRequest extends FormRequest
             'Indica la cantidad exacta de participantes.',
 
             'best_of.in' =>
-            'Por ahora las Fases nuevas solo pueden ejecutarse como BO1. BO3+ llegará con el motor de series.',
+            'Selecciona un formato Best of impar entre BO1 y BO9.',
         ];
     }
 }

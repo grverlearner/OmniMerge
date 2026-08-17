@@ -244,6 +244,7 @@ class TournamentGraphRuntimeService
                     [
                         'COMPLETED',
                         'BLOCKED',
+                        'AWAITING_DECISION',
                     ],
                     true
                 )
@@ -306,6 +307,13 @@ class TournamentGraphRuntimeService
             $template,
             $nodeId
         );
+
+        if (
+            ($state['graph_runtime']['status'] ?? null) === 'AWAITING_DECISION'
+            && ($state['nodes'][$nodeId]['runtime']['status'] ?? null) !== 'AWAITING_DECISION'
+        ) {
+            $state['graph_runtime']['status'] = 'RUNNING';
+        }
 
         if (
             $state['nodes'][$nodeId]['runtime']['status']
@@ -587,6 +595,10 @@ class TournamentGraphRuntimeService
 
         $node['status'] =
             $runtime['status'];
+
+        if (($runtime['status'] ?? null) === 'AWAITING_DECISION') {
+            $state['graph_runtime']['status'] = 'AWAITING_DECISION';
+        }
 
         foreach (
             $node['entry_ports']
@@ -964,13 +976,29 @@ class TournamentGraphRuntimeService
         }
 
         if ($isStructureGraph) {
-            $runtime =
-                $this->engineManager
-                ->simulateSelection(
+            $scoreBased =
+                ($match['resolution_mode'] ?? null) === 'SCORE'
+                && count($match['participant_ids'] ?? []) === 2
+                && (int) ($match['qualifiers_count'] ?? 1) === 1;
+
+            if ($scoreBased) {
+                [$scoreA, $scoreB] = $this->randomScore($runtime);
+                $runtime = $this->engineManager->submit(
                     $state['nodes'][$nodeId]['phase_type'],
                     $runtime,
-                    $match['id']
+                    $match['id'],
+                    $scoreA,
+                    $scoreB
                 );
+            } else {
+                $runtime =
+                    $this->engineManager
+                    ->simulateSelection(
+                        $state['nodes'][$nodeId]['phase_type'],
+                        $runtime,
+                        $match['id']
+                    );
+            }
 
             $state['nodes'][$nodeId]['runtime'] =
                 $runtime;
@@ -988,16 +1016,15 @@ class TournamentGraphRuntimeService
                 ->flatMap(fn($round) => $round['matches'] ?? [])
                 ->firstWhere('id', $match['id']);
 
+            $seriesPending = ($runtime['series'][$match['id']]['status'] ?? null) === 'RUNNING';
+
             $this->event(
                 $state,
-                'ENCOUNTER_SIMULATED',
+                $seriesPending ? 'SERIES_GAME_SIMULATED' : 'ENCOUNTER_SIMULATED',
                 'INFO',
-                $match['id']
-                    . ' seleccionó '
-                    . count(
-                        $completedMatch['qualifier_ids'] ?? []
-                    )
-                    . ' clasificado(s).'
+                $seriesPending
+                    ? $match['id'] . ' registró un juego de su serie.'
+                    : $match['id'] . ' completó su resolución.'
             );
 
             return $this->afterNodeResult(
@@ -1060,6 +1087,17 @@ class TournamentGraphRuntimeService
             !==
             []
         ) {
+            return $state;
+        }
+
+        $hasPendingDecision = collect($state['nodes'])
+            ->contains(fn($node) =>
+                ($node['status'] ?? null) === 'AWAITING_DECISION'
+                || (($node['runtime']['status'] ?? null) === 'AWAITING_DECISION')
+            );
+
+        if ($hasPendingDecision) {
+            $state['graph_runtime']['status'] = 'AWAITING_DECISION';
             return $state;
         }
 

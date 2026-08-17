@@ -278,12 +278,7 @@
                                     x-text="match.label ?? match.id">
                                 </p>
                                 <p class="mt-1 text-[9px] font-bold text-slate-400"
-                                    x-text="match.series_label
-                                        ?? (
-                                            match.best_of
-                                                ? `BO${match.best_of}`
-                                                : ''
-                                        )">
+                                    x-text="seriesProgressLabel(match)">
                                 </p>
                                 <div x-show="!usesQualifierSelection(match)"
                                     class="mt-3 grid grid-cols-[minmax(0,1fr)_50px_14px_50px_minmax(0,1fr)] items-center gap-2">

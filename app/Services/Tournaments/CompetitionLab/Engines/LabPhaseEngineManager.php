@@ -3,6 +3,7 @@
 namespace App\Services\Tournaments\CompetitionLab\Engines;
 
 use App\Models\PhaseTemplate;
+use App\Services\Tournaments\CompetitionLab\Runtime\MatchSeriesRuntime;
 use Illuminate\Validation\ValidationException;
 
 class LabPhaseEngineManager
@@ -18,7 +19,13 @@ class LabPhaseEngineManager
         GroupStageLabEngine $groupStage,
 
         private readonly
-        SwissLabEngine $swiss
+        SwissLabEngine $swiss,
+
+        private readonly
+        LabManualDecisionManager $manualDecisions,
+
+        private readonly
+        MatchSeriesRuntime $seriesRuntime
     ) {}
 
     /**
@@ -46,6 +53,13 @@ class LabPhaseEngineManager
         array $participantIds,
         array $participants
     ): array {
+        $pending = $this->manualDecisions
+            ->preparationDecision($phase, $participantIds);
+
+        if ($pending !== null) {
+            return $pending;
+        }
+
         return $this
             ->engine(
                 $phase->phase_type
@@ -57,6 +71,45 @@ class LabPhaseEngineManager
             );
     }
 
+    public function resolveDecision(
+        PhaseTemplate $phase,
+        array $runtime,
+        array $participants,
+        array $payload
+    ): array {
+        $engine = $this->engine($phase->phase_type);
+        $decision = $runtime['manual_decision'] ?? null;
+
+        if (! is_array($decision)) {
+            throw ValidationException::withMessages([
+                'manual_decision' => [
+                    'Esta fase no tiene una decisión manual pendiente.',
+                ],
+            ]);
+        }
+
+        if (($decision['scope'] ?? null) === 'PREPARATION') {
+            return $this->manualDecisions->resolvePreparation(
+                $phase,
+                $runtime,
+                $participants,
+                $payload,
+                fn(array $ids, array $prepared): array =>
+                    $engine->prepare($phase, $ids, $prepared)
+            );
+        }
+
+        if (! $engine instanceof SupportsManualDecision) {
+            throw ValidationException::withMessages([
+                'manual_decision' => [
+                    'El motor de esta fase no admite la decisión pendiente.',
+                ],
+            ]);
+        }
+
+        return $engine->resolveManualDecision($runtime, $payload);
+    }
+
     public function submit(
         string $phaseType,
         array $runtime,
@@ -64,15 +117,27 @@ class LabPhaseEngineManager
         int $scoreA,
         int $scoreB
     ): array {
+        $series = $this->seriesRuntime->submitGame(
+            $runtime,
+            $matchId,
+            $scoreA,
+            $scoreB,
+            $phaseType === 'SINGLE_ELIMINATION'
+        );
+
+        if (! $series['completed']) {
+            return $series['runtime'];
+        }
+
         return $this
             ->engine(
                 $phaseType
             )
             ->submit(
-                $runtime,
+                $series['runtime'],
                 $matchId,
-                $scoreA,
-                $scoreB
+                $series['engine_score_a'],
+                $series['engine_score_b']
             );
     }
 

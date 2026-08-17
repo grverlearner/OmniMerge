@@ -125,6 +125,7 @@ class CompetitionLabService
                     'START_TOURNAMENT',
                     'STEP_RUNTIME',
                     'RUN_TOURNAMENT',
+                    'RESOLVE_MANUAL_DECISION',
                 ],
                 true
             )
@@ -165,24 +166,35 @@ class CompetitionLabService
                 'SUBMIT_MATCH_RESULT' =>
                 $this->submitResult(
                     $state,
+                    $template,
                     $payload
                 ),
 
                 'SUBMIT_ENCOUNTER_RESULT' =>
                 $this->submitEncounterResult(
                     $state,
+                    $template,
                     $payload
                 ),
 
                 'SIMULATE_MATCH' =>
                 $this->simulateMatch(
                     $state,
+                    $template,
                     $payload
                 ),
 
                 'SIMULATE_ROUND' =>
                 $this->simulateRound(
                     $state,
+                    $template,
+                    $payload
+                ),
+
+                'RESOLVE_MANUAL_DECISION' =>
+                $this->resolveManualDecision(
+                    $state,
+                    $template,
                     $payload
                 ),
 
@@ -396,6 +408,8 @@ class CompetitionLabService
                 $port['participant_ids'] =
                     [];
                 $port['received_connection_ids'] =
+                    [];
+                $port['connection_payloads'] =
                     [];
             }
 
@@ -663,8 +677,55 @@ class CompetitionLabService
         return $state;
     }
 
+    private function resolveManualDecision(
+        array $state,
+        TournamentTemplate $template,
+        array $payload
+    ): array {
+        $this->requireRunning($state);
+
+        $nodeId = (int) ($payload['node_id'] ?? 0);
+        $runtime = $state['nodes'][$nodeId]['runtime'] ?? null;
+
+        if (! $runtime || ($runtime['status'] ?? null) !== 'AWAITING_DECISION') {
+            $this->fail('La fase seleccionada no está esperando una decisión manual.');
+        }
+
+        $node = $template->graphNodes()
+            ->with('phaseTemplate')
+            ->find($nodeId);
+
+        if (! $node?->phaseTemplate) {
+            $this->fail('El nodo no tiene una PhaseTemplate disponible.');
+        }
+
+        $runtime = $this->engineManager->resolveDecision(
+            $node->phaseTemplate,
+            $runtime,
+            $state['participants'],
+            $payload
+        );
+
+        $state = $this->applyRuntimeState(
+            $state,
+            $template,
+            $nodeId,
+            $runtime
+        );
+
+        $this->addEvent(
+            $state,
+            'MANUAL_DECISION_RESOLVED',
+            'SUCCESS',
+            'La decisión manual fue validada y la fase puede continuar.'
+        );
+
+        return $state;
+    }
+
     private function submitResult(
         array $state,
+        TournamentTemplate $template,
         array $payload
     ): array {
         $this->requireRunning(
@@ -673,6 +734,7 @@ class CompetitionLabService
 
         return $this->applyResult(
             $state,
+            $template,
             (int)
             ($payload['node_id'] ?? 0),
             (string)
@@ -686,6 +748,7 @@ class CompetitionLabService
 
     private function submitEncounterResult(
         array $state,
+        TournamentTemplate $template,
         array $payload
     ): array {
         $this->requireRunning(
@@ -694,6 +757,7 @@ class CompetitionLabService
 
         return $this->applySelectionResult(
             $state,
+            $template,
             (int)
             ($payload['node_id'] ?? 0),
             (string)
@@ -706,6 +770,7 @@ class CompetitionLabService
 
     private function simulateMatch(
         array $state,
+        TournamentTemplate $template,
         array $payload
     ): array {
         $this->requireRunning(
@@ -732,11 +797,34 @@ class CompetitionLabService
             ===
             'STRUCTURE_GRAPH'
         ) {
+            $matchId = (string) ($payload['match_id'] ?? '');
+            $match = collect($runtime['rounds'] ?? [])
+                ->flatMap(fn($round) => $round['matches'] ?? [])
+                ->firstWhere('id', $matchId);
+
+            if (
+                $match
+                && ($match['resolution_mode'] ?? null) === 'SCORE'
+                && count($match['participant_ids'] ?? []) === 2
+                && (int) ($match['qualifiers_count'] ?? 1) === 1
+            ) {
+                [$scoreA, $scoreB] = $this->randomScore($runtime);
+
+                return $this->applyResult(
+                    $state,
+                    $template,
+                    $nodeId,
+                    $matchId,
+                    $scoreA,
+                    $scoreB
+                );
+            }
+
             return $this->applySimulatedSelection(
                 $state,
+                $template,
                 $nodeId,
-                (string)
-                ($payload['match_id'] ?? '')
+                $matchId
             );
         }
 
@@ -749,6 +837,7 @@ class CompetitionLabService
 
         return $this->applyResult(
             $state,
+            $template,
             $nodeId,
             (string)
             ($payload['match_id'] ?? ''),
@@ -759,6 +848,7 @@ class CompetitionLabService
 
     private function simulateRound(
         array $state,
+        TournamentTemplate $template,
         array $payload
     ): array {
         $this->requireRunning(
@@ -867,13 +957,45 @@ class CompetitionLabService
             $matchId
         ) {
             if ($isStructureGraph) {
-                $state =
-                    $this->applySimulatedSelection(
-                        $state,
-                        $nodeId,
-                        $matchId,
-                        false
-                    );
+                $currentMatch = collect(
+                    $state['nodes'][$nodeId]['runtime']['rounds'] ?? []
+                )
+                    ->flatMap(fn($candidateRound) => $candidateRound['matches'] ?? [])
+                    ->firstWhere('id', $matchId);
+
+                if (
+                    $currentMatch
+                    && ($currentMatch['resolution_mode'] ?? null) === 'SCORE'
+                    && count($currentMatch['participant_ids'] ?? []) === 2
+                    && (int) ($currentMatch['qualifiers_count'] ?? 1) === 1
+                ) {
+                    do {
+                        $currentRuntime = $state['nodes'][$nodeId]['runtime'];
+                        [$scoreA, $scoreB] = $this->randomScore($currentRuntime);
+                        $state = $this->applyResult(
+                            $state,
+                            $template,
+                            $nodeId,
+                            $matchId,
+                            $scoreA,
+                            $scoreB,
+                            false
+                        );
+
+                        $currentMatch = collect($state['nodes'][$nodeId]['runtime']['rounds'] ?? [])
+                            ->flatMap(fn($candidateRound) => $candidateRound['matches'] ?? [])
+                            ->firstWhere('id', $matchId);
+                    } while (($currentMatch['status'] ?? null) === 'PENDING');
+                } else {
+                    $state =
+                        $this->applySimulatedSelection(
+                            $state,
+                            $template,
+                            $nodeId,
+                            $matchId,
+                            false
+                        );
+                }
 
                 continue;
             }
@@ -888,15 +1010,28 @@ class CompetitionLabService
                 $currentRuntime
             );
 
-            $state =
-                $this->applyResult(
-                    $state,
-                    $nodeId,
-                    $matchId,
-                    $scoreA,
-                    $scoreB,
-                    false
-                );
+            do {
+                $state =
+                    $this->applyResult(
+                        $state,
+                        $template,
+                        $nodeId,
+                        $matchId,
+                        $scoreA,
+                        $scoreB,
+                        false
+                    );
+
+                $currentMatch = collect($state['nodes'][$nodeId]['runtime']['rounds'] ?? [])
+                    ->flatMap(fn($candidateRound) => $candidateRound['matches'] ?? [])
+                    ->firstWhere('id', $matchId);
+
+                if (($currentMatch['status'] ?? null) === 'PENDING') {
+                    [$scoreA, $scoreB] = $this->randomScore(
+                        $state['nodes'][$nodeId]['runtime']
+                    );
+                }
+            } while (($currentMatch['status'] ?? null) === 'PENDING');
         }
 
         $this->addEvent(
@@ -915,6 +1050,7 @@ class CompetitionLabService
 
     private function applySelectionResult(
         array $state,
+        TournamentTemplate $template,
         int $nodeId,
         string $matchId,
         array $qualifierIds,
@@ -943,6 +1079,7 @@ class CompetitionLabService
         $state =
             $this->applyRuntimeState(
                 $state,
+                $template,
                 $nodeId,
                 $runtime
             );
@@ -962,6 +1099,7 @@ class CompetitionLabService
 
     private function applySimulatedSelection(
         array $state,
+        TournamentTemplate $template,
         int $nodeId,
         string $matchId,
         bool $registerEvent = true
@@ -988,6 +1126,7 @@ class CompetitionLabService
         $state =
             $this->applyRuntimeState(
                 $state,
+                $template,
                 $nodeId,
                 $runtime
             );
@@ -1006,6 +1145,7 @@ class CompetitionLabService
 
     private function applyResult(
         array $state,
+        TournamentTemplate $template,
         int $nodeId,
         string $matchId,
         int $scoreA,
@@ -1036,16 +1176,22 @@ class CompetitionLabService
         $state =
             $this->applyRuntimeState(
                 $state,
+                $template,
                 $nodeId,
                 $runtime
             );
 
         if ($registerEvent) {
+            $series = $runtime['series'][$matchId] ?? null;
+            $completed = ($series['status'] ?? null) === 'COMPLETED';
+
             $this->addEvent(
                 $state,
-                'MATCH_COMPLETED',
-                'SUCCESS',
-                "Resultado {$scoreA}-{$scoreB} registrado en {$matchId}."
+                $completed ? 'MATCH_COMPLETED' : 'SERIES_GAME_RECORDED',
+                $completed ? 'SUCCESS' : 'INFO',
+                $completed
+                    ? "La serie {$matchId} fue completada."
+                    : "Juego {$scoreA}-{$scoreB} registrado en {$matchId}."
             );
         }
 
@@ -1054,6 +1200,7 @@ class CompetitionLabService
 
     private function applyRuntimeState(
         array $state,
+        TournamentTemplate $template,
         int $nodeId,
         array $runtime
     ): array {
@@ -1086,6 +1233,7 @@ class CompetitionLabService
             $this->graphRuntime
             ->afterNodeResult(
                 $state,
+                $template,
                 $nodeId
             );
 

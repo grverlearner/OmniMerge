@@ -121,9 +121,8 @@
             <select name="distribution_mode" x-model="distribution"
                 class="w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
                 @foreach ($distributionModes as $value => $definition)
-                    <option value="{{ $value }}"
-                        @disabled($value === 'MANUAL' && old('distribution_mode', $settings->distribution_mode) !== 'MANUAL')>
-                        {{ $definition['label'] }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
+                    <option value="{{ $value }}">
+                        {{ $definition['label'] }}
                     </option>
                 @endforeach
             </select>
@@ -184,16 +183,14 @@
                     class="mt-2 w-full rounded-xl border-slate-300 focus:border-cyan-400 focus:ring-cyan-400">
                     @foreach ([1, 3, 5, 7, 9] as $bestOf)
                         <option value="{{ $bestOf }}"
-                            @selected((int) old('internal_best_of', $settings->internal_best_of) === $bestOf)
-                            @disabled($bestOf !== 1 && (int) old('internal_best_of', $settings->internal_best_of) !== $bestOf)>
+                            @selected((int) old('internal_best_of', $settings->internal_best_of) === $bestOf)>
                             BO{{ $bestOf }}
-                            {{ $bestOf === 1 ? '' : '· Próximamente' }}
                         </option>
                     @endforeach
                 </select>
 
-                <p class="mt-2 text-[11px] leading-5 text-amber-700">
-                    BO3+ aún no ejecuta una serie real en Competition Lab.
+                <p class="mt-2 text-[11px] leading-5 text-emerald-700">
+                    Competition Lab registra cada juego y cierra la serie cuando alcanza su condición de victoria.
                 </p>
             </div>
         </div>
@@ -269,9 +266,8 @@
             <select name="cutoff_tie_policy"
                 class="mt-2 w-full rounded-xl border-slate-300 focus:border-fuchsia-400 focus:ring-fuchsia-400">
                 @foreach ($cutoffPolicies as $value => $label)
-                    <option value="{{ $value }}" @selected(old('cutoff_tie_policy', $settings->cutoff_tie_policy) === $value)
-                        @disabled($value === 'MANUAL_RESOLUTION' && old('cutoff_tie_policy', $settings->cutoff_tie_policy) !== 'MANUAL_RESOLUTION')>
-                        {{ $label }}{{ $value === 'MANUAL_RESOLUTION' ? ' · Próximamente' : '' }}
+                    <option value="{{ $value }}" @selected(old('cutoff_tie_policy', $settings->cutoff_tie_policy) === $value)>
+                        {{ $label }}
                     </option>
                 @endforeach
             </select>

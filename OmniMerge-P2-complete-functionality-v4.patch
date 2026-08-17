@@ -1,0 +1,3913 @@
+diff --git a/app/Services/Tournaments/CompetitionLab/Engines/SupportsManualDecision.php b/app/Services/Tournaments/CompetitionLab/Engines/SupportsManualDecision.php
+new file mode 100644
+--- /dev/null
++++ b/app/Services/Tournaments/CompetitionLab/Engines/SupportsManualDecision.php
+@@ -0,0 +1,11 @@
++<?php
++
++namespace App\Services\Tournaments\CompetitionLab\Engines;
++
++interface SupportsManualDecision
++{
++    public function resolveManualDecision(
++        array $runtime,
++        array $payload
++    ): array;
++}
+diff --git a/app/Services/Tournaments/CompetitionLab/Runtime/MatchSeriesRuntime.php b/app/Services/Tournaments/CompetitionLab/Runtime/MatchSeriesRuntime.php
+new file mode 100644
+--- /dev/null
++++ b/app/Services/Tournaments/CompetitionLab/Runtime/MatchSeriesRuntime.php
+@@ -0,0 +1,214 @@
++<?php
++
++namespace App\Services\Tournaments\CompetitionLab\Runtime;
++
++use Illuminate\Validation\ValidationException;
++
++final class MatchSeriesRuntime
++{
++    /**
++     * Registra un juego sin cerrar el encuentro hasta que la serie realmente
++     * haya terminado. La información vive fuera de rounds para sobrevivir a
++     * motores que reconstruyen sus matches a partir de otra estructura.
++     *
++     * @return array{runtime: array, completed: bool, engine_score_a: int, engine_score_b: int}
++     */
++    public function submitGame(
++        array $runtime,
++        string $matchId,
++        int $scoreA,
++        int $scoreB,
++        bool $requiresWinner = false
++    ): array {
++        if ($scoreA < 0 || $scoreB < 0) {
++            $this->fail('Los scores de un juego no pueden ser negativos.');
++        }
++
++        $match = $this->findMatch($runtime, $matchId);
++
++        if (($match['status'] ?? null) !== 'PENDING') {
++            $this->fail('El encuentro no está pendiente o ya fue completado.');
++        }
++
++        $participantA = $match['participant_a_id'] ?? ($match['participant_ids'][0] ?? null);
++        $participantB = $match['participant_b_id'] ?? ($match['participant_ids'][1] ?? null);
++
++        if (! $participantA || ! $participantB) {
++            $this->fail('La serie necesita dos participantes reales.');
++        }
++
++        $format = strtoupper((string) ($match['series_format'] ?? 'BEST_OF'));
++        $bestOf = max(1, (int) ($match['best_of'] ?? 1));
++        $fixedGames = max(1, (int) ($match['fixed_games'] ?? 1));
++
++        $runtime['series'] ??= [];
++        $series = $runtime['series'][$matchId] ?? [
++            'match_id' => $matchId,
++            'participant_a_id' => $participantA,
++            'participant_b_id' => $participantB,
++            'series_format' => $format,
++            'best_of' => $bestOf,
++            'fixed_games' => $fixedGames,
++            'games' => [],
++            'game_wins_a' => 0,
++            'game_wins_b' => 0,
++            'game_draws' => 0,
++            'score_for_a' => 0,
++            'score_for_b' => 0,
++            'status' => 'RUNNING',
++            'tiebreak_required' => false,
++            'winner_id' => null,
++        ];
++
++        if (($series['status'] ?? null) === 'COMPLETED') {
++            $this->fail('La serie ya fue completada.');
++        }
++
++        if ($requiresWinner && $scoreA === $scoreB) {
++            $this->fail('Esta serie eliminatoria necesita un ganador en cada juego.');
++        }
++
++        $winnerId = null;
++        if ($scoreA > $scoreB) {
++            $series['game_wins_a']++;
++            $winnerId = $participantA;
++        } elseif ($scoreB > $scoreA) {
++            $series['game_wins_b']++;
++            $winnerId = $participantB;
++        } else {
++            $series['game_draws']++;
++        }
++
++        $series['score_for_a'] += $scoreA;
++        $series['score_for_b'] += $scoreB;
++        $series['games'][] = [
++            'number' => count($series['games']) + 1,
++            'score_a' => $scoreA,
++            'score_b' => $scoreB,
++            'winner_id' => $winnerId,
++            'status' => 'COMPLETED',
++        ];
++
++        $completed = false;
++
++        if ($format === 'FIXED_GAMES') {
++            if (count($series['games']) >= $fixedGames) {
++                if (
++                    $requiresWinner
++                    && $series['game_wins_a'] === $series['game_wins_b']
++                ) {
++                    // La cantidad fija ya se disputó, pero una eliminatoria no
++                    // puede finalizar empatada. Los juegos posteriores actúan
++                    // como desempate súbito hasta producir una ventaja real.
++                    $series['tiebreak_required'] = true;
++                } else {
++                    $completed = true;
++                }
++            }
++        } else {
++            if ($bestOf === 1) {
++                // BO1 es exactamente un juego. En motores que permiten empate,
++                // un 0-0/1-1 debe cerrar el encuentro como empate, no dejarlo
++                // eternamente pendiente esperando una victoria inexistente.
++                $completed = true;
++            } else {
++                $winsNeeded = intdiv($bestOf, 2) + 1;
++                $completed =
++                    $series['game_wins_a'] >= $winsNeeded
++                    || $series['game_wins_b'] >= $winsNeeded;
++            }
++        }
++
++        if (
++            $series['tiebreak_required']
++            && $series['game_wins_a'] !== $series['game_wins_b']
++        ) {
++            $completed = true;
++        }
++
++        if ($completed) {
++            $series['status'] = 'COMPLETED';
++            $series['winner_id'] =
++                $series['game_wins_a'] === $series['game_wins_b']
++                ? null
++                : (
++                    $series['game_wins_a'] > $series['game_wins_b']
++                    ? $participantA
++                    : $participantB
++                );
++        }
++
++        $runtime['series'][$matchId] = $series;
++
++        // BO1 conserva el score que ya entendían los motores existentes. Para
++        // series múltiples el resultado de la serie se expresa en juegos.
++        $engineScoreA = $bestOf === 1 && $format !== 'FIXED_GAMES'
++            ? $scoreA
++            : (int) $series['game_wins_a'];
++        $engineScoreB = $bestOf === 1 && $format !== 'FIXED_GAMES'
++            ? $scoreB
++            : (int) $series['game_wins_b'];
++
++        return [
++            'runtime' => $runtime,
++            'completed' => $completed,
++            'engine_score_a' => $engineScoreA,
++            'engine_score_b' => $engineScoreB,
++        ];
++    }
++
++    public function participantMetrics(
++        array $runtime,
++        string $participantId
++    ): array {
++        $metrics = [
++            'game_wins' => 0,
++            'game_losses' => 0,
++            'game_draws' => 0,
++            'game_difference' => 0,
++        ];
++
++        foreach ($runtime['series'] ?? [] as $series) {
++            $isA = ($series['participant_a_id'] ?? null) === $participantId;
++            $isB = ($series['participant_b_id'] ?? null) === $participantId;
++
++            if (! $isA && ! $isB) {
++                continue;
++            }
++
++            $wins = (int) ($isA ? $series['game_wins_a'] : $series['game_wins_b']);
++            $losses = (int) ($isA ? $series['game_wins_b'] : $series['game_wins_a']);
++
++            $metrics['game_wins'] += $wins;
++            $metrics['game_losses'] += $losses;
++            $metrics['game_draws'] += (int) ($series['game_draws'] ?? 0);
++        }
++
++        $metrics['game_difference'] =
++            $metrics['game_wins'] - $metrics['game_losses'];
++
++        return $metrics;
++    }
++
++    private function findMatch(
++        array $runtime,
++        string $matchId
++    ): array {
++        foreach ($runtime['rounds'] ?? [] as $round) {
++            foreach ($round['matches'] ?? [] as $match) {
++                if (($match['id'] ?? null) === $matchId) {
++                    return $match;
++                }
++            }
++        }
++
++        $this->fail('El encuentro solicitado no existe en el Runtime.');
++    }
++
++    private function fail(string $message): never
++    {
++        throw ValidationException::withMessages([
++            'match_id' => [$message],
++        ]);
++    }
++}
+diff --git a/app/Services/Tournaments/CompetitionLab/Runtime/CutoffPolicyResolver.php b/app/Services/Tournaments/CompetitionLab/Runtime/CutoffPolicyResolver.php
+new file mode 100644
+--- /dev/null
++++ b/app/Services/Tournaments/CompetitionLab/Runtime/CutoffPolicyResolver.php
+@@ -0,0 +1,124 @@
++<?php
++
++namespace App\Services\Tournaments\CompetitionLab\Runtime;
++
++final class CutoffPolicyResolver
++{
++    /**
++     * @param array<int,array<string,mixed>> $rankedRows
++     * @param callable(array,array):bool $areCompetitivelyTied
++     * @return array{selected:array,decision:?array}
++     */
++    public function resolve(
++        array $rankedRows,
++        int $take,
++        string $policy,
++        callable $areCompetitivelyTied,
++        string $decisionKey,
++        string $title = 'Resolver empate en el corte'
++    ): array {
++        $rankedRows = array_values($rankedRows);
++        $take = max(0, min($take, count($rankedRows)));
++
++        if ($take === 0 || $take >= count($rankedRows)) {
++            return [
++                'selected' => array_slice($rankedRows, 0, $take),
++                'decision' => null,
++            ];
++        }
++
++        $boundary = $rankedRows[$take - 1];
++        $tieStart = $take - 1;
++        $tieEnd = $take - 1;
++
++        while (
++            $tieStart > 0
++            && $areCompetitivelyTied($rankedRows[$tieStart - 1], $boundary)
++        ) {
++            $tieStart--;
++        }
++
++        while (
++            $tieEnd + 1 < count($rankedRows)
++            && $areCompetitivelyTied($rankedRows[$tieEnd + 1], $boundary)
++        ) {
++            $tieEnd++;
++        }
++
++        if ($tieEnd < $take) {
++            return [
++                'selected' => array_slice($rankedRows, 0, $take),
++                'decision' => null,
++            ];
++        }
++
++        $guaranteed = array_slice($rankedRows, 0, $tieStart);
++        $tied = array_slice($rankedRows, $tieStart, $tieEnd - $tieStart + 1);
++        $needed = $take - count($guaranteed);
++        $policy = strtoupper($policy ?: 'USE_TIEBREAKERS');
++
++        if ($policy === 'INCLUDE_ALL_TIED') {
++            return [
++                'selected' => [...$guaranteed, ...$tied],
++                'decision' => null,
++            ];
++        }
++
++        if ($policy === 'RANDOM_RESOLUTION') {
++            usort(
++                $tied,
++                static fn(array $left, array $right): int =>
++                    strcmp(
++                        hash('sha256', $decisionKey . ':' . ($left['participant_id'] ?? '')),
++                        hash('sha256', $decisionKey . ':' . ($right['participant_id'] ?? ''))
++                    )
++            );
++
++            return [
++                'selected' => [
++                    ...$guaranteed,
++                    ...array_slice($tied, 0, $needed),
++                ],
++                'decision' => null,
++            ];
++        }
++
++        if (in_array($policy, ['MANUAL_RESOLUTION', 'REQUIRE_PLAYOFF'], true)) {
++            return [
++                'selected' => $guaranteed,
++                'decision' => [
++                    'id' => 'DEC-' . substr(hash('sha256', $decisionKey), 0, 20),
++                    'scope' => 'ENGINE',
++                    'type' => $policy === 'REQUIRE_PLAYOFF'
++                        ? 'PLAYOFF_SELECTION'
++                        : 'CUTOFF_SELECTION',
++                    'title' => $policy === 'REQUIRE_PLAYOFF'
++                        ? 'Registrar resultado del playoff'
++                        : $title,
++                    'description' => $policy === 'REQUIRE_PLAYOFF'
++                        ? 'El empate exige un playoff. Selecciona los participantes que obtuvieron las plazas después de disputarlo.'
++                        : 'La cadena competitiva no pudo separar el último cupo. Selecciona quiénes avanzan.',
++                    'eligible_participant_ids' => array_values(array_map(
++                        static fn(array $row) => $row['participant_id'],
++                        $tied
++                    )),
++                    'required_selection_count' => $needed,
++                    'context' => [
++                        'decision_key' => $decisionKey,
++                        'guaranteed_participant_ids' => array_values(array_map(
++                            static fn(array $row) => $row['participant_id'],
++                            $guaranteed
++                        )),
++                    ],
++                ],
++            ];
++        }
++
++        // USE_TIEBREAKERS: la tabla ya viene ordenada por todos los criterios
++        // competitivos. El fallback estable solo hace reproducible la vista.
++        return [
++            'selected' => array_slice($rankedRows, 0, $take),
++            'decision' => null,
++        ];
++    }
++}
+diff --git a/app/Services/Tournaments/CompetitionLab/Engines/LabManualDecisionManager.php b/app/Services/Tournaments/CompetitionLab/Engines/LabManualDecisionManager.php
+new file mode 100644
+--- /dev/null
++++ b/app/Services/Tournaments/CompetitionLab/Engines/LabManualDecisionManager.php
+@@ -0,0 +1,330 @@
++<?php
++
++namespace App\Services\Tournaments\CompetitionLab\Engines;
++
++use App\Models\PhaseTemplate;
++use App\Services\Tournaments\GroupStage\GroupStageAllocator;
++use Closure;
++use Illuminate\Validation\ValidationException;
++
++final class LabManualDecisionManager
++{
++    public function __construct(
++        private readonly GroupStageAllocator $groupStageAllocator
++    ) {}
++
++    public function preparationDecision(
++        PhaseTemplate $phase,
++        array $participantIds
++    ): ?array {
++        $participantIds = array_values(array_unique($participantIds));
++
++        return match ($phase->phase_type) {
++            'GROUP_STAGE' => $this->groupStageDecision($phase, $participantIds),
++            'ROUND_ROBIN' => $this->roundRobinDecision($phase, $participantIds),
++            'SINGLE_ELIMINATION' => $this->singleEliminationDecision($phase, $participantIds),
++            default => null,
++        };
++    }
++
++    public function resolvePreparation(
++        PhaseTemplate $phase,
++        array $runtime,
++        array $participants,
++        array $payload,
++        Closure $prepareEngine
++    ): array {
++        $decision = $runtime['manual_decision'] ?? null;
++
++        if (! is_array($decision) || ($decision['scope'] ?? null) !== 'PREPARATION') {
++            $this->fail('La fase no tiene una decisión de preparación pendiente.');
++        }
++
++        if (($payload['decision_id'] ?? null) !== ($decision['id'] ?? null)) {
++            $this->fail('La decisión enviada ya no corresponde al estado actual del Lab.');
++        }
++
++        $participantIds = array_values($decision['eligible_participant_ids'] ?? []);
++        $preparedParticipants = $participants;
++
++        switch ($decision['type'] ?? '') {
++            case 'GROUP_ASSIGNMENT':
++                $participantIds = $this->resolveGroupAssignment(
++                    $decision,
++                    $participantIds,
++                    $payload['group_assignments'] ?? []
++                );
++                break;
++
++            case 'PARTICIPANT_ORDER':
++                $participantIds = $this->validatePermutation(
++                    $participantIds,
++                    $payload['ordered_participant_ids'] ?? []
++                );
++                break;
++
++            case 'SINGLE_ELIMINATION_SETUP':
++                if ((bool) data_get($decision, 'constraints.requires_order', false)) {
++                    $participantIds = $this->validatePermutation(
++                        $participantIds,
++                        $payload['ordered_participant_ids'] ?? []
++                    );
++                }
++
++                $byeCount = (int) data_get($decision, 'constraints.bye_count', 0);
++                $byeIds = array_values(array_unique($payload['selected_participant_ids'] ?? []));
++
++                if (count($byeIds) !== $byeCount) {
++                    $this->fail("Debes seleccionar exactamente {$byeCount} participante(s) para BYE.");
++                }
++
++                foreach ($byeIds as $participantId) {
++                    if (! in_array($participantId, $participantIds, true)) {
++                        $this->fail('Uno de los BYE seleccionados no pertenece a esta fase.');
++                    }
++
++                    $preparedParticipants[$participantId]['manual_bye'] = true;
++                }
++                break;
++
++            default:
++                $this->fail('El tipo de decisión manual no está soportado.');
++        }
++
++        return $prepareEngine(
++            $participantIds,
++            $preparedParticipants
++        );
++    }
++
++    private function groupStageDecision(
++        PhaseTemplate $phase,
++        array $participantIds
++    ): ?array {
++        $phase->loadMissing([
++            'groupStageSetting',
++            'groupStageGroups',
++        ]);
++
++        $settings = $phase->groupStageSetting;
++        if (! $settings || $settings->distribution_mode !== 'MANUAL') {
++            return null;
++        }
++
++        $allocation = $this->groupStageAllocator->allocate(
++            $phase,
++            $settings,
++            $phase->groupStageGroups,
++            count($participantIds)
++        );
++
++        if (! ($allocation['valid'] ?? false)) {
++            $this->fail(implode(' ', $allocation['errors'] ?? [
++                'No fue posible preparar los grupos manuales.',
++            ]));
++        }
++
++        $groups = [];
++        foreach ($allocation['groups'] as $index => $group) {
++            $groups[] = [
++                'key' => 'GROUP_' . ($index + 1),
++                'name' => $group['name'],
++                'code' => $group['code'],
++                'size' => (int) $group['size'],
++            ];
++        }
++
++        return $this->pendingRuntime(
++            'GROUP_STAGE',
++            $participantIds,
++            [
++                'id' => $this->decisionId($phase, 'GROUP_ASSIGNMENT', $participantIds),
++                'scope' => 'PREPARATION',
++                'type' => 'GROUP_ASSIGNMENT',
++                'title' => 'Asignación manual de grupos',
++                'description' => 'Asigna cada participante a un grupo respetando exactamente las capacidades configuradas.',
++                'eligible_participant_ids' => $participantIds,
++                'groups' => $groups,
++                'constraints' => [
++                    'all_participants_required' => true,
++                    'unique_assignment' => true,
++                ],
++            ]
++        );
++    }
++
++    private function roundRobinDecision(
++        PhaseTemplate $phase,
++        array $participantIds
++    ): ?array {
++        $phase->loadMissing('roundRobinSetting');
++
++        if ($phase->roundRobinSetting?->initial_order_mode !== 'MANUAL') {
++            return null;
++        }
++
++        return $this->pendingRuntime(
++            'ROUND_ROBIN',
++            $participantIds,
++            [
++                'id' => $this->decisionId($phase, 'PARTICIPANT_ORDER', $participantIds),
++                'scope' => 'PREPARATION',
++                'type' => 'PARTICIPANT_ORDER',
++                'title' => 'Orden manual del Round Robin',
++                'description' => 'Ordena a todos los participantes. Esta secuencia alimentará el Circle Method del calendario.',
++                'eligible_participant_ids' => $participantIds,
++                'constraints' => [
++                    'all_participants_required' => true,
++                ],
++            ]
++        );
++    }
++
++    private function singleEliminationDecision(
++        PhaseTemplate $phase,
++        array $participantIds
++    ): ?array {
++        $phase->loadMissing('singleEliminationSetting');
++        $settings = $phase->singleEliminationSetting;
++
++        if (! $settings || $settings->configuration_mode === 'ADVANCED') {
++            return null;
++        }
++
++        $manualOrder = $settings->seeding_mode === 'MANUAL';
++        $byeCount = $phase->allow_byes
++            ? max(0, $this->nextPowerOfTwo(count($participantIds)) - count($participantIds))
++            : 0;
++        $manualBye = $settings->bye_assignment === 'MANUAL' && $byeCount > 0;
++
++        if (! $manualOrder && ! $manualBye) {
++            return null;
++        }
++
++        return $this->pendingRuntime(
++            'SINGLE_ELIMINATION',
++            $participantIds,
++            [
++                'id' => $this->decisionId($phase, 'SINGLE_ELIMINATION_SETUP', $participantIds),
++                'scope' => 'PREPARATION',
++                'type' => 'SINGLE_ELIMINATION_SETUP',
++                'title' => 'Seed y BYE manual',
++                'description' => 'Define el orden de seeds y, cuando corresponda, quiénes ocupan las posiciones con BYE.',
++                'eligible_participant_ids' => $participantIds,
++                'required_selection_count' => $manualBye ? $byeCount : 0,
++                'constraints' => [
++                    'requires_order' => $manualOrder,
++                    'bye_count' => $manualBye ? $byeCount : 0,
++                    'all_participants_required' => $manualOrder,
++                ],
++            ]
++        );
++    }
++
++    private function resolveGroupAssignment(
++        array $decision,
++        array $participantIds,
++        array $assignments
++    ): array {
++        $allowedGroups = collect($decision['groups'] ?? [])
++            ->keyBy('key');
++
++        if ($allowedGroups->isEmpty()) {
++            $this->fail('La decisión no contiene grupos disponibles.');
++        }
++
++        $buckets = [];
++        foreach ($allowedGroups as $key => $group) {
++            $buckets[$key] = [];
++        }
++
++        foreach ($participantIds as $participantId) {
++            $groupKey = $assignments[$participantId] ?? null;
++            if (! $groupKey || ! $allowedGroups->has($groupKey)) {
++                $this->fail('Todos los participantes deben tener un grupo válido.');
++            }
++
++            $buckets[$groupKey][] = $participantId;
++        }
++
++        foreach ($allowedGroups as $key => $group) {
++            $expected = (int) $group['size'];
++            if (count($buckets[$key]) !== $expected) {
++                $this->fail("{$group['name']} necesita exactamente {$expected} participante(s).");
++            }
++        }
++
++        return array_values(array_merge(...array_values($buckets)));
++    }
++
++    private function validatePermutation(
++        array $eligible,
++        array $ordered
++    ): array {
++        $ordered = array_values(array_unique($ordered));
++
++        if (count($ordered) !== count($eligible)) {
++            $this->fail('El orden manual debe contener a todos los participantes una sola vez.');
++        }
++
++        $expected = $eligible;
++        $received = $ordered;
++        sort($expected);
++        sort($received);
++
++        if ($expected !== $received) {
++            $this->fail('El orden manual contiene participantes faltantes o ajenos a la fase.');
++        }
++
++        return $ordered;
++    }
++
++    private function pendingRuntime(
++        string $engine,
++        array $participantIds,
++        array $decision
++    ): array {
++        return [
++            'engine' => $engine,
++            'status' => 'AWAITING_DECISION',
++            'manual_decision' => $decision,
++            'participant_ids' => $participantIds,
++            'rounds' => [],
++            'standings' => [],
++            'outcomes' => [],
++            'survivor_ids' => [],
++            'eliminated_ids' => [],
++            'matches_total' => 0,
++            'matches_completed' => 0,
++            'current_round' => 0,
++        ];
++    }
++
++    private function decisionId(
++        PhaseTemplate $phase,
++        string $type,
++        array $participantIds
++    ): string {
++        return 'DEC-' . substr(hash(
++            'sha256',
++            $phase->id . ':' . $type . ':' . implode('|', $participantIds)
++        ), 0, 20);
++    }
++
++    private function nextPowerOfTwo(int $value): int
++    {
++        $power = 1;
++        while ($power < max(1, $value)) {
++            $power *= 2;
++        }
++
++        return $power;
++    }
++
++    private function fail(string $message): never
++    {
++        throw ValidationException::withMessages([
++            'manual_decision' => [$message],
++        ]);
++    }
++}
+diff --git a/app/Services/Tournaments/CompetitionLab/Engines/LabPhaseEngineManager.php b/app/Services/Tournaments/CompetitionLab/Engines/LabPhaseEngineManager.php
+--- a/app/Services/Tournaments/CompetitionLab/Engines/LabPhaseEngineManager.php
++++ b/app/Services/Tournaments/CompetitionLab/Engines/LabPhaseEngineManager.php
+@@ -3,2 +3,3 @@
+ use App\Models\PhaseTemplate;
++use App\Services\Tournaments\CompetitionLab\Runtime\MatchSeriesRuntime;
+ use Illuminate\Validation\ValidationException;
+@@ -15,5 +16,11 @@
+         GroupStageLabEngine $groupStage,
+ 
+         private readonly
+-        SwissLabEngine $swiss
++        SwissLabEngine $swiss,
++
++        private readonly
++        LabManualDecisionManager $manualDecisions,
++
++        private readonly
++        MatchSeriesRuntime $seriesRuntime
+     ) {}
+@@ -43,6 +50,13 @@
+         array $participantIds,
+         array $participants
+     ): array {
++        $pending = $this->manualDecisions
++            ->preparationDecision($phase, $participantIds);
++
++        if ($pending !== null) {
++            return $pending;
++        }
++
+         return $this
+             ->engine(
+                 $phase->phase_type
+@@ -54,4 +68,43 @@
+             );
+     }
+ 
++    public function resolveDecision(
++        PhaseTemplate $phase,
++        array $runtime,
++        array $participants,
++        array $payload
++    ): array {
++        $engine = $this->engine($phase->phase_type);
++        $decision = $runtime['manual_decision'] ?? null;
++
++        if (! is_array($decision)) {
++            throw ValidationException::withMessages([
++                'manual_decision' => [
++                    'Esta fase no tiene una decisión manual pendiente.',
++                ],
++            ]);
++        }
++
++        if (($decision['scope'] ?? null) === 'PREPARATION') {
++            return $this->manualDecisions->resolvePreparation(
++                $phase,
++                $runtime,
++                $participants,
++                $payload,
++                fn(array $ids, array $prepared): array =>
++                    $engine->prepare($phase, $ids, $prepared)
++            );
++        }
++
++        if (! $engine instanceof SupportsManualDecision) {
++            throw ValidationException::withMessages([
++                'manual_decision' => [
++                    'El motor de esta fase no admite la decisión pendiente.',
++                ],
++            ]);
++        }
++
++        return $engine->resolveManualDecision($runtime, $payload);
++    }
++
+     public function submit(
+@@ -65,14 +118,26 @@
+         int $scoreA,
+         int $scoreB
+     ): array {
++        $series = $this->seriesRuntime->submitGame(
++            $runtime,
++            $matchId,
++            $scoreA,
++            $scoreB,
++            $phaseType === 'SINGLE_ELIMINATION'
++        );
++
++        if (! $series['completed']) {
++            return $series['runtime'];
++        }
++
+         return $this
+             ->engine(
+                 $phaseType
+             )
+             ->submit(
+-                $runtime,
++                $series['runtime'],
+                 $matchId,
+-                $scoreA,
+-                $scoreB
++                $series['engine_score_a'],
++                $series['engine_score_b']
+             );
+     }
+diff --git a/app/Http/Requests/Tournaments/ExecuteCompetitionLabActionRequest.php b/app/Http/Requests/Tournaments/ExecuteCompetitionLabActionRequest.php
+--- a/app/Http/Requests/Tournaments/ExecuteCompetitionLabActionRequest.php
++++ b/app/Http/Requests/Tournaments/ExecuteCompetitionLabActionRequest.php
+@@ -66,2 +66,3 @@
+                     'RUN_TOURNAMENT',
++                    'RESOLVE_MANUAL_DECISION',
+                 ]),
+@@ -148,4 +149,46 @@
+                 'min:1',
+                 'max:1000',
+             ],
++
++            'decision_id' => [
++                'nullable',
++                'string',
++                'max:100',
++            ],
++
++            'ordered_participant_ids' => [
++                'nullable',
++                'array',
++                'max:512',
++            ],
++
++            'ordered_participant_ids.*' => [
++                'string',
++                'distinct',
++                'max:100',
++            ],
++
++            'selected_participant_ids' => [
++                'nullable',
++                'array',
++                'max:512',
++            ],
++
++            'selected_participant_ids.*' => [
++                'string',
++                'distinct',
++                'max:100',
++            ],
++
++            'group_assignments' => [
++                'nullable',
++                'array',
++                'max:512',
++            ],
++
++            'group_assignments.*' => [
++                'nullable',
++                'string',
++                'max:100',
++            ],
+         ];
+@@ -215,4 +258,16 @@
+                 ===
+                 'SIMULATE_ROUND'
+         );
++
++        $validator->sometimes(
++            [
++                'node_id',
++                'decision_id',
++            ],
++            'required',
++            fn($input) =>
++            $input->action
++                ===
++                'RESOLVE_MANUAL_DECISION'
++        );
+     }
+diff --git a/app/Services/Tournaments/CompetitionLab/CompetitionLabService.php b/app/Services/Tournaments/CompetitionLab/CompetitionLabService.php
+--- a/app/Services/Tournaments/CompetitionLab/CompetitionLabService.php
++++ b/app/Services/Tournaments/CompetitionLab/CompetitionLabService.php
+@@ -105,3 +105,4 @@
+                     'STEP_RUNTIME',
+                     'RUN_TOURNAMENT',
++                    'RESOLVE_MANUAL_DECISION',
+                 ],
+@@ -140,25 +141,36 @@
+                 'SUBMIT_MATCH_RESULT' =>
+                 $this->submitResult(
+                     $state,
++                    $template,
+                     $payload
+                 ),
+ 
+                 'SUBMIT_ENCOUNTER_RESULT' =>
+                 $this->submitEncounterResult(
+                     $state,
++                    $template,
+                     $payload
+                 ),
+ 
+                 'SIMULATE_MATCH' =>
+                 $this->simulateMatch(
+                     $state,
++                    $template,
+                     $payload
+                 ),
+ 
+                 'SIMULATE_ROUND' =>
+                 $this->simulateRound(
+                     $state,
++                    $template,
+                     $payload
+                 ),
++
++                'RESOLVE_MANUAL_DECISION' =>
++                $this->resolveManualDecision(
++                    $state,
++                    $template,
++                    $payload
++                ),
+ 
+                 'START_TOURNAMENT' =>
+@@ -376,6 +388,8 @@
+                     [];
+                 $port['received_connection_ids'] =
+                     [];
++                $port['connection_payloads'] =
++                    [];
+             }
+ 
+             unset($port);
+@@ -659,57 +673,108 @@
+                 .
+                 ' participantes.'
+         );
+ 
+         return $state;
+     }
+ 
++    private function resolveManualDecision(
++        array $state,
++        TournamentTemplate $template,
++        array $payload
++    ): array {
++        $this->requireRunning($state);
++
++        $nodeId = (int) ($payload['node_id'] ?? 0);
++        $runtime = $state['nodes'][$nodeId]['runtime'] ?? null;
++
++        if (! $runtime || ($runtime['status'] ?? null) !== 'AWAITING_DECISION') {
++            $this->fail('La fase seleccionada no está esperando una decisión manual.');
++        }
++
++        $node = $template->graphNodes()
++            ->with('phaseTemplate')
++            ->find($nodeId);
++
++        if (! $node?->phaseTemplate) {
++            $this->fail('El nodo no tiene una PhaseTemplate disponible.');
++        }
++
++        $runtime = $this->engineManager->resolveDecision(
++            $node->phaseTemplate,
++            $runtime,
++            $state['participants'],
++            $payload
++        );
++
++        $state = $this->applyRuntimeState(
++            $state,
++            $template,
++            $nodeId,
++            $runtime
++        );
++
++        $this->addEvent(
++            $state,
++            'MANUAL_DECISION_RESOLVED',
++            'SUCCESS',
++            'La decisión manual fue validada y la fase puede continuar.'
++        );
++
++        return $state;
++    }
++
+     private function submitResult(
+         array $state,
++        TournamentTemplate $template,
+         array $payload
+     ): array {
+         $this->requireRunning(
+             $state
+         );
+ 
+         return $this->applyResult(
+             $state,
++            $template,
+             (int)
+             ($payload['node_id'] ?? 0),
+             (string)
+             ($payload['match_id'] ?? ''),
+             (int)
+             ($payload['score_a'] ?? 0),
+             (int)
+             ($payload['score_b'] ?? 0)
+         );
+     }
+ 
+     private function submitEncounterResult(
+         array $state,
++        TournamentTemplate $template,
+         array $payload
+     ): array {
+         $this->requireRunning(
+             $state
+         );
+ 
+         return $this->applySelectionResult(
+             $state,
++            $template,
+             (int)
+             ($payload['node_id'] ?? 0),
+             (string)
+             ($payload['match_id'] ?? ''),
+             array_values(
+                 $payload['qualifier_ids'] ?? []
+             )
+         );
+     }
+ 
+     private function simulateMatch(
+         array $state,
++        TournamentTemplate $template,
+         array $payload
+     ): array {
+         $this->requireRunning(
+             $state
+         );
+ 
+         $nodeId =
+@@ -728,41 +793,66 @@
+         }
+ 
+         if (
+             ($runtime['mode'] ?? null)
+             ===
+             'STRUCTURE_GRAPH'
+         ) {
++            $matchId = (string) ($payload['match_id'] ?? '');
++            $match = collect($runtime['rounds'] ?? [])
++                ->flatMap(fn($round) => $round['matches'] ?? [])
++                ->firstWhere('id', $matchId);
++
++            if (
++                $match
++                && ($match['resolution_mode'] ?? null) === 'SCORE'
++                && count($match['participant_ids'] ?? []) === 2
++                && (int) ($match['qualifiers_count'] ?? 1) === 1
++            ) {
++                [$scoreA, $scoreB] = $this->randomScore($runtime);
++
++                return $this->applyResult(
++                    $state,
++                    $template,
++                    $nodeId,
++                    $matchId,
++                    $scoreA,
++                    $scoreB
++                );
++            }
++
+             return $this->applySimulatedSelection(
+                 $state,
++                $template,
+                 $nodeId,
+-                (string)
+-                ($payload['match_id'] ?? '')
++                $matchId
+             );
+         }
+ 
+         [
+             $scoreA,
+             $scoreB,
+         ] = $this->randomScore(
+             $runtime
+         );
+ 
+         return $this->applyResult(
+             $state,
++            $template,
+             $nodeId,
+             (string)
+             ($payload['match_id'] ?? ''),
+             $scoreA,
+             $scoreB
+         );
+     }
+ 
+     private function simulateRound(
+         array $state,
++        TournamentTemplate $template,
+         array $payload
+     ): array {
+         $this->requireRunning(
+             $state
+         );
+ 
+         $nodeId =
+@@ -863,44 +953,89 @@
+ 
+         foreach (
+             $pendingMatchIds
+             as
+             $matchId
+         ) {
+             if ($isStructureGraph) {
+-                $state =
+-                    $this->applySimulatedSelection(
+-                        $state,
+-                        $nodeId,
+-                        $matchId,
+-                        false
+-                    );
++                $currentMatch = collect(
++                    $state['nodes'][$nodeId]['runtime']['rounds'] ?? []
++                )
++                    ->flatMap(fn($candidateRound) => $candidateRound['matches'] ?? [])
++                    ->firstWhere('id', $matchId);
++
++                if (
++                    $currentMatch
++                    && ($currentMatch['resolution_mode'] ?? null) === 'SCORE'
++                    && count($currentMatch['participant_ids'] ?? []) === 2
++                    && (int) ($currentMatch['qualifiers_count'] ?? 1) === 1
++                ) {
++                    do {
++                        $currentRuntime = $state['nodes'][$nodeId]['runtime'];
++                        [$scoreA, $scoreB] = $this->randomScore($currentRuntime);
++                        $state = $this->applyResult(
++                            $state,
++                            $template,
++                            $nodeId,
++                            $matchId,
++                            $scoreA,
++                            $scoreB,
++                            false
++                        );
++
++                        $currentMatch = collect($state['nodes'][$nodeId]['runtime']['rounds'] ?? [])
++                            ->flatMap(fn($candidateRound) => $candidateRound['matches'] ?? [])
++                            ->firstWhere('id', $matchId);
++                    } while (($currentMatch['status'] ?? null) === 'PENDING');
++                } else {
++                    $state =
++                        $this->applySimulatedSelection(
++                            $state,
++                            $template,
++                            $nodeId,
++                            $matchId,
++                            false
++                        );
++                }
+ 
+                 continue;
+             }
+ 
+             $currentRuntime =
+                 $state['nodes'][$nodeId]['runtime'];
+ 
+             [
+                 $scoreA,
+                 $scoreB,
+             ] = $this->randomScore(
+                 $currentRuntime
+             );
+ 
+-            $state =
+-                $this->applyResult(
+-                    $state,
+-                    $nodeId,
+-                    $matchId,
+-                    $scoreA,
+-                    $scoreB,
+-                    false
+-                );
++            do {
++                $state =
++                    $this->applyResult(
++                        $state,
++                        $template,
++                        $nodeId,
++                        $matchId,
++                        $scoreA,
++                        $scoreB,
++                        false
++                    );
++
++                $currentMatch = collect($state['nodes'][$nodeId]['runtime']['rounds'] ?? [])
++                    ->flatMap(fn($candidateRound) => $candidateRound['matches'] ?? [])
++                    ->firstWhere('id', $matchId);
++
++                if (($currentMatch['status'] ?? null) === 'PENDING') {
++                    [$scoreA, $scoreB] = $this->randomScore(
++                        $state['nodes'][$nodeId]['runtime']
++                    );
++                }
++            } while (($currentMatch['status'] ?? null) === 'PENDING');
+         }
+ 
+         $this->addEvent(
+             $state,
+             'ROUND_SIMULATED',
+             'SUCCESS',
+             'La ronda '
+@@ -911,14 +1046,15 @@
+         );
+ 
+         return $state;
+     }
+ 
+     private function applySelectionResult(
+         array $state,
++        TournamentTemplate $template,
+         int $nodeId,
+         string $matchId,
+         array $qualifierIds,
+         bool $registerEvent = true
+     ): array {
+         $runtime =
+             $state['nodes'][$nodeId]['runtime']
+@@ -939,14 +1075,15 @@
+                 $matchId,
+                 $qualifierIds
+             );
+ 
+         $state =
+             $this->applyRuntimeState(
+                 $state,
++                $template,
+                 $nodeId,
+                 $runtime
+             );
+ 
+         if ($registerEvent) {
+             $this->addEvent(
+                 $state,
+@@ -958,14 +1095,15 @@
+         }
+ 
+         return $state;
+     }
+ 
+     private function applySimulatedSelection(
+         array $state,
++        TournamentTemplate $template,
+         int $nodeId,
+         string $matchId,
+         bool $registerEvent = true
+     ): array {
+         $runtime =
+             $state['nodes'][$nodeId]['runtime']
+             ??
+@@ -984,14 +1122,15 @@
+                 $runtime,
+                 $matchId
+             );
+ 
+         $state =
+             $this->applyRuntimeState(
+                 $state,
++                $template,
+                 $nodeId,
+                 $runtime
+             );
+ 
+         if ($registerEvent) {
+             $this->addEvent(
+                 $state,
+@@ -1002,14 +1141,15 @@
+         }
+ 
+         return $state;
+     }
+ 
+     private function applyResult(
+         array $state,
++        TournamentTemplate $template,
+         int $nodeId,
+         string $matchId,
+         int $scoreA,
+         int $scoreB,
+         bool $registerEvent = true
+     ): array {
+         $runtime =
+@@ -1032,32 +1172,39 @@
+                 $scoreA,
+                 $scoreB
+             );
+ 
+         $state =
+             $this->applyRuntimeState(
+                 $state,
++                $template,
+                 $nodeId,
+                 $runtime
+             );
+ 
+         if ($registerEvent) {
++            $series = $runtime['series'][$matchId] ?? null;
++            $completed = ($series['status'] ?? null) === 'COMPLETED';
++
+             $this->addEvent(
+                 $state,
+-                'MATCH_COMPLETED',
+-                'SUCCESS',
+-                "Resultado {$scoreA}-{$scoreB} registrado en {$matchId}."
++                $completed ? 'MATCH_COMPLETED' : 'SERIES_GAME_RECORDED',
++                $completed ? 'SUCCESS' : 'INFO',
++                $completed
++                    ? "La serie {$matchId} fue completada."
++                    : "Juego {$scoreA}-{$scoreB} registrado en {$matchId}."
+             );
+         }
+ 
+         return $state;
+     }
+ 
+     private function applyRuntimeState(
+         array $state,
++        TournamentTemplate $template,
+         int $nodeId,
+         array $runtime
+     ): array {
+         $state['nodes'][$nodeId]['runtime'] =
+             $runtime;
+ 
+         $state['nodes'][$nodeId]['status'] =
+@@ -1082,14 +1229,15 @@
+         $this->syncSummary(
+             $state
+         );
+         $state =
+             $this->graphRuntime
+             ->afterNodeResult(
+                 $state,
++                $template,
+                 $nodeId
+             );
+ 
+         return $state;
+     }
+ 
+     private function syncParticipantStatistics(
+
+diff --git a/app/Services/Tournaments/CompetitionLab/Runtime/TournamentGraphRuntimeService.php b/app/Services/Tournaments/CompetitionLab/Runtime/TournamentGraphRuntimeService.php
+--- a/app/Services/Tournaments/CompetitionLab/Runtime/TournamentGraphRuntimeService.php
++++ b/app/Services/Tournaments/CompetitionLab/Runtime/TournamentGraphRuntimeService.php
+@@ -230,4 +230,5 @@
+                     [
+                         'COMPLETED',
+                         'BLOCKED',
++                        'AWAITING_DECISION',
+                     ],
+@@ -289,6 +290,13 @@
+         );
+ 
+         if (
++            ($state['graph_runtime']['status'] ?? null) === 'AWAITING_DECISION'
++            && ($state['nodes'][$nodeId]['runtime']['status'] ?? null) !== 'AWAITING_DECISION'
++        ) {
++            $state['graph_runtime']['status'] = 'RUNNING';
++        }
++
++        if (
+             $state['nodes'][$nodeId]['runtime']['status']
+             ===
+             'COMPLETED'
+@@ -572,5 +580,9 @@
+ 
+         $node['status'] =
+             $runtime['status'];
++
++        if (($runtime['status'] ?? null) === 'AWAITING_DECISION') {
++            $state['graph_runtime']['status'] = 'AWAITING_DECISION';
++        }
+ 
+         foreach (
+@@ -905,11 +917,27 @@
+         if ($isStructureGraph) {
+-            $runtime =
+-                $this->engineManager
+-                ->simulateSelection(
++            $scoreBased =
++                ($match['resolution_mode'] ?? null) === 'SCORE'
++                && count($match['participant_ids'] ?? []) === 2
++                && (int) ($match['qualifiers_count'] ?? 1) === 1;
++
++            if ($scoreBased) {
++                [$scoreA, $scoreB] = $this->randomScore($runtime);
++                $runtime = $this->engineManager->submit(
+                     $state['nodes'][$nodeId]['phase_type'],
+                     $runtime,
+-                    $match['id']
++                    $match['id'],
++                    $scoreA,
++                    $scoreB
+                 );
++            } else {
++                $runtime =
++                    $this->engineManager
++                    ->simulateSelection(
++                        $state['nodes'][$nodeId]['phase_type'],
++                        $runtime,
++                        $match['id']
++                    );
++            }
+ 
+             $state['nodes'][$nodeId]['runtime'] =
+                 $runtime;
+@@ -927,16 +955,15 @@
+                 ->flatMap(fn($round) => $round['matches'] ?? [])
+                 ->firstWhere('id', $match['id']);
+ 
++            $seriesPending = ($runtime['series'][$match['id']]['status'] ?? null) === 'RUNNING';
++
+             $this->event(
+                 $state,
+-                'ENCOUNTER_SIMULATED',
++                $seriesPending ? 'SERIES_GAME_SIMULATED' : 'ENCOUNTER_SIMULATED',
+                 'INFO',
+-                $match['id']
+-                    . ' seleccionó '
+-                    . count(
+-                        $completedMatch['qualifier_ids'] ?? []
+-                    )
+-                    . ' clasificado(s).'
++                $seriesPending
++                    ? $match['id'] . ' registró un juego de su serie.'
++                    : $match['id'] . ' completó su resolución.'
+             );
+ 
+             return $this->afterNodeResult(
+@@ -1065,4 +1092,15 @@
+             return $state;
+         }
+ 
++        $hasPendingDecision = collect($state['nodes'])
++            ->contains(fn($node) =>
++                ($node['status'] ?? null) === 'AWAITING_DECISION'
++                || (($node['runtime']['status'] ?? null) === 'AWAITING_DECISION')
++            );
++
++        if ($hasPendingDecision) {
++            $state['graph_runtime']['status'] = 'AWAITING_DECISION';
++            return $state;
++        }
++
+         $hasRunningNodes =
+diff --git a/app/Services/Tournaments/CompetitionLab/Engines/SwissLabEngine.php b/app/Services/Tournaments/CompetitionLab/Engines/SwissLabEngine.php
+--- a/app/Services/Tournaments/CompetitionLab/Engines/SwissLabEngine.php
++++ b/app/Services/Tournaments/CompetitionLab/Engines/SwissLabEngine.php
+@@ -5,2 +5,3 @@
+ use App\Models\PhaseTemplate;
++use App\Services\Tournaments\CompetitionLab\Runtime\CutoffPolicyResolver;
+ use App\Services\Tournaments\Swiss\SwissPairingCalculator;
+@@ -11,3 +12,3 @@
+ class SwissLabEngine
+-implements LabPhaseEngine
++implements LabPhaseEngine, SupportsManualDecision
+ {
+@@ -18,3 +19,6 @@
+         private readonly
+-        SwissPairingCalculator $pairingCalculator
++        SwissPairingCalculator $pairingCalculator,
++
++        private readonly
++        CutoffPolicyResolver $cutoffResolver
+     ) {}
+@@ -221,4 +225,13 @@
+             (int)
+             $settings->max_byes_per_participant,
+ 
++            'cutoff_tie_policy' =>
++            $settings->cutoff_tie_policy,
++
++            'fallback_policy' =>
++            $settings->fallback_policy,
++
++            'resolved_cutoffs' =>
++            [],
++
+             'records' =>
+@@ -532,4 +545,88 @@
+         );
+     }
+ 
++    public function resolveManualDecision(
++        array $runtime,
++        array $payload
++    ): array {
++        $decision = $runtime['manual_decision'] ?? null;
++
++        if (! is_array($decision) || ($payload['decision_id'] ?? null) !== ($decision['id'] ?? null)) {
++            $this->fail('La decisión Swiss ya no corresponde al estado actual.');
++        }
++
++        $eligible = array_values($decision['eligible_participant_ids'] ?? []);
++        $selected = array_values(array_unique($payload['selected_participant_ids'] ?? []));
++        $required = (int) ($decision['required_selection_count'] ?? 0);
++
++        if (count($selected) !== $required) {
++            $this->fail("Debes seleccionar exactamente {$required} participante(s).");
++        }
++
++        foreach ($selected as $participantId) {
++            if (! in_array($participantId, $eligible, true)) {
++                $this->fail('La decisión contiene un participante no elegible.');
++            }
++        }
++
++        $type = $decision['type'] ?? '';
++        unset($runtime['manual_decision']);
++        $runtime['status'] = 'RUNNING';
++
++        if ($type === 'SWISS_BYE') {
++            $byeId = $selected[0] ?? null;
++            if (! $byeId || ! isset($runtime['records'][$byeId])) {
++                $this->fail('Selecciona un participante válido para BYE.');
++            }
++
++            $runtime['records'][$byeId]['status'] = 'MANUAL_BYE_HOLDER';
++            $runtime = $this->generateNextRound($runtime);
++            $runtime['records'][$byeId]['status'] = 'ACTIVE';
++            $runtime['records'][$byeId]['bye_count']++;
++            $runtime['records'][$byeId]['points'] += $runtime['points']['bye'];
++            $runtime['records'][$byeId]['pairing_score'] += $runtime['points']['bye'];
++            $runtime['records'][$byeId]['cumulative_score'] += $runtime['records'][$byeId]['points'];
++
++            $last = count($runtime['rounds']) - 1;
++            if ($last >= 0) {
++                $runtime['rounds'][$last]['bye_participant_id'] = $byeId;
++            }
++
++            return $this->recalculateStandings($runtime);
++        }
++
++        if (in_array($type, ['CUTOFF_SELECTION', 'PLAYOFF_SELECTION'], true)) {
++            $key = data_get($decision, 'context.decision_key');
++            if (! $key) {
++                $this->fail('El desempate no contiene una clave de resolución.');
++            }
++
++            $runtime['resolved_cutoffs'][$key] = array_values(array_unique([
++                ...data_get($decision, 'context.guaranteed_participant_ids', []),
++                ...$selected,
++            ]));
++
++            return $this->complete($runtime);
++        }
++
++        if ($type === 'SWISS_FALLBACK') {
++            $selectedMap = array_fill_keys($selected, true);
++            foreach ($eligible as $participantId) {
++                $runtime['records'][$participantId]['status'] = isset($selectedMap[$participantId])
++                    ? 'QUALIFIED'
++                    : 'ELIMINATED';
++
++                if (isset($selectedMap[$participantId])) {
++                    $runtime['records'][$participantId]['exit_id'] = data_get($decision, 'context.exit_id');
++                    $runtime['records'][$participantId]['exit_name'] = data_get($decision, 'context.exit_name', 'Clasificados');
++                }
++            }
++
++            $runtime['manual_fallback_resolved'] = true;
++            return $this->complete($runtime);
++        }
++
++        $this->fail('El tipo de decisión Swiss no está soportado.');
++    }
++
+     private function generateNextRound(
+@@ -610,5 +707,32 @@
+         if ($calculated['manual_bye_required'] ?? false) {
+-            $this->fail(
+-                'La política de BYE manual todavía necesita una selección explícita antes de ejecutar el Lab.'
+-            );
++            $eligibleIds = $activeRecords
++                ->filter(fn(array $record) =>
++                    (int) $record['bye_count'] < (int) $runtime['max_byes_per_participant']
++                )
++                ->pluck('participant_id')
++                ->values()
++                ->all();
++
++            if ($eligibleIds === []) {
++                $this->fail('No existe un participante elegible para recibir el BYE manual.');
++            }
++
++            $runtime['status'] = 'AWAITING_DECISION';
++            $runtime['manual_decision'] = [
++                'id' => 'DEC-' . substr(hash(
++                    'sha256',
++                    'SWISS_BYE:' . $roundNumber . ':' . implode('|', $eligibleIds)
++                ), 0, 20),
++                'scope' => 'ENGINE',
++                'type' => 'SWISS_BYE',
++                'title' => 'Asignar BYE Swiss',
++                'description' => 'Selecciona exactamente un participante elegible para descansar esta ronda.',
++                'eligible_participant_ids' => $eligibleIds,
++                'required_selection_count' => 1,
++                'context' => [
++                    'round_number' => $roundNumber,
++                ],
++            ];
++
++            return $runtime;
+         }
+@@ -680,19 +804,20 @@
+-        $bestOf =
+-            $this->bestOfForRound(
+-                $runtime,
+-                $roundNumber
+-            );
+-
+-        $allowDraws =
+-            $this->allowDrawsForRound(
+-                $runtime,
+-                $roundNumber
+-            );
+-
+         foreach (
+             $pairings
+             as
+             $index =>
+             $pairing
+         ) {
++            $rule = $this->roundRuleForMatch(
++                $runtime,
++                $roundNumber,
++                $pairing[0],
++                $pairing[1]
++            );
++
++            $bestOf = (int) ($rule['best_of'] ?? $runtime['default_best_of']);
++            $allowDraws = array_key_exists('allow_draws_override', $rule ?? [])
++                && $rule['allow_draws_override'] !== null
++                ? (bool) $rule['allow_draws_override']
++                : (bool) $runtime['allow_draws'];
++
+             $matches[] = [
+@@ -735,4 +860,10 @@
++                'series_format' =>
++                'BEST_OF',
++
+                 'best_of' =>
+                 $bestOf,
+ 
++                'fixed_games' =>
++                1,
++
+                 'allow_draws' =>
+@@ -865,4 +996,18 @@
+             $record['opponent_score_sum'] =
+                 $opponentScores->sum();
+ 
++            $cutRule = collect($runtime['tiebreakers'])
++                ->firstWhere('criterion', 'OPPONENT_SCORE_CUT_LOWEST');
++            $cut = max(0, (int) ($cutRule['parameter_int'] ?? 1));
++            $record['opponent_score_cut_lowest'] = $opponentScores
++                ->sort()
++                ->values()
++                ->slice($cut)
++                ->sum();
++
++            $games = $this->gameMetrics($runtime, $record['participant_id']);
++            $record['game_wins'] = $games['game_wins'];
++            $record['game_losses'] = $games['game_losses'];
++            $record['game_difference'] = $games['game_difference'];
++
+             $record['sonneborn_berger'] =
+@@ -950,6 +1095,39 @@
+     private function applyDynamicRules(
+         array $runtime
+     ): array {
++        if (($runtime['completion_mode'] ?? null) === 'RECORD_THRESHOLDS') {
++            $qualificationRule = collect($runtime['advancement_rules'])
++                ->firstWhere('rule_type', 'WIN_THRESHOLD');
++            $eliminationRule = collect($runtime['advancement_rules'])
++                ->firstWhere('rule_type', 'LOSS_THRESHOLD');
++
++            foreach ($runtime['records'] as $participantId => &$record) {
++                if ($record['status'] !== 'ACTIVE') {
++                    continue;
++                }
++
++                if (
++                    $runtime['qualification_wins'] !== null
++                    && $record['wins'] >= (int) $runtime['qualification_wins']
++                ) {
++                    $record['status'] = 'QUALIFIED';
++                    $record['exit_id'] = $qualificationRule['exit_id'] ?? null;
++                    $record['exit_name'] = $qualificationRule['exit_name'] ?? 'Clasificados';
++                    continue;
++                }
++
++                if (
++                    $runtime['elimination_losses'] !== null
++                    && $record['losses'] >= (int) $runtime['elimination_losses']
++                ) {
++                    $record['status'] = 'ELIMINATED';
++                    $record['exit_id'] = $eliminationRule['exit_id'] ?? null;
++                    $record['exit_name'] = $eliminationRule['exit_name'] ?? 'Eliminados';
++                }
++            }
++            unset($record);
++        }
++
+         foreach (
+             $runtime['advancement_rules']
+             as
+@@ -1115,4 +1293,49 @@
+                 $runtime
+             );
+ 
++        $activeIds = collect($runtime['records'])
++            ->where('status', 'ACTIVE')
++            ->pluck('participant_id')
++            ->values()
++            ->all();
++
++        if (
++            ($runtime['completion_mode'] ?? null) === 'RECORD_THRESHOLDS'
++            && ($runtime['fallback_policy'] ?? 'FINAL_RANKING') === 'MANUAL_RESOLUTION'
++            && $activeIds !== []
++            && ! ($runtime['manual_fallback_resolved'] ?? false)
++        ) {
++            $finalRule = collect($runtime['advancement_rules'])
++                ->first(fn($rule) => in_array(
++                    $rule['rule_type'],
++                    ['FINAL_TOP_N', 'FINAL_RANK_POSITION', 'FINAL_RANK_RANGE'],
++                    true
++                ));
++
++            $required = match ($finalRule['rule_type'] ?? null) {
++                'FINAL_TOP_N' => max(1, (int) ($finalRule['take'] ?? 1)),
++                'FINAL_RANK_POSITION' => 1,
++                'FINAL_RANK_RANGE' => max(1, (int) ($finalRule['rank_to'] ?? 1) - (int) ($finalRule['rank_from'] ?? 1) + 1),
++                default => 1,
++            };
++            $required = min($required, count($activeIds));
++
++            $runtime['status'] = 'AWAITING_DECISION';
++            $runtime['manual_decision'] = [
++                'id' => 'DEC-' . substr(hash('sha256', 'SWISS_FALLBACK:' . implode('|', $activeIds)), 0, 20),
++                'scope' => 'ENGINE',
++                'type' => 'SWISS_FALLBACK',
++                'title' => 'Resolver participantes Swiss restantes',
++                'description' => 'El máximo de rondas terminó sin resolver todos los récords. Selecciona quiénes clasifican.',
++                'eligible_participant_ids' => $activeIds,
++                'required_selection_count' => $required,
++                'context' => [
++                    'exit_id' => $finalRule['exit_id'] ?? null,
++                    'exit_name' => $finalRule['exit_name'] ?? 'Clasificados',
++                ],
++            ];
++
++            return $runtime;
++        }
++
+         $selected =
+@@ -1190,45 +1413,62 @@
+-            $selection =
+-                match ($rule['rule_type']) {
+-                    'FINAL_TOP_N' =>
+-                    $available
+-                        ->take(
+-                            (int)
+-                            $rule['take']
+-                        ),
++            if (in_array($rule['rule_type'], ['FINAL_TOP_N', 'FINAL_BOTTOM_N'], true)) {
++                $ordered = $rule['rule_type'] === 'FINAL_BOTTOM_N'
++                    ? $available->reverse()->values()
++                    : $available->values();
++                $decisionKey = 'SWISS:CUTOFF:' . $rule['id'];
++                $resolvedIds = $runtime['resolved_cutoffs'][$decisionKey] ?? null;
+ 
+-                    'FINAL_BOTTOM_N' =>
+-                    $available
+-                        ->reverse()
+-                        ->take(
+-                            (int)
+-                            $rule['take']
+-                        ),
++                if (is_array($resolvedIds)) {
++                    $selection = $ordered
++                        ->filter(fn($row) => in_array($row['participant_id'], $resolvedIds, true))
++                        ->values();
++                } else {
++                    $resolved = $this->cutoffResolver->resolve(
++                        $ordered->all(),
++                        (int) $rule['take'],
++                        $runtime['cutoff_tie_policy'] ?? 'USE_TIEBREAKERS',
++                        fn(array $left, array $right): bool =>
++                            $this->competitivelyTied($left, $right, $runtime),
++                        $decisionKey,
++                        'Resolver empate Swiss en el último cupo'
++                    );
+ 
+-                    'FINAL_RANK_POSITION' =>
+-                    $available
+-                        ->where(
+-                            'position',
+-                            (int)
+-                            $rule['rank_from']
+-                        ),
++                    if ($resolved['decision'] !== null) {
++                        $runtime['status'] = 'AWAITING_DECISION';
++                        $runtime['manual_decision'] = $resolved['decision'];
++                        return $runtime;
++                    }
+ 
+-                    'FINAL_RANK_RANGE' =>
+-                    $available
+-                        ->whereBetween(
+-                            'position',
+-                            [
++                    $selection = collect($resolved['selected']);
++                }
++            } else {
++                $selection =
++                    match ($rule['rule_type']) {
++                        'FINAL_RANK_POSITION' =>
++                        $available
++                            ->where(
++                                'position',
+                                 (int)
+-                                $rule['rank_from'],
+-                                (int)
+-                                $rule['rank_to'],
+-                            ]
+-                        ),
++                                $rule['rank_from']
++                            ),
+ 
+-                    'REMAINING' =>
+-                    $available,
++                        'FINAL_RANK_RANGE' =>
++                        $available
++                            ->whereBetween(
++                                'position',
++                                [
++                                    (int)
++                                    $rule['rank_from'],
++                                    (int)
++                                    $rule['rank_to'],
++                                ]
++                            ),
+ 
+-                    default =>
+-                    collect(),
+-                };
++                        'REMAINING' =>
++                        $available,
++
++                        default =>
++                        collect(),
++                    };
++            }
+ 
+             foreach (
+@@ -1510,4 +1750,4 @@
+             'OPPONENT_SCORE_CUT_LOWEST' =>
+-            'opponent_score_sum',
++            'opponent_score_cut_lowest',
+ 
+             'SONNEBORN_BERGER' =>
+@@ -1530,7 +1770,7 @@
+             'GAME_DIFFERENCE' =>
+-            'score_difference',
++            'game_difference',
+ 
+             'GAME_WINS' =>
+-            'score_for',
++            'game_wins',
+ 
+             'SEED' =>
+@@ -1542,6 +1782,25 @@
+             as
+             $criterion
+         ) {
++            if (($criterion['criterion'] ?? null) === 'HEAD_TO_HEAD') {
++                $leftValue = $this->headToHeadScore(
++                    $left['participant_id'],
++                    $right['participant_id'],
++                    $runtime
++                );
++                $rightValue = $this->headToHeadScore(
++                    $right['participant_id'],
++                    $left['participant_id'],
++                    $runtime
++                );
++
++                if ($leftValue == $rightValue) {
++                    continue;
++                }
++
++                return $rightValue <=> $leftValue;
++            }
++
+             $field =
+                 $fieldMap[$criterion['criterion']]
+                 ??
+@@ -1550,9 +1809,9 @@
+             if (
+                 ! $field
+                 ||
+-                $left[$field]
++                ($left[$field] ?? 0)
+                 ==
+-                $right[$field]
++                ($right[$field] ?? 0)
+             ) {
+                 continue;
+             }
+@@ -1660,53 +1919,175 @@
+-    private function bestOfForRound(
++    private function roundRuleForMatch(
+         array $runtime,
+-        int $roundNumber
+-    ): int {
+-        $rule =
+-            collect(
+-                $runtime['round_rules']
+-            )
+-            ->first(
+-                fn($rule) =>
+-                $rule['trigger_type']
+-                    ===
+-                    'ROUND_NUMBER'
+-                    &&
+-                    (int)
+-                    $rule['round_number']
+-                    ===
+-                    $roundNumber
+-            );
++        int $roundNumber,
++        string $leftId,
++        string $rightId
++    ): ?array {
++        $left = $runtime['records'][$leftId];
++        $right = $runtime['records'][$rightId];
+ 
+-        return
+-            $rule['best_of']
+-            ??
+-            $runtime['default_best_of'];
++        return collect($runtime['round_rules'])
++            ->first(function (array $rule) use ($runtime, $roundNumber, $left, $right): bool {
++                return match ($rule['trigger_type']) {
++                    'ROUND_NUMBER' =>
++                        (int) ($rule['round_number'] ?? 0) === $roundNumber,
++
++                    'EXACT_RECORD' =>
++                        $this->recordMatchesRule($left, $rule)
++                        || $this->recordMatchesRule($right, $rule),
++
++                    'QUALIFICATION_MATCH' =>
++                        ($runtime['completion_mode'] ?? null) === 'RECORD_THRESHOLDS'
++                        && $runtime['qualification_wins'] !== null
++                        && (
++                            $left['wins'] + 1 >= (int) $runtime['qualification_wins']
++                            || $right['wins'] + 1 >= (int) $runtime['qualification_wins']
++                        ),
++
++                    'ELIMINATION_MATCH' =>
++                        ($runtime['completion_mode'] ?? null) === 'RECORD_THRESHOLDS'
++                        && $runtime['elimination_losses'] !== null
++                        && (
++                            $left['losses'] + 1 >= (int) $runtime['elimination_losses']
++                            || $right['losses'] + 1 >= (int) $runtime['elimination_losses']
++                        ),
++
++                    'QUALIFICATION_OR_ELIMINATION' =>
++                        ($runtime['completion_mode'] ?? null) === 'RECORD_THRESHOLDS'
++                        && (
++                            (
++                                $runtime['qualification_wins'] !== null
++                                && (
++                                    $left['wins'] + 1 >= (int) $runtime['qualification_wins']
++                                    || $right['wins'] + 1 >= (int) $runtime['qualification_wins']
++                                )
++                            )
++                            || (
++                                $runtime['elimination_losses'] !== null
++                                && (
++                                    $left['losses'] + 1 >= (int) $runtime['elimination_losses']
++                                    || $right['losses'] + 1 >= (int) $runtime['elimination_losses']
++                                )
++                            )
++                        ),
++
++                    default => false,
++                };
++            });
+     }
+ 
+-    private function allowDrawsForRound(
+-        array $runtime,
+-        int $roundNumber
++    private function recordMatchesRule(array $record, array $rule): bool
++    {
++        return
++            $record['wins'] === (int) ($rule['record_wins'] ?? -1)
++            && $record['draws'] === (int) ($rule['record_draws'] ?? -1)
++            && $record['losses'] === (int) ($rule['record_losses'] ?? -1);
++    }
++
++    private function competitivelyTied(
++        array $left,
++        array $right,
++        array $runtime
+     ): bool {
+-        $rule =
+-            collect(
+-                $runtime['round_rules']
+-            )
+-            ->first(
+-                fn($rule) =>
+-                $rule['trigger_type']
+-                    ===
+-                    'ROUND_NUMBER'
+-                    &&
+-                    (int)
+-                    $rule['round_number']
+-                    ===
+-                    $roundNumber
+-            );
++        $criteria = [
++            $runtime['pairing_basis'] === 'WIN_LOSS_RECORD' ? 'WINS' : 'POINTS',
++            ...collect($runtime['tiebreakers'])->pluck('criterion')->all(),
++        ];
+ 
+-        return
+-            $rule['allow_draws_override']
+-            ??
+-            $runtime['allow_draws'];
++        foreach ($criteria as $criterion) {
++            if ($criterion === 'SEED') {
++                continue;
++            }
++
++            if ($criterion === 'HEAD_TO_HEAD') {
++                $leftValue = $this->headToHeadScore($left['participant_id'], $right['participant_id'], $runtime);
++                $rightValue = $this->headToHeadScore($right['participant_id'], $left['participant_id'], $runtime);
++            } else {
++                $field = match ($criterion) {
++                    'POINTS' => 'points',
++                    'WINS' => 'wins',
++                    'FEWEST_LOSSES' => 'losses',
++                    'OPPONENT_SCORE_SUM' => 'opponent_score_sum',
++                    'OPPONENT_SCORE_CUT_LOWEST' => 'opponent_score_cut_lowest',
++                    'SONNEBORN_BERGER' => 'sonneborn_berger',
++                    'CUMULATIVE_SCORE' => 'cumulative_score',
++                    'SCORE_DIFFERENCE' => 'score_difference',
++                    'SCORE_FOR' => 'score_for',
++                    'GAME_DIFFERENCE' => 'game_difference',
++                    'GAME_WINS' => 'game_wins',
++                    default => null,
++                };
++
++                if (! $field) {
++                    continue;
++                }
++
++                $leftValue = $left[$field] ?? 0;
++                $rightValue = $right[$field] ?? 0;
++            }
++
++            if ($leftValue != $rightValue) {
++                return false;
++            }
++        }
++
++        return true;
+     }
++
++    private function gameMetrics(array $runtime, string $participantId): array
++    {
++        $wins = 0;
++        $losses = 0;
++
++        foreach ($runtime['series'] ?? [] as $series) {
++            if (($series['participant_a_id'] ?? null) === $participantId) {
++                $wins += (int) ($series['game_wins_a'] ?? 0);
++                $losses += (int) ($series['game_wins_b'] ?? 0);
++            } elseif (($series['participant_b_id'] ?? null) === $participantId) {
++                $wins += (int) ($series['game_wins_b'] ?? 0);
++                $losses += (int) ($series['game_wins_a'] ?? 0);
++            }
++        }
++
++        return [
++            'game_wins' => $wins,
++            'game_losses' => $losses,
++            'game_difference' => $wins - $losses,
++        ];
++    }
++
++    private function headToHeadScore(
++        string $participantId,
++        string $opponentId,
++        array $runtime
++    ): float {
++        $score = 0.0;
++
++        foreach ($runtime['rounds'] as $round) {
++            foreach ($round['matches'] as $match) {
++                if (($match['status'] ?? null) !== 'COMPLETED') {
++                    continue;
++                }
++
++                $isA = $match['participant_a_id'] === $participantId
++                    && $match['participant_b_id'] === $opponentId;
++                $isB = $match['participant_b_id'] === $participantId
++                    && $match['participant_a_id'] === $opponentId;
++
++                if (! $isA && ! $isB) {
++                    continue;
++                }
++
++                $mine = $isA ? $match['score_a'] : $match['score_b'];
++                $theirs = $isA ? $match['score_b'] : $match['score_a'];
++                $score += $mine === $theirs
++                    ? (float) $runtime['points']['draw']
++                    : ($mine > $theirs
++                        ? (float) $runtime['points']['win']
++                        : (float) $runtime['points']['loss']);
++            }
++        }
++
++        return $score;
++    }
+ 
+     private function firstRoundOrder(
+diff --git a/app/Services/Tournaments/CompetitionLab/Engines/GroupStageLabEngine.php b/app/Services/Tournaments/CompetitionLab/Engines/GroupStageLabEngine.php
+--- a/app/Services/Tournaments/CompetitionLab/Engines/GroupStageLabEngine.php
++++ b/app/Services/Tournaments/CompetitionLab/Engines/GroupStageLabEngine.php
+@@ -5,2 +5,3 @@
+ use App\Models\PhaseTemplate;
++use App\Services\Tournaments\CompetitionLab\Runtime\CutoffPolicyResolver;
+ use App\Services\Tournaments\GroupStage\GroupStageAllocator;
+@@ -9,3 +10,3 @@
+ class GroupStageLabEngine
+-implements LabPhaseEngine
++implements LabPhaseEngine, SupportsManualDecision
+ {
+@@ -13,3 +14,6 @@
+         private readonly
+-        GroupStageAllocator $allocator
++        GroupStageAllocator $allocator,
++
++        private readonly
++        CutoffPolicyResolver $cutoffResolver
+     ) {}
+@@ -280,4 +284,7 @@
+             'cutoff_tie_policy' =>
+             $settings->cutoff_tie_policy,
+ 
++            'resolved_cutoffs' =>
++            [],
++
+             'groups' =>
+@@ -656,4 +663,9 @@
+                     $row['score_for']
+                     -
+                     $row['score_against'];
++
++                $games = $this->gameMetrics($runtime, $row['participant_id']);
++                $row['game_wins'] = $games['game_wins'];
++                $row['game_losses'] = $games['game_losses'];
++                $row['game_difference'] = $games['game_difference'];
+             }
+@@ -775,4 +787,40 @@
+                     $rule
+                 );
+ 
++            $cutoffPool = $this->cutoffPoolForRule(
++                $eligible,
++                $runtime['groups'],
++                $runtime,
++                $rule
++            );
++
++            if ($cutoffPool !== null && (int) ($rule['take'] ?? 0) > 0) {
++                $decisionKey = 'GROUP_STAGE:CUTOFF:' . $rule['id'];
++                $resolvedIds = $runtime['resolved_cutoffs'][$decisionKey] ?? null;
++
++                if (is_array($resolvedIds)) {
++                    $selection = $cutoffPool
++                        ->filter(fn($row) => in_array($row['participant_id'], $resolvedIds, true))
++                        ->values();
++                } else {
++                    $resolved = $this->cutoffResolver->resolve(
++                        $cutoffPool->all(),
++                        (int) $rule['take'],
++                        $runtime['cutoff_tie_policy'] ?? 'USE_TIEBREAKERS',
++                        fn(array $left, array $right): bool =>
++                            $this->competitivelyTied($left, $right, $runtime),
++                        $decisionKey,
++                        'Resolver empate entre grupos'
++                    );
++
++                    if ($resolved['decision'] !== null) {
++                        $runtime['status'] = 'AWAITING_DECISION';
++                        $runtime['manual_decision'] = $resolved['decision'];
++                        return $runtime;
++                    }
++
++                    $selection = collect($resolved['selected']);
++                }
++            }
++
+             $exitKey =
+@@ -1120,7 +1168,7 @@
+             'GAME_DIFFERENCE' =>
+-            'score_difference',
++            'game_difference',
+ 
+             'GAME_WINS' =>
+-            'score_for',
++            'game_wins',
+ 
+             'SEED' =>
+@@ -1370,4 +1418,10 @@
++                        'series_format' =>
++                        'BEST_OF',
++
+                         'best_of' =>
+                         $bestOf,
+ 
++                        'fixed_games' =>
++                        1,
++
+                         'status' =>
+@@ -1470,3 +1524,145 @@
++    public function resolveManualDecision(
++        array $runtime,
++        array $payload
++    ): array {
++        $decision = $runtime['manual_decision'] ?? null;
++
++        if (! is_array($decision) || ($payload['decision_id'] ?? null) !== ($decision['id'] ?? null)) {
++            $this->fail('La decisión de grupos ya no corresponde al estado actual.');
++        }
++
++        if (! in_array($decision['type'] ?? '', ['CUTOFF_SELECTION', 'PLAYOFF_SELECTION'], true)) {
++            $this->fail('La decisión pendiente no pertenece a un desempate de grupos.');
++        }
++
++        $eligible = array_values($decision['eligible_participant_ids'] ?? []);
++        $selected = array_values(array_unique($payload['selected_participant_ids'] ?? []));
++        $required = (int) ($decision['required_selection_count'] ?? 0);
++
++        if (count($selected) !== $required) {
++            $this->fail("Debes seleccionar exactamente {$required} participante(s).");
++        }
++
++        foreach ($selected as $participantId) {
++            if (! in_array($participantId, $eligible, true)) {
++                $this->fail('La selección contiene un participante no elegible.');
++            }
++        }
++
++        $key = data_get($decision, 'context.decision_key');
++        if (! $key) {
++            $this->fail('El desempate no contiene una clave de resolución.');
++        }
++
++        $runtime['resolved_cutoffs'][$key] = array_values(array_unique([
++            ...data_get($decision, 'context.guaranteed_participant_ids', []),
++            ...$selected,
++        ]));
++        unset($runtime['manual_decision']);
++        $runtime['status'] = 'RUNNING';
++
++        return $this->complete($runtime);
++    }
++
++    private function cutoffPoolForRule(
++        $eligible,
++        array $groups,
++        array $runtime,
++        array $rule
++    ) {
++        $type = $rule['rule_type'];
++
++        if (in_array($type, ['CROSS_GROUP_POSITION_TOP_N', 'CROSS_GROUP_POSITION_BOTTOM_N'], true)) {
++            $pool = $this->sortCrossGroup(
++                $eligible->where('position', (int) $rule['position_from'])->values(),
++                $runtime
++            );
++
++            return $type === 'CROSS_GROUP_POSITION_BOTTOM_N'
++                ? $pool->reverse()->values()
++                : $pool;
++        }
++
++        if (in_array($type, ['BEST_REMAINING', 'WORST_REMAINING'], true)) {
++            $pool = $this->sortCrossGroup($eligible, $runtime);
++            return $type === 'WORST_REMAINING'
++                ? $pool->reverse()->values()
++                : $pool;
++        }
++
++        return null;
++    }
++
++    private function competitivelyTied(array $left, array $right, array $runtime): bool
++    {
++        $criteria = [
++            ['criterion' => 'POINTS', 'direction' => 'DESC', 'normalization' => 'DEFAULT'],
++            ...$runtime['tiebreakers'],
++        ];
++
++        foreach ($criteria as $criterion) {
++            if (($criterion['criterion'] ?? null) === 'SEED') {
++                continue;
++            }
++
++            $field = match ($criterion['criterion'] ?? null) {
++                'POINTS' => 'points',
++                'WINS' => 'wins',
++                'SCORE_DIFFERENCE' => 'score_difference',
++                'SCORE_FOR' => 'score_for',
++                'GAME_DIFFERENCE' => 'game_difference',
++                'GAME_WINS' => 'game_wins',
++                default => null,
++            };
++
++            if (! $field) {
++                continue;
++            }
++
++            $leftValue = $left[$field] ?? 0;
++            $rightValue = $right[$field] ?? 0;
++            $normalization = ($criterion['normalization'] ?? 'DEFAULT') === 'DEFAULT'
++                ? ($runtime['cross_group_normalization'] ?? 'RAW')
++                : $criterion['normalization'];
++
++            if (
++                $normalization === 'PER_MATCH'
++                && in_array($field, ['points', 'wins', 'score_difference', 'score_for', 'game_difference', 'game_wins'], true)
++            ) {
++                $leftValue = ($left['played'] ?? 0) > 0 ? $leftValue / $left['played'] : 0;
++                $rightValue = ($right['played'] ?? 0) > 0 ? $rightValue / $right['played'] : 0;
++            }
++
++            if ($leftValue != $rightValue) {
++                return false;
++            }
++        }
++
++        return true;
++    }
++
++    private function gameMetrics(array $runtime, string $participantId): array
++    {
++        $wins = 0;
++        $losses = 0;
++
++        foreach ($runtime['series'] ?? [] as $series) {
++            if (($series['participant_a_id'] ?? null) === $participantId) {
++                $wins += (int) ($series['game_wins_a'] ?? 0);
++                $losses += (int) ($series['game_wins_b'] ?? 0);
++            } elseif (($series['participant_b_id'] ?? null) === $participantId) {
++                $wins += (int) ($series['game_wins_b'] ?? 0);
++                $losses += (int) ($series['game_wins_a'] ?? 0);
++            }
++        }
++
++        return [
++            'game_wins' => $wins,
++            'game_losses' => $losses,
++            'game_difference' => $wins - $losses,
++        ];
++    }
++
+     private function orderParticipants(
+         array $participantIds,
+         string $mode
+diff --git a/app/Services/Tournaments/CompetitionLab/Engines/RoundRobinLabEngine.php b/app/Services/Tournaments/CompetitionLab/Engines/RoundRobinLabEngine.php
+--- a/app/Services/Tournaments/CompetitionLab/Engines/RoundRobinLabEngine.php
++++ b/app/Services/Tournaments/CompetitionLab/Engines/RoundRobinLabEngine.php
+@@ -5,2 +5,3 @@
+ use App\Models\PhaseTemplate;
++use App\Services\Tournaments\CompetitionLab\Runtime\CutoffPolicyResolver;
+ use App\Services\Tournaments\RoundRobin\RoundRobinValidator;
+@@ -9,3 +10,3 @@
+ class RoundRobinLabEngine
+-implements LabPhaseEngine
++implements LabPhaseEngine, SupportsManualDecision
+ {
+@@ -13,3 +14,6 @@
+         private readonly
+-        RoundRobinValidator $validator
++        RoundRobinValidator $validator,
++
++        private readonly
++        CutoffPolicyResolver $cutoffResolver
+     ) {}
+@@ -31,4 +35,5 @@
+         $phase->loadMissing([
+             'roundRobinSetting',
+             'roundRobinTiebreakers',
++            'exits',
+         ]);
+@@ -90,9 +95,17 @@
+-        if (
+-            $settings->initial_order_mode
+-            ===
+-            'RANDOM'
+-        ) {
+-            shuffle(
+-                $participantIds
++        if ($settings->initial_order_mode === 'RANDOM') {
++            usort(
++                $participantIds,
++                fn($left, $right) => strcmp(
++                    hash('sha256', $phase->id . ':' . $left),
++                    hash('sha256', $phase->id . ':' . $right)
++                )
++            );
++        } elseif ($settings->initial_order_mode === 'RANKING') {
++            usort(
++                $participantIds,
++                fn($left, $right) =>
++                    (int) ($participants[$left]['seed'] ?? PHP_INT_MAX)
++                    <=>
++                    (int) ($participants[$right]['seed'] ?? PHP_INT_MAX)
+             );
+         }
+@@ -175,3 +188,23 @@
++            'cutoff_tie_policy' =>
++            $settings->cutoff_tie_policy,
++
++            'resolved_cutoffs' =>
++            [],
++
++            'cutoff_exits' =>
++            $phase->exits
++                ->where('status', 'ACTIVE')
++                ->whereIn('selector_type', ['TOP_N', 'BOTTOM_N'])
++                ->sortBy(fn($exit) => sprintf('%010d-%010d-%010d', $exit->priority, $exit->sort_order, $exit->id))
++                ->map(fn($exit) => [
++                    'id' => (int) $exit->id,
++                    'name' => $exit->name,
++                    'selector_type' => $exit->selector_type,
++                    'take' => (int) $exit->selector_from,
++                ])
++                ->values()
++                ->all(),
++
+             'tiebreakers' =>
+             $phase
+                 ->roundRobinTiebreakers
+@@ -362,15 +395,5 @@
+             ===
+             $runtime['matches_total']
+         ) {
+-            $runtime['status'] =
+-                'COMPLETED';
+-
+-            $runtime['survivor_ids'] =
+-                collect(
+-                    $runtime['standings']
+-                )
+-                ->pluck(
+-                    'participant_id'
+-                )
+-                ->all();
++            $runtime = $this->finalizeCutoffs($runtime);
+         }
+@@ -485,4 +508,10 @@
++                        'series_format' =>
++                        'BEST_OF',
++
+                         'best_of' =>
+                         $bestOf,
+ 
++                        'fixed_games' =>
++                        1,
++
+                         'status' =>
+@@ -681,6 +710,11 @@
+                 $row['score_for']
+                 -
+                 $row['score_against'];
++
++            $games = $this->gameMetrics($runtime, $row['participant_id']);
++            $row['game_wins'] = $games['game_wins'];
++            $row['game_losses'] = $games['game_losses'];
++            $row['game_difference'] = $games['game_difference'];
+         }
+ 
+         unset($row);
+@@ -735,7 +769,7 @@
+             'GAME_DIFFERENCE' =>
+-            'score_difference',
++            'game_difference',
+ 
+             'GAME_WINS' =>
+-            'score_for',
++            'game_wins',
+ 
+             'SEED' =>
+@@ -820,3 +854,161 @@
++    public function resolveManualDecision(
++        array $runtime,
++        array $payload
++    ): array {
++        $decision = $runtime['manual_decision'] ?? null;
++
++        if (! is_array($decision) || ($payload['decision_id'] ?? null) !== ($decision['id'] ?? null)) {
++            $this->fail('La decisión Round Robin ya no corresponde al estado actual.');
++        }
++
++        if (! in_array($decision['type'] ?? '', ['CUTOFF_SELECTION', 'PLAYOFF_SELECTION'], true)) {
++            $this->fail('La decisión pendiente no pertenece a un corte Round Robin.');
++        }
++
++        $eligible = array_values($decision['eligible_participant_ids'] ?? []);
++        $selected = array_values(array_unique($payload['selected_participant_ids'] ?? []));
++        $required = (int) ($decision['required_selection_count'] ?? 0);
++
++        if (count($selected) !== $required) {
++            $this->fail("Debes seleccionar exactamente {$required} participante(s).");
++        }
++
++        foreach ($selected as $participantId) {
++            if (! in_array($participantId, $eligible, true)) {
++                $this->fail('La selección contiene un participante no elegible.');
++            }
++        }
++
++        $key = data_get($decision, 'context.decision_key');
++        if (! $key) {
++            $this->fail('El desempate no contiene una clave de resolución.');
++        }
++
++        $runtime['resolved_cutoffs'][$key] = array_values(array_unique([
++            ...data_get($decision, 'context.guaranteed_participant_ids', []),
++            ...$selected,
++        ]));
++        unset($runtime['manual_decision']);
++        $runtime['status'] = 'RUNNING';
++
++        return $this->finalizeCutoffs($runtime);
++    }
++
++    private function finalizeCutoffs(array $runtime): array
++    {
++        $runtime['outcomes'] = [];
++        $consumed = [];
++
++        foreach ($runtime['cutoff_exits'] ?? [] as $exit) {
++            $pool = collect($runtime['standings'])
++                ->reject(fn($row) => isset($consumed[$row['participant_id']]))
++                ->values();
++
++            if ($exit['selector_type'] === 'BOTTOM_N') {
++                $pool = $pool->reverse()->values();
++            }
++
++            $decisionKey = 'ROUND_ROBIN:CUTOFF:' . $exit['id'];
++            $resolvedIds = $runtime['resolved_cutoffs'][$decisionKey] ?? null;
++
++            if (is_array($resolvedIds)) {
++                $selectedRows = $pool
++                    ->filter(fn($row) => in_array($row['participant_id'], $resolvedIds, true))
++                    ->values();
++            } else {
++                $resolved = $this->cutoffResolver->resolve(
++                    $pool->all(),
++                    (int) $exit['take'],
++                    $runtime['cutoff_tie_policy'] ?? 'USE_TIEBREAKERS',
++                    fn(array $left, array $right): bool =>
++                        $this->competitivelyTied($left, $right, $runtime),
++                    $decisionKey,
++                    'Resolver empate Round Robin'
++                );
++
++                if ($resolved['decision'] !== null) {
++                    $runtime['status'] = 'AWAITING_DECISION';
++                    $runtime['manual_decision'] = $resolved['decision'];
++                    return $runtime;
++                }
++
++                $selectedRows = collect($resolved['selected']);
++            }
++
++            $ids = $selectedRows->pluck('participant_id')->values()->all();
++            foreach ($ids as $participantId) {
++                $consumed[$participantId] = true;
++            }
++
++            $runtime['outcomes'][] = [
++                'exit_id' => $exit['id'],
++                'exit_name' => $exit['name'],
++                'participant_ids' => $ids,
++            ];
++        }
++
++        $runtime['status'] = 'COMPLETED';
++        $runtime['survivor_ids'] = collect($runtime['standings'])
++            ->pluck('participant_id')
++            ->values()
++            ->all();
++
++        return $runtime;
++    }
++
++    private function competitivelyTied(array $left, array $right, array $runtime): bool
++    {
++        $criteria = [
++            ['criterion' => 'POINTS'],
++            ...$runtime['tiebreakers'],
++        ];
++
++        foreach ($criteria as $criterion) {
++            if (($criterion['criterion'] ?? null) === 'SEED') {
++                continue;
++            }
++
++            $field = match ($criterion['criterion'] ?? null) {
++                'POINTS' => 'points',
++                'WINS' => 'wins',
++                'FEWEST_LOSSES' => 'losses',
++                'SCORE_DIFFERENCE' => 'score_difference',
++                'SCORE_FOR' => 'score_for',
++                'GAME_DIFFERENCE' => 'game_difference',
++                'GAME_WINS' => 'game_wins',
++                default => null,
++            };
++
++            if ($field && ($left[$field] ?? 0) != ($right[$field] ?? 0)) {
++                return false;
++            }
++        }
++
++        return true;
++    }
++
++    private function gameMetrics(array $runtime, string $participantId): array
++    {
++        $wins = 0;
++        $losses = 0;
++
++        foreach ($runtime['series'] ?? [] as $series) {
++            if (($series['participant_a_id'] ?? null) === $participantId) {
++                $wins += (int) ($series['game_wins_a'] ?? 0);
++                $losses += (int) ($series['game_wins_b'] ?? 0);
++            } elseif (($series['participant_b_id'] ?? null) === $participantId) {
++                $wins += (int) ($series['game_wins_b'] ?? 0);
++                $losses += (int) ($series['game_wins_a'] ?? 0);
++            }
++        }
++
++        return [
++            'game_wins' => $wins,
++            'game_losses' => $losses,
++            'game_difference' => $wins - $losses,
++        ];
++    }
++
+     private function fail(
+         string $message
+     ): never {
+diff --git a/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationLabEngine.php b/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationLabEngine.php
+--- a/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationLabEngine.php
++++ b/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationLabEngine.php
+@@ -150,27 +150,29 @@
+-        $seedMap = [];
+-
+-        foreach (
+-            $participantIds
+-            as
+-            $index =>
+-            $participantId
+-        ) {
+-            $seedMap[$participantId] =
+-                $index + 1;
++        if ($settings->seeding_mode === 'RANDOM') {
++            usort(
++                $participantIds,
++                fn($left, $right) => strcmp(
++                    hash('sha256', $phase->id . ':SEED:' . $left),
++                    hash('sha256', $phase->id . ':SEED:' . $right)
++                )
++            );
++        } elseif ($settings->seeding_mode === 'RANKING') {
++            usort(
++                $participantIds,
++                fn($left, $right) =>
++                    (int) ($participants[$left]['seed'] ?? PHP_INT_MAX)
++                    <=>
++                    (int) ($participants[$right]['seed'] ?? PHP_INT_MAX)
++            );
+         }
+ 
+-        if (
+-            $settings->seeding_mode
+-            ===
+-            'RANDOM'
+-            ||
+-            $settings->pairing_mode
+-            ===
+-            'RANDOM'
+-        ) {
+-            shuffle(
+-                $participantIds
+-            );
++        $seedMap = [];
++        foreach ($participantIds as $index => $participantId) {
++            $seedMap[$participantId] = $index + 1;
+         }
++
++        $manualByeIds = collect($participantIds)
++            ->filter(fn($participantId) => (bool) ($participants[$participantId]['manual_bye'] ?? false))
++            ->values()
++            ->all();
+ 
+         $roundSeriesRules =
+@@ -241,5 +243,14 @@
+             (bool)
+             $settings->reseed_each_round,
+ 
++            'pairing_mode' =>
++            $settings->pairing_mode,
++
++            'bye_assignment' =>
++            $settings->bye_assignment,
++
++            'manual_bye_ids' =>
++            $manualByeIds,
++
+             'seed' =>
+             $seedMap,
+@@ -440,3 +451,4 @@
+                     $match['status'] =
+                         'BYE';
++                    $runtime['matches_completed']++;
+                 } elseif (
+@@ -455,3 +467,4 @@
+                     $match['status'] =
+                         'BYE';
++                    $runtime['matches_completed']++;
+                 }
+@@ -610,28 +623,38 @@
+-        $left =
+-            0;
++        $roundSize = $this->roundSize(count($participantIds));
++        $byeCount = $roundNumber === 1
++            ? max(0, $roundSize - count($participantIds))
++            : 0;
++        $byeIds = $this->selectByeIds(
++            $participantIds,
++            $byeCount,
++            $runtime,
++            $roundNumber
++        );
+ 
+-        $right =
+-            count(
+-                $participantIds
+-            ) - 1;
++        foreach ($byeIds as $participantId) {
++            $matches[] = [
++                'id' => 'SE-R' . $roundNumber . '-M' . (count($matches) + 1),
++                'number' => count($matches) + 1,
++                'participant_a_id' => $participantId,
++                'participant_b_id' => null,
++                'score_a' => null,
++                'score_b' => null,
++                'winner_id' => null,
++                'loser_id' => null,
++                'series_format' => $roundSeries['series_format'],
++                'best_of' => (int) $roundSeries['best_of'],
++                'fixed_games' => (int) $roundSeries['fixed_games'],
++                'series_label' => $roundSeries['series_format'] === 'FIXED_GAMES'
++                    ? $roundSeries['fixed_games'] . ' juegos fijos'
++                    : 'BO' . $roundSeries['best_of'],
++                'status' => 'PENDING',
++            ];
++        }
+ 
+-        while (
+-            $left
+-            <=
+-            $right
+-        ) {
+-            $participantA =
+-                $participantIds[$left++]
+-                ??
+-                null;
++        $playing = array_values(array_filter(
++            $participantIds,
++            fn($participantId) => ! in_array($participantId, $byeIds, true)
++        ));
+ 
+-            $participantB =
+-                $left <= $right
+-                ? (
+-                    $participantIds[$right--]
+-                    ??
+-                    null
+-                )
+-                : null;
+-
++        foreach ($this->buildPairings($playing, $runtime, $roundNumber) as [$participantA, $participantB]) {
+             $matches[] = [
+@@ -720,4 +743,4 @@
+             'participants_in_round' =>
+-            $this->roundSize(count($participantIds)),
++            $roundSize,
+ 
+             'label' =>
+@@ -760,3 +783,92 @@
++    private function selectByeIds(
++        array $participantIds,
++        int $byeCount,
++        array $runtime,
++        int $roundNumber
++    ): array {
++        if ($byeCount <= 0) {
++            return [];
++        }
++
++        $policy = $runtime['bye_assignment'] ?? 'TOP_SEEDS';
++
++        if ($policy === 'MANUAL') {
++            $manual = array_values(array_intersect(
++                $runtime['manual_bye_ids'] ?? [],
++                $participantIds
++            ));
++
++            if (count($manual) !== $byeCount) {
++                $this->fail("La primera ronda necesita exactamente {$byeCount} BYE manual(es).");
++            }
++
++            return $manual;
++        }
++
++        $candidates = $participantIds;
++
++        if ($policy === 'RANDOM') {
++            usort(
++                $candidates,
++                fn($left, $right) => strcmp(
++                    hash('sha256', 'BYE:' . $roundNumber . ':' . $left),
++                    hash('sha256', 'BYE:' . $roundNumber . ':' . $right)
++                )
++            );
++        } else {
++            usort(
++                $candidates,
++                fn($left, $right) =>
++                    ($runtime['seed'][$left] ?? PHP_INT_MAX)
++                    <=>
++                    ($runtime['seed'][$right] ?? PHP_INT_MAX)
++            );
++        }
++
++        return array_slice($candidates, 0, $byeCount);
++    }
++
++    private function buildPairings(
++        array $participantIds,
++        array $runtime,
++        int $roundNumber
++    ): array {
++        $mode = $runtime['pairing_mode'] ?? 'STANDARD_SEEDED';
++
++        if ($mode === 'RANDOM') {
++            usort(
++                $participantIds,
++                fn($left, $right) => strcmp(
++                    hash('sha256', 'PAIR:' . $roundNumber . ':' . $left),
++                    hash('sha256', 'PAIR:' . $roundNumber . ':' . $right)
++                )
++            );
++        }
++
++        $pairs = [];
++
++        if (in_array($mode, ['SEQUENTIAL', 'RANDOM'], true)) {
++            for ($index = 0; $index < count($participantIds); $index += 2) {
++                $pairs[] = [
++                    $participantIds[$index] ?? null,
++                    $participantIds[$index + 1] ?? null,
++                ];
++            }
++
++            return $pairs;
++        }
++
++        $left = 0;
++        $right = count($participantIds) - 1;
++        while ($left <= $right) {
++            $participantA = $participantIds[$left++] ?? null;
++            $participantB = $left <= $right ? ($participantIds[$right--] ?? null) : null;
++            $pairs[] = [$participantA, $participantB];
++        }
++
++        return $pairs;
++    }
++
+     private function standings(
+         array $runtime,
+         array $survivors
+diff --git a/app/Http/Requests/Tournaments/StorePhaseTemplateRequest.php b/app/Http/Requests/Tournaments/StorePhaseTemplateRequest.php
+--- a/app/Http/Requests/Tournaments/StorePhaseTemplateRequest.php
++++ b/app/Http/Requests/Tournaments/StorePhaseTemplateRequest.php
+@@ -185,8 +185,10 @@
+             'best_of' => [
+                 'required',
+-                // BO3+ todavía es metadata histórica. Hasta disponer del
+-                // motor real de series, una fase nueva nace como BO1.
+                 Rule::in([
+                     1,
++                    3,
++                    5,
++                    7,
++                    9,
+                 ]),
+             ],
+@@ -255,5 +257,5 @@
+             'best_of.in' =>
+-            'Por ahora las Fases nuevas solo pueden ejecutarse como BO1. BO3+ llegará con el motor de series.',
++            'Selecciona un formato Best of impar entre BO1 y BO9.',
+         ];
+     }
+ }
+diff --git a/resources/views/tournaments/phase-templates/partials/round-robin-settings-form.blade.php b/resources/views/tournaments/phase-templates/partials/round-robin-settings-form.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/round-robin-settings-form.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/round-robin-settings-form.blade.php
+@@ -65,5 +65,4 @@
+                         <option value="{{ $value }}"
+-                            @selected(old('initial_order_mode', $settings->initial_order_mode) === $value)
+-                            @disabled($value === 'MANUAL' && old('initial_order_mode', $settings->initial_order_mode) !== 'MANUAL')>
+-                            {{ $label }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
++                            @selected(old('initial_order_mode', $settings->initial_order_mode) === $value)>
++                            {{ $label }}
+                         </option>
+@@ -145,6 +144,4 @@
+                     <option value="{{ $value }}"
+-                        @selected((int) old('default_best_of', $settings->default_best_of) === $value)
+-                        @disabled($value !== 1 && (int) old('default_best_of', $settings->default_best_of) !== $value)>
++                        @selected((int) old('default_best_of', $settings->default_best_of) === $value)>
+                         BO{{ $value }}
+-                        {{ $value === 1 ? '' : '· Próximamente' }}
+                     </option>
+@@ -155,4 +152,3 @@
+-            <p class="mt-2 text-[11px] leading-5 text-amber-700">
+-                El Runtime actual resuelve un resultado por encuentro. BO3+ queda visible
+-                únicamente como configuración heredada hasta incorporar series reales.
++            <p class="mt-2 text-[11px] leading-5 text-emerald-700">
++                En BO3+ cada resultado enviado corresponde a un juego; la serie se cierra al alcanzar la mayoría necesaria.
+             </p>
+diff --git a/resources/views/tournaments/phase-templates/partials/group-stage-settings-form.blade.php b/resources/views/tournaments/phase-templates/partials/group-stage-settings-form.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/group-stage-settings-form.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/group-stage-settings-form.blade.php
+@@ -115,4 +115,3 @@
+-                    <option value="{{ $value }}"
+-                        @disabled($value === 'MANUAL' && old('distribution_mode', $settings->distribution_mode) !== 'MANUAL')>
+-                        {{ $definition['label'] }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
++                    <option value="{{ $value }}">
++                        {{ $definition['label'] }}
+                     </option>
+@@ -205,6 +204,4 @@
+                         <option value="{{ $bestOf }}"
+-                            @selected((int) old('internal_best_of', $settings->internal_best_of) === $bestOf)
+-                            @disabled($bestOf !== 1 && (int) old('internal_best_of', $settings->internal_best_of) !== $bestOf)>
++                            @selected((int) old('internal_best_of', $settings->internal_best_of) === $bestOf)>
+                             BO{{ $bestOf }}
+-                            {{ $bestOf === 1 ? '' : '· Próximamente' }}
+                         </option>
+@@ -220,3 +217,3 @@
+-                <p class="mt-2 text-[11px] leading-5 text-amber-700">
+-                    BO3+ aún no ejecuta una serie real en Competition Lab.
++                <p class="mt-2 text-[11px] leading-5 text-emerald-700">
++                    Competition Lab registra cada juego y cierra la serie cuando alcanza su condición de victoria.
+                 </p>
+@@ -330,4 +327,3 @@
+-                    <option value="{{ $value }}" @selected(old('cutoff_tie_policy', $settings->cutoff_tie_policy) === $value)
+-                        @disabled($value === 'MANUAL_RESOLUTION' && old('cutoff_tie_policy', $settings->cutoff_tie_policy) !== 'MANUAL_RESOLUTION')>
+-                        {{ $label }}{{ $value === 'MANUAL_RESOLUTION' ? ' · Próximamente' : '' }}
++                    <option value="{{ $value }}" @selected(old('cutoff_tie_policy', $settings->cutoff_tie_policy) === $value)>
++                        {{ $label }}
+                     </option>
+diff --git a/resources/views/tournaments/phase-templates/partials/swiss-settings-form.blade.php b/resources/views/tournaments/phase-templates/partials/swiss-settings-form.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/swiss-settings-form.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/swiss-settings-form.blade.php
+@@ -285,8 +285,6 @@
+                     <option value="{{ $bestOf }}"
+-                        @selected((int) old('default_best_of', $settings->default_best_of) === $bestOf)
+-                        @disabled($bestOf !== 1 && (int) old('default_best_of', $settings->default_best_of) !== $bestOf)>
++                        @selected((int) old('default_best_of', $settings->default_best_of) === $bestOf)>
+ 
+                         BO{{ $bestOf }}
+-                        {{ $bestOf === 1 ? '' : '· Próximamente' }}
+ 
+                     </option>
+@@ -300,4 +298,3 @@
+-            <p class="mt-2 text-[11px] leading-5 text-amber-700">
+-                BO3+ se conserva para configuraciones existentes, pero el Lab todavía
+-                resuelve un resultado por encuentro.
++            <p class="mt-2 text-[11px] leading-5 text-emerald-700">
++                En BO3+ cada resultado corresponde a un juego y la ronda espera a que la serie termine.
+             </p>
+@@ -350,4 +347,3 @@
+-                    <option value="{{ $value }}"
+-                        @disabled($value === 'MANUAL' && old('bye_policy', $settings->bye_policy) !== 'MANUAL')>
+-                        {{ $label }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
++                    <option value="{{ $value }}">
++                        {{ $label }}
+                     </option>
+@@ -520,7 +516,6 @@
+                         <option value="{{ $value }}"
+-                            @selected(old('cutoff_tie_policy', $settings->cutoff_tie_policy) === $value)
+-                            @disabled($value === 'MANUAL_RESOLUTION' && old('cutoff_tie_policy', $settings->cutoff_tie_policy) !== 'MANUAL_RESOLUTION')>
++                            @selected(old('cutoff_tie_policy', $settings->cutoff_tie_policy) === $value)>
+ 
+-                            {{ $label }}{{ $value === 'MANUAL_RESOLUTION' ? ' · Próximamente' : '' }}
++                            {{ $label }}
+ 
+                         </option>
+@@ -545,7 +540,6 @@
+                         <option value="{{ $value }}"
+-                            @selected(old('fallback_policy', $settings->fallback_policy) === $value)
+-                            @disabled($value === 'MANUAL_RESOLUTION' && old('fallback_policy', $settings->fallback_policy) !== 'MANUAL_RESOLUTION')>
++                            @selected(old('fallback_policy', $settings->fallback_policy) === $value)>
+ 
+-                            {{ $label }}{{ $value === 'MANUAL_RESOLUTION' ? ' · Próximamente' : '' }}
++                            {{ $label }}
+ 
+                         </option>
+diff --git a/resources/views/tournaments/phase-templates/partials/single-elimination-settings-form.blade.php b/resources/views/tournaments/phase-templates/partials/single-elimination-settings-form.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/single-elimination-settings-form.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/single-elimination-settings-form.blade.php
+@@ -110,5 +110,4 @@
+                             <option value="{{ $value }}"
+-                                @selected(old('seeding_mode', $settings->seeding_mode) === $value)
+-                                @disabled($value === 'MANUAL' && old('seeding_mode', $settings->seeding_mode) !== 'MANUAL')>
+-                                {{ $label }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
++                                @selected(old('seeding_mode', $settings->seeding_mode) === $value)>
++                                {{ $label }}
+                             </option>
+@@ -195,5 +194,4 @@
+                         <option value="{{ $value }}"
+-                            @selected(old('bye_assignment', $settings->bye_assignment) === $value)
+-                            @disabled($value === 'MANUAL' && old('bye_assignment', $settings->bye_assignment) !== 'MANUAL')>
+-                            {{ $label }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
++                            @selected(old('bye_assignment', $settings->bye_assignment) === $value)>
++                            {{ $label }}
+                         </option>
+@@ -260,5 +258,4 @@
+                         <input type="radio" name="series_format" value="FIXED_GAMES" x-model="draft.seriesFormat"
+-                            @disabled(old('series_format', $settings->series_format) !== 'FIXED_GAMES')
+-                            class="mt-0.5 border-slate-300 text-cyan-600 focus:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-50">
++                            class="mt-0.5 border-slate-300 text-cyan-600 focus:ring-cyan-500">
+ 
+                         <span>
+@@ -300,6 +297,4 @@
+                         <option value="{{ $value }}"
+-                            @selected((int) old('default_best_of', $settings->default_best_of) === $value)
+-                            @disabled($value !== 1 && (int) old('default_best_of', $settings->default_best_of) !== $value)>
++                            @selected((int) old('default_best_of', $settings->default_best_of) === $value)>
+                             BO{{ $value }}
+-                            {{ $value === 1 ? '' : '· Próximamente' }}
+                         </option>
+@@ -315,4 +310,3 @@
+-                <p class="mt-2 text-[11px] leading-5 text-amber-700">
+-                    BO3+ y cantidad fija siguen visibles si ya estaban guardados, pero
+-                    el Runtime todavía no ejecuta series de múltiples juegos.
++                <p class="mt-2 text-[11px] leading-5 text-emerald-700">
++                    BO3+ registra juegos individuales y cierra la serie cuando alguien alcanza la mayoría necesaria.
+                 </p>
+diff --git a/resources/views/tournaments/phase-templates/partials/form.blade.php b/resources/views/tournaments/phase-templates/partials/form.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/form.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/form.blade.php
+@@ -430,7 +430,5 @@
+                             @foreach ([1, 3, 5, 7, 9] as $value)
+-                                <option value="{{ $value }}"
+-                                    @disabled($value !== 1 && (int) old('best_of', $editing ? $phaseTemplate->best_of : 1) !== $value)>
++                                <option value="{{ $value }}">
+                                     Best of {{ $value }}
+-                                    {{ $value === 1 ? '' : '· Próximamente' }}
+                                 </option>
+                             @endforeach
+@@ -440,4 +438,3 @@
+-                        <p class="mt-2 text-[11px] leading-5 text-amber-700">
+-                            BO3+ se conserva para configuraciones existentes, pero no debe usarse
+-                            como una serie ejecutable hasta incorporar el motor de series.
++                        <p class="mt-2 text-[11px] leading-5 text-emerald-700">
++                            BO3+ utiliza el motor de series de Competition Lab y registra cada juego por separado.
+                         </p>
+diff --git a/resources/views/tournaments/lab/partials/manual-decision.blade.php b/resources/views/tournaments/lab/partials/manual-decision.blade.php
+new file mode 100644
+--- /dev/null
++++ b/resources/views/tournaments/lab/partials/manual-decision.blade.php
+@@ -0,0 +1,96 @@
++<section x-cloak x-show="pendingDecision()"
++    class="rounded-[30px] border border-amber-300 bg-gradient-to-br from-amber-50 via-white to-violet-50 p-5 shadow-sm sm:p-6">
++    <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
++        <div>
++            <div class="inline-flex rounded-full bg-amber-100 px-3 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-amber-800">
++                Decisión manual pendiente
++            </div>
++            <h2 class="mt-3 text-xl font-black text-slate-950" x-text="pendingDecision()?.title"></h2>
++            <p class="mt-2 max-w-3xl text-xs leading-6 text-slate-600" x-text="pendingDecision()?.description"></p>
++        </div>
++        <span class="w-fit rounded-xl border border-amber-200 bg-white px-3 py-2 text-[9px] font-black text-amber-700"
++            x-text="pendingDecision()?.type"></span>
++    </div>
++
++    <div x-show="pendingDecision()?.type === 'GROUP_ASSIGNMENT'" class="mt-5 space-y-4">
++        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
++            <template x-for="group in pendingDecision()?.groups ?? []" :key="group.key">
++                <div class="rounded-2xl border border-violet-200 bg-white p-3">
++                    <div class="flex items-center justify-between gap-2">
++                        <p class="text-xs font-black text-slate-900" x-text="group.name"></p>
++                        <span class="rounded-full bg-violet-100 px-2 py-1 text-[8px] font-black text-violet-700"
++                            x-text="`${decisionGroupCount(group.key)} / ${group.size}`"></span>
++                    </div>
++                    <p class="mt-1 font-mono text-[8px] text-slate-400" x-text="group.code"></p>
++                </div>
++            </template>
++        </div>
++
++        <div class="grid gap-2 md:grid-cols-2">
++            <template x-for="participantId in pendingDecision()?.eligible_participant_ids ?? []" :key="participantId">
++                <label class="grid grid-cols-[minmax(0,1fr)_180px] items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
++                    <span class="truncate text-xs font-black text-slate-800" x-text="participantName(participantId)"></span>
++                    <select x-model="decisionDraft.group_assignments[participantId]"
++                        class="rounded-xl border-slate-200 text-xs font-bold focus:border-violet-400 focus:ring-violet-400">
++                        <option value="">Selecciona grupo</option>
++                        <template x-for="group in pendingDecision()?.groups ?? []" :key="group.key">
++                            <option :value="group.key" x-text="group.name"></option>
++                        </template>
++                    </select>
++                </label>
++            </template>
++        </div>
++    </div>
++
++    <div x-show="pendingDecision()?.type === 'PARTICIPANT_ORDER' || (pendingDecision()?.type === 'SINGLE_ELIMINATION_SETUP' && pendingDecision()?.constraints?.requires_order)"
++        class="mt-5">
++        <div class="mb-3 flex items-center justify-between gap-3">
++            <p class="text-[9px] font-black uppercase tracking-wider text-violet-700">Orden / seeds</p>
++            <p class="text-[9px] font-bold text-slate-400">Usa ↑ ↓ para ordenar</p>
++        </div>
++        <div class="grid gap-2 md:grid-cols-2">
++            <template x-for="(participantId, index) in decisionDraft.ordered_participant_ids" :key="participantId">
++                <div class="flex items-center gap-2 rounded-2xl border border-violet-200 bg-white p-3">
++                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-[10px] font-black text-violet-700"
++                        x-text="index + 1"></span>
++                    <span class="min-w-0 flex-1 truncate text-xs font-black text-slate-800" x-text="participantName(participantId)"></span>
++                    <button type="button" @click="moveDecisionParticipant(index, -1)" :disabled="index === 0"
++                        class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-black text-slate-600 disabled:opacity-30">↑</button>
++                    <button type="button" @click="moveDecisionParticipant(index, 1)"
++                        :disabled="index === decisionDraft.ordered_participant_ids.length - 1"
++                        class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-black text-slate-600 disabled:opacity-30">↓</button>
++                </div>
++            </template>
++        </div>
++    </div>
++
++    <div x-show="decisionNeedsSelection()" class="mt-5">
++        <div class="flex items-center justify-between gap-3">
++            <p class="text-[9px] font-black uppercase tracking-wider text-emerald-700">Selección requerida</p>
++            <span class="rounded-full bg-emerald-100 px-3 py-1 text-[9px] font-black text-emerald-700"
++                x-text="`${decisionDraft.selected_participant_ids.length} / ${Number(pendingDecision()?.required_selection_count ?? pendingDecision()?.constraints?.bye_count ?? 0)}`"></span>
++        </div>
++        <div class="mt-3 flex flex-wrap gap-2">
++            <template x-for="participantId in pendingDecision()?.eligible_participant_ids ?? []" :key="participantId">
++                <button type="button" @click="toggleDecisionSelection(participantId)"
++                    class="rounded-xl border px-3 py-2 text-[10px] font-black transition"
++                    :class="decisionSelected(participantId)
++                        ? 'border-emerald-500 bg-emerald-600 text-white'
++                        : 'border-slate-200 bg-white text-slate-600'">
++                    <span x-text="participantName(participantId)"></span>
++                    <span x-show="decisionSelected(participantId)"> ✓</span>
++                </button>
++            </template>
++        </div>
++    </div>
++
++    <div class="mt-5 flex flex-col gap-3 border-t border-amber-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
++        <p class="text-[10px] leading-5 text-slate-500">
++            La ejecución permanecerá pausada hasta que esta decisión sea válida. No se guarda en la plantilla: solo pertenece a este Lab temporal.
++        </p>
++        <button type="button" @click="resolveManualDecision()" :disabled="loading"
++            class="shrink-0 rounded-xl bg-amber-500 px-5 py-3 text-xs font-black text-white shadow-lg shadow-amber-500/20 disabled:opacity-40">
++            Confirmar y continuar
++        </button>
++    </div>
++</section>
+diff --git a/resources/views/tournaments/lab/workspace.blade.php b/resources/views/tournaments/lab/workspace.blade.php
+--- a/resources/views/tournaments/lab/workspace.blade.php
++++ b/resources/views/tournaments/lab/workspace.blade.php
+@@ -220,3 +220,5 @@
+             @include('tournaments.lab.partials.mode-selector')
+ 
++            @include('tournaments.lab.partials.manual-decision')
++
+             @include('tournaments.lab.partials.automatic-runtime')
+diff --git a/resources/js/tournaments/lab/competition-lab.js b/resources/js/tournaments/lab/competition-lab.js
+--- a/resources/js/tournaments/lab/competition-lab.js
++++ b/resources/js/tournaments/lab/competition-lab.js
+@@ -45,4 +45,10 @@
+         expandedRounds:
+             [],
+ 
++        decisionDraft: {
++            ordered_participant_ids: [],
++            selected_participant_ids: [],
++            group_assignments: {},
++        },
++
+         init() {
+@@ -195,4 +201,6 @@
+         afterStateChange() {
++            this.syncDecisionDraft();
++
+             if (
+                 this.state
+                     ?.graph_runtime
+@@ -451,4 +459,5 @@
+                             'RUNNING',
+                             'READY',
+                             'COMPLETED',
++                            'AWAITING_DECISION',
+                         ].includes(
+@@ -710,4 +719,128 @@
+                 id;
+         },
+ 
++        pendingDecisionNode() {
++            return this.nodes().find(node =>
++                node?.runtime?.status === 'AWAITING_DECISION'
++                && node?.runtime?.manual_decision
++            ) ?? null;
++        },
++
++        pendingDecision() {
++            return this.pendingDecisionNode()?.runtime?.manual_decision ?? null;
++        },
++
++        syncDecisionDraft() {
++            const decision = this.pendingDecision();
++            if (!decision) {
++                this.decisionDraft = {
++                    ordered_participant_ids: [],
++                    selected_participant_ids: [],
++                    group_assignments: {},
++                };
++                return;
++            }
++
++            const eligible = [...(decision.eligible_participant_ids ?? [])];
++            this.decisionDraft = {
++                ordered_participant_ids: eligible,
++                selected_participant_ids: [],
++                group_assignments: Object.fromEntries(
++                    eligible.map(id => [id, ''])
++                ),
++            };
++
++            const node = this.pendingDecisionNode();
++            if (node) {
++                this.selectedNodeId = String(node.id);
++            }
++        },
++
++        moveDecisionParticipant(index, delta) {
++            const target = index + delta;
++            const items = this.decisionDraft.ordered_participant_ids;
++            if (target < 0 || target >= items.length) {
++                return;
++            }
++
++            [items[index], items[target]] = [items[target], items[index]];
++            this.decisionDraft.ordered_participant_ids = [...items];
++        },
++
++        decisionNeedsSelection() {
++            const decision = this.pendingDecision();
++            if (!decision) {
++                return false;
++            }
++
++            return Number(
++                decision.required_selection_count
++                ?? decision.constraints?.bye_count
++                ?? 0
++            ) > 0;
++        },
++
++        decisionSelected(participantId) {
++            return this.decisionDraft.selected_participant_ids.includes(participantId);
++        },
++
++        toggleDecisionSelection(participantId) {
++            const selected = this.decisionDraft.selected_participant_ids;
++            if (selected.includes(participantId)) {
++                this.decisionDraft.selected_participant_ids = selected.filter(id => id !== participantId);
++                return;
++            }
++
++            const required = Number(
++                this.pendingDecision()?.required_selection_count
++                ?? this.pendingDecision()?.constraints?.bye_count
++                ?? 0
++            );
++
++            if (required > 0 && selected.length >= required) {
++                return;
++            }
++
++            this.decisionDraft.selected_participant_ids = [...selected, participantId];
++        },
++
++        decisionGroupCount(groupKey) {
++            return Object.values(this.decisionDraft.group_assignments ?? {})
++                .filter(value => value === groupKey)
++                .length;
++        },
++
++        async resolveManualDecision() {
++            const node = this.pendingDecisionNode();
++            const decision = this.pendingDecision();
++
++            if (!node || !decision) {
++                this.error = 'No existe una decisión manual pendiente.';
++                return;
++            }
++
++            await this.execute('RESOLVE_MANUAL_DECISION', {
++                node_id: Number(node.id),
++                decision_id: decision.id,
++                ordered_participant_ids: this.decisionDraft.ordered_participant_ids,
++                selected_participant_ids: this.decisionDraft.selected_participant_ids,
++                group_assignments: this.decisionDraft.group_assignments,
++            });
++        },
++
++        seriesFor(match) {
++            return this.selectedNode()?.runtime?.series?.[match.id] ?? null;
++        },
++
++        seriesProgressLabel(match) {
++            const series = this.seriesFor(match);
++            if (!series) {
++                return match.series_label ?? (match.best_of ? `BO${match.best_of}` : '');
++            }
++
++            return `Juegos ${series.game_wins_a}-${series.game_wins_b}`
++                + (series.game_draws ? ` · ${series.game_draws} empate(s)` : '')
++                + ` · ${series.status === 'COMPLETED' ? 'Serie cerrada' : 'Serie en curso'}`;
++        },
++
+         resultForm(match) {
+@@ -1045,4 +1178,7 @@
+                 RUNNING:
+                     'En ejecución',
+ 
++                AWAITING_DECISION:
++                    'Esperando decisión',
++
+                 COMPLETED:
+@@ -1120,4 +1256,7 @@
+                 RUNNING:
+                     'bg-amber-100 text-amber-700',
+ 
++                AWAITING_DECISION:
++                    'bg-fuchsia-100 text-fuchsia-700',
++
+                 COMPLETED:
+diff --git a/resources/views/tournaments/lab/partials/manual-engine.blade.php b/resources/views/tournaments/lab/partials/manual-engine.blade.php
+--- a/resources/views/tournaments/lab/partials/manual-engine.blade.php
++++ b/resources/views/tournaments/lab/partials/manual-engine.blade.php
+@@ -300,8 +300,3 @@
+                                 <p class="mt-1 text-[9px] font-bold text-slate-400"
+-                                    x-text="match.series_label
+-                                        ?? (
+-                                            match.best_of
+-                                                ? `BO${match.best_of}`
+-                                                : ''
+-                                        )">
++                                    x-text="seriesProgressLabel(match)">
+                                 </p>
+diff --git a/app/Http/Requests/Tournaments/UpdateSingleEliminationStructureElementRequest.php b/app/Http/Requests/Tournaments/UpdateSingleEliminationStructureElementRequest.php
+--- a/app/Http/Requests/Tournaments/UpdateSingleEliminationStructureElementRequest.php
++++ b/app/Http/Requests/Tournaments/UpdateSingleEliminationStructureElementRequest.php
+@@ -35,6 +35,8 @@
+         $this->merge([
+-            'is_locked' =>
+-            $this->boolean(
+-                'is_locked'
+-            ),
++            'is_locked' => $this->boolean('is_locked'),
++            'allows_incomplete' => $this->boolean('allows_incomplete'),
++            'is_required' => $this->boolean('is_required'),
++            'accepts_batch' => $this->boolean('accepts_batch'),
++            'accepts_multiple_connections' => $this->boolean('accepts_multiple_connections'),
++            'is_splittable' => $this->boolean('is_splittable'),
+         ]);
+@@ -85,4 +87,61 @@
+-            'is_locked' => [
+-                'boolean',
+-            ],
++            'is_locked' => ['boolean'],
++
++            // ROUND
++            'stage_number' => ['nullable', 'integer', 'min:1', 'max:1000'],
++            'branch_code' => ['nullable', Rule::in(['MAIN', 'SECONDARY', 'REPECHAGE', 'CUSTOM'])],
++            'round_type' => ['nullable', Rule::in(['PRELIMINARY', 'MAIN', 'REPECHAGE', 'PLACEMENT', 'CUSTOM'])],
++            'participants_expected' => ['nullable', 'integer', 'min:1', 'max:512'],
++            'qualifiers_expected' => ['nullable', 'integer', 'min:1', 'max:512'],
++            'sort_order' => ['nullable', 'integer', 'min:0', 'max:100000'],
++
++            // ENCOUNTER
++            'position' => ['nullable', 'integer', 'min:1', 'max:10000'],
++            'entrants_count' => ['nullable', 'integer', 'min:2', 'max:64'],
++            'qualifiers_count' => ['nullable', 'integer', 'min:1', 'max:63'],
++            'min_entrants_to_start' => ['nullable', 'integer', 'min:1', 'max:64'],
++            'encounter_profile' => ['nullable', Rule::in(['DUEL', 'MULTI_COMPETITOR', 'CUSTOM'])],
++            'activation_policy' => ['nullable', Rule::in(['ALL_SLOTS_FILLED', 'MINIMUM_REACHED', 'MANUAL'])],
++            'allows_incomplete' => ['boolean'],
++            'series_format' => ['nullable', Rule::in(['NONE', 'BEST_OF', 'FIXED_GAMES'])],
++            'best_of' => ['nullable', Rule::in([1, 3, 5, 7, 9, 11])],
++            'fixed_games' => ['nullable', 'integer', 'min:1', 'max:99'],
++
++            // INPUT_GATE
++            'input_type' => ['nullable', Rule::in(['POOL', 'PER_SEED', 'GROUPED', 'HYBRID', 'CUSTOM'])],
++            'merge_policy' => ['nullable', Rule::in(['APPEND', 'WAIT_ALL', 'FIRST_AVAILABLE', 'PRIORITY'])],
++            'distribution_mode' => ['nullable', Rule::in(['INPUT_ORDER', 'RANKING', 'RANDOM', 'BALANCED', 'EXTREMES', 'MANUAL', 'CUSTOM'])],
++            'empty_behavior' => ['nullable', 'string', 'max:80'],
++            'min_participants' => ['nullable', 'integer', 'min:0', 'max:512'],
++            'max_participants' => ['nullable', 'integer', 'min:0', 'max:512'],
++            'exact_participants' => ['nullable', 'integer', 'min:0', 'max:512'],
++            'is_required' => ['boolean'],
++            'accepts_batch' => ['boolean'],
++            'accepts_multiple_connections' => ['boolean'],
++            'priority' => ['nullable', 'integer', 'min:0', 'max:99999'],
++
++            // SLOT
++            'slot_type' => ['nullable', Rule::in(['PARTICIPANT', 'BYE', 'OPTIONAL', 'MANUAL'])],
++            'capacity' => ['nullable', 'integer', 'min:1', 'max:64'],
++            'source_policy' => ['nullable', Rule::in(['SINGLE', 'FIRST_AVAILABLE', 'PRIORITY', 'CONDITIONAL', 'MANUAL'])],
++            'assignment_rule' => ['nullable', 'string', 'max:120'],
++
++            // RESULT
++            'result_type' => ['nullable', Rule::in(['WINNER', 'LOSER', 'POSITION', 'TOP_N', 'QUALIFIED', 'ELIMINATED', 'SURVIVOR', 'SCORE_THRESHOLD', 'MANUAL', 'CUSTOM'])],
++            'position_from' => ['nullable', 'integer', 'min:1', 'max:64'],
++            'position_to' => ['nullable', 'integer', 'min:1', 'max:64'],
++            'quantity' => ['nullable', 'integer', 'min:1', 'max:64'],
++            'flow_mode' => ['nullable', 'string', 'max:80'],
++            'participant_status' => ['nullable', 'string', 'max:80'],
++            'is_splittable' => ['boolean'],
++
++            // CONNECTION. Endpoints can be changed atomically by the same inspector.
++            'source_type' => ['nullable', Rule::in(['INPUT_GATE', 'RESULT'])],
++            'source_input_gate_id' => ['nullable', 'integer', 'min:1'],
++            'source_result_id' => ['nullable', 'integer', 'min:1'],
++            'target_type' => ['nullable', Rule::in(['SLOT', 'PHASE_EXIT'])],
++            'target_slot_id' => ['nullable', 'integer', 'min:1'],
++            'target_phase_exit_id' => ['nullable', 'integer', 'min:1'],
++            'allocation_mode' => ['nullable', Rule::in(['ALL', 'TAKE_N', 'POSITION', 'REMAINDER', 'CONDITIONAL'])],
++            'allocation_value' => ['nullable', 'numeric', 'min:0', 'max:512'],
++            'condition_type' => ['nullable', 'string', 'max:80'],
+         ];
+diff --git a/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructureEditor.php b/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructureEditor.php
+--- a/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructureEditor.php
++++ b/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructureEditor.php
+@@ -195,28 +195,40 @@
+         string $elementType,
+         array $data
+     ): array {
+         $fields = match ($elementType) {
+-            'INPUT_GATE',
+-            'ROUND',
+-            'ENCOUNTER',
++            'INPUT_GATE' => [
++                'name', 'description', 'input_type', 'merge_policy', 'distribution_mode', 'empty_behavior',
++                'min_participants', 'max_participants', 'exact_participants', 'is_required', 'accepts_batch',
++                'accepts_multiple_connections', 'priority', 'sort_order', 'status', 'is_locked',
++            ],
++
++            'ROUND' => [
++                'name', 'description', 'stage_number', 'branch_code', 'round_type', 'participants_expected',
++                'qualifiers_expected', 'sort_order', 'status', 'is_locked',
++            ],
++
++            'ENCOUNTER' => [
++                'name', 'description', 'position', 'entrants_count', 'qualifiers_count', 'min_entrants_to_start',
++                'encounter_profile', 'activation_policy', 'allows_incomplete', 'series_format', 'best_of',
++                'fixed_games', 'sort_order', 'status', 'is_locked',
++            ],
++
+             'RESULT' => [
+-                'name',
+-                'description',
+-                'status',
+-                'is_locked',
++                'name', 'description', 'result_type', 'position_from', 'position_to', 'quantity', 'flow_mode',
++                'participant_status', 'is_required', 'is_splittable', 'accepts_multiple_connections', 'priority',
++                'sort_order', 'status', 'is_locked',
+             ],
+ 
+             'CONNECTION' => [
+-                'label',
+-                'description',
+-                'status',
+-                'is_locked',
++                'label', 'description', 'source_type', 'source_input_gate_id', 'source_result_id', 'target_type',
++                'target_slot_id', 'target_phase_exit_id', 'allocation_mode', 'allocation_value', 'priority',
++                'condition_type', 'status', 'is_locked',
+             ],
+ 
+             'SLOT' => [
+-                'status',
+-                'is_locked',
++                'position', 'slot_type', 'capacity', 'is_required', 'source_policy', 'empty_behavior',
++                'assignment_rule', 'sort_order', 'status', 'is_locked',
+             ],
+ 
+             'PHASE_EXIT' => [
+                 'name',
+@@ -232,21 +244,33 @@
+                 $data,
+                 $fields
+             );
+ 
+-        if (
+-            in_array(
+-                'is_locked',
+-                $fields,
+-                true
+-            )
+-        ) {
+-            $payload['is_locked'] =
+-                (bool) (
+-                    $data['is_locked']
+-                    ??
+-                    false
+-                );
++        foreach ([
++            'is_locked',
++            'allows_incomplete',
++            'is_required',
++            'accepts_batch',
++            'accepts_multiple_connections',
++            'is_splittable',
++        ] as $booleanField) {
++            if (in_array($booleanField, $fields, true)) {
++                $payload[$booleanField] = (bool) ($data[$booleanField] ?? false);
++            }
++        }
++
++        if ($elementType === 'CONNECTION') {
++            if (($payload['source_type'] ?? null) === 'INPUT_GATE') {
++                $payload['source_result_id'] = null;
++            } elseif (($payload['source_type'] ?? null) === 'RESULT') {
++                $payload['source_input_gate_id'] = null;
++            }
++
++            if (($payload['target_type'] ?? null) === 'SLOT') {
++                $payload['target_phase_exit_id'] = null;
++            } elseif (($payload['target_type'] ?? null) === 'PHASE_EXIT') {
++                $payload['target_slot_id'] = null;
++            }
+         }
+ 
+         return $payload;
+     }
+
+diff --git a/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructurePresenter.php b/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructurePresenter.php
+--- a/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructurePresenter.php
++++ b/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructurePresenter.php
+@@ -215,5 +215,15 @@
+                 'type' => $gate->input_type,
+                 'type_label' => $gate->type_label,
++                'input_type' => $gate->input_type,
++                'merge_policy' => $gate->merge_policy,
++                'distribution_mode' => $gate->distribution_mode,
++                'empty_behavior' => $gate->empty_behavior,
++                'min_participants' => $gate->min_participants,
++                'max_participants' => $gate->max_participants,
++                'exact_participants' => $gate->exact_participants,
++                'priority' => (int) $gate->priority,
++                'sort_order' => (int) $gate->sort_order,
++                'accepts_multiple_connections' => (bool) $gate->accepts_multiple_connections,
+                 'contract' => $gate->contract_label,
+                 'distribution' => $gate->distribution_label,
+                 'required' => (bool) $gate->is_required,
+@@ -315,4 +325,7 @@
+                 'stage_number' =>
+                 (int) $round->stage_number,
++                'branch_code' => $round->branch_code,
++                'round_type' => $round->round_type,
++                'sort_order' => (int) $round->sort_order,
+                 'branch' => $round->branch_label,
+                 'type_label' => $round->type_label,
+@@ -470,11 +483,20 @@
+                 'entrants' =>
+                 (int) $encounter->entrants_count,
++                'entrants_count' => (int) $encounter->entrants_count,
+ 
+                 'qualifiers' =>
+                 (int) $encounter->qualifiers_count,
++                'qualifiers_count' => (int) $encounter->qualifiers_count,
++                'min_entrants_to_start' => (int) $encounter->min_entrants_to_start,
+ 
+                 'profile' =>
+                 $encounter->profile_label,
++                'encounter_profile' => $encounter->encounter_profile,
++                'activation_policy' => $encounter->activation_policy,
++                'series_format' => $encounter->series_format,
++                'best_of' => (int) ($encounter->best_of ?? 1),
++                'fixed_games' => (int) ($encounter->fixed_games ?? 1),
++                'sort_order' => (int) $encounter->sort_order,
+ 
+                 'series' =>
+                 $encounter->series_label,
+@@ -675,10 +697,14 @@
+                 'type_label' =>
+                 $slot->type_label,
++                'slot_type' => $slot->slot_type,
+                 'capacity' => (int) $slot->capacity,
+                 'required' => (bool) $slot->is_required,
+                 'source_policy' =>
+                 $slot->source_policy_label,
++                'source_policy_value' => $slot->source_policy,
+                 'empty_behavior' =>
+                 $slot->empty_behavior,
++                'assignment_rule' => $slot->assignment_rule,
++                'sort_order' => (int) $slot->sort_order,
+                 'generation_source' =>
+                 $slot->generation_source,
+@@ -790,3 +816,10 @@
+                 'type_label' => $result->type_label,
++                'result_type' => $result->result_type,
++                'position_from' => $result->position_from,
++                'position_to' => $result->position_to,
+                 'quantity' => (int) $result->quantity,
++                'flow_mode' => $result->flow_mode,
++                'priority' => (int) $result->priority,
++                'sort_order' => (int) $result->sort_order,
++                'accepts_multiple_connections' => (bool) $result->accepts_multiple_connections,
+                 'quantity_label' =>
+@@ -890,4 +923,6 @@
+                 'source_type' =>
+                 $connection->source_type,
++                'source_input_gate_id' => $connection->source_input_gate_id,
++                'source_result_id' => $connection->source_result_id,
+ 
+                 'source_key' =>
+@@ -930,4 +965,6 @@
+                 'target_type' =>
+                 $connection->target_type,
++                'target_slot_id' => $connection->target_slot_id,
++                'target_phase_exit_id' => $connection->target_phase_exit_id,
+ 
+                 'target_key' =>
+diff --git a/resources/views/tournaments/phase-templates/partials/single-elimination-visualizer-inspector.blade.php b/resources/views/tournaments/phase-templates/partials/single-elimination-visualizer-inspector.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/single-elimination-visualizer-inspector.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/single-elimination-visualizer-inspector.blade.php
+@@ -323,4 +323,109 @@
+                                     </label>
+                                 </template>
+ 
++                                <template x-if="selected.kind === 'ROUND'">
++                                    <div class="grid gap-3 sm:grid-cols-2">
++                                        <label class="block">
++                                            <span class="text-[9px] font-black uppercase text-slate-500">Etapa</span>
++                                            <input type="number" name="stage_number" min="1" max="1000" x-model.number="selected.stage_number"
++                                                class="mt-2 w-full rounded-xl border-slate-300 text-sm">
++                                        </label>
++                                        <label class="block">
++                                            <span class="text-[9px] font-black uppercase text-slate-500">Rama</span>
++                                            <select name="branch_code" x-model="selected.branch_code" class="mt-2 w-full rounded-xl border-slate-300 text-sm">
++                                                <option value="MAIN">Principal</option><option value="SECONDARY">Secundaria</option>
++                                                <option value="REPECHAGE">Repechaje</option><option value="CUSTOM">Personalizada</option>
++                                            </select>
++                                        </label>
++                                        <label class="block">
++                                            <span class="text-[9px] font-black uppercase text-slate-500">Tipo de ronda</span>
++                                            <select name="round_type" x-model="selected.round_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm">
++                                                <option value="PRELIMINARY">Preliminar</option><option value="MAIN">Principal</option>
++                                                <option value="REPECHAGE">Repechaje</option><option value="PLACEMENT">Posicionamiento</option>
++                                                <option value="CUSTOM">Personalizada</option>
++                                            </select>
++                                        </label>
++                                        <label class="block">
++                                            <span class="text-[9px] font-black uppercase text-slate-500">Orden</span>
++                                            <input type="number" name="sort_order" min="0" x-model.number="selected.sort_order"
++                                                class="mt-2 w-full rounded-xl border-slate-300 text-sm">
++                                        </label>
++                                        <label class="block"><span class="text-[9px] font-black uppercase text-slate-500">Participantes esperados</span>
++                                            <input type="number" name="participants_expected" min="1" max="512" x-model.number="selected.participants_expected" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label class="block"><span class="text-[9px] font-black uppercase text-slate-500">Clasificados esperados</span>
++                                            <input type="number" name="qualifiers_expected" min="1" max="512" x-model.number="selected.qualifiers_expected" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                    </div>
++                                </template>
++
++                                <template x-if="selected.kind === 'ENCOUNTER'">
++                                    <div class="grid gap-3 sm:grid-cols-2">
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Posición</span><input type="number" name="position" min="1" x-model.number="selected.position" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Orden</span><input type="number" name="sort_order" min="0" x-model.number="selected.sort_order" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Participantes K</span><input type="number" name="entrants_count" min="2" max="64" x-model.number="selected.entrants_count" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Clasifican Q</span><input type="number" name="qualifiers_count" min="1" max="63" x-model.number="selected.qualifiers_count" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Mínimo para iniciar</span><input type="number" name="min_entrants_to_start" min="1" max="64" x-model.number="selected.min_entrants_to_start" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Perfil</span><select name="encounter_profile" x-model="selected.encounter_profile" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="DUEL">Duelo</option><option value="MULTI_COMPETITOR">Multicompetidor</option><option value="CUSTOM">Personalizado</option></select></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Activación</span><select name="activation_policy" x-model="selected.activation_policy" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="ALL_SLOTS_FILLED">Todos los slots</option><option value="MINIMUM_REACHED">Mínimo alcanzado</option><option value="MANUAL">Manual</option></select></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Serie</span><select name="series_format" x-model="selected.series_format" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="NONE">Sin serie</option><option value="BEST_OF">Best of</option><option value="FIXED_GAMES">Juegos fijos</option></select></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Best of</span><select name="best_of" x-model.number="selected.best_of" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="1">BO1</option><option value="3">BO3</option><option value="5">BO5</option><option value="7">BO7</option><option value="9">BO9</option><option value="11">BO11</option></select></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Juegos fijos</span><input type="number" name="fixed_games" min="1" max="99" x-model.number="selected.fixed_games" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label class="sm:col-span-2 flex items-center gap-3 rounded-xl border border-slate-200 p-3"><input type="hidden" name="allows_incomplete" value="0"><input type="checkbox" name="allows_incomplete" value="1" x-model="selected.allows_incomplete" class="rounded border-slate-300 text-violet-600"><span class="text-xs font-black text-slate-700">Permitir encuentro incompleto</span></label>
++                                    </div>
++                                </template>
++
++                                <template x-if="selected.kind === 'INPUT_GATE'">
++                                    <div class="grid gap-3 sm:grid-cols-2">
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Tipo</span><select name="input_type" x-model="selected.input_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="POOL">Pool</option><option value="PER_SEED">Por seed</option><option value="GROUPED">Agrupada</option><option value="HYBRID">Híbrida</option><option value="CUSTOM">Personalizada</option></select></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Merge</span><select name="merge_policy" x-model="selected.merge_policy" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="APPEND">Append</option><option value="WAIT_ALL">Wait all</option><option value="FIRST_AVAILABLE">Primera disponible</option><option value="PRIORITY">Prioridad</option></select></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Distribución</span><select name="distribution_mode" x-model="selected.distribution_mode" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="INPUT_ORDER">Orden entrada</option><option value="RANKING">Ranking</option><option value="RANDOM">Aleatoria</option><option value="BALANCED">Balanceada</option><option value="EXTREMES">Extremos</option><option value="MANUAL">Manual</option><option value="CUSTOM">Personalizada</option></select></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Si está vacía</span><input name="empty_behavior" maxlength="80" x-model="selected.empty_behavior" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Mínimo</span><input type="number" name="min_participants" min="0" max="512" x-model.number="selected.min_participants" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Máximo</span><input type="number" name="max_participants" min="0" max="512" x-model.number="selected.max_participants" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Exactos</span><input type="number" name="exact_participants" min="0" max="512" x-model.number="selected.exact_participants" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Prioridad</span><input type="number" name="priority" min="0" x-model.number="selected.priority" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label class="flex items-center gap-3"><input type="hidden" name="is_required" value="0"><input type="checkbox" name="is_required" value="1" x-model="selected.required"><span class="text-xs font-bold">Obligatoria</span></label>
++                                        <label class="flex items-center gap-3"><input type="hidden" name="accepts_batch" value="0"><input type="checkbox" name="accepts_batch" value="1" x-model="selected.accepts_batch"><span class="text-xs font-bold">Aceptar lote</span></label>
++                                        <label class="flex items-center gap-3"><input type="hidden" name="accepts_multiple_connections" value="0"><input type="checkbox" name="accepts_multiple_connections" value="1" x-model="selected.accepts_multiple_connections"><span class="text-xs font-bold">Múltiples conexiones</span></label>
++                                    </div>
++                                </template>
++
++                                <template x-if="selected.kind === 'SLOT'">
++                                    <div class="grid gap-3 sm:grid-cols-2">
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Posición</span><input type="number" name="position" min="1" x-model.number="selected.position" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Capacidad</span><input type="number" name="capacity" min="1" max="64" x-model.number="selected.capacity" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Tipo</span><select name="slot_type" x-model="selected.slot_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="PARTICIPANT">Participante</option><option value="BYE">BYE</option><option value="OPTIONAL">Opcional</option><option value="MANUAL">Manual</option></select></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Fuente</span><select name="source_policy" x-model="selected.source_policy_value" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="SINGLE">Única</option><option value="FIRST_AVAILABLE">Primera</option><option value="PRIORITY">Prioridad</option><option value="CONDITIONAL">Condicional</option><option value="MANUAL">Manual</option></select></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Vacío</span><input name="empty_behavior" maxlength="80" x-model="selected.empty_behavior" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Regla asignación</span><input name="assignment_rule" maxlength="120" x-model="selected.assignment_rule" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label class="flex items-center gap-3"><input type="hidden" name="is_required" value="0"><input type="checkbox" name="is_required" value="1" x-model="selected.required"><span class="text-xs font-bold">Requerido</span></label>
++                                    </div>
++                                </template>
++
++                                <template x-if="selected.kind === 'RESULT'">
++                                    <div class="grid gap-3 sm:grid-cols-2">
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Tipo</span><select name="result_type" x-model="selected.result_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="WINNER">Ganador</option><option value="LOSER">Perdedor</option><option value="POSITION">Posición</option><option value="TOP_N">Top N</option><option value="QUALIFIED">Clasificados</option><option value="ELIMINATED">Eliminados</option><option value="SURVIVOR">Supervivientes</option><option value="MANUAL">Manual</option><option value="CUSTOM">Custom</option></select></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Cantidad</span><input type="number" name="quantity" min="1" max="64" x-model.number="selected.quantity" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Desde posición</span><input type="number" name="position_from" min="1" max="64" x-model.number="selected.position_from" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Hasta posición</span><input type="number" name="position_to" min="1" max="64" x-model.number="selected.position_to" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Estado producido</span><input name="participant_status" maxlength="80" x-model="selected.participant_status" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Prioridad</span><input type="number" name="priority" min="0" x-model.number="selected.priority" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label class="flex items-center gap-3"><input type="hidden" name="is_splittable" value="0"><input type="checkbox" name="is_splittable" value="1" x-model="selected.splittable"><span class="text-xs font-bold">Divisible</span></label>
++                                    </div>
++                                </template>
++
++                                <template x-if="selected.kind === 'CONNECTION'">
++                                    <div class="grid gap-3 sm:grid-cols-2">
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Origen</span><select name="source_type" x-model="selected.source_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="INPUT_GATE">Puerta</option><option value="RESULT">Resultado</option></select></label>
++                                        <label x-show="selected.source_type === 'INPUT_GATE'"><span class="text-[9px] font-black uppercase text-slate-500">ID puerta origen</span><input type="number" name="source_input_gate_id" min="1" x-model.number="selected.source_input_gate_id" :disabled="selected.source_type !== 'INPUT_GATE'" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label x-show="selected.source_type === 'RESULT'"><span class="text-[9px] font-black uppercase text-slate-500">ID resultado origen</span><input type="number" name="source_result_id" min="1" x-model.number="selected.source_result_id" :disabled="selected.source_type !== 'RESULT'" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Destino</span><select name="target_type" x-model="selected.target_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="SLOT">Slot</option><option value="PHASE_EXIT">Salida</option></select></label>
++                                        <label x-show="selected.target_type === 'SLOT'"><span class="text-[9px] font-black uppercase text-slate-500">ID slot destino</span><input type="number" name="target_slot_id" min="1" x-model.number="selected.target_slot_id" :disabled="selected.target_type !== 'SLOT'" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label x-show="selected.target_type === 'PHASE_EXIT'"><span class="text-[9px] font-black uppercase text-slate-500">ID salida destino</span><input type="number" name="target_phase_exit_id" min="1" x-model.number="selected.target_phase_exit_id" :disabled="selected.target_type !== 'PHASE_EXIT'" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Asignación</span><select name="allocation_mode" x-model="selected.allocation_mode" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="ALL">Todo</option><option value="TAKE_N">Tomar N</option><option value="POSITION">Posición</option><option value="REMAINDER">Restante</option><option value="CONDITIONAL">Condicional</option></select></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Valor</span><input type="number" step="0.01" name="allocation_value" min="0" x-model.number="selected.allocation_value" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Prioridad</span><input type="number" name="priority" min="0" x-model.number="selected.priority" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                        <label><span class="text-[9px] font-black uppercase text-slate-500">Condición</span><input name="condition_type" maxlength="80" x-model="selected.condition_type" class="mt-2 w-full rounded-xl border-slate-300 text-sm"></label>
++                                    </div>
++                                </template>
++
+                                 <label class="block">
+diff --git a/tests/Unit/Tournaments/PriorityTwoFunctionalityTest.php b/tests/Unit/Tournaments/PriorityTwoFunctionalityTest.php
+new file mode 100644
+--- /dev/null
++++ b/tests/Unit/Tournaments/PriorityTwoFunctionalityTest.php
+@@ -0,0 +1,118 @@
++<?php
++
++namespace Tests\Unit\Tournaments;
++
++use App\Services\Tournaments\CompetitionLab\Runtime\CutoffPolicyResolver;
++use App\Services\Tournaments\CompetitionLab\Runtime\MatchSeriesRuntime;
++use PHPUnit\Framework\TestCase;
++
++class PriorityTwoFunctionalityTest extends TestCase
++{
++    public function test_best_of_three_requires_two_game_wins(): void
++    {
++        $series = new MatchSeriesRuntime();
++        $runtime = $this->runtimeWithMatch('BEST_OF', 3, 1);
++
++        $first = $series->submitGame($runtime, 'M1', 1, 0, true);
++        $this->assertFalse($first['completed']);
++        $this->assertSame('RUNNING', $first['runtime']['series']['M1']['status']);
++
++        $second = $series->submitGame($first['runtime'], 'M1', 2, 1, true);
++        $this->assertTrue($second['completed']);
++        $this->assertSame(2, $second['engine_score_a']);
++        $this->assertSame(0, $second['engine_score_b']);
++        $this->assertSame('A', $second['runtime']['series']['M1']['winner_id']);
++    }
++
++    public function test_bo1_draw_completes_for_non_elimination_engines(): void
++    {
++        $series = new MatchSeriesRuntime();
++        $runtime = $this->runtimeWithMatch('BEST_OF', 1, 1);
++
++        $result = $series->submitGame($runtime, 'M1', 1, 1, false);
++
++        $this->assertTrue($result['completed']);
++        $this->assertSame(1, $result['engine_score_a']);
++        $this->assertSame(1, $result['engine_score_b']);
++    }
++
++    public function test_fixed_games_plays_every_configured_game(): void
++    {
++        $series = new MatchSeriesRuntime();
++        $runtime = $this->runtimeWithMatch('FIXED_GAMES', 1, 3);
++
++        $one = $series->submitGame($runtime, 'M1', 3, 0, false);
++        $two = $series->submitGame($one['runtime'], 'M1', 2, 0, false);
++        $this->assertFalse($two['completed']);
++
++        $three = $series->submitGame($two['runtime'], 'M1', 1, 0, false);
++        $this->assertTrue($three['completed']);
++        $this->assertCount(3, $three['runtime']['series']['M1']['games']);
++    }
++
++    public function test_include_all_tied_can_expand_a_cutoff(): void
++    {
++        $resolver = new CutoffPolicyResolver();
++        $rows = [
++            ['participant_id' => 'A', 'points' => 10],
++            ['participant_id' => 'B', 'points' => 8],
++            ['participant_id' => 'C', 'points' => 8],
++            ['participant_id' => 'D', 'points' => 8],
++        ];
++
++        $result = $resolver->resolve(
++            $rows,
++            2,
++            'INCLUDE_ALL_TIED',
++            fn(array $left, array $right): bool => $left['points'] === $right['points'],
++            'TEST:CUTOFF'
++        );
++
++        $this->assertSame(['A', 'B', 'C', 'D'], array_column($result['selected'], 'participant_id'));
++        $this->assertNull($result['decision']);
++    }
++
++    public function test_manual_cutoff_returns_a_runtime_decision(): void
++    {
++        $resolver = new CutoffPolicyResolver();
++        $rows = [
++            ['participant_id' => 'A', 'points' => 10],
++            ['participant_id' => 'B', 'points' => 8],
++            ['participant_id' => 'C', 'points' => 8],
++        ];
++
++        $result = $resolver->resolve(
++            $rows,
++            2,
++            'MANUAL_RESOLUTION',
++            fn(array $left, array $right): bool => $left['points'] === $right['points'],
++            'TEST:MANUAL'
++        );
++
++        $this->assertSame(['A'], array_column($result['selected'], 'participant_id'));
++        $this->assertSame('CUTOFF_SELECTION', $result['decision']['type']);
++        $this->assertSame(1, $result['decision']['required_selection_count']);
++        $this->assertSame(['B', 'C'], $result['decision']['eligible_participant_ids']);
++    }
++
++    private function runtimeWithMatch(
++        string $format,
++        int $bestOf,
++        int $fixedGames
++    ): array {
++        return [
++            'rounds' => [[
++                'number' => 1,
++                'matches' => [[
++                    'id' => 'M1',
++                    'participant_a_id' => 'A',
++                    'participant_b_id' => 'B',
++                    'series_format' => $format,
++                    'best_of' => $bestOf,
++                    'fixed_games' => $fixedGames,
++                    'status' => 'PENDING',
++                ]],
++            ]],
++        ];
++    }
++}

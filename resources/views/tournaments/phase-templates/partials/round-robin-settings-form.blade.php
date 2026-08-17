@@ -69,9 +69,8 @@
         'MANUAL' => 'Manual',
     ] as $value => $label)
                         <option value="{{ $value }}"
-                            @selected(old('initial_order_mode', $settings->initial_order_mode) === $value)
-                            @disabled($value === 'MANUAL' && old('initial_order_mode', $settings->initial_order_mode) !== 'MANUAL')>
-                            {{ $label }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
+                            @selected(old('initial_order_mode', $settings->initial_order_mode) === $value)>
+                            {{ $label }}
                         </option>
                     @endforeach
 
@@ -144,18 +143,15 @@
 
                 @foreach ([1, 3, 5, 7, 9] as $value)
                     <option value="{{ $value }}"
-                        @selected((int) old('default_best_of', $settings->default_best_of) === $value)
-                        @disabled($value !== 1 && (int) old('default_best_of', $settings->default_best_of) !== $value)>
+                        @selected((int) old('default_best_of', $settings->default_best_of) === $value)>
                         BO{{ $value }}
-                        {{ $value === 1 ? '' : '· Próximamente' }}
                     </option>
                 @endforeach
 
             </select>
 
-            <p class="mt-2 text-[11px] leading-5 text-amber-700">
-                El Runtime actual resuelve un resultado por encuentro. BO3+ queda visible
-                únicamente como configuración heredada hasta incorporar series reales.
+            <p class="mt-2 text-[11px] leading-5 text-emerald-700">
+                En BO3+ cada resultado enviado corresponde a un juego; la serie se cierra al alcanzar la mayoría necesaria.
             </p>
 
         </div>

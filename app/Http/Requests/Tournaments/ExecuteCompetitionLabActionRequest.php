@@ -75,6 +75,7 @@ extends FormRequest
                     'START_TOURNAMENT',
                     'STEP_RUNTIME',
                     'RUN_TOURNAMENT',
+                    'RESOLVE_MANUAL_DECISION',
                 ]),
             ],
 
@@ -141,6 +142,48 @@ extends FormRequest
                 'min:1',
                 'max:1000',
             ],
+
+            'decision_id' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
+            'ordered_participant_ids' => [
+                'nullable',
+                'array',
+                'max:512',
+            ],
+
+            'ordered_participant_ids.*' => [
+                'string',
+                'distinct',
+                'max:100',
+            ],
+
+            'selected_participant_ids' => [
+                'nullable',
+                'array',
+                'max:512',
+            ],
+
+            'selected_participant_ids.*' => [
+                'string',
+                'distinct',
+                'max:100',
+            ],
+
+            'group_assignments' => [
+                'nullable',
+                'array',
+                'max:512',
+            ],
+
+            'group_assignments.*' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
         ];
     }
 
@@ -205,6 +248,18 @@ extends FormRequest
             $input->action
                 ===
                 'SIMULATE_ROUND'
+        );
+
+        $validator->sometimes(
+            [
+                'node_id',
+                'decision_id',
+            ],
+            'required',
+            fn($input) =>
+            $input->action
+                ===
+                'RESOLVE_MANUAL_DECISION'
         );
     }
 }

@@ -215,6 +215,8 @@
 
             @include('tournaments.lab.partials.mode-selector')
 
+            @include('tournaments.lab.partials.manual-decision')
+
             @include('tournaments.lab.partials.automatic-runtime')
 
             @include('tournaments.lab.partials.manual-engine')

@@ -43,6 +43,12 @@ export default function competitionLab(config) {
         expandedRounds:
             [],
 
+        decisionDraft: {
+            ordered_participant_ids: [],
+            selected_participant_ids: [],
+            group_assignments: {},
+        },
+
         init() {
             if (
                 this.state
@@ -220,6 +226,8 @@ export default function competitionLab(config) {
         },
 
         afterStateChange() {
+            this.syncDecisionDraft();
+
             if (
                 this.state
                     ?.graph_runtime
@@ -464,6 +472,7 @@ export default function competitionLab(config) {
                             'RUNNING',
                             'READY',
                             'COMPLETED',
+                            'AWAITING_DECISION',
                         ].includes(
                             node.status
                         )
@@ -763,6 +772,130 @@ export default function competitionLab(config) {
                 id;
         },
 
+        pendingDecisionNode() {
+            return this.nodes().find(node =>
+                node?.runtime?.status === 'AWAITING_DECISION'
+                && node?.runtime?.manual_decision
+            ) ?? null;
+        },
+
+        pendingDecision() {
+            return this.pendingDecisionNode()?.runtime?.manual_decision ?? null;
+        },
+
+        syncDecisionDraft() {
+            const decision = this.pendingDecision();
+            if (!decision) {
+                this.decisionDraft = {
+                    ordered_participant_ids: [],
+                    selected_participant_ids: [],
+                    group_assignments: {},
+                };
+                return;
+            }
+
+            const eligible = [...(decision.eligible_participant_ids ?? [])];
+            this.decisionDraft = {
+                ordered_participant_ids: eligible,
+                selected_participant_ids: [],
+                group_assignments: Object.fromEntries(
+                    eligible.map(id => [id, ''])
+                ),
+            };
+
+            const node = this.pendingDecisionNode();
+            if (node) {
+                this.selectedNodeId = String(node.id);
+            }
+        },
+
+        moveDecisionParticipant(index, delta) {
+            const target = index + delta;
+            const items = this.decisionDraft.ordered_participant_ids;
+            if (target < 0 || target >= items.length) {
+                return;
+            }
+
+            [items[index], items[target]] = [items[target], items[index]];
+            this.decisionDraft.ordered_participant_ids = [...items];
+        },
+
+        decisionNeedsSelection() {
+            const decision = this.pendingDecision();
+            if (!decision) {
+                return false;
+            }
+
+            return Number(
+                decision.required_selection_count
+                ?? decision.constraints?.bye_count
+                ?? 0
+            ) > 0;
+        },
+
+        decisionSelected(participantId) {
+            return this.decisionDraft.selected_participant_ids.includes(participantId);
+        },
+
+        toggleDecisionSelection(participantId) {
+            const selected = this.decisionDraft.selected_participant_ids;
+            if (selected.includes(participantId)) {
+                this.decisionDraft.selected_participant_ids = selected.filter(id => id !== participantId);
+                return;
+            }
+
+            const required = Number(
+                this.pendingDecision()?.required_selection_count
+                ?? this.pendingDecision()?.constraints?.bye_count
+                ?? 0
+            );
+
+            if (required > 0 && selected.length >= required) {
+                return;
+            }
+
+            this.decisionDraft.selected_participant_ids = [...selected, participantId];
+        },
+
+        decisionGroupCount(groupKey) {
+            return Object.values(this.decisionDraft.group_assignments ?? {})
+                .filter(value => value === groupKey)
+                .length;
+        },
+
+        async resolveManualDecision() {
+            const node = this.pendingDecisionNode();
+            const decision = this.pendingDecision();
+
+            if (!node || !decision) {
+                this.error = 'No existe una decisión manual pendiente.';
+                return;
+            }
+
+            await this.execute('RESOLVE_MANUAL_DECISION', {
+                node_id: Number(node.id),
+                decision_id: decision.id,
+                ordered_participant_ids: this.decisionDraft.ordered_participant_ids,
+                selected_participant_ids: this.decisionDraft.selected_participant_ids,
+                group_assignments: this.decisionDraft.group_assignments,
+            });
+        },
+
+        seriesFor(match) {
+            return this.selectedNode()?.runtime?.series?.[match.id] ?? null;
+        },
+
+        seriesProgressLabel(match) {
+            const series = this.seriesFor(match);
+            if (!series) {
+                return match.series_label ?? (match.best_of ? `BO${match.best_of}` : '');
+            }
+
+            return `Juegos ${series.game_wins_a}-${series.game_wins_b}`
+                + (series.game_draws ? ` · ${series.game_draws} empate(s)` : '')
+                + ` · ${series.status === 'COMPLETED' ? 'Serie cerrada' : 'Serie en curso'}`;
+        },
+
         resultForm(match) {
             this.resultForms[match.id] ??= {
                 score_a:
@@ -1060,6 +1193,9 @@ export default function competitionLab(config) {
                 RUNNING:
                     'En ejecución',
 
+                AWAITING_DECISION:
+                    'Esperando decisión',
+
                 COMPLETED:
                     'Completado',
 
@@ -1119,6 +1255,9 @@ export default function competitionLab(config) {
 
                 RUNNING:
                     'bg-amber-100 text-amber-700',
+
+                AWAITING_DECISION:
+                    'bg-fuchsia-100 text-fuchsia-700',
 
                 COMPLETED:
                     'bg-emerald-100 text-emerald-700',

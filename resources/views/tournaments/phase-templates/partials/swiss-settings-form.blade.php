@@ -368,20 +368,17 @@
 
                 @foreach ([1, 3, 5, 7, 9] as $bestOf)
                     <option value="{{ $bestOf }}"
-                        @selected((int) old('default_best_of', $settings->default_best_of) === $bestOf)
-                        @disabled($bestOf !== 1 && (int) old('default_best_of', $settings->default_best_of) !== $bestOf)>
+                        @selected((int) old('default_best_of', $settings->default_best_of) === $bestOf)>
 
                         BO{{ $bestOf }}
-                        {{ $bestOf === 1 ? '' : '· Próximamente' }}
 
                     </option>
                 @endforeach
 
             </select>
 
-            <p class="mt-2 text-[11px] leading-5 text-amber-700">
-                BO3+ se conserva para configuraciones existentes, pero el Lab todavía
-                resuelve un resultado por encuentro.
+            <p class="mt-2 text-[11px] leading-5 text-emerald-700">
+                En BO3+ cada resultado corresponde a un juego y la ronda espera a que la serie termine.
             </p>
 
         </div>
@@ -413,9 +410,8 @@
             <select name="bye_policy" x-model="byePolicy" class="mt-2 w-full rounded-xl border-slate-300">
 
                 @foreach ($byePolicies as $value => $label)
-                    <option value="{{ $value }}"
-                        @disabled($value === 'MANUAL' && old('bye_policy', $settings->bye_policy) !== 'MANUAL')>
-                        {{ $label }}{{ $value === 'MANUAL' ? ' · Próximamente' : '' }}
+                    <option value="{{ $value }}">
+                        {{ $label }}
                     </option>
                 @endforeach
 
@@ -592,10 +588,9 @@
 
                     @foreach ($cutoffPolicies as $value => $label)
                         <option value="{{ $value }}"
-                            @selected(old('cutoff_tie_policy', $settings->cutoff_tie_policy) === $value)
-                            @disabled($value === 'MANUAL_RESOLUTION' && old('cutoff_tie_policy', $settings->cutoff_tie_policy) !== 'MANUAL_RESOLUTION')>
+                            @selected(old('cutoff_tie_policy', $settings->cutoff_tie_policy) === $value)>
 
-                            {{ $label }}{{ $value === 'MANUAL_RESOLUTION' ? ' · Próximamente' : '' }}
+                            {{ $label }}
 
                         </option>
                     @endforeach
@@ -615,10 +610,9 @@
 
                     @foreach ($fallbackPolicies as $value => $label)
                         <option value="{{ $value }}"
-                            @selected(old('fallback_policy', $settings->fallback_policy) === $value)
-                            @disabled($value === 'MANUAL_RESOLUTION' && old('fallback_policy', $settings->fallback_policy) !== 'MANUAL_RESOLUTION')>
+                            @selected(old('fallback_policy', $settings->fallback_policy) === $value)>
 
-                            {{ $label }}{{ $value === 'MANUAL_RESOLUTION' ? ' · Próximamente' : '' }}
+                            {{ $label }}
 
                         </option>
                     @endforeach

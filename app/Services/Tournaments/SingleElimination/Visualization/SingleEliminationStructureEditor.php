@@ -196,26 +196,38 @@ class SingleEliminationStructureEditor
         array $data
     ): array {
         $fields = match ($elementType) {
-            'INPUT_GATE',
-            'ROUND',
-            'ENCOUNTER',
+            'INPUT_GATE' => [
+                'name', 'description', 'input_type', 'merge_policy', 'distribution_mode', 'empty_behavior',
+                'min_participants', 'max_participants', 'exact_participants', 'is_required', 'accepts_batch',
+                'accepts_multiple_connections', 'priority', 'sort_order', 'status', 'is_locked',
+            ],
+
+            'ROUND' => [
+                'name', 'description', 'stage_number', 'branch_code', 'round_type', 'participants_expected',
+                'qualifiers_expected', 'sort_order', 'status', 'is_locked',
+            ],
+
+            'ENCOUNTER' => [
+                'name', 'description', 'position', 'entrants_count', 'qualifiers_count', 'min_entrants_to_start',
+                'encounter_profile', 'activation_policy', 'allows_incomplete', 'series_format', 'best_of',
+                'fixed_games', 'sort_order', 'status', 'is_locked',
+            ],
+
             'RESULT' => [
-                'name',
-                'description',
-                'status',
-                'is_locked',
+                'name', 'description', 'result_type', 'position_from', 'position_to', 'quantity', 'flow_mode',
+                'participant_status', 'is_required', 'is_splittable', 'accepts_multiple_connections', 'priority',
+                'sort_order', 'status', 'is_locked',
             ],
 
             'CONNECTION' => [
-                'label',
-                'description',
-                'status',
-                'is_locked',
+                'label', 'description', 'source_type', 'source_input_gate_id', 'source_result_id', 'target_type',
+                'target_slot_id', 'target_phase_exit_id', 'allocation_mode', 'allocation_value', 'priority',
+                'condition_type', 'status', 'is_locked',
             ],
 
             'SLOT' => [
-                'status',
-                'is_locked',
+                'position', 'slot_type', 'capacity', 'is_required', 'source_policy', 'empty_behavior',
+                'assignment_rule', 'sort_order', 'status', 'is_locked',
             ],
 
             'PHASE_EXIT' => [
@@ -233,19 +245,31 @@ class SingleEliminationStructureEditor
                 $fields
             );
 
-        if (
-            in_array(
-                'is_locked',
-                $fields,
-                true
-            )
-        ) {
-            $payload['is_locked'] =
-                (bool) (
-                    $data['is_locked']
-                    ??
-                    false
-                );
+        foreach ([
+            'is_locked',
+            'allows_incomplete',
+            'is_required',
+            'accepts_batch',
+            'accepts_multiple_connections',
+            'is_splittable',
+        ] as $booleanField) {
+            if (in_array($booleanField, $fields, true)) {
+                $payload[$booleanField] = (bool) ($data[$booleanField] ?? false);
+            }
+        }
+
+        if ($elementType === 'CONNECTION') {
+            if (($payload['source_type'] ?? null) === 'INPUT_GATE') {
+                $payload['source_result_id'] = null;
+            } elseif (($payload['source_type'] ?? null) === 'RESULT') {
+                $payload['source_input_gate_id'] = null;
+            }
+
+            if (($payload['target_type'] ?? null) === 'SLOT') {
+                $payload['target_phase_exit_id'] = null;
+            } elseif (($payload['target_type'] ?? null) === 'PHASE_EXIT') {
+                $payload['target_slot_id'] = null;
+            }
         }
 
         return $payload;

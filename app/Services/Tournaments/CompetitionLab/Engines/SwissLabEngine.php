@@ -4,20 +4,24 @@ namespace App\Services\Tournaments\CompetitionLab\Engines;
 
 use App\Models\PhaseSwissSetting;
 use App\Models\PhaseTemplate;
+use App\Services\Tournaments\CompetitionLab\Runtime\CutoffPolicyResolver;
 use App\Services\Tournaments\Swiss\SwissPairingCalculator;
 use App\Services\Tournaments\Swiss\SwissValidator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class SwissLabEngine
-implements LabPhaseEngine
+implements LabPhaseEngine, SupportsManualDecision
 {
     public function __construct(
         private readonly
         SwissValidator $validator,
 
         private readonly
-        SwissPairingCalculator $pairingCalculator
+        SwissPairingCalculator $pairingCalculator,
+
+        private readonly
+        CutoffPolicyResolver $cutoffResolver
     ) {}
 
     public function supports(
@@ -251,6 +255,15 @@ implements LabPhaseEngine
             'max_byes_per_participant' =>
             (int)
             $settings->max_byes_per_participant,
+
+            'cutoff_tie_policy' =>
+            $settings->cutoff_tie_policy,
+
+            'fallback_policy' =>
+            $settings->fallback_policy,
+
+            'resolved_cutoffs' =>
+            [],
 
             'records' =>
             $records,
@@ -576,6 +589,90 @@ implements LabPhaseEngine
         );
     }
 
+    public function resolveManualDecision(
+        array $runtime,
+        array $payload
+    ): array {
+        $decision = $runtime['manual_decision'] ?? null;
+
+        if (! is_array($decision) || ($payload['decision_id'] ?? null) !== ($decision['id'] ?? null)) {
+            $this->fail('La decisión Swiss ya no corresponde al estado actual.');
+        }
+
+        $eligible = array_values($decision['eligible_participant_ids'] ?? []);
+        $selected = array_values(array_unique($payload['selected_participant_ids'] ?? []));
+        $required = (int) ($decision['required_selection_count'] ?? 0);
+
+        if (count($selected) !== $required) {
+            $this->fail("Debes seleccionar exactamente {$required} participante(s).");
+        }
+
+        foreach ($selected as $participantId) {
+            if (! in_array($participantId, $eligible, true)) {
+                $this->fail('La decisión contiene un participante no elegible.');
+            }
+        }
+
+        $type = $decision['type'] ?? '';
+        unset($runtime['manual_decision']);
+        $runtime['status'] = 'RUNNING';
+
+        if ($type === 'SWISS_BYE') {
+            $byeId = $selected[0] ?? null;
+            if (! $byeId || ! isset($runtime['records'][$byeId])) {
+                $this->fail('Selecciona un participante válido para BYE.');
+            }
+
+            $runtime['records'][$byeId]['status'] = 'MANUAL_BYE_HOLDER';
+            $runtime = $this->generateNextRound($runtime);
+            $runtime['records'][$byeId]['status'] = 'ACTIVE';
+            $runtime['records'][$byeId]['bye_count']++;
+            $runtime['records'][$byeId]['points'] += $runtime['points']['bye'];
+            $runtime['records'][$byeId]['pairing_score'] += $runtime['points']['bye'];
+            $runtime['records'][$byeId]['cumulative_score'] += $runtime['records'][$byeId]['points'];
+
+            $last = count($runtime['rounds']) - 1;
+            if ($last >= 0) {
+                $runtime['rounds'][$last]['bye_participant_id'] = $byeId;
+            }
+
+            return $this->recalculateStandings($runtime);
+        }
+
+        if (in_array($type, ['CUTOFF_SELECTION', 'PLAYOFF_SELECTION'], true)) {
+            $key = data_get($decision, 'context.decision_key');
+            if (! $key) {
+                $this->fail('El desempate no contiene una clave de resolución.');
+            }
+
+            $runtime['resolved_cutoffs'][$key] = array_values(array_unique([
+                ...data_get($decision, 'context.guaranteed_participant_ids', []),
+                ...$selected,
+            ]));
+
+            return $this->complete($runtime);
+        }
+
+        if ($type === 'SWISS_FALLBACK') {
+            $selectedMap = array_fill_keys($selected, true);
+            foreach ($eligible as $participantId) {
+                $runtime['records'][$participantId]['status'] = isset($selectedMap[$participantId])
+                    ? 'QUALIFIED'
+                    : 'ELIMINATED';
+
+                if (isset($selectedMap[$participantId])) {
+                    $runtime['records'][$participantId]['exit_id'] = data_get($decision, 'context.exit_id');
+                    $runtime['records'][$participantId]['exit_name'] = data_get($decision, 'context.exit_name', 'Clasificados');
+                }
+            }
+
+            $runtime['manual_fallback_resolved'] = true;
+            return $this->complete($runtime);
+        }
+
+        $this->fail('El tipo de decisión Swiss no está soportado.');
+    }
+
     private function generateNextRound(
         array $runtime
     ): array {
@@ -632,9 +729,36 @@ implements LabPhaseEngine
         }
 
         if ($calculated['manual_bye_required'] ?? false) {
-            $this->fail(
-                'La política de BYE manual todavía necesita una selección explícita antes de ejecutar el Lab.'
-            );
+            $eligibleIds = $activeRecords
+                ->filter(fn(array $record) =>
+                    (int) $record['bye_count'] < (int) $runtime['max_byes_per_participant']
+                )
+                ->pluck('participant_id')
+                ->values()
+                ->all();
+
+            if ($eligibleIds === []) {
+                $this->fail('No existe un participante elegible para recibir el BYE manual.');
+            }
+
+            $runtime['status'] = 'AWAITING_DECISION';
+            $runtime['manual_decision'] = [
+                'id' => 'DEC-' . substr(hash(
+                    'sha256',
+                    'SWISS_BYE:' . $roundNumber . ':' . implode('|', $eligibleIds)
+                ), 0, 20),
+                'scope' => 'ENGINE',
+                'type' => 'SWISS_BYE',
+                'title' => 'Asignar BYE Swiss',
+                'description' => 'Selecciona exactamente un participante elegible para descansar esta ronda.',
+                'eligible_participant_ids' => $eligibleIds,
+                'required_selection_count' => 1,
+                'context' => [
+                    'round_number' => $roundNumber,
+                ],
+            ];
+
+            return $runtime;
         }
 
         foreach ($calculated['warnings'] ?? [] as $warning) {
@@ -665,24 +789,25 @@ implements LabPhaseEngine
         $matches =
             [];
 
-        $bestOf =
-            $this->bestOfForRound(
-                $runtime,
-                $roundNumber
-            );
-
-        $allowDraws =
-            $this->allowDrawsForRound(
-                $runtime,
-                $roundNumber
-            );
-
         foreach (
             $pairings
             as
             $index =>
             $pairing
         ) {
+            $rule = $this->roundRuleForMatch(
+                $runtime,
+                $roundNumber,
+                $pairing[0],
+                $pairing[1]
+            );
+
+            $bestOf = (int) ($rule['best_of'] ?? $runtime['default_best_of']);
+            $allowDraws = array_key_exists('allow_draws_override', $rule ?? [])
+                && $rule['allow_draws_override'] !== null
+                ? (bool) $rule['allow_draws_override']
+                : (bool) $runtime['allow_draws'];
+
             $matches[] = [
                 'id' =>
                 'SW-R'
@@ -708,8 +833,14 @@ implements LabPhaseEngine
                 'winner_id' =>
                 null,
 
+                'series_format' =>
+                'BEST_OF',
+
                 'best_of' =>
                 $bestOf,
+
+                'fixed_games' =>
+                1,
 
                 'allow_draws' =>
                 $allowDraws,
@@ -889,6 +1020,20 @@ implements LabPhaseEngine
             $record['opponent_score_sum'] =
                 $opponentScores->sum();
 
+            $cutRule = collect($runtime['tiebreakers'])
+                ->firstWhere('criterion', 'OPPONENT_SCORE_CUT_LOWEST');
+            $cut = max(0, (int) ($cutRule['parameter_int'] ?? 1));
+            $record['opponent_score_cut_lowest'] = $opponentScores
+                ->sort()
+                ->values()
+                ->slice($cut)
+                ->sum();
+
+            $games = $this->gameMetrics($runtime, $record['participant_id']);
+            $record['game_wins'] = $games['game_wins'];
+            $record['game_losses'] = $games['game_losses'];
+            $record['game_difference'] = $games['game_difference'];
+
             $record['sonneborn_berger'] =
                 $this->sonnebornBerger(
                     $record,
@@ -937,6 +1082,39 @@ implements LabPhaseEngine
     private function applyDynamicRules(
         array $runtime
     ): array {
+        if (($runtime['completion_mode'] ?? null) === 'RECORD_THRESHOLDS') {
+            $qualificationRule = collect($runtime['advancement_rules'])
+                ->firstWhere('rule_type', 'WIN_THRESHOLD');
+            $eliminationRule = collect($runtime['advancement_rules'])
+                ->firstWhere('rule_type', 'LOSS_THRESHOLD');
+
+            foreach ($runtime['records'] as $participantId => &$record) {
+                if ($record['status'] !== 'ACTIVE') {
+                    continue;
+                }
+
+                if (
+                    $runtime['qualification_wins'] !== null
+                    && $record['wins'] >= (int) $runtime['qualification_wins']
+                ) {
+                    $record['status'] = 'QUALIFIED';
+                    $record['exit_id'] = $qualificationRule['exit_id'] ?? null;
+                    $record['exit_name'] = $qualificationRule['exit_name'] ?? 'Clasificados';
+                    continue;
+                }
+
+                if (
+                    $runtime['elimination_losses'] !== null
+                    && $record['losses'] >= (int) $runtime['elimination_losses']
+                ) {
+                    $record['status'] = 'ELIMINATED';
+                    $record['exit_id'] = $eliminationRule['exit_id'] ?? null;
+                    $record['exit_name'] = $eliminationRule['exit_name'] ?? 'Eliminados';
+                }
+            }
+            unset($record);
+        }
+
         foreach (
             $runtime['advancement_rules']
             as
@@ -1097,6 +1275,51 @@ implements LabPhaseEngine
                 $runtime
             );
 
+        $activeIds = collect($runtime['records'])
+            ->where('status', 'ACTIVE')
+            ->pluck('participant_id')
+            ->values()
+            ->all();
+
+        if (
+            ($runtime['completion_mode'] ?? null) === 'RECORD_THRESHOLDS'
+            && ($runtime['fallback_policy'] ?? 'FINAL_RANKING') === 'MANUAL_RESOLUTION'
+            && $activeIds !== []
+            && ! ($runtime['manual_fallback_resolved'] ?? false)
+        ) {
+            $finalRule = collect($runtime['advancement_rules'])
+                ->first(fn($rule) => in_array(
+                    $rule['rule_type'],
+                    ['FINAL_TOP_N', 'FINAL_RANK_POSITION', 'FINAL_RANK_RANGE'],
+                    true
+                ));
+
+            $required = match ($finalRule['rule_type'] ?? null) {
+                'FINAL_TOP_N' => max(1, (int) ($finalRule['take'] ?? 1)),
+                'FINAL_RANK_POSITION' => 1,
+                'FINAL_RANK_RANGE' => max(1, (int) ($finalRule['rank_to'] ?? 1) - (int) ($finalRule['rank_from'] ?? 1) + 1),
+                default => 1,
+            };
+            $required = min($required, count($activeIds));
+
+            $runtime['status'] = 'AWAITING_DECISION';
+            $runtime['manual_decision'] = [
+                'id' => 'DEC-' . substr(hash('sha256', 'SWISS_FALLBACK:' . implode('|', $activeIds)), 0, 20),
+                'scope' => 'ENGINE',
+                'type' => 'SWISS_FALLBACK',
+                'title' => 'Resolver participantes Swiss restantes',
+                'description' => 'El máximo de rondas terminó sin resolver todos los récords. Selecciona quiénes clasifican.',
+                'eligible_participant_ids' => $activeIds,
+                'required_selection_count' => $required,
+                'context' => [
+                    'exit_id' => $finalRule['exit_id'] ?? null,
+                    'exit_name' => $finalRule['exit_name'] ?? 'Clasificados',
+                ],
+            ];
+
+            return $runtime;
+        }
+
         $selected =
             collect(
                 $runtime['records']
@@ -1144,49 +1367,66 @@ implements LabPhaseEngine
                 )
                 ->values();
 
-            $selection =
-                match ($rule['rule_type']) {
-                    'FINAL_TOP_N' =>
-                    $available
-                        ->take(
-                            (int)
-                            $rule['take']
-                        ),
+            if (in_array($rule['rule_type'], ['FINAL_TOP_N', 'FINAL_BOTTOM_N'], true)) {
+                $ordered = $rule['rule_type'] === 'FINAL_BOTTOM_N'
+                    ? $available->reverse()->values()
+                    : $available->values();
+                $decisionKey = 'SWISS:CUTOFF:' . $rule['id'];
+                $resolvedIds = $runtime['resolved_cutoffs'][$decisionKey] ?? null;
 
-                    'FINAL_BOTTOM_N' =>
-                    $available
-                        ->reverse()
-                        ->take(
-                            (int)
-                            $rule['take']
-                        ),
+                if (is_array($resolvedIds)) {
+                    $selection = $ordered
+                        ->filter(fn($row) => in_array($row['participant_id'], $resolvedIds, true))
+                        ->values();
+                } else {
+                    $resolved = $this->cutoffResolver->resolve(
+                        $ordered->all(),
+                        (int) $rule['take'],
+                        $runtime['cutoff_tie_policy'] ?? 'USE_TIEBREAKERS',
+                        fn(array $left, array $right): bool =>
+                            $this->competitivelyTied($left, $right, $runtime),
+                        $decisionKey,
+                        'Resolver empate Swiss en el último cupo'
+                    );
 
-                    'FINAL_RANK_POSITION' =>
-                    $available
-                        ->where(
-                            'position',
-                            (int)
-                            $rule['rank_from']
-                        ),
+                    if ($resolved['decision'] !== null) {
+                        $runtime['status'] = 'AWAITING_DECISION';
+                        $runtime['manual_decision'] = $resolved['decision'];
+                        return $runtime;
+                    }
 
-                    'FINAL_RANK_RANGE' =>
-                    $available
-                        ->whereBetween(
-                            'position',
-                            [
+                    $selection = collect($resolved['selected']);
+                }
+            } else {
+                $selection =
+                    match ($rule['rule_type']) {
+                        'FINAL_RANK_POSITION' =>
+                        $available
+                            ->where(
+                                'position',
                                 (int)
-                                $rule['rank_from'],
-                                (int)
-                                $rule['rank_to'],
-                            ]
-                        ),
+                                $rule['rank_from']
+                            ),
 
-                    'REMAINING' =>
-                    $available,
+                        'FINAL_RANK_RANGE' =>
+                        $available
+                            ->whereBetween(
+                                'position',
+                                [
+                                    (int)
+                                    $rule['rank_from'],
+                                    (int)
+                                    $rule['rank_to'],
+                                ]
+                            ),
 
-                    default =>
-                    collect(),
-                };
+                        'REMAINING' =>
+                        $available,
+
+                        default =>
+                        collect(),
+                    };
+            }
 
             foreach (
                 $selection
@@ -1508,7 +1748,7 @@ implements LabPhaseEngine
             'opponent_score_sum',
 
             'OPPONENT_SCORE_CUT_LOWEST' =>
-            'opponent_score_sum',
+            'opponent_score_cut_lowest',
 
             'SONNEBORN_BERGER' =>
             'sonneborn_berger',
@@ -1523,10 +1763,10 @@ implements LabPhaseEngine
             'score_for',
 
             'GAME_DIFFERENCE' =>
-            'score_difference',
+            'game_difference',
 
             'GAME_WINS' =>
-            'score_for',
+            'game_wins',
 
             'SEED' =>
             'seed',
@@ -1537,6 +1777,25 @@ implements LabPhaseEngine
             as
             $criterion
         ) {
+            if (($criterion['criterion'] ?? null) === 'HEAD_TO_HEAD') {
+                $leftValue = $this->headToHeadScore(
+                    $left['participant_id'],
+                    $right['participant_id'],
+                    $runtime
+                );
+                $rightValue = $this->headToHeadScore(
+                    $right['participant_id'],
+                    $left['participant_id'],
+                    $runtime
+                );
+
+                if ($leftValue == $rightValue) {
+                    continue;
+                }
+
+                return $rightValue <=> $leftValue;
+            }
+
             $field =
                 $fieldMap[$criterion['criterion']]
                 ??
@@ -1545,9 +1804,9 @@ implements LabPhaseEngine
             if (
                 ! $field
                 ||
-                $left[$field]
+                ($left[$field] ?? 0)
                 ==
-                $right[$field]
+                ($right[$field] ?? 0)
             ) {
                 continue;
             }
@@ -1653,56 +1912,178 @@ implements LabPhaseEngine
         return $score;
     }
 
-    private function bestOfForRound(
+    private function roundRuleForMatch(
         array $runtime,
-        int $roundNumber
-    ): int {
-        $rule =
-            collect(
-                $runtime['round_rules']
-            )
-            ->first(
-                fn($rule) =>
-                $rule['trigger_type']
-                    ===
-                    'ROUND_NUMBER'
-                    &&
-                    (int)
-                    $rule['round_number']
-                    ===
-                    $roundNumber
-            );
+        int $roundNumber,
+        string $leftId,
+        string $rightId
+    ): ?array {
+        $left = $runtime['records'][$leftId];
+        $right = $runtime['records'][$rightId];
 
-        return
-            $rule['best_of']
-            ??
-            $runtime['default_best_of'];
+        return collect($runtime['round_rules'])
+            ->first(function (array $rule) use ($runtime, $roundNumber, $left, $right): bool {
+                return match ($rule['trigger_type']) {
+                    'ROUND_NUMBER' =>
+                        (int) ($rule['round_number'] ?? 0) === $roundNumber,
+
+                    'EXACT_RECORD' =>
+                        $this->recordMatchesRule($left, $rule)
+                        || $this->recordMatchesRule($right, $rule),
+
+                    'QUALIFICATION_MATCH' =>
+                        ($runtime['completion_mode'] ?? null) === 'RECORD_THRESHOLDS'
+                        && $runtime['qualification_wins'] !== null
+                        && (
+                            $left['wins'] + 1 >= (int) $runtime['qualification_wins']
+                            || $right['wins'] + 1 >= (int) $runtime['qualification_wins']
+                        ),
+
+                    'ELIMINATION_MATCH' =>
+                        ($runtime['completion_mode'] ?? null) === 'RECORD_THRESHOLDS'
+                        && $runtime['elimination_losses'] !== null
+                        && (
+                            $left['losses'] + 1 >= (int) $runtime['elimination_losses']
+                            || $right['losses'] + 1 >= (int) $runtime['elimination_losses']
+                        ),
+
+                    'QUALIFICATION_OR_ELIMINATION' =>
+                        ($runtime['completion_mode'] ?? null) === 'RECORD_THRESHOLDS'
+                        && (
+                            (
+                                $runtime['qualification_wins'] !== null
+                                && (
+                                    $left['wins'] + 1 >= (int) $runtime['qualification_wins']
+                                    || $right['wins'] + 1 >= (int) $runtime['qualification_wins']
+                                )
+                            )
+                            || (
+                                $runtime['elimination_losses'] !== null
+                                && (
+                                    $left['losses'] + 1 >= (int) $runtime['elimination_losses']
+                                    || $right['losses'] + 1 >= (int) $runtime['elimination_losses']
+                                )
+                            )
+                        ),
+
+                    default => false,
+                };
+            });
     }
 
-    private function allowDrawsForRound(
-        array $runtime,
-        int $roundNumber
-    ): bool {
-        $rule =
-            collect(
-                $runtime['round_rules']
-            )
-            ->first(
-                fn($rule) =>
-                $rule['trigger_type']
-                    ===
-                    'ROUND_NUMBER'
-                    &&
-                    (int)
-                    $rule['round_number']
-                    ===
-                    $roundNumber
-            );
-
+    private function recordMatchesRule(array $record, array $rule): bool
+    {
         return
-            $rule['allow_draws_override']
-            ??
-            $runtime['allow_draws'];
+            $record['wins'] === (int) ($rule['record_wins'] ?? -1)
+            && $record['draws'] === (int) ($rule['record_draws'] ?? -1)
+            && $record['losses'] === (int) ($rule['record_losses'] ?? -1);
+    }
+
+    private function competitivelyTied(
+        array $left,
+        array $right,
+        array $runtime
+    ): bool {
+        $criteria = [
+            $runtime['pairing_basis'] === 'WIN_LOSS_RECORD' ? 'WINS' : 'POINTS',
+            ...collect($runtime['tiebreakers'])->pluck('criterion')->all(),
+        ];
+
+        foreach ($criteria as $criterion) {
+            if ($criterion === 'SEED') {
+                continue;
+            }
+
+            if ($criterion === 'HEAD_TO_HEAD') {
+                $leftValue = $this->headToHeadScore($left['participant_id'], $right['participant_id'], $runtime);
+                $rightValue = $this->headToHeadScore($right['participant_id'], $left['participant_id'], $runtime);
+            } else {
+                $field = match ($criterion) {
+                    'POINTS' => 'points',
+                    'WINS' => 'wins',
+                    'FEWEST_LOSSES' => 'losses',
+                    'OPPONENT_SCORE_SUM' => 'opponent_score_sum',
+                    'OPPONENT_SCORE_CUT_LOWEST' => 'opponent_score_cut_lowest',
+                    'SONNEBORN_BERGER' => 'sonneborn_berger',
+                    'CUMULATIVE_SCORE' => 'cumulative_score',
+                    'SCORE_DIFFERENCE' => 'score_difference',
+                    'SCORE_FOR' => 'score_for',
+                    'GAME_DIFFERENCE' => 'game_difference',
+                    'GAME_WINS' => 'game_wins',
+                    default => null,
+                };
+
+                if (! $field) {
+                    continue;
+                }
+
+                $leftValue = $left[$field] ?? 0;
+                $rightValue = $right[$field] ?? 0;
+            }
+
+            if ($leftValue != $rightValue) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function gameMetrics(array $runtime, string $participantId): array
+    {
+        $wins = 0;
+        $losses = 0;
+
+        foreach ($runtime['series'] ?? [] as $series) {
+            if (($series['participant_a_id'] ?? null) === $participantId) {
+                $wins += (int) ($series['game_wins_a'] ?? 0);
+                $losses += (int) ($series['game_wins_b'] ?? 0);
+            } elseif (($series['participant_b_id'] ?? null) === $participantId) {
+                $wins += (int) ($series['game_wins_b'] ?? 0);
+                $losses += (int) ($series['game_wins_a'] ?? 0);
+            }
+        }
+
+        return [
+            'game_wins' => $wins,
+            'game_losses' => $losses,
+            'game_difference' => $wins - $losses,
+        ];
+    }
+
+    private function headToHeadScore(
+        string $participantId,
+        string $opponentId,
+        array $runtime
+    ): float {
+        $score = 0.0;
+
+        foreach ($runtime['rounds'] as $round) {
+            foreach ($round['matches'] as $match) {
+                if (($match['status'] ?? null) !== 'COMPLETED') {
+                    continue;
+                }
+
+                $isA = $match['participant_a_id'] === $participantId
+                    && $match['participant_b_id'] === $opponentId;
+                $isB = $match['participant_b_id'] === $participantId
+                    && $match['participant_a_id'] === $opponentId;
+
+                if (! $isA && ! $isB) {
+                    continue;
+                }
+
+                $mine = $isA ? $match['score_a'] : $match['score_b'];
+                $theirs = $isA ? $match['score_b'] : $match['score_a'];
+                $score += $mine === $theirs
+                    ? (float) $runtime['points']['draw']
+                    : ($mine > $theirs
+                        ? (float) $runtime['points']['win']
+                        : (float) $runtime['points']['loss']);
+            }
+        }
+
+        return $score;
     }
 
     private function firstRoundOrder(

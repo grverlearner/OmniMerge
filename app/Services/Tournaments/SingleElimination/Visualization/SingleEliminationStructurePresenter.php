@@ -220,6 +220,16 @@ class SingleEliminationStructurePresenter
                 'status' => $gate->status,
                 'type' => $gate->input_type,
                 'type_label' => $gate->type_label,
+                'input_type' => $gate->input_type,
+                'merge_policy' => $gate->merge_policy,
+                'distribution_mode' => $gate->distribution_mode,
+                'empty_behavior' => $gate->empty_behavior,
+                'min_participants' => $gate->min_participants,
+                'max_participants' => $gate->max_participants,
+                'exact_participants' => $gate->exact_participants,
+                'priority' => (int) $gate->priority,
+                'sort_order' => (int) $gate->sort_order,
+                'accepts_multiple_connections' => (bool) $gate->accepts_multiple_connections,
                 'contract' => $gate->contract_label,
                 'distribution' => $gate->distribution_label,
                 'required' => (bool) $gate->is_required,
@@ -304,6 +314,9 @@ class SingleEliminationStructurePresenter
                 'status' => $round->status,
                 'stage_number' =>
                 (int) $round->stage_number,
+                'branch_code' => $round->branch_code,
+                'round_type' => $round->round_type,
+                'sort_order' => (int) $round->sort_order,
                 'branch' => $round->branch_label,
                 'type_label' => $round->type_label,
                 'participants_expected' =>
@@ -500,12 +513,21 @@ class SingleEliminationStructurePresenter
 
                 'entrants' =>
                 (int) $encounter->entrants_count,
+                'entrants_count' => (int) $encounter->entrants_count,
 
                 'qualifiers' =>
                 (int) $encounter->qualifiers_count,
+                'qualifiers_count' => (int) $encounter->qualifiers_count,
+                'min_entrants_to_start' => (int) $encounter->min_entrants_to_start,
 
                 'profile' =>
                 $encounter->profile_label,
+                'encounter_profile' => $encounter->encounter_profile,
+                'activation_policy' => $encounter->activation_policy,
+                'series_format' => $encounter->series_format,
+                'best_of' => (int) ($encounter->best_of ?? 1),
+                'fixed_games' => (int) ($encounter->fixed_games ?? 1),
+                'sort_order' => (int) $encounter->sort_order,
 
                 'series' =>
                 $encounter->series_label,
@@ -668,12 +690,16 @@ class SingleEliminationStructurePresenter
 
                 'type_label' =>
                 $slot->type_label,
+                'slot_type' => $slot->slot_type,
                 'capacity' => (int) $slot->capacity,
                 'required' => (bool) $slot->is_required,
                 'source_policy' =>
                 $slot->source_policy_label,
+                'source_policy_value' => $slot->source_policy,
                 'empty_behavior' =>
                 $slot->empty_behavior,
+                'assignment_rule' => $slot->assignment_rule,
+                'sort_order' => (int) $slot->sort_order,
                 'generation_source' =>
                 $slot->generation_source,
                 'locked' => (bool) $slot->is_locked,
@@ -779,7 +805,14 @@ class SingleEliminationStructurePresenter
                 'description' => $result->description,
                 'status' => $result->status,
                 'type_label' => $result->type_label,
+                'result_type' => $result->result_type,
+                'position_from' => $result->position_from,
+                'position_to' => $result->position_to,
                 'quantity' => (int) $result->quantity,
+                'flow_mode' => $result->flow_mode,
+                'priority' => (int) $result->priority,
+                'sort_order' => (int) $result->sort_order,
+                'accepts_multiple_connections' => (bool) $result->accepts_multiple_connections,
                 'quantity_label' =>
                 $result->quantity_label,
                 'position_label' =>
@@ -944,6 +977,8 @@ class SingleEliminationStructurePresenter
 
                 'source_type' =>
                 $connection->source_type,
+                'source_input_gate_id' => $connection->source_input_gate_id,
+                'source_result_id' => $connection->source_result_id,
 
                 'source_key' =>
                 $sourceKey,
@@ -964,6 +999,8 @@ class SingleEliminationStructurePresenter
 
                 'target_type' =>
                 $connection->target_type,
+                'target_slot_id' => $connection->target_slot_id,
+                'target_phase_exit_id' => $connection->target_phase_exit_id,
 
                 'target_key' =>
                 $targetKey,
