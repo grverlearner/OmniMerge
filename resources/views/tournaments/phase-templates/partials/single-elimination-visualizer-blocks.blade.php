@@ -176,10 +176,10 @@
             </div>
 
             {{-- Encuentros --}}
-            <div x-show="isRoundExpanded(round.key)" class="grid gap-4 p-4 sm:p-5 lg:grid-cols-2 2xl:grid-cols-3">
+            <div x-show="isRoundExpanded(round.key)" class="grid gap-4 p-4 sm:p-5 lg:grid-cols-2 2xl:grid-cols-2">
                 <template x-for="encounter in round.visible_encounters" :key="encounter.key">
                     <article :data-structure-key="encounter.key"
-                        class="rounded-3xl border bg-white shadow-sm transition"
+                        class="rounded-2xl border bg-white shadow-sm transition px-2 py-1" 
                         :class="[traceClass(encounter), {
                             'ring-2 ring-violet-500 ring-offset-2': selectedKey === encounter.key,
                             'opacity-25': isDimmed(encounter)
