@@ -20,8 +20,11 @@
     <div>
 
         <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
-            Activar cuando
+            Activar esta configuración cuando
         </label>
+        <p class="mt-1 text-[10px] leading-4 text-slate-400">
+            El trigger decide en qué encuentros se reemplazan temporalmente el Best of y la política de empate.
+        </p>
 
         <select name="trigger_type" x-model="trigger" class="mt-2 w-full rounded-xl border-slate-300 text-sm">
 
@@ -54,7 +57,7 @@
         <div>
 
             <label class="text-[10px] font-black uppercase text-emerald-600">
-                W
+                Victorias (W)
             </label>
 
             <input type="number" name="record_wins" min="0" max="100"
@@ -67,7 +70,7 @@
         <div>
 
             <label class="text-[10px] font-black uppercase text-amber-600">
-                D
+                Empates (D)
             </label>
 
             <input type="number" name="record_draws" min="0" max="100"
@@ -80,7 +83,7 @@
         <div>
 
             <label class="text-[10px] font-black uppercase text-red-600">
-                L
+                Derrotas (L)
             </label>
 
             <input type="number" name="record_losses" min="0" max="100"
@@ -124,8 +127,11 @@
     <div>
 
         <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
-            Empate
+            Política de empate en esta regla
         </label>
+        <p class="mt-1 text-[10px] leading-4 text-slate-400">
+            Permite heredar la configuración general o sobrescribirla solo en los encuentros activados por este trigger.
+        </p>
 
         <select name="allow_draws_override" class="mt-2 w-full rounded-xl border-slate-300">
 

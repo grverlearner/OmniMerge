@@ -68,12 +68,16 @@
 
         <label>
             <span class="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                Prioridad *
+                Prioridad de la puerta *
             </span>
 
             <input type="number" name="priority" min="1" max="999" required
                 value="{{ $gateValue('priority', $editingGate ? $phaseInputGate->priority : 10) }}"
                 class="mt-2 w-full rounded-xl border-slate-300 text-sm font-bold focus:border-fuchsia-400 focus:ring-fuchsia-400">
+
+            <span class="mt-1 block text-[10px] leading-4 text-slate-500">
+                Permite ordenar esta puerta respecto de otras entradas cuando la estructura necesita una precedencia explícita.
+            </span>
         </label>
     </div>
 
@@ -89,7 +93,10 @@
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <label>
             <span class="text-[10px] font-black uppercase text-slate-500">
-                Tipo
+                Tipo de entrada
+            </span>
+            <span class="mt-1 block text-[10px] leading-4 text-slate-400">
+                Describe cómo se organiza conceptualmente el conjunto que llega por esta puerta.
             </span>
 
             <select name="input_type" class="mt-2 w-full rounded-xl border-slate-300 text-xs font-bold">
@@ -109,7 +116,10 @@
 
         <label>
             <span class="text-[10px] font-black uppercase text-slate-500">
-                Unión
+                Política de unión
+            </span>
+            <span class="mt-1 block text-[10px] leading-4 text-slate-400">
+                Indica cómo se combinan los participantes cuando llegan varias conexiones a esta misma puerta.
             </span>
 
             <select name="merge_policy" class="mt-2 w-full rounded-xl border-slate-300 text-xs font-bold">
@@ -128,7 +138,10 @@
 
         <label>
             <span class="text-[10px] font-black uppercase text-slate-500">
-                Distribución
+                Distribución hacia los slots
+            </span>
+            <span class="mt-1 block text-[10px] leading-4 text-slate-400">
+                Define el orden con el que los participantes recibidos serán enviados a los slots seleccionados.
             </span>
 
             <select name="distribution_mode" class="mt-2 w-full rounded-xl border-slate-300 text-xs font-bold">
@@ -150,7 +163,10 @@
 
         <label>
             <span class="text-[10px] font-black uppercase text-slate-500">
-                Si está vacía
+                Si la puerta queda vacía
+            </span>
+            <span class="mt-1 block text-[10px] leading-4 text-slate-400">
+                Decide qué hará la ejecución si esta entrada no recibe ningún participante.
             </span>
 
             <select name="empty_behavior" class="mt-2 w-full rounded-xl border-slate-300 text-xs font-bold">
@@ -180,7 +196,7 @@
     </div>
 
     <div class="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-end justify-between gap-3">
             <div>
                 <p class="text-[10px] font-black uppercase text-fuchsia-700">
                     Contrato de capacidad
@@ -191,28 +207,43 @@
                 </p>
             </div>
 
-            <select name="capacity_mode" x-model="capacityMode"
-                class="rounded-xl border-fuchsia-200 bg-white text-xs font-black">
-                <option value="EXACT">Exacta</option>
-                <option value="RANGE">Rango</option>
-                <option value="FLEXIBLE">Flexible</option>
-            </select>
+            <label class="min-w-[170px]">
+                <span class="text-[8px] font-black uppercase tracking-wider text-fuchsia-700">Modo de capacidad</span>
+                <select name="capacity_mode" x-model="capacityMode"
+                    class="mt-1 w-full rounded-xl border-fuchsia-200 bg-white text-xs font-black">
+                    <option value="EXACT">Exacta</option>
+                    <option value="RANGE">Rango</option>
+                    <option value="FLEXIBLE">Flexible</option>
+                </select>
+            </label>
         </div>
 
         <div x-show="capacityMode === 'EXACT'" class="mt-4">
-            <input type="number" name="exact_participants" min="1" max="512"
-                value="{{ $gateValue('exact_participants', $defaultExact) }}" placeholder="Participantes exactos"
-                class="w-full rounded-xl border-fuchsia-200 bg-white text-sm font-bold">
+            <label class="block">
+                <span class="text-[9px] font-black uppercase tracking-wider text-fuchsia-700">Participantes exactos</span>
+                <input type="number" name="exact_participants" min="1" max="512"
+                    value="{{ $gateValue('exact_participants', $defaultExact) }}" placeholder="Ej. 8"
+                    class="mt-1.5 w-full rounded-xl border-fuchsia-200 bg-white text-sm font-bold">
+                <span class="mt-1 block text-[10px] leading-4 text-fuchsia-800/70">
+                    La puerta solo será compatible con esta cantidad concreta.
+                </span>
+            </label>
         </div>
 
         <div x-show="capacityMode === 'RANGE'" class="mt-4 grid grid-cols-2 gap-3">
-            <input type="number" name="min_participants" min="1" max="512"
-                value="{{ $gateValue('min_participants', $defaultMinimum) }}" placeholder="Mínimo"
-                class="rounded-xl border-fuchsia-200 bg-white text-sm font-bold">
+            <label>
+                <span class="text-[9px] font-black uppercase tracking-wider text-fuchsia-700">Mínimo aceptado</span>
+                <input type="number" name="min_participants" min="1" max="512"
+                    value="{{ $gateValue('min_participants', $defaultMinimum) }}" placeholder="Ej. 4"
+                    class="mt-1.5 w-full rounded-xl border-fuchsia-200 bg-white text-sm font-bold">
+            </label>
 
-            <input type="number" name="max_participants" min="1" max="512"
-                value="{{ $gateValue('max_participants', $defaultMaximum) }}" placeholder="Máximo"
-                class="rounded-xl border-fuchsia-200 bg-white text-sm font-bold">
+            <label>
+                <span class="text-[9px] font-black uppercase tracking-wider text-fuchsia-700">Máximo aceptado</span>
+                <input type="number" name="max_participants" min="1" max="512"
+                    value="{{ $gateValue('max_participants', $defaultMaximum) }}" placeholder="Ej. 8"
+                    class="mt-1.5 w-full rounded-xl border-fuchsia-200 bg-white text-sm font-bold">
+            </label>
         </div>
 
         <p x-show="capacityMode === 'FLEXIBLE'"
@@ -222,15 +253,20 @@
     </div>
 
     <div class="grid gap-3 md:grid-cols-3">
-        @foreach ([['is_required', 'Obligatoria', $editingGate ? $phaseInputGate->is_required : true], ['accepts_batch', 'Acepta lotes', $editingGate ? $phaseInputGate->accepts_batch : true], ['accepts_multiple_connections', 'Varias rutas externas', $editingGate ? $phaseInputGate->accepts_multiple_connections : true]] as [$name, $label, $default])
-            <label class="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 p-4">
+        @foreach ([
+            ['is_required', 'Obligatoria', 'El grafo exige que esta puerta cumpla su contrato antes de continuar.', $editingGate ? $phaseInputGate->is_required : true],
+            ['accepts_batch', 'Acepta lotes', 'Permite recibir varios participantes dentro de una misma entrega.', $editingGate ? $phaseInputGate->accepts_batch : true],
+            ['accepts_multiple_connections', 'Varias rutas externas', 'Permite que más de una conexión alimente esta misma puerta.', $editingGate ? $phaseInputGate->accepts_multiple_connections : true],
+        ] as [$name, $label, $description, $default])
+            <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 p-4">
                 <input type="hidden" name="{{ $name }}" value="0">
 
                 <input type="checkbox" name="{{ $name }}" value="1" @checked((bool) $gateValue($name, $default))
-                    class="rounded border-fuchsia-300 text-fuchsia-600">
+                    class="mt-0.5 rounded border-fuchsia-300 text-fuchsia-600">
 
-                <span class="text-xs font-black text-slate-800">
-                    {{ $label }}
+                <span>
+                    <span class="block text-xs font-black text-slate-800">{{ $label }}</span>
+                    <span class="mt-1 block text-[10px] leading-4 text-slate-500">{{ $description }}</span>
                 </span>
             </label>
         @endforeach

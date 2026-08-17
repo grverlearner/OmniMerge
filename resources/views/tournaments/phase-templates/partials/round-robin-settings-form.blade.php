@@ -235,8 +235,15 @@
             Define qué deberá ocurrir cuando un empate afecta directamente una salida como TOP_N.
         </p>
 
+        <label class="mt-5 block text-xs font-black uppercase text-slate-500">
+            Política para resolver el corte
+        </label>
+        <p class="mt-1 text-xs leading-5 text-slate-400">
+            Solo entra en juego cuando TOP_N o una salida equivalente deja un empate exactamente en la frontera.
+        </p>
+
         <select name="cutoff_tie_policy"
-            class="mt-5 w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
+            class="mt-2 w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
 
             @foreach ($cutoffPolicies as $value => $definition)
                 <option value="{{ $value }}" @selected(old('cutoff_tie_policy', $settings->cutoff_tie_policy) === $value)>

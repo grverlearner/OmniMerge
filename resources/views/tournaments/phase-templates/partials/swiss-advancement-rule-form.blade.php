@@ -20,8 +20,11 @@
     <div>
 
         <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
-            Regla
+            Regla de selección
         </label>
+        <p class="mt-1 text-[10px] leading-4 text-slate-400">
+            Define qué condición convierte a un participante en candidato para esta salida.
+        </p>
 
         <select name="rule_type" x-model="type" class="mt-2 w-full rounded-xl border-slate-300 text-sm">
 
@@ -39,8 +42,11 @@
     <div>
 
         <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
-            Puerta de salida
+            Puerta de salida de destino
         </label>
+        <p class="mt-1 text-[10px] leading-4 text-slate-400">
+            Cuando la condición se cumpla, el participante será asociado con esta salida.
+        </p>
 
         <select name="phase_exit_id" class="mt-2 w-full rounded-xl border-slate-300 text-sm">
 
@@ -64,7 +70,7 @@
     <div x-show="type === 'WIN_THRESHOLD'" x-transition>
 
         <label class="text-[10px] font-black uppercase text-emerald-600">
-            Victorias
+            Victorias para activar
         </label>
 
         <input type="number" name="threshold_wins" min="1" max="100"
@@ -79,7 +85,7 @@
     <div x-show="type === 'LOSS_THRESHOLD'" x-transition>
 
         <label class="text-[10px] font-black uppercase text-red-600">
-            Derrotas
+            Derrotas para activar
         </label>
 
         <input type="number" name="threshold_losses" min="1" max="100"
@@ -91,22 +97,36 @@
 
     {{-- EXACT RECORD --}}
 
-    <div x-show="type === 'EXACT_RECORD'" x-transition class="grid gap-3 sm:grid-cols-3">
+    <div x-show="type === 'EXACT_RECORD'" x-transition>
+        <p class="mb-2 text-[10px] leading-4 text-slate-400">
+            La regla solo se activa cuando el récord W-D-L coincide exactamente con estos tres valores.
+        </p>
 
-        <input type="number" name="record_wins" min="0" max="100"
-            value="{{ old('record_wins', $editingRule ? $advancementRule->record_wins : 3) }}"
-            :disabled="type !== 'EXACT_RECORD'" placeholder="W" class="rounded-xl border-slate-300">
+        <div class="grid gap-3 sm:grid-cols-3">
+            <label>
+                <span class="text-[9px] font-black uppercase text-emerald-600">Victorias (W)</span>
+                <input type="number" name="record_wins" min="0" max="100"
+                    value="{{ old('record_wins', $editingRule ? $advancementRule->record_wins : 3) }}"
+                    :disabled="type !== 'EXACT_RECORD'" placeholder="Ej. 3"
+                    class="mt-1 w-full rounded-xl border-slate-300">
+            </label>
 
+            <label>
+                <span class="text-[9px] font-black uppercase text-amber-600">Empates (D)</span>
+                <input type="number" name="record_draws" min="0" max="100"
+                    value="{{ old('record_draws', $editingRule ? $advancementRule->record_draws : 0) }}"
+                    :disabled="type !== 'EXACT_RECORD'" placeholder="Ej. 0"
+                    class="mt-1 w-full rounded-xl border-slate-300">
+            </label>
 
-        <input type="number" name="record_draws" min="0" max="100"
-            value="{{ old('record_draws', $editingRule ? $advancementRule->record_draws : 0) }}"
-            :disabled="type !== 'EXACT_RECORD'" placeholder="D" class="rounded-xl border-slate-300">
-
-
-        <input type="number" name="record_losses" min="0" max="100"
-            value="{{ old('record_losses', $editingRule ? $advancementRule->record_losses : 0) }}"
-            :disabled="type !== 'EXACT_RECORD'" placeholder="L" class="rounded-xl border-slate-300">
-
+            <label>
+                <span class="text-[9px] font-black uppercase text-red-600">Derrotas (L)</span>
+                <input type="number" name="record_losses" min="0" max="100"
+                    value="{{ old('record_losses', $editingRule ? $advancementRule->record_losses : 0) }}"
+                    :disabled="type !== 'EXACT_RECORD'" placeholder="Ej. 1"
+                    class="mt-1 w-full rounded-xl border-slate-300">
+            </label>
+        </div>
     </div>
 
 
@@ -118,8 +138,11 @@
     ].includes(type)" x-transition>
 
         <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
-            Cantidad
+            Cantidad de participantes
         </label>
+        <p class="mt-1 text-[10px] leading-4 text-slate-400">
+            Número de puestos que captura FINAL_TOP_N o FINAL_BOTTOM_N.
+        </p>
 
         <input type="number" name="take" min="1" max="512"
             value="{{ old('take', $editingRule ? $advancementRule->take : 8) }}"
@@ -140,8 +163,11 @@
     ].includes(type)" x-transition>
 
         <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
-            Posición
+            Posición inicial
         </label>
+        <p class="mt-1 text-[10px] leading-4 text-slate-400">
+            Primer puesto de la clasificación final que debe seleccionar esta regla.
+        </p>
 
         <input type="number" name="rank_from" min="1" max="512"
             value="{{ old('rank_from', $editingRule ? $advancementRule->rank_from : 1) }}"

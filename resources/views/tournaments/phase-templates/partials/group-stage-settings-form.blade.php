@@ -118,8 +118,14 @@
         <h3 class="mt-2 text-xl font-black text-slate-900">¿Cómo llegan los participantes a cada grupo?</h3>
 
         <div class="mt-6">
+            <label class="text-xs font-black uppercase text-slate-500">
+                Modo de distribución
+            </label>
+            <p class="mt-1 text-xs leading-5 text-slate-400">
+                Define la regla que toma el pool de entrada y decide a qué grupo llega cada participante.
+            </p>
             <select name="distribution_mode" x-model="distribution"
-                class="w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
+                class="mt-2 w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
                 @foreach ($distributionModes as $value => $definition)
                     <option value="{{ $value }}">
                         {{ $definition['label'] }}

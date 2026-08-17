@@ -382,20 +382,35 @@
                         Nuevo inicio
                     </p>
 
-                    <input name="name" required placeholder="Ej. Clasificación UEFA"
-                        class="mt-3 w-full rounded-xl border-emerald-200 bg-white text-sm">
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-emerald-700">Nombre del inicio</span>
+                        <input name="name" required placeholder="Ej. Clasificación UEFA"
+                            class="mt-1.5 w-full rounded-xl border-emerald-200 bg-white text-sm">
+                    </label>
 
-                    <select name="source_type" class="mt-2 w-full rounded-xl border-emerald-200 bg-white text-sm">
-                        <option value="MAIN_POOL">Pool principal</option>
-                        <option value="SEEDED_POOL">Participantes sembrados</option>
-                        <option value="QUALIFIER_POOL">Clasificados previos</option>
-                        <option value="INVITED_POOL">Invitados</option>
-                        <option value="CUSTOM">Personalizado</option>
-                    </select>
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-emerald-700">Tipo de participantes de origen</span>
+                        <select name="source_type" class="mt-1.5 w-full rounded-xl border-emerald-200 bg-white text-sm">
+                            <option value="MAIN_POOL">Pool principal</option>
+                            <option value="SEEDED_POOL">Participantes sembrados</option>
+                            <option value="QUALIFIER_POOL">Clasificados previos</option>
+                            <option value="INVITED_POOL">Invitados</option>
+                            <option value="CUSTOM">Personalizado</option>
+                        </select>
+                        <span class="mt-1 block text-[9px] leading-4 text-emerald-800/70">
+                            Describe de dónde proviene este conjunto inicial; no cambia la identidad de los participantes.
+                        </span>
+                    </label>
 
-                    <input type="number" name="expected_participants" min="1"
-                        placeholder="Participantes esperados"
-                        class="mt-2 w-full rounded-xl border-emerald-200 bg-white text-sm">
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-emerald-700">Participantes esperados (opcional)</span>
+                        <input type="number" name="expected_participants" min="1"
+                            placeholder="Ej. 32"
+                            class="mt-1.5 w-full rounded-xl border-emerald-200 bg-white text-sm">
+                        <span class="mt-1 block text-[9px] leading-4 text-emerald-800/70">
+                            Se usa para validar el flujo y las capacidades; este campo no crea participantes.
+                        </span>
+                    </label>
 
                     <input type="hidden" name="status" value="ACTIVE">
 
@@ -415,24 +430,36 @@
                         Nueva fase
                     </p>
 
-                    <select name="phase_template_id" required
-                        class="mt-3 w-full rounded-xl border-amber-200 bg-white text-sm">
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-amber-700">Plantilla de fase</span>
+                        <select name="phase_template_id" required
+                            class="mt-1.5 w-full rounded-xl border-amber-200 bg-white text-sm">
 
-                        <option value="">Seleccionar plantilla...</option>
+                            <option value="">Seleccionar plantilla...</option>
 
-                        @foreach ($availablePhaseTemplates as $phaseTemplate)
-                            <option value="{{ $phaseTemplate->id }}">
-                                {{ $phaseTemplate->name }}
-                                · {{ $phaseTemplate->type_label }}
-                            </option>
-                        @endforeach
-                    </select>
+                            @foreach ($availablePhaseTemplates as $phaseTemplate)
+                                <option value="{{ $phaseTemplate->id }}">
+                                    {{ $phaseTemplate->name }}
+                                    · {{ $phaseTemplate->type_label }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <span class="mt-1 block text-[9px] leading-4 text-amber-800/70">
+                            La plantilla define el motor, entradas, salidas y reglas que ejecutará este nodo.
+                        </span>
+                    </label>
 
-                    <input name="name" required placeholder="Ej. Playoffs principales"
-                        class="mt-2 w-full rounded-xl border-amber-200 bg-white text-sm">
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-amber-700">Nombre dentro del torneo</span>
+                        <input name="name" required placeholder="Ej. Playoffs principales"
+                            class="mt-1.5 w-full rounded-xl border-amber-200 bg-white text-sm">
+                    </label>
 
-                    <textarea name="description" rows="2" placeholder="Función de esta fase dentro del torneo..."
-                        class="mt-2 w-full rounded-xl border-amber-200 bg-white text-sm"></textarea>
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-amber-700">Función / descripción</span>
+                        <textarea name="description" rows="2" placeholder="Explica para qué sirve esta fase dentro del recorrido..."
+                            class="mt-1.5 w-full rounded-xl border-amber-200 bg-white text-sm"></textarea>
+                    </label>
 
                     <input type="hidden" name="status" value="ACTIVE">
 
@@ -452,21 +479,33 @@
                         Nuevo destino final
                     </p>
 
-                    <input name="name" required placeholder="Ej. Clasificados al Mundial"
-                        class="mt-3 w-full rounded-xl border-rose-200 bg-white text-sm">
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-rose-700">Nombre del destino</span>
+                        <input name="name" required placeholder="Ej. Clasificados al Mundial"
+                            class="mt-1.5 w-full rounded-xl border-rose-200 bg-white text-sm">
+                    </label>
 
-                    <select name="terminal_type" class="mt-2 w-full rounded-xl border-rose-200 bg-white text-sm">
-                        <option value="CHAMPION">Campeón</option>
-                        <option value="QUALIFIED">Clasificados</option>
-                        <option value="ELIMINATED">Eliminados</option>
-                        <option value="SECONDARY">Ruta secundaria</option>
-                        <option value="PLACEMENT">Posición final</option>
-                        <option value="CUSTOM">Personalizado</option>
-                    </select>
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-rose-700">Tipo de destino</span>
+                        <select name="terminal_type" class="mt-1.5 w-full rounded-xl border-rose-200 bg-white text-sm">
+                            <option value="CHAMPION">Campeón</option>
+                            <option value="QUALIFIED">Clasificados</option>
+                            <option value="ELIMINATED">Eliminados</option>
+                            <option value="SECONDARY">Ruta secundaria</option>
+                            <option value="PLACEMENT">Posición final</option>
+                            <option value="CUSTOM">Personalizado</option>
+                        </select>
+                    </label>
 
-                    <input type="number" name="expected_participants" min="1"
-                        placeholder="Cantidad esperada"
-                        class="mt-2 w-full rounded-xl border-rose-200 bg-white text-sm">
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-rose-700">Participantes esperados (opcional)</span>
+                        <input type="number" name="expected_participants" min="1"
+                            placeholder="Ej. 1"
+                            class="mt-1.5 w-full rounded-xl border-rose-200 bg-white text-sm">
+                        <span class="mt-1 block text-[9px] leading-4 text-rose-800/70">
+                            Sirve para comprobar que las rutas entreguen una cantidad compatible con este destino.
+                        </span>
+                    </label>
 
                     <input type="hidden" name="status" value="ACTIVE">
 
@@ -1185,6 +1224,7 @@
                         </div>
 
                         <button type="button" @click="clearSelection()"
+                            aria-label="Cerrar inspector" title="Cerrar inspector"
                             class="rounded-lg bg-white/10 px-2.5 py-1.5 text-xs text-slate-300">
                             ×
                         </button>
@@ -1439,6 +1479,7 @@
                     </div>
 
                     <button type="button" @click="showPresetForm = false"
+                        aria-label="Cerrar generador de presets" title="Cerrar"
                         class="rounded-xl bg-white/10 px-3 py-2 text-sm text-slate-300">
                         ×
                     </button>
@@ -1702,6 +1743,7 @@
                     </div>
 
                     <button type="button" @click="showConnectionForm = false"
+                        aria-label="Cerrar formulario de conexión" title="Cerrar"
                         class="rounded-xl bg-white/10 px-3 py-2 text-sm text-slate-300">
                         ×
                     </button>
@@ -1743,48 +1785,56 @@
                             </label>
                         </div>
 
-                        <select x-show="connection.source_type === 'START'" name="source_start_id"
-                            x-model="connection.source_start_id"
-                            class="mt-3 w-full rounded-xl border-slate-200 text-sm">
+                        <label x-show="connection.source_type === 'START'" class="mt-3 block">
+                            <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Inicio de origen</span>
+                            <select name="source_start_id" x-model="connection.source_start_id"
+                                class="mt-1.5 w-full rounded-xl border-slate-200 text-sm">
 
-                            <option value="">Seleccionar inicio...</option>
+                                <option value="">Seleccionar inicio...</option>
 
-                            <template x-for="start in payload.starts" :key="`source-start-${start.id}`">
-                                <option :value="start.id" x-text="`${start.name} · ${start.code}`">
-                                </option>
-                            </template>
-                        </select>
+                                <template x-for="start in payload.starts" :key="`source-start-${start.id}`">
+                                    <option :value="start.id" x-text="`${start.name} · ${start.code}`">
+                                    </option>
+                                </template>
+                            </select>
+                        </label>
 
                         <div x-show="connection.source_type === 'PHASE_EXIT'" class="mt-3 grid gap-3 sm:grid-cols-2">
 
-                            <select name="source_node_id" x-model="connection.source_node_id"
-                                class="w-full rounded-xl border-slate-200 text-sm">
+                            <label>
+                                <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Fase de origen</span>
+                                <select name="source_node_id" x-model="connection.source_node_id"
+                                    class="mt-1.5 w-full rounded-xl border-slate-200 text-sm">
 
-                                <option value="">Seleccionar fase...</option>
+                                    <option value="">Seleccionar fase...</option>
 
-                                <template x-for="node in payload.nodes" :key="`source-node-${node.id}`">
-                                    <option :value="node.id" x-text="`${node.name} · ${node.code}`">
-                                    </option>
-                                </template>
-                            </select>
+                                    <template x-for="node in payload.nodes" :key="`source-node-${node.id}`">
+                                        <option :value="node.id" x-text="`${node.name} · ${node.code}`">
+                                        </option>
+                                    </template>
+                                </select>
+                            </label>
 
-                            <select name="source_phase_exit_id" x-model="connection.source_phase_exit_id"
-                                class="w-full rounded-xl border-slate-200 text-sm">
+                            <label>
+                                <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Puerta de salida de origen</span>
+                                <select name="source_phase_exit_id" x-model="connection.source_phase_exit_id"
+                                    class="mt-1.5 w-full rounded-xl border-slate-200 text-sm">
 
-                                <option value="">Seleccionar salida...</option>
+                                    <option value="">Seleccionar salida...</option>
 
-                                <template
-                                    x-for="exit in (
-                                        nodeById(
-                                            connection.source_node_id
-                                        )?.exits ?? []
-                                    )"
-                                    :key="`source-exit-${exit.id}`">
+                                    <template
+                                        x-for="exit in (
+                                            nodeById(
+                                                connection.source_node_id
+                                            )?.exits ?? []
+                                        )"
+                                        :key="`source-exit-${exit.id}`">
 
-                                    <option :value="exit.id" x-text="`${exit.name} · ${exit.code}`">
-                                    </option>
-                                </template>
-                            </select>
+                                        <option :value="exit.id" x-text="`${exit.name} · ${exit.code}`">
+                                        </option>
+                                    </template>
+                                </select>
+                            </label>
                         </div>
                     </section>
 
@@ -1821,30 +1871,34 @@
                             </label>
                         </div>
 
-                        <select x-show="connection.target_type === 'ENTRY_PORT'" name="target_entry_port_id"
-                            x-model="connection.target_entry_port_id"
-                            class="mt-3 w-full rounded-xl border-slate-200 text-sm">
+                        <label x-show="connection.target_type === 'ENTRY_PORT'" class="mt-3 block">
+                            <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Puerta de entrada de destino</span>
+                            <select name="target_entry_port_id" x-model="connection.target_entry_port_id"
+                                class="mt-1.5 w-full rounded-xl border-slate-200 text-sm">
 
-                            <option value="">Seleccionar puerta de entrada...</option>
+                                <option value="">Seleccionar puerta de entrada...</option>
 
-                            <template x-for="entry in availableEntryPorts()" :key="`target-entry-${entry.id}`">
-                                <option :value="entry.id" x-text="`${entry.label} · ${entry.contract}`">
-                                </option>
-                            </template>
-                        </select>
+                                <template x-for="entry in availableEntryPorts()" :key="`target-entry-${entry.id}`">
+                                    <option :value="entry.id" x-text="`${entry.label} · ${entry.contract}`">
+                                    </option>
+                                </template>
+                            </select>
+                        </label>
 
-                        <select x-show="connection.target_type === 'TERMINAL'" name="target_terminal_id"
-                            x-model="connection.target_terminal_id"
-                            class="mt-3 w-full rounded-xl border-slate-200 text-sm">
+                        <label x-show="connection.target_type === 'TERMINAL'" class="mt-3 block">
+                            <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Destino final</span>
+                            <select name="target_terminal_id" x-model="connection.target_terminal_id"
+                                class="mt-1.5 w-full rounded-xl border-slate-200 text-sm">
 
-                            <option value="">Seleccionar destino final...</option>
+                                <option value="">Seleccionar destino final...</option>
 
-                            <template x-for="terminal in payload.terminals" :key="`target-terminal-${terminal.id}`">
-                                <option :value="terminal.id"
-                                    x-text="`${terminal.name} · ${terminal.terminal_type_label}`">
-                                </option>
-                            </template>
-                        </select>
+                                <template x-for="terminal in payload.terminals" :key="`target-terminal-${terminal.id}`">
+                                    <option :value="terminal.id"
+                                        x-text="`${terminal.name} · ${terminal.terminal_type_label}`">
+                                    </option>
+                                </template>
+                            </select>
+                        </label>
                     </section>
 
                     {{-- ALLOCATION --}}
@@ -1855,30 +1909,55 @@
                         </p>
 
                         <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                            <select name="allocation_mode" x-model="connection.allocation_mode"
-                                @change="changeAllocationMode()" class="w-full rounded-xl border-slate-200 text-sm">
+                            <label>
+                                <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Modo de distribución</span>
+                                <select name="allocation_mode" x-model="connection.allocation_mode"
+                                    @change="changeAllocationMode()" class="mt-1.5 w-full rounded-xl border-slate-200 text-sm">
 
-                                <option value="ALL">Enviar todo</option>
-                                <option value="TAKE_N">Tomar una cantidad</option>
-                                <option value="PERCENTAGE">Enviar porcentaje</option>
-                                <option value="REMAINDER">Enviar el restante</option>
-                            </select>
+                                    <option value="ALL">Enviar todo</option>
+                                    <option value="TAKE_N">Tomar una cantidad</option>
+                                    <option value="PERCENTAGE">Enviar porcentaje</option>
+                                    <option value="REMAINDER">Enviar el restante</option>
+                                </select>
+                                <span class="mt-1 block text-[9px] leading-4 text-slate-500">
+                                    Define qué parte de los participantes disponibles viajará por esta conexión.
+                                </span>
+                            </label>
 
-                            <input x-show="allocationNeedsValue()" type="number" name="allocation_value"
-                                x-model="connection.allocation_value" min="0.01" step="0.01"
-                                :max="connection.allocation_mode === 'PERCENTAGE' ?
-                                    100 :
-                                    null"
-                                placeholder="Cantidad o porcentaje"
-                                class="w-full rounded-xl border-slate-200 text-sm">
+                            <label x-show="allocationNeedsValue()">
+                                <span class="text-[9px] font-black uppercase tracking-wider text-slate-500"
+                                    x-text="connection.allocation_mode === 'PERCENTAGE' ? 'Porcentaje a enviar' : 'Cantidad a enviar'"></span>
+                                <input type="number" name="allocation_value"
+                                    x-model="connection.allocation_value" min="0.01" step="0.01"
+                                    :max="connection.allocation_mode === 'PERCENTAGE' ?
+                                        100 :
+                                        null"
+                                    placeholder="Ej. 4"
+                                    class="mt-1.5 w-full rounded-xl border-slate-200 text-sm">
+                                <span class="mt-1 block text-[9px] leading-4 text-slate-500">
+                                    Solo se utiliza cuando el modo necesita una cantidad o un porcentaje explícito.
+                                </span>
+                            </label>
                         </div>
 
                         <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                            <input name="label" x-model="connection.label" placeholder="Etiqueta opcional"
-                                class="w-full rounded-xl border-slate-200 text-sm">
+                            <label>
+                                <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Etiqueta de la conexión (opcional)</span>
+                                <input name="label" x-model="connection.label" placeholder="Ej. Mejores terceros"
+                                    class="mt-1.5 w-full rounded-xl border-slate-200 text-sm">
+                                <span class="mt-1 block text-[9px] leading-4 text-slate-500">
+                                    Nombre visual para reconocer esta ruta en el grafo y en la tabla.
+                                </span>
+                            </label>
 
-                            <input type="number" name="priority" x-model="connection.priority" min="1"
-                                placeholder="Prioridad" class="w-full rounded-xl border-slate-200 text-sm">
+                            <label>
+                                <span class="text-[9px] font-black uppercase tracking-wider text-slate-500">Prioridad de la conexión</span>
+                                <input type="number" name="priority" x-model="connection.priority" min="1"
+                                    placeholder="Ej. 10" class="mt-1.5 w-full rounded-xl border-slate-200 text-sm">
+                                <span class="mt-1 block text-[9px] leading-4 text-slate-500">
+                                    Se usa para establecer un orden explícito cuando varias rutas deben evaluarse de forma coordinada.
+                                </span>
+                            </label>
                         </div>
                     </section>
 

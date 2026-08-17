@@ -148,26 +148,45 @@
                     @csrf
 
                     <p class="text-[9px] font-black uppercase tracking-wider text-violet-700">1. Nueva etapa</p>
-                    <input name="name" value="{{ old('name') }}" placeholder="Ej.: Clasificatorias"
-                        maxlength="120" required
-                        class="mt-3 w-full rounded-xl border-violet-200 bg-white text-sm font-bold">
+
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-violet-700">Nombre de la etapa</span>
+                        <input name="name" value="{{ old('name') }}" placeholder="Ej.: Clasificatorias"
+                            maxlength="120" required
+                            class="mt-1.5 w-full rounded-xl border-violet-200 bg-white text-sm font-bold">
+                    </label>
 
                     <div class="mt-3 grid grid-cols-2 gap-2">
-                        <input type="number" name="stage_number" min="1" max="100"
-                            value="{{ old('stage_number', ($rounds->max('stage_number') ?? 0) + 1) }}"
-                            placeholder="Etapa" required
-                            class="rounded-xl border-violet-200 bg-white text-sm">
+                        <label>
+                            <span class="text-[8px] font-black uppercase tracking-wider text-violet-700">Número de etapa</span>
+                            <input type="number" name="stage_number" min="1" max="100"
+                                value="{{ old('stage_number', ($rounds->max('stage_number') ?? 0) + 1) }}"
+                                placeholder="Ej.: 1" required
+                                class="mt-1.5 w-full rounded-xl border-violet-200 bg-white text-sm">
+                            <span class="mt-1 block text-[9px] leading-4 text-violet-700/70">
+                                Orden topológico: 1 es la etapa más temprana del recorrido.
+                            </span>
+                        </label>
 
-                        <select name="branch_code" class="rounded-xl border-violet-200 bg-white text-sm">
-                            <option value="MAIN">Principal</option>
-                            <option value="SECONDARY">Secundaria</option>
-                            <option value="REPECHAGE">Repechaje</option>
-                            <option value="CUSTOM">Personalizada</option>
-                        </select>
+                        <label>
+                            <span class="text-[8px] font-black uppercase tracking-wider text-violet-700">Rama</span>
+                            <select name="branch_code" class="mt-1.5 w-full rounded-xl border-violet-200 bg-white text-sm">
+                                <option value="MAIN">Principal</option>
+                                <option value="SECONDARY">Secundaria</option>
+                                <option value="REPECHAGE">Repechaje</option>
+                                <option value="CUSTOM">Personalizada</option>
+                            </select>
+                            <span class="mt-1 block text-[9px] leading-4 text-violet-700/70">
+                                Agrupa visualmente etapas que pertenecen al mismo camino competitivo.
+                            </span>
+                        </label>
                     </div>
 
-                    <textarea name="description" rows="2" maxlength="2000" placeholder="Descripción opcional"
-                        class="mt-3 w-full rounded-xl border-violet-200 bg-white text-sm">{{ old('description') }}</textarea>
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-violet-700">Descripción</span>
+                        <textarea name="description" rows="2" maxlength="2000" placeholder="Descripción opcional"
+                            class="mt-1.5 w-full rounded-xl border-violet-200 bg-white text-sm">{{ old('description') }}</textarea>
+                    </label>
 
                     <button class="mt-3 w-full rounded-xl bg-violet-600 px-4 py-3 text-xs font-black text-white">
                         Agregar etapa
@@ -182,69 +201,98 @@
 
                     <p class="text-[9px] font-black uppercase tracking-wider text-indigo-700">2. Nuevo encuentro</p>
 
-                    <select name="round_id" required class="mt-3 w-full rounded-xl border-indigo-200 bg-white text-sm font-bold">
-                        <option value="">Selecciona una etapa</option>
-                        @foreach ($rounds as $round)
-                            <option value="{{ $round->id }}" @selected((int) old('round_id') === (int) $round->id)>
-                                Etapa {{ $round->stage_number }} · {{ $round->name }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-indigo-700">Etapa que contiene el encuentro</span>
+                        <select name="round_id" required class="mt-1.5 w-full rounded-xl border-indigo-200 bg-white text-sm font-bold">
+                            <option value="">Selecciona una etapa</option>
+                            @foreach ($rounds as $round)
+                                <option value="{{ $round->id }}" @selected((int) old('round_id') === (int) $round->id)>
+                                    Etapa {{ $round->stage_number }} · {{ $round->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </label>
 
-                    <input name="name" value="{{ old('name') }}" placeholder="Ej.: Clasificatoria A"
-                        maxlength="120" required
-                        class="mt-3 w-full rounded-xl border-indigo-200 bg-white text-sm font-bold">
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-indigo-700">Nombre del encuentro</span>
+                        <input name="name" value="{{ old('name') }}" placeholder="Ej.: Clasificatoria A"
+                            maxlength="120" required
+                            class="mt-1.5 w-full rounded-xl border-indigo-200 bg-white text-sm font-bold">
+                    </label>
 
                     <div class="mt-3 grid grid-cols-2 gap-2">
                         <label>
-                            <span class="text-[8px] font-black uppercase text-indigo-600">Participantes</span>
+                            <span class="text-[8px] font-black uppercase text-indigo-600">Participantes que entran (K)</span>
                             <input type="number" name="entrants_count" min="2" max="64"
                                 value="{{ old('entrants_count', 2) }}" required
                                 class="mt-1 w-full rounded-xl border-indigo-200 bg-white text-sm">
                         </label>
 
                         <label>
-                            <span class="text-[8px] font-black uppercase text-indigo-600">Clasifican</span>
+                            <span class="text-[8px] font-black uppercase text-indigo-600">Clasificados que salen (Q)</span>
                             <input type="number" name="qualifiers_count" min="1" max="63"
                                 value="{{ old('qualifiers_count', 1) }}" required
                                 class="mt-1 w-full rounded-xl border-indigo-200 bg-white text-sm">
                         </label>
                     </div>
+                    <p class="mt-1.5 text-[9px] leading-4 text-indigo-700/70">
+                        K → Q: entran K competidores al encuentro y continúan Q hacia sus resultados o conexiones.
+                    </p>
 
                     <div class="mt-3 grid grid-cols-2 gap-2">
-                        <select name="encounter_profile" class="rounded-xl border-indigo-200 bg-white text-xs font-bold">
-                            <option value="DUEL">Duelo</option>
-                            <option value="MULTI_COMPETITOR">Multicompetidor</option>
-                        </select>
+                        <label>
+                            <span class="text-[8px] font-black uppercase text-indigo-600">Perfil del encuentro</span>
+                            <select name="encounter_profile" class="mt-1 w-full rounded-xl border-indigo-200 bg-white text-xs font-bold">
+                                <option value="DUEL">Duelo</option>
+                                <option value="MULTI_COMPETITOR">Multicompetidor</option>
+                            </select>
+                        </label>
 
-                        <select name="resolution_mode" class="rounded-xl border-indigo-200 bg-white text-xs font-bold">
-                            <option value="SCORE">Marcador</option>
-                            <option value="RANKING">Clasificación ordenada</option>
-                            <option value="MANUAL_SELECTION">Selección manual</option>
-                        </select>
+                        <label>
+                            <span class="text-[8px] font-black uppercase text-indigo-600">Cómo se decide</span>
+                            <select name="resolution_mode" class="mt-1 w-full rounded-xl border-indigo-200 bg-white text-xs font-bold">
+                                <option value="SCORE">Marcador</option>
+                                <option value="RANKING">Clasificación ordenada</option>
+                                <option value="MANUAL_SELECTION">Selección manual</option>
+                            </select>
+                        </label>
                     </div>
 
                     <div class="mt-3 grid grid-cols-2 gap-2">
-                        <select name="qualifier_ordering" class="rounded-xl border-indigo-200 bg-white text-xs font-bold">
-                            <option value="ORDERED">Clasificados ordenados</option>
-                            <option value="UNORDERED">Sin orden</option>
-                        </select>
+                        <label>
+                            <span class="text-[8px] font-black uppercase text-indigo-600">Orden de los clasificados</span>
+                            <select name="qualifier_ordering" class="mt-1 w-full rounded-xl border-indigo-200 bg-white text-xs font-bold">
+                                <option value="ORDERED">Clasificados ordenados</option>
+                                <option value="UNORDERED">Sin orden</option>
+                            </select>
+                        </label>
 
-                        <select name="series_format" class="rounded-xl border-indigo-200 bg-white text-xs font-bold">
-                            <option value="NONE">Sin serie</option>
-                            <option value="BEST_OF">Best of</option>
-                            <option value="FIXED_GAMES">Juegos fijos</option>
-                        </select>
+                        <label>
+                            <span class="text-[8px] font-black uppercase text-indigo-600">Formato de serie</span>
+                            <select name="series_format" class="mt-1 w-full rounded-xl border-indigo-200 bg-white text-xs font-bold">
+                                <option value="NONE">Sin serie</option>
+                                <option value="BEST_OF">Best of</option>
+                                <option value="FIXED_GAMES">Juegos fijos</option>
+                            </select>
+                        </label>
                     </div>
 
                     <div class="mt-3 grid grid-cols-2 gap-2">
-                        <select name="best_of" class="rounded-xl border-indigo-200 bg-white text-xs">
-                            @foreach ([1, 3, 5, 7, 9, 11] as $bestOf)
-                                <option value="{{ $bestOf }}">BO{{ $bestOf }}</option>
-                            @endforeach
-                        </select>
-                        <input type="number" name="fixed_games" min="1" max="99" value="1"
-                            class="rounded-xl border-indigo-200 bg-white text-xs" placeholder="Juegos fijos">
+                        <label>
+                            <span class="text-[8px] font-black uppercase text-indigo-600">Best of</span>
+                            <select name="best_of" class="mt-1 w-full rounded-xl border-indigo-200 bg-white text-xs">
+                                @foreach ([1, 3, 5, 7, 9, 11] as $bestOf)
+                                    <option value="{{ $bestOf }}">BO{{ $bestOf }}</option>
+                                @endforeach
+                            </select>
+                            <span class="mt-1 block text-[9px] leading-4 text-indigo-700/70">Se usa cuando el formato es Best of.</span>
+                        </label>
+                        <label>
+                            <span class="text-[8px] font-black uppercase text-indigo-600">Juegos fijos</span>
+                            <input type="number" name="fixed_games" min="1" max="99" value="1"
+                                class="mt-1 w-full rounded-xl border-indigo-200 bg-white text-xs" placeholder="Ej.: 3">
+                            <span class="mt-1 block text-[9px] leading-4 text-indigo-700/70">Se usa cuando deben disputarse todos los juegos indicados.</span>
+                        </label>
                     </div>
 
                     <button @disabled($rounds->isEmpty())
@@ -261,58 +309,84 @@
                     @csrf
 
                     <p class="text-[9px] font-black uppercase tracking-wider text-cyan-700">3. Nueva ruta</p>
+                    <p class="mt-1 text-[10px] leading-5 text-cyan-800">
+                        Elige qué posiciones salen del encuentro de origen y dónde deben entrar. La ruta mueve participantes individuales.
+                    </p>
 
-                    <select name="source_encounter_id" required
-                        class="mt-3 w-full rounded-xl border-cyan-200 bg-white text-sm font-bold">
-                        <option value="">Encuentro de origen</option>
-                        @foreach ($encounters as $encounter)
-                            <option value="{{ $encounter->id }}">
-                                {{ $encounter->name }} · {{ $encounter->competitive_format_label }}
-                            </option>
-                        @endforeach
-                    </select>
-
-                    <div class="mt-3 grid grid-cols-2 gap-2">
-                        <input type="number" name="source_position_from" min="1" max="64" value="1"
-                            placeholder="Desde clasificado" required
-                            class="rounded-xl border-cyan-200 bg-white text-sm">
-                        <input type="number" name="quantity" min="1" max="64" value="1"
-                            placeholder="Cantidad" required
-                            class="rounded-xl border-cyan-200 bg-white text-sm">
-                    </div>
-
-                    <select name="target_type" x-model="targetType"
-                        class="mt-3 w-full rounded-xl border-cyan-200 bg-white text-sm font-bold">
-                        <option value="ENCOUNTER">Enviar a otro encuentro</option>
-                        <option value="PHASE_EXIT">Enviar a una salida</option>
-                    </select>
-
-                    <div x-show="targetType === 'ENCOUNTER'" class="mt-3 grid grid-cols-[minmax(0,1fr)_110px] gap-2">
-                        <select name="target_encounter_id" :required="targetType === 'ENCOUNTER'"
-                            class="rounded-xl border-cyan-200 bg-white text-xs font-bold">
-                            <option value="">Encuentro de destino</option>
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-cyan-700">Encuentro de origen</span>
+                        <select name="source_encounter_id" required
+                            class="mt-1.5 w-full rounded-xl border-cyan-200 bg-white text-sm font-bold">
+                            <option value="">Selecciona un encuentro</option>
                             @foreach ($encounters as $encounter)
                                 <option value="{{ $encounter->id }}">
-                                    E{{ $encounter->round->stage_number }} · {{ $encounter->name }}
+                                    {{ $encounter->name }} · {{ $encounter->competitive_format_label }}
                                 </option>
                             @endforeach
                         </select>
+                    </label>
 
-                        <input type="number" name="target_slot_from" min="1" max="64" value="1"
-                            :required="targetType === 'ENCOUNTER'" placeholder="Desde slot"
-                            class="rounded-xl border-cyan-200 bg-white text-xs">
+                    <div class="mt-3 grid grid-cols-2 gap-2">
+                        <label>
+                            <span class="text-[8px] font-black uppercase tracking-wider text-cyan-700">Primera posición clasificada</span>
+                            <input type="number" name="source_position_from" min="1" max="64" value="1"
+                                placeholder="Ej.: 1" required
+                                class="mt-1 w-full rounded-xl border-cyan-200 bg-white text-sm">
+                            <span class="mt-1 block text-[9px] leading-4 text-cyan-800/70">1 = primer clasificado; 2 = segundo, etc.</span>
+                        </label>
+                        <label>
+                            <span class="text-[8px] font-black uppercase tracking-wider text-cyan-700">Cantidad a mover</span>
+                            <input type="number" name="quantity" min="1" max="64" value="1"
+                                placeholder="Ej.: 2" required
+                                class="mt-1 w-full rounded-xl border-cyan-200 bg-white text-sm">
+                            <span class="mt-1 block text-[9px] leading-4 text-cyan-800/70">Cuántos clasificados consecutivos viajan por esta ruta.</span>
+                        </label>
                     </div>
 
-                    <select x-show="targetType === 'PHASE_EXIT'" name="target_phase_exit_id"
-                        :required="targetType === 'PHASE_EXIT'"
-                        class="mt-3 w-full rounded-xl border-cyan-200 bg-white text-xs font-bold">
-                        <option value="">Puerta de salida</option>
-                        @foreach ($activeExits as $exit)
-                            <option value="{{ $exit->id }}">
-                                {{ $exit->name }} · {{ $exit->exact_participants ?? '?' }} esperados
-                            </option>
-                        @endforeach
-                    </select>
+                    <label class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-cyan-700">Tipo de destino</span>
+                        <select name="target_type" x-model="targetType"
+                            class="mt-1.5 w-full rounded-xl border-cyan-200 bg-white text-sm font-bold">
+                            <option value="ENCOUNTER">Enviar a otro encuentro</option>
+                            <option value="PHASE_EXIT">Enviar a una salida</option>
+                        </select>
+                    </label>
+
+                    <div x-show="targetType === 'ENCOUNTER'" class="mt-3 grid grid-cols-[minmax(0,1fr)_150px] gap-2">
+                        <label>
+                            <span class="text-[8px] font-black uppercase tracking-wider text-cyan-700">Encuentro de destino</span>
+                            <select name="target_encounter_id" :required="targetType === 'ENCOUNTER'"
+                                class="mt-1 w-full rounded-xl border-cyan-200 bg-white text-xs font-bold">
+                                <option value="">Selecciona un encuentro</option>
+                                @foreach ($encounters as $encounter)
+                                    <option value="{{ $encounter->id }}">
+                                        E{{ $encounter->round->stage_number }} · {{ $encounter->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </label>
+
+                        <label>
+                            <span class="text-[8px] font-black uppercase tracking-wider text-cyan-700">Primer slot de destino</span>
+                            <input type="number" name="target_slot_from" min="1" max="64" value="1"
+                                :required="targetType === 'ENCOUNTER'" placeholder="Ej.: 1"
+                                class="mt-1 w-full rounded-xl border-cyan-200 bg-white text-xs">
+                            <span class="mt-1 block text-[9px] leading-4 text-cyan-800/70">La asignación continúa desde este slot.</span>
+                        </label>
+                    </div>
+
+                    <label x-show="targetType === 'PHASE_EXIT'" class="mt-3 block">
+                        <span class="text-[8px] font-black uppercase tracking-wider text-cyan-700">Puerta de salida de destino</span>
+                        <select name="target_phase_exit_id" :required="targetType === 'PHASE_EXIT'"
+                            class="mt-1.5 w-full rounded-xl border-cyan-200 bg-white text-xs font-bold">
+                            <option value="">Selecciona una salida</option>
+                            @foreach ($activeExits as $exit)
+                                <option value="{{ $exit->id }}">
+                                    {{ $exit->name }} · {{ $exit->exact_participants ?? '?' }} esperados
+                                </option>
+                            @endforeach
+                        </select>
+                    </label>
 
                     <button @disabled($encounters->isEmpty())
                         class="mt-3 w-full rounded-xl bg-cyan-600 px-4 py-3 text-xs font-black text-white disabled:opacity-40">
@@ -427,55 +501,85 @@
                                         @csrf
                                         @method('PUT')
 
-                                        <input name="name" value="{{ $encounter->name }}" maxlength="120" required
-                                            class="w-full rounded-xl border-slate-200 text-sm font-bold">
+                                        <label class="block">
+                                            <span class="text-[8px] font-black uppercase tracking-wider text-slate-500">Nombre del encuentro</span>
+                                            <input name="name" value="{{ $encounter->name }}" maxlength="120" required
+                                                class="mt-1 w-full rounded-xl border-slate-200 text-sm font-bold">
+                                        </label>
 
                                         <div class="grid grid-cols-2 gap-2">
-                                            <input type="number" name="entrants_count" min="2" max="64"
-                                                value="{{ $encounter->entrants_count }}" required
-                                                class="rounded-xl border-slate-200 text-sm">
-                                            <input type="number" name="qualifiers_count" min="1" max="63"
-                                                value="{{ $encounter->qualifiers_count }}" required
-                                                class="rounded-xl border-slate-200 text-sm">
+                                            <label>
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-slate-500">Participantes que entran (K)</span>
+                                                <input type="number" name="entrants_count" min="2" max="64"
+                                                    value="{{ $encounter->entrants_count }}" required
+                                                    class="mt-1 w-full rounded-xl border-slate-200 text-sm">
+                                            </label>
+                                            <label>
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-slate-500">Clasificados que salen (Q)</span>
+                                                <input type="number" name="qualifiers_count" min="1" max="63"
+                                                    value="{{ $encounter->qualifiers_count }}" required
+                                                    class="mt-1 w-full rounded-xl border-slate-200 text-sm">
+                                            </label>
                                         </div>
 
                                         <div class="grid grid-cols-2 gap-2">
-                                            <select name="encounter_profile" class="rounded-xl border-slate-200 text-xs">
-                                                <option value="DUEL" @selected($encounter->encounter_profile === 'DUEL')>Duelo</option>
-                                                <option value="MULTI_COMPETITOR" @selected($encounter->encounter_profile === 'MULTI_COMPETITOR')>Multicompetidor</option>
-                                            </select>
-                                            <select name="resolution_mode" class="rounded-xl border-slate-200 text-xs">
-                                                @foreach (['SCORE' => 'Marcador', 'RANKING' => 'Ranking', 'MANUAL_SELECTION' => 'Selección manual'] as $value => $label)
-                                                    <option value="{{ $value }}" @selected(data_get($encounter->settings, 'resolution_mode') === $value)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
+                                            <label>
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-slate-500">Perfil del encuentro</span>
+                                                <select name="encounter_profile" class="mt-1 w-full rounded-xl border-slate-200 text-xs">
+                                                    <option value="DUEL" @selected($encounter->encounter_profile === 'DUEL')>Duelo</option>
+                                                    <option value="MULTI_COMPETITOR" @selected($encounter->encounter_profile === 'MULTI_COMPETITOR')>Multicompetidor</option>
+                                                </select>
+                                            </label>
+                                            <label>
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-slate-500">Cómo se decide</span>
+                                                <select name="resolution_mode" class="mt-1 w-full rounded-xl border-slate-200 text-xs">
+                                                    @foreach (['SCORE' => 'Marcador', 'RANKING' => 'Ranking', 'MANUAL_SELECTION' => 'Selección manual'] as $value => $label)
+                                                        <option value="{{ $value }}" @selected(data_get($encounter->settings, 'resolution_mode') === $value)>{{ $label }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </label>
                                         </div>
 
                                         <div class="grid grid-cols-2 gap-2">
-                                            <select name="qualifier_ordering" class="rounded-xl border-slate-200 text-xs">
-                                                <option value="ORDERED" @selected(data_get($encounter->settings, 'qualifier_ordering', 'ORDERED') === 'ORDERED')>Ordenados</option>
-                                                <option value="UNORDERED" @selected(data_get($encounter->settings, 'qualifier_ordering') === 'UNORDERED')>Sin orden</option>
-                                            </select>
-                                            <select name="series_format" class="rounded-xl border-slate-200 text-xs">
-                                                @foreach (['NONE' => 'Sin serie', 'BEST_OF' => 'Best of', 'FIXED_GAMES' => 'Juegos fijos'] as $value => $label)
-                                                    <option value="{{ $value }}" @selected($encounter->series_format === $value)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
+                                            <label>
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-slate-500">Orden de clasificados</span>
+                                                <select name="qualifier_ordering" class="mt-1 w-full rounded-xl border-slate-200 text-xs">
+                                                    <option value="ORDERED" @selected(data_get($encounter->settings, 'qualifier_ordering', 'ORDERED') === 'ORDERED')>Ordenados</option>
+                                                    <option value="UNORDERED" @selected(data_get($encounter->settings, 'qualifier_ordering') === 'UNORDERED')>Sin orden</option>
+                                                </select>
+                                            </label>
+                                            <label>
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-slate-500">Formato de serie</span>
+                                                <select name="series_format" class="mt-1 w-full rounded-xl border-slate-200 text-xs">
+                                                    @foreach (['NONE' => 'Sin serie', 'BEST_OF' => 'Best of', 'FIXED_GAMES' => 'Juegos fijos'] as $value => $label)
+                                                        <option value="{{ $value }}" @selected($encounter->series_format === $value)>{{ $label }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </label>
                                         </div>
 
                                         <div class="grid grid-cols-2 gap-2">
-                                            <select name="best_of" class="rounded-xl border-slate-200 text-xs">
-                                                @foreach ([1, 3, 5, 7, 9, 11] as $bestOf)
-                                                    <option value="{{ $bestOf }}" @selected((int) $encounter->best_of === $bestOf)>BO{{ $bestOf }}</option>
-                                                @endforeach
-                                            </select>
-                                            <input type="number" name="fixed_games" min="1" max="99"
-                                                value="{{ $encounter->fixed_games ?? 1 }}"
-                                                class="rounded-xl border-slate-200 text-xs">
+                                            <label>
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-slate-500">Best of</span>
+                                                <select name="best_of" class="mt-1 w-full rounded-xl border-slate-200 text-xs">
+                                                    @foreach ([1, 3, 5, 7, 9, 11] as $bestOf)
+                                                        <option value="{{ $bestOf }}" @selected((int) $encounter->best_of === $bestOf)>BO{{ $bestOf }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </label>
+                                            <label>
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-slate-500">Juegos fijos</span>
+                                                <input type="number" name="fixed_games" min="1" max="99"
+                                                    value="{{ $encounter->fixed_games ?? 1 }}"
+                                                    class="mt-1 w-full rounded-xl border-slate-200 text-xs">
+                                            </label>
                                         </div>
 
-                                        <textarea name="description" rows="2" maxlength="2000"
-                                            class="w-full rounded-xl border-slate-200 text-xs">{{ $encounter->description }}</textarea>
+                                        <label class="block">
+                                            <span class="text-[8px] font-black uppercase tracking-wider text-slate-500">Descripción</span>
+                                            <textarea name="description" rows="2" maxlength="2000"
+                                                class="mt-1 w-full rounded-xl border-slate-200 text-xs">{{ $encounter->description }}</textarea>
+                                        </label>
 
                                         <button class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-xs font-black text-white">
                                             Guardar encuentro

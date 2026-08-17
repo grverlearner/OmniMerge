@@ -262,10 +262,15 @@
                                     </label>
                                 </template>
 
+                                <div class="rounded-2xl border border-sky-200 bg-sky-50 p-3 text-[10px] leading-5 text-sky-800">
+                                    Los campos de posición, orden y capacidad describen este elemento dentro del grafo.
+                                    Cuando aparezca un campo “ID”, debe apuntar a un elemento existente de la misma estructura.
+                                </div>
+
                                 <template x-if="selected.kind === 'ROUND'">
                                     <div class="grid gap-3 sm:grid-cols-2">
                                         <label class="block">
-                                            <span class="text-[9px] font-black uppercase text-slate-500">Etapa</span>
+                                            <span class="text-[9px] font-black uppercase text-slate-500">Número de etapa</span>
                                             <input type="number" name="stage_number" min="1" max="1000" x-model.number="selected.stage_number"
                                                 class="mt-2 w-full rounded-xl border-slate-300 text-sm">
                                         </label>

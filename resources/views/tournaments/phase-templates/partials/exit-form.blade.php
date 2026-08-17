@@ -56,8 +56,11 @@
     }">
 
         <label class="text-xs font-black uppercase text-slate-500">
-            ¿Quién sale por aquí?
+            ¿Quién pertenece a esta salida?
         </label>
+        <p class="mt-1 text-[11px] leading-5 text-slate-400">
+            El selector decide qué participantes produce esta puerta; la conexión del Tournament Graph decidirá a dónde irán después.
+        </p>
 
         <select name="selector_type" x-model="selector"
             class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
@@ -156,6 +159,12 @@
                 value="{{ old('selector_from', $editingExit ? $phaseExit->selector_from : '') }}"
                 class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
 
+            <p class="mt-1 text-[11px] leading-5 text-slate-400"
+                x-text="['TOP_N', 'BOTTOM_N'].includes(selector)
+                    ? 'Indica cuántos participantes se seleccionan.'
+                    : 'Indica la primera posición de la clasificación que pertenece a esta salida.'">
+            </p>
+
         </div>
 
         {{-- RANGE TO --}}
@@ -213,8 +222,11 @@
         <div class="mt-4">
 
             <label class="text-xs font-black uppercase text-slate-500">
-                Momento de salida
+                Momento en que se publica la salida
             </label>
+            <p class="mt-1 text-[11px] leading-5 text-slate-400">
+                Controla si los participantes pueden abandonar la fase durante la ejecución o únicamente cuando la fase termina.
+            </p>
 
             <select name="exit_timing" x-model="timing" :disabled="selector === 'ELIMINATED_IN_ROUND'"
                 class="mt-2 w-full rounded-xl border-slate-300 text-sm focus:border-amber-400 focus:ring-amber-400">
@@ -246,8 +258,11 @@
         <div>
 
             <label class="text-xs font-black uppercase text-slate-500">
-                Prioridad
+                Prioridad de la salida
             </label>
+            <p class="mt-1 text-[11px] leading-5 text-slate-400">
+                Permite mantener un orden explícito entre varias salidas de la misma fase.
+            </p>
 
             <input type="number" name="priority" min="1" max="999"
                 value="{{ old('priority', $editingExit ? $phaseExit->priority : 10) }}"
