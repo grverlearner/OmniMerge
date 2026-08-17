@@ -51,10 +51,18 @@ implements LabPhaseEngine
 
         $participantIds =
             array_values(
-                array_unique(
-                    $participantIds
-                )
+                $participantIds
             );
+
+        if (
+            count($participantIds)
+            !==
+            count(array_unique($participantIds))
+        ) {
+            $this->fail(
+                'La entrada de Single Elimination contiene participantes duplicados.'
+            );
+        }
 
         foreach (
             $participantIds
@@ -132,21 +140,33 @@ implements LabPhaseEngine
             );
         }
 
-        if ($settings->seeding_mode === 'RANDOM') {
-            usort(
-                $participantIds,
-                fn($left, $right) => strcmp(
-                    hash('sha256', $phase->id . ':SEED:' . $left),
-                    hash('sha256', $phase->id . ':SEED:' . $right)
-                )
+        $randomContext =
+            'PHASE:'
+            .
+            (string) (
+                $phase->getKey()
+                ??
+                'UNSAVED'
             );
+
+        if ($settings->seeding_mode === 'RANDOM') {
+            $participantIds =
+                $this->randomOrder(
+                    $participantIds,
+                    $randomContext . ':SEED'
+                );
         } elseif ($settings->seeding_mode === 'RANKING') {
+            $this->validateRankingSeeds(
+                $participantIds,
+                $participants
+            );
+
             usort(
                 $participantIds,
                 fn($left, $right) =>
-                    (int) ($participants[$left]['seed'] ?? PHP_INT_MAX)
+                    (int) $participants[$left]['seed']
                     <=>
-                    (int) ($participants[$right]['seed'] ?? PHP_INT_MAX)
+                    (int) $participants[$right]['seed']
             );
         }
 
@@ -190,8 +210,20 @@ implements LabPhaseEngine
             'engine' =>
             'SINGLE_ELIMINATION',
 
+            'mode' =>
+            'BASIC',
+
             'status' =>
             'RUNNING',
+
+            'participant_ids' =>
+            $participantIds,
+
+            'initial_participant_count' =>
+            count($participantIds),
+
+            'random_context' =>
+            $randomContext,
 
             'target_survivors' =>
             max(
@@ -244,13 +276,32 @@ implements LabPhaseEngine
             'eliminated_ids' =>
             [],
 
+            'eliminations' =>
+            [],
+
             'current_round' =>
             1,
 
+            /*
+             * Compatibilidad: matches_* cuenta únicamente
+             * encuentros competitivos, no avances por BYE.
+             */
             'matches_total' =>
             0,
 
             'matches_completed' =>
+            0,
+
+            'competitive_matches_total' =>
+            0,
+
+            'competitive_matches_completed' =>
+            0,
+
+            'structural_matches_total' =>
+            0,
+
+            'bye_count' =>
             0,
         ];
 
@@ -373,15 +424,27 @@ implements LabPhaseEngine
                     ? $match['participant_b_id']
                     : $match['participant_a_id'];
 
-                $runtime['eliminated_ids'] = array_values(array_unique([
-                    ...($runtime['eliminated_ids'] ?? []),
-                    $match['loser_id'],
-                ]));
-
                 $match['status'] =
                     'COMPLETED';
 
-                $runtime['matches_completed']++;
+                $this->recordElimination(
+                    $runtime,
+                    $match['loser_id'],
+                    (int) $round['number'],
+                    $matchId
+                );
+
+                $runtime['competitive_matches_completed'] =
+                    (int) (
+                        $runtime['competitive_matches_completed']
+                        ??
+                        0
+                    )
+                    +
+                    1;
+
+                $runtime['matches_completed'] =
+                    $runtime['competitive_matches_completed'];
 
                 $found =
                     true;
@@ -485,7 +548,15 @@ implements LabPhaseEngine
 
                     $match['status'] =
                         'BYE';
-                    $runtime['matches_completed']++;
+
+                    $runtime['bye_count'] =
+                        (int) (
+                            $runtime['bye_count']
+                            ??
+                            0
+                        )
+                        +
+                        1;
                 } elseif (
                     ! $match['participant_a_id']
                     &&
@@ -496,7 +567,15 @@ implements LabPhaseEngine
 
                     $match['status'] =
                         'BYE';
-                    $runtime['matches_completed']++;
+
+                    $runtime['bye_count'] =
+                        (int) (
+                            $runtime['bye_count']
+                            ??
+                            0
+                        )
+                        +
+                        1;
                 }
             }
 
@@ -550,11 +629,23 @@ implements LabPhaseEngine
                     ])
                 );
 
-            if (
-                count($winners)
-                <=
-                $runtime['target_survivors']
-            ) {
+            $round['survivors_after'] =
+                count($winners);
+
+            $round['eliminated_count'] =
+                count($losers);
+
+            $target =
+                (int)
+                $runtime['target_survivors'];
+
+            if (count($winners) < $target) {
+                $this->fail(
+                    'El runtime produjo menos supervivientes que el objetivo configurado.'
+                );
+            }
+
+            if (count($winners) === $target) {
                 $runtime['status'] =
                     'COMPLETED';
 
@@ -570,17 +661,7 @@ implements LabPhaseEngine
                 return $runtime;
             }
 
-            if (
-                $runtime['reseed_each_round']
-            ) {
-                usort(
-                    $winners,
-                    fn($left, $right) =>
-                    $runtime['seed'][$left]
-                        <=>
-                        $runtime['seed'][$right]
-                );
-            }
+            unset($round);
 
             $roundNumber =
                 count(
@@ -604,9 +685,13 @@ implements LabPhaseEngine
         int $roundNumber,
         array &$runtime
     ): array {
-        $matches = [];
+        $roundSize =
+            $this->roundSize(
+                count($participantIds)
+            );
+
         $roundSeries =
-            $runtime['round_series_rules'][count($participantIds)]
+            $runtime['round_series_rules'][$roundSize]
             ??
             [
                 'series_format' =>
@@ -619,61 +704,59 @@ implements LabPhaseEngine
                 $runtime['default_fixed_games'],
             ];
 
-        $roundSize = $this->roundSize(count($participantIds));
-        $byeCount = $roundNumber === 1
-            ? max(0, $roundSize - count($participantIds))
+        $byeCount =
+            $roundNumber === 1
+            ? max(
+                0,
+                $roundSize - count($participantIds)
+            )
             : 0;
-        $byeIds = $this->selectByeIds(
-            $participantIds,
-            $byeCount,
-            $runtime,
-            $roundNumber
-        );
 
-        foreach ($byeIds as $participantId) {
-            $matches[] = [
-                'id' => 'SE-R' . $roundNumber . '-M' . (count($matches) + 1),
-                'number' => count($matches) + 1,
-                'participant_a_id' => $participantId,
-                'participant_b_id' => null,
-                'score_a' => null,
-                'score_b' => null,
-                'winner_id' => null,
-                'loser_id' => null,
-                'series_format' => $roundSeries['series_format'],
-                'best_of' => (int) $roundSeries['best_of'],
-                'fixed_games' => (int) $roundSeries['fixed_games'],
-                'series_label' => $roundSeries['series_format'] === 'FIXED_GAMES'
-                    ? $roundSeries['fixed_games'] . ' juegos fijos'
-                    : 'BO' . $roundSeries['best_of'],
-                'status' => 'PENDING',
-            ];
-        }
+        $byeIds =
+            $this->selectByeIds(
+                $participantIds,
+                $byeCount,
+                $runtime,
+                $roundNumber
+            );
 
-        $playing = array_values(array_filter(
-            $participantIds,
-            fn($participantId) => ! in_array($participantId, $byeIds, true)
-        ));
+        $pairings =
+            $this->buildRoundPairings(
+                $participantIds,
+                $byeIds,
+                $runtime,
+                $roundNumber,
+                $roundSize
+            );
 
-        foreach ($this->buildPairings($playing, $runtime, $roundNumber) as [$participantA, $participantB]) {
+        $matches = [];
+        $competitiveMatches = 0;
+
+        foreach (
+            $pairings
+            as
+            [$participantA, $participantB]
+        ) {
+            if (
+                $participantA !== null
+                &&
+                $participantB !== null
+            ) {
+                $competitiveMatches++;
+            }
+
             $matches[] = [
                 'id' =>
                 'SE-R'
-                    .
-                    $roundNumber
-                    .
-                    '-M'
-                    .
-                    (
-                        count($matches)
-                        +
-                        1
-                    ),
+                .
+                $roundNumber
+                .
+                '-M'
+                .
+                (count($matches) + 1),
 
                 'number' =>
-                count($matches)
-                    +
-                    1,
+                count($matches) + 1,
 
                 'participant_a_id' =>
                 $participantA,
@@ -713,7 +796,7 @@ implements LabPhaseEngine
                     ' '
                     .
                     (
-                        $roundSeries['fixed_games'] === 1
+                        (int) $roundSeries['fixed_games'] === 1
                         ? 'enfrentamiento fijo'
                         : 'enfrentamientos fijos'
                     )
@@ -726,17 +809,42 @@ implements LabPhaseEngine
             ];
         }
 
-        $runtime['matches_total'] +=
-            count(
-                $matches
-            );
+        $runtime['structural_matches_total'] =
+            (int) (
+                $runtime['structural_matches_total']
+                ??
+                0
+            )
+            +
+            count($matches);
+
+        $runtime['competitive_matches_total'] =
+            (int) (
+                $runtime['competitive_matches_total']
+                ??
+                0
+            )
+            +
+            $competitiveMatches;
+
+        $runtime['matches_total'] =
+            $runtime['competitive_matches_total'];
 
         return [
             'number' =>
             $roundNumber,
 
+            /*
+             * Capacidad nominal utilizada por las reglas por ronda.
+             */
             'participants_in_round' =>
             $roundSize,
+
+            /*
+             * Cantidad real de participantes activos al iniciar la ronda.
+             */
+            'participants_count' =>
+            count($participantIds),
 
             'label' =>
             count($participantIds)
@@ -749,6 +857,12 @@ implements LabPhaseEngine
 
             'status' =>
             'RUNNING',
+
+            'survivors_after' =>
+            null,
+
+            'eliminated_count' =>
+            0,
 
             'matches' =>
             $matches,
@@ -765,31 +879,52 @@ implements LabPhaseEngine
             return [];
         }
 
-        $policy = $runtime['bye_assignment'] ?? 'TOP_SEEDS';
+        $policy =
+            $runtime['bye_assignment']
+            ??
+            'TOP_SEEDS';
 
         if ($policy === 'MANUAL') {
-            $manual = array_values(array_intersect(
-                $runtime['manual_bye_ids'] ?? [],
-                $participantIds
-            ));
+            $manual =
+                array_values(
+                    array_intersect(
+                        $runtime['manual_bye_ids'] ?? [],
+                        $participantIds
+                    )
+                );
+
+            if (
+                count($manual)
+                !==
+                count(array_unique($manual))
+            ) {
+                $this->fail(
+                    'La selección manual de BYEs contiene participantes duplicados.'
+                );
+            }
 
             if (count($manual) !== $byeCount) {
-                $this->fail("La primera ronda necesita exactamente {$byeCount} BYE manual(es).");
+                $this->fail(
+                    "La primera ronda necesita exactamente {$byeCount} BYE manual(es)."
+                );
             }
 
             return $manual;
         }
 
-        $candidates = $participantIds;
+        $candidates =
+            $participantIds;
 
         if ($policy === 'RANDOM') {
-            usort(
-                $candidates,
-                fn($left, $right) => strcmp(
-                    hash('sha256', 'BYE:' . $roundNumber . ':' . $left),
-                    hash('sha256', 'BYE:' . $roundNumber . ':' . $right)
-                )
-            );
+            $candidates =
+                $this->randomOrder(
+                    $candidates,
+                    ($runtime['random_context'] ?? 'SE')
+                    .
+                    ':BYE:'
+                    .
+                    $roundNumber
+                );
         } else {
             usort(
                 $candidates,
@@ -800,94 +935,696 @@ implements LabPhaseEngine
             );
         }
 
-        return array_slice($candidates, 0, $byeCount);
+        return array_slice(
+            $candidates,
+            0,
+            $byeCount
+        );
     }
 
-    private function buildPairings(
+    private function buildRoundPairings(
         array $participantIds,
+        array $byeIds,
+        array $runtime,
+        int $roundNumber,
+        int $roundSize
+    ): array {
+        if ($roundNumber === 1) {
+            if (
+                ($runtime['pairing_mode'] ?? null)
+                ===
+                'STANDARD_SEEDED'
+            ) {
+                return $this->buildSeededFirstRoundPairings(
+                    $participantIds,
+                    $byeIds,
+                    $runtime,
+                    $roundSize
+                );
+            }
+
+            return $this->buildSimpleFirstRoundPairings(
+                $participantIds,
+                $byeIds,
+                $runtime,
+                $roundNumber
+            );
+        }
+
+        if (
+            $runtime['reseed_each_round']
+            ??
+            false
+        ) {
+            return $this->buildReseededPairings(
+                $participantIds,
+                $runtime
+            );
+        }
+
+        /*
+         * Sin reseed se conserva la ruta fija del bracket:
+         * winner M1 vs winner M2, winner M3 vs winner M4, etc.
+         */
+        return $this->pairSequentially(
+            $participantIds
+        );
+    }
+
+    private function buildSeededFirstRoundPairings(
+        array $participantIds,
+        array $byeIds,
+        array $runtime,
+        int $roundSize
+    ): array {
+        $participantsBySeed = [];
+
+        foreach (
+            $runtime['seed']
+            as
+            $participantId => $seed
+        ) {
+            $participantsBySeed[(int) $seed] =
+                $participantId;
+        }
+
+        $slots = [];
+
+        foreach (
+            $this->canonicalSeedOrder($roundSize)
+            as
+            $seed
+        ) {
+            $slots[] =
+                $participantsBySeed[$seed]
+                ??
+                null;
+        }
+
+        if ($byeIds !== []) {
+            $slots =
+                $this->relocateSeededByes(
+                    $slots,
+                    $byeIds,
+                    $runtime
+                );
+        }
+
+        return array_map(
+            fn($pair) => [
+                $pair[0] ?? null,
+                $pair[1] ?? null,
+            ],
+            array_chunk($slots, 2)
+        );
+    }
+
+    private function relocateSeededByes(
+        array $slots,
+        array $desiredByeIds,
+        array $runtime
+    ): array {
+        $currentByeIds =
+            $this->byeRecipientsFromSlots(
+                $slots
+            );
+
+        $sortBySeed =
+            function (array &$ids) use ($runtime): void {
+                usort(
+                    $ids,
+                    fn($left, $right) =>
+                        ($runtime['seed'][$left] ?? PHP_INT_MAX)
+                        <=>
+                        ($runtime['seed'][$right] ?? PHP_INT_MAX)
+                );
+            };
+
+        $desiredByeIds =
+            array_values(
+                array_unique(
+                    $desiredByeIds
+                )
+            );
+
+        $sortBySeed($desiredByeIds);
+        $sortBySeed($currentByeIds);
+
+        if (
+            count($desiredByeIds)
+            !==
+            count($currentByeIds)
+        ) {
+            $this->fail(
+                'La topología del bracket no coincide con la cantidad de BYEs requerida.'
+            );
+        }
+
+        $gainBye =
+            array_values(
+                array_diff(
+                    $desiredByeIds,
+                    $currentByeIds
+                )
+            );
+
+        $loseBye =
+            array_values(
+                array_diff(
+                    $currentByeIds,
+                    $desiredByeIds
+                )
+            );
+
+        $sortBySeed($gainBye);
+        $sortBySeed($loseBye);
+
+        foreach (
+            $gainBye
+            as
+            $index => $participantId
+        ) {
+            $currentHost =
+                $loseBye[$index]
+                ??
+                null;
+
+            if ($currentHost === null) {
+                $this->fail(
+                    'No fue posible ubicar los BYEs dentro del bracket sembrado.'
+                );
+            }
+
+            $participantSlot =
+                array_search(
+                    $participantId,
+                    $slots,
+                    true
+                );
+
+            $hostSlot =
+                array_search(
+                    $currentHost,
+                    $slots,
+                    true
+                );
+
+            if (
+                $participantSlot === false
+                ||
+                $hostSlot === false
+            ) {
+                $this->fail(
+                    'No fue posible ubicar un participante dentro del bracket sembrado.'
+                );
+            }
+
+            [
+                $slots[$participantSlot],
+                $slots[$hostSlot],
+            ] = [
+                $slots[$hostSlot],
+                $slots[$participantSlot],
+            ];
+        }
+
+        $resolved =
+            $this->byeRecipientsFromSlots(
+                $slots
+            );
+
+        sort($resolved);
+
+        $expected =
+            $desiredByeIds;
+
+        sort($expected);
+
+        if ($resolved !== $expected) {
+            $this->fail(
+                'Los BYEs no pudieron integrarse correctamente en la topología del bracket.'
+            );
+        }
+
+        return $slots;
+    }
+
+    private function byeRecipientsFromSlots(
+        array $slots
+    ): array {
+        $recipients = [];
+
+        foreach (
+            array_chunk($slots, 2)
+            as
+            $pair
+        ) {
+            $left =
+                $pair[0]
+                ??
+                null;
+
+            $right =
+                $pair[1]
+                ??
+                null;
+
+            if (
+                $left !== null
+                &&
+                $right === null
+            ) {
+                $recipients[] =
+                    $left;
+            } elseif (
+                $left === null
+                &&
+                $right !== null
+            ) {
+                $recipients[] =
+                    $right;
+            }
+        }
+
+        return $recipients;
+    }
+
+    private function buildSimpleFirstRoundPairings(
+        array $participantIds,
+        array $byeIds,
         array $runtime,
         int $roundNumber
     ): array {
-        $mode = $runtime['pairing_mode'] ?? 'STANDARD_SEEDED';
+        $ordered =
+            $participantIds;
 
-        if ($mode === 'RANDOM') {
-            usort(
-                $participantIds,
-                fn($left, $right) => strcmp(
-                    hash('sha256', 'PAIR:' . $roundNumber . ':' . $left),
-                    hash('sha256', 'PAIR:' . $roundNumber . ':' . $right)
-                )
+        if (
+            ($runtime['pairing_mode'] ?? null)
+            ===
+            'RANDOM'
+        ) {
+            $ordered =
+                $this->randomOrder(
+                    $ordered,
+                    ($runtime['random_context'] ?? 'SE')
+                    .
+                    ':PAIR:'
+                    .
+                    $roundNumber
+                );
+        }
+
+        $byeSet =
+            array_fill_keys(
+                $byeIds,
+                true
+            );
+
+        $byePairs = [];
+        $playing = [];
+
+        foreach (
+            $ordered
+            as
+            $participantId
+        ) {
+            if (isset($byeSet[$participantId])) {
+                $byePairs[] = [
+                    $participantId,
+                    null,
+                ];
+            } else {
+                $playing[] =
+                    $participantId;
+            }
+        }
+
+        return [
+            ...$byePairs,
+            ...$this->pairSequentially($playing),
+        ];
+    }
+
+    private function buildReseededPairings(
+        array $participantIds,
+        array $runtime
+    ): array {
+        $ordered =
+            $participantIds;
+
+        usort(
+            $ordered,
+            fn($left, $right) =>
+                ($runtime['seed'][$left] ?? PHP_INT_MAX)
+                <=>
+                ($runtime['seed'][$right] ?? PHP_INT_MAX)
+        );
+
+        if (count($ordered) % 2 !== 0) {
+            $this->fail(
+                'El reseeding produjo una cantidad impar de participantes.'
+            );
+        }
+
+        $pairs = [];
+        $left = 0;
+        $right = count($ordered) - 1;
+
+        while ($left < $right) {
+            $pairs[] = [
+                $ordered[$left++],
+                $ordered[$right--],
+            ];
+        }
+
+        return $pairs;
+    }
+
+    private function pairSequentially(
+        array $participantIds
+    ): array {
+        if (count($participantIds) % 2 !== 0) {
+            $this->fail(
+                'El bracket intentó crear una ronda con una cantidad impar sin BYE.'
             );
         }
 
         $pairs = [];
 
-        if (in_array($mode, ['SEQUENTIAL', 'RANDOM'], true)) {
-            for ($index = 0; $index < count($participantIds); $index += 2) {
-                $pairs[] = [
-                    $participantIds[$index] ?? null,
-                    $participantIds[$index + 1] ?? null,
-                ];
-            }
-
-            return $pairs;
-        }
-
-        $left = 0;
-        $right = count($participantIds) - 1;
-        while ($left <= $right) {
-            $participantA = $participantIds[$left++] ?? null;
-            $participantB = $left <= $right ? ($participantIds[$right--] ?? null) : null;
-            $pairs[] = [$participantA, $participantB];
+        for (
+            $index = 0;
+            $index < count($participantIds);
+            $index += 2
+        ) {
+            $pairs[] = [
+                $participantIds[$index],
+                $participantIds[$index + 1],
+            ];
         }
 
         return $pairs;
+    }
+
+    /**
+     * Orden canónico de slots para un bracket sembrado.
+     *
+     * 8 => [1, 8, 4, 5, 2, 7, 3, 6]
+     */
+    private function canonicalSeedOrder(
+        int $size
+    ): array {
+        if (
+            $size < 2
+            ||
+            ! $this->isPowerOfTwo($size)
+        ) {
+            $this->fail(
+                'El bracket sembrado necesita una capacidad potencia de 2.'
+            );
+        }
+
+        $order = [
+            1,
+            2,
+        ];
+
+        for (
+            $current = 4;
+            $current <= $size;
+            $current *= 2
+        ) {
+            $next = [];
+
+            foreach (
+                $order
+                as
+                $seed
+            ) {
+                $next[] =
+                    $seed;
+
+                $next[] =
+                    $current + 1 - $seed;
+            }
+
+            $order =
+                $next;
+        }
+
+        return $order;
+    }
+
+    private function randomOrder(
+        array $participantIds,
+        string $context
+    ): array {
+        usort(
+            $participantIds,
+            fn($left, $right) =>
+                strcmp(
+                    hash(
+                        'sha256',
+                        $context . ':' . $left
+                    ),
+                    hash(
+                        'sha256',
+                        $context . ':' . $right
+                    )
+                )
+        );
+
+        return $participantIds;
+    }
+
+    private function validateRankingSeeds(
+        array $participantIds,
+        array $participants
+    ): void {
+        $seen = [];
+
+        foreach (
+            $participantIds
+            as
+            $participantId
+        ) {
+            $rawSeed =
+                $participants[$participantId]['seed']
+                ??
+                null;
+
+            $seed =
+                filter_var(
+                    $rawSeed,
+                    FILTER_VALIDATE_INT
+                );
+
+            if (
+                $seed === false
+                ||
+                $seed < 1
+            ) {
+                $this->fail(
+                    "El participante {$participantId} necesita un seed entero positivo para usar Ranking."
+                );
+            }
+
+            if (isset($seen[$seed])) {
+                $this->fail(
+                    "El seed {$seed} está repetido entre {$seen[$seed]} y {$participantId}."
+                );
+            }
+
+            $seen[$seed] =
+                $participantId;
+        }
+    }
+
+    private function recordElimination(
+        array &$runtime,
+        string|int $participantId,
+        int $roundNumber,
+        string $matchId
+    ): void {
+        foreach (
+            $runtime['eliminations'] ?? []
+            as
+            $event
+        ) {
+            if (
+                ($event['participant_id'] ?? null)
+                ===
+                $participantId
+            ) {
+                $this->fail(
+                    "El participante {$participantId} ya había sido eliminado en esta fase."
+                );
+            }
+        }
+
+        $runtime['eliminations'][] = [
+            'participant_id' =>
+            $participantId,
+
+            'round_number' =>
+            $roundNumber,
+
+            'match_id' =>
+            $matchId,
+
+            'source' =>
+            'MATCH_RESULT',
+        ];
+
+        $runtime['eliminated_ids'] =
+            array_values(
+                array_unique([
+                    ...($runtime['eliminated_ids'] ?? []),
+                    $participantId,
+                ])
+            );
     }
 
     private function standings(
         array $runtime,
         array $survivors
     ): array {
-        $standings =
-            [];
+        $standings = [];
+        $survivorCount =
+            count($survivors);
 
-        $position =
-            1;
+        $orderedSurvivors =
+            $survivors;
+
+        usort(
+            $orderedSurvivors,
+            fn($left, $right) =>
+                ($runtime['seed'][$left] ?? PHP_INT_MAX)
+                <=>
+                ($runtime['seed'][$right] ?? PHP_INT_MAX)
+        );
 
         foreach (
-            $survivors
+            $orderedSurvivors
             as
             $participantId
         ) {
             $standings[] = [
+                /*
+                 * position se conserva para consumidores existentes.
+                 */
                 'position' =>
-                $position++,
+                1,
+
+                'position_from' =>
+                1,
+
+                'position_to' =>
+                $survivorCount,
 
                 'participant_id' =>
                 $participantId,
 
                 'status' =>
                 'SURVIVOR',
+
+                'placement_status' =>
+                $survivorCount === 1
+                    ? 'RANKED'
+                    : 'UNRANKED_SURVIVOR',
             ];
         }
 
+        $eventsByRound = [];
+
         foreach (
-            array_reverse(
-                $runtime['eliminated_ids']
-            )
+            $runtime['eliminations'] ?? []
             as
-            $participantId
+            $event
         ) {
-            $standings[] = [
-                'position' =>
-                $position++,
+            $eventsByRound[(int) $event['round_number']][] =
+                $event;
+        }
 
-                'participant_id' =>
-                $participantId,
+        krsort(
+            $eventsByRound,
+            SORT_NUMERIC
+        );
 
-                'status' =>
-                'ELIMINATED',
-            ];
+        foreach (
+            $eventsByRound
+            as
+            $roundNumber => $events
+        ) {
+            $round =
+                collect($runtime['rounds'])
+                ->firstWhere(
+                    'number',
+                    $roundNumber
+                );
+
+            if (! is_array($round)) {
+                $this->fail(
+                    'No fue posible calcular la clasificación de una eliminación.'
+                );
+            }
+
+            $positionFrom =
+                (int) (
+                    $round['survivors_after']
+                    ??
+                    0
+                )
+                +
+                1;
+
+            $positionTo =
+                (int) (
+                    $round['participants_count']
+                    ??
+                    $positionFrom
+                );
+
+            usort(
+                $events,
+                fn($left, $right) =>
+                    ($runtime['seed'][$left['participant_id']] ?? PHP_INT_MAX)
+                    <=>
+                    ($runtime['seed'][$right['participant_id']] ?? PHP_INT_MAX)
+            );
+
+            foreach (
+                $events
+                as
+                $event
+            ) {
+                $standings[] = [
+                    'position' =>
+                    $positionFrom,
+
+                    'position_from' =>
+                    $positionFrom,
+
+                    'position_to' =>
+                    $positionTo,
+
+                    'participant_id' =>
+                    $event['participant_id'],
+
+                    'status' =>
+                    'ELIMINATED',
+
+                    'placement_status' =>
+                    $positionFrom === $positionTo
+                        ? 'RANKED'
+                        : 'TIED_BAND',
+
+                    'eliminated_round' =>
+                    $roundNumber,
+
+                    'match_id' =>
+                    $event['match_id'],
+                ];
+            }
         }
 
         return $standings;
@@ -902,6 +1639,21 @@ implements LabPhaseEngine
         }
 
         return $size;
+    }
+
+    private function isPowerOfTwo(
+        int $value
+    ): bool {
+        return
+            $value > 0
+            &&
+            (
+                $value
+                &
+                ($value - 1)
+            )
+            ===
+            0;
     }
 
     private function fail(

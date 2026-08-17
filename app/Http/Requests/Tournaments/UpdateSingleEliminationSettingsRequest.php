@@ -384,6 +384,71 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
                 }
 
                 if (! $advanced) {
+                    if ($this->input('input_mode') !== 'POOL') {
+                        $validator->errors()->add(
+                            'input_mode',
+                            'En modo básico la entrada debe usar Bolsa común.'
+                        );
+                    }
+
+                    if ($this->input('routing_mode') !== 'AUTOMATIC') {
+                        $validator->errors()->add(
+                            'routing_mode',
+                            'En modo básico el enrutamiento debe ser Automático.'
+                        );
+                    }
+
+                    if ($this->input('encounter_profile') !== 'DUEL') {
+                        $validator->errors()->add(
+                            'encounter_profile',
+                            'En modo básico el perfil de encuentro debe ser Duelo 2 → 1.'
+                        );
+                    }
+
+                    if (! in_array(
+                        $this->input('remainder_policy'),
+                        ['BYE', 'REJECT'],
+                        true
+                    )) {
+                        $validator->errors()->add(
+                            'remainder_policy',
+                            'En modo básico los sobrantes solo admiten BYE o Rechazar.'
+                        );
+                    }
+
+                    if (
+                        $this->input('remainder_policy') === 'BYE'
+                        && ! $phaseTemplate->allow_byes
+                    ) {
+                        $validator->errors()->add(
+                            'remainder_policy',
+                            'No puedes usar BYE porque el contrato de la Fase no los permite.'
+                        );
+                    }
+
+                    if (
+                        $this->input('remainder_policy') === 'REJECT'
+                        && $phaseTemplate->exact_participants !== null
+                        && ! $this->isPowerOfTwo(
+                            (int) $phaseTemplate->exact_participants
+                        )
+                    ) {
+                        $validator->errors()->add(
+                            'remainder_policy',
+                            'Rechazar sobrantes necesita una cantidad exacta potencia de 2 en modo básico.'
+                        );
+                    }
+
+                    if (
+                        $this->boolean('reseed_each_round')
+                        && $this->input('pairing_mode') !== 'STANDARD_SEEDED'
+                    ) {
+                        $validator->errors()->add(
+                            'reseed_each_round',
+                            'El reseeding del modo básico solo es compatible con Pairing Seeded estándar.'
+                        );
+                    }
+
                     return;
                 }
 

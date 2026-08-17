@@ -101,10 +101,13 @@ class SingleEliminationValidator
                 $settings->target_survivors
             );
 
-        if (
+        $advanced =
             $settings->configuration_mode
-            !==
-            'ADVANCED'
+            ===
+            'ADVANCED';
+
+        if (
+            ! $advanced
             &&
             ! $this->isPowerOfTwo(
                 $target
@@ -119,26 +122,17 @@ class SingleEliminationValidator
                 'La cantidad de participantes debe ser mayor que el objetivo de supervivientes.';
         }
 
-        if (
-            $settings->configuration_mode
-            !==
-            'ADVANCED'
-            &&
-            ! $phaseTemplate->allow_byes
-            &&
-            ! $this->isPowerOfTwo(
-                $participants
-            )
-        ) {
-            $errors[] =
-                'Esta Fase no permite BYEs. En modo básico la cantidad debe ser una potencia de 2.';
-        }
-
-        if (
-            $settings->configuration_mode
-            ===
-            'ADVANCED'
-        ) {
+        if (! $advanced) {
+            $errors =
+                array_merge(
+                    $errors,
+                    $this->validateBasic(
+                        $phaseTemplate,
+                        $settings,
+                        $participants
+                    )
+                );
+        } else {
             $errors =
                 array_merge(
                     $errors,
@@ -149,11 +143,100 @@ class SingleEliminationValidator
                 );
         }
 
+
         return array_values(
             array_unique(
                 $errors
             )
         );
+    }
+
+    private function validateBasic(
+        PhaseTemplate $phaseTemplate,
+        PhaseSingleEliminationSetting $settings,
+        int $participants
+    ): array {
+        $errors = [];
+
+        if (
+            $settings->input_mode !== null
+            &&
+            $settings->input_mode !== 'POOL'
+        ) {
+            $errors[] =
+                'En modo básico la entrada debe usar Bolsa común (POOL).';
+        }
+
+        if (
+            $settings->routing_mode !== null
+            &&
+            $settings->routing_mode !== 'AUTOMATIC'
+        ) {
+            $errors[] =
+                'En modo básico el enrutamiento debe ser Automático.';
+        }
+
+        if (
+            $settings->encounter_profile !== null
+            &&
+            $settings->encounter_profile !== 'DUEL'
+        ) {
+            $errors[] =
+                'En modo básico el perfil de encuentro debe ser Duelo 2 → 1.';
+        }
+
+        if (
+            $settings->remainder_policy !== null
+            &&
+            ! in_array(
+                $settings->remainder_policy,
+                [
+                    'BYE',
+                    'REJECT',
+                ],
+                true
+            )
+        ) {
+            $errors[] =
+                'En modo básico los sobrantes solo admiten BYE o Rechazar.';
+        }
+
+        if (
+            $settings->remainder_policy === 'BYE'
+            &&
+            ! $phaseTemplate->allow_byes
+        ) {
+            $errors[] =
+                'La política BYE no puede usarse porque la Fase no permite BYEs.';
+        }
+
+        $rejectIrregular =
+            $settings->remainder_policy === 'REJECT'
+            ||
+            ! $phaseTemplate->allow_byes;
+
+        if (
+            $rejectIrregular
+            &&
+            ! $this->isPowerOfTwo(
+                $participants
+            )
+        ) {
+            $errors[] =
+                'La cantidad de participantes debe ser una potencia de 2 cuando los BYEs no pueden utilizarse.';
+        }
+
+        if (
+            (bool)
+            $settings->reseed_each_round
+            &&
+            $settings->pairing_mode !== 'STANDARD_SEEDED'
+        ) {
+            $errors[] =
+                'El reseeding del modo básico solo es compatible con Pairing Seeded estándar.';
+        }
+
+        return $errors;
     }
 
     private function validateAdvanced(

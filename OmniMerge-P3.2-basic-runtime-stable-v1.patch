@@ -1,0 +1,2439 @@
+diff --git a/app/Http/Requests/Tournaments/UpdateSingleEliminationSettingsRequest.php b/app/Http/Requests/Tournaments/UpdateSingleEliminationSettingsRequest.php
+index 0a5fbc9..81ca3bd 100644
+--- a/app/Http/Requests/Tournaments/UpdateSingleEliminationSettingsRequest.php
++++ b/app/Http/Requests/Tournaments/UpdateSingleEliminationSettingsRequest.php
+@@ -384,6 +384,71 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
+                 }
+ 
+                 if (! $advanced) {
++                    if ($this->input('input_mode') !== 'POOL') {
++                        $validator->errors()->add(
++                            'input_mode',
++                            'En modo básico la entrada debe usar Bolsa común.'
++                        );
++                    }
++
++                    if ($this->input('routing_mode') !== 'AUTOMATIC') {
++                        $validator->errors()->add(
++                            'routing_mode',
++                            'En modo básico el enrutamiento debe ser Automático.'
++                        );
++                    }
++
++                    if ($this->input('encounter_profile') !== 'DUEL') {
++                        $validator->errors()->add(
++                            'encounter_profile',
++                            'En modo básico el perfil de encuentro debe ser Duelo 2 → 1.'
++                        );
++                    }
++
++                    if (! in_array(
++                        $this->input('remainder_policy'),
++                        ['BYE', 'REJECT'],
++                        true
++                    )) {
++                        $validator->errors()->add(
++                            'remainder_policy',
++                            'En modo básico los sobrantes solo admiten BYE o Rechazar.'
++                        );
++                    }
++
++                    if (
++                        $this->input('remainder_policy') === 'BYE'
++                        && ! $phaseTemplate->allow_byes
++                    ) {
++                        $validator->errors()->add(
++                            'remainder_policy',
++                            'No puedes usar BYE porque el contrato de la Fase no los permite.'
++                        );
++                    }
++
++                    if (
++                        $this->input('remainder_policy') === 'REJECT'
++                        && $phaseTemplate->exact_participants !== null
++                        && ! $this->isPowerOfTwo(
++                            (int) $phaseTemplate->exact_participants
++                        )
++                    ) {
++                        $validator->errors()->add(
++                            'remainder_policy',
++                            'Rechazar sobrantes necesita una cantidad exacta potencia de 2 en modo básico.'
++                        );
++                    }
++
++                    if (
++                        $this->boolean('reseed_each_round')
++                        && $this->input('pairing_mode') !== 'STANDARD_SEEDED'
++                    ) {
++                        $validator->errors()->add(
++                            'reseed_each_round',
++                            'El reseeding del modo básico solo es compatible con Pairing Seeded estándar.'
++                        );
++                    }
++
+                     return;
+                 }
+ 
+diff --git a/app/Services/Tournaments/CompetitionLab/Engines/LabManualDecisionManager.php b/app/Services/Tournaments/CompetitionLab/Engines/LabManualDecisionManager.php
+index e38b367..fc65039 100644
+--- a/app/Services/Tournaments/CompetitionLab/Engines/LabManualDecisionManager.php
++++ b/app/Services/Tournaments/CompetitionLab/Engines/LabManualDecisionManager.php
+@@ -17,6 +17,17 @@ final class LabManualDecisionManager
+         PhaseTemplate $phase,
+         array $participantIds
+     ): ?array {
++        $participantIds = array_values($participantIds);
++
++        if (
++            $phase->phase_type === 'SINGLE_ELIMINATION'
++            && count($participantIds) !== count(array_unique($participantIds))
++        ) {
++            $this->fail(
++                'La entrada de Single Elimination contiene participantes duplicados.'
++            );
++        }
++
+         $participantIds = array_values(array_unique($participantIds));
+ 
+         return match ($phase->phase_type) {
+@@ -72,7 +83,11 @@ final class LabManualDecisionManager
+                 }
+ 
+                 $byeCount = (int) data_get($decision, 'constraints.bye_count', 0);
+-                $byeIds = array_values(array_unique($payload['selected_participant_ids'] ?? []));
++                $byeIds = array_values($payload['selected_participant_ids'] ?? []);
++
++                if (count($byeIds) !== count(array_unique($byeIds))) {
++                    $this->fail('La selección manual de BYEs no puede repetir participantes.');
++                }
+ 
+                 if (count($byeIds) !== $byeCount) {
+                     $this->fail("Debes seleccionar exactamente {$byeCount} participante(s) para BYE.");
+@@ -261,7 +276,11 @@ final class LabManualDecisionManager
+         array $eligible,
+         array $ordered
+     ): array {
+-        $ordered = array_values(array_unique($ordered));
++        $ordered = array_values($ordered);
++
++        if (count($ordered) !== count(array_unique($ordered))) {
++            $this->fail('El orden manual no puede repetir participantes.');
++        }
+ 
+         if (count($ordered) !== count($eligible)) {
+             $this->fail('El orden manual debe contener a todos los participantes una sola vez.');
+diff --git a/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationLabEngine.php b/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationLabEngine.php
+index 1d9152a..2c4e692 100644
+--- a/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationLabEngine.php
++++ b/app/Services/Tournaments/CompetitionLab/Engines/SingleEliminationLabEngine.php
+@@ -51,11 +51,19 @@ implements LabPhaseEngine
+ 
+         $participantIds =
+             array_values(
+-                array_unique(
+-                    $participantIds
+-                )
++                $participantIds
+             );
+ 
++        if (
++            count($participantIds)
++            !==
++            count(array_unique($participantIds))
++        ) {
++            $this->fail(
++                'La entrada de Single Elimination contiene participantes duplicados.'
++            );
++        }
++
+         foreach (
+             $participantIds
+             as
+@@ -132,21 +140,33 @@ implements LabPhaseEngine
+             );
+         }
+ 
++        $randomContext =
++            'PHASE:'
++            .
++            (string) (
++                $phase->getKey()
++                ??
++                'UNSAVED'
++            );
++
+         if ($settings->seeding_mode === 'RANDOM') {
+-            usort(
++            $participantIds =
++                $this->randomOrder(
++                    $participantIds,
++                    $randomContext . ':SEED'
++                );
++        } elseif ($settings->seeding_mode === 'RANKING') {
++            $this->validateRankingSeeds(
+                 $participantIds,
+-                fn($left, $right) => strcmp(
+-                    hash('sha256', $phase->id . ':SEED:' . $left),
+-                    hash('sha256', $phase->id . ':SEED:' . $right)
+-                )
++                $participants
+             );
+-        } elseif ($settings->seeding_mode === 'RANKING') {
++
+             usort(
+                 $participantIds,
+                 fn($left, $right) =>
+-                    (int) ($participants[$left]['seed'] ?? PHP_INT_MAX)
++                    (int) $participants[$left]['seed']
+                     <=>
+-                    (int) ($participants[$right]['seed'] ?? PHP_INT_MAX)
++                    (int) $participants[$right]['seed']
+             );
+         }
+ 
+@@ -190,9 +210,21 @@ implements LabPhaseEngine
+             'engine' =>
+             'SINGLE_ELIMINATION',
+ 
++            'mode' =>
++            'BASIC',
++
+             'status' =>
+             'RUNNING',
+ 
++            'participant_ids' =>
++            $participantIds,
++
++            'initial_participant_count' =>
++            count($participantIds),
++
++            'random_context' =>
++            $randomContext,
++
+             'target_survivors' =>
+             max(
+                 1,
+@@ -244,14 +276,33 @@ implements LabPhaseEngine
+             'eliminated_ids' =>
+             [],
+ 
++            'eliminations' =>
++            [],
++
+             'current_round' =>
+             1,
+ 
++            /*
++             * Compatibilidad: matches_* cuenta únicamente
++             * encuentros competitivos, no avances por BYE.
++             */
+             'matches_total' =>
+             0,
+ 
+             'matches_completed' =>
+             0,
++
++            'competitive_matches_total' =>
++            0,
++
++            'competitive_matches_completed' =>
++            0,
++
++            'structural_matches_total' =>
++            0,
++
++            'bye_count' =>
++            0,
+         ];
+ 
+         $runtime['rounds'][] =
+@@ -373,15 +424,27 @@ implements LabPhaseEngine
+                     ? $match['participant_b_id']
+                     : $match['participant_a_id'];
+ 
+-                $runtime['eliminated_ids'] = array_values(array_unique([
+-                    ...($runtime['eliminated_ids'] ?? []),
+-                    $match['loser_id'],
+-                ]));
+-
+                 $match['status'] =
+                     'COMPLETED';
+ 
+-                $runtime['matches_completed']++;
++                $this->recordElimination(
++                    $runtime,
++                    $match['loser_id'],
++                    (int) $round['number'],
++                    $matchId
++                );
++
++                $runtime['competitive_matches_completed'] =
++                    (int) (
++                        $runtime['competitive_matches_completed']
++                        ??
++                        0
++                    )
++                    +
++                    1;
++
++                $runtime['matches_completed'] =
++                    $runtime['competitive_matches_completed'];
+ 
+                 $found =
+                     true;
+@@ -485,7 +548,15 @@ implements LabPhaseEngine
+ 
+                     $match['status'] =
+                         'BYE';
+-                    $runtime['matches_completed']++;
++
++                    $runtime['bye_count'] =
++                        (int) (
++                            $runtime['bye_count']
++                            ??
++                            0
++                        )
++                        +
++                        1;
+                 } elseif (
+                     ! $match['participant_a_id']
+                     &&
+@@ -496,7 +567,15 @@ implements LabPhaseEngine
+ 
+                     $match['status'] =
+                         'BYE';
+-                    $runtime['matches_completed']++;
++
++                    $runtime['bye_count'] =
++                        (int) (
++                            $runtime['bye_count']
++                            ??
++                            0
++                        )
++                        +
++                        1;
+                 }
+             }
+ 
+@@ -550,11 +629,23 @@ implements LabPhaseEngine
+                     ])
+                 );
+ 
+-            if (
+-                count($winners)
+-                <=
+-                $runtime['target_survivors']
+-            ) {
++            $round['survivors_after'] =
++                count($winners);
++
++            $round['eliminated_count'] =
++                count($losers);
++
++            $target =
++                (int)
++                $runtime['target_survivors'];
++
++            if (count($winners) < $target) {
++                $this->fail(
++                    'El runtime produjo menos supervivientes que el objetivo configurado.'
++                );
++            }
++
++            if (count($winners) === $target) {
+                 $runtime['status'] =
+                     'COMPLETED';
+ 
+@@ -570,17 +661,7 @@ implements LabPhaseEngine
+                 return $runtime;
+             }
+ 
+-            if (
+-                $runtime['reseed_each_round']
+-            ) {
+-                usort(
+-                    $winners,
+-                    fn($left, $right) =>
+-                    $runtime['seed'][$left]
+-                        <=>
+-                        $runtime['seed'][$right]
+-                );
+-            }
++            unset($round);
+ 
+             $roundNumber =
+                 count(
+@@ -604,9 +685,13 @@ implements LabPhaseEngine
+         int $roundNumber,
+         array &$runtime
+     ): array {
+-        $matches = [];
++        $roundSize =
++            $this->roundSize(
++                count($participantIds)
++            );
++
+         $roundSeries =
+-            $runtime['round_series_rules'][count($participantIds)]
++            $runtime['round_series_rules'][$roundSize]
+             ??
+             [
+                 'series_format' =>
+@@ -619,61 +704,59 @@ implements LabPhaseEngine
+                 $runtime['default_fixed_games'],
+             ];
+ 
+-        $roundSize = $this->roundSize(count($participantIds));
+-        $byeCount = $roundNumber === 1
+-            ? max(0, $roundSize - count($participantIds))
++        $byeCount =
++            $roundNumber === 1
++            ? max(
++                0,
++                $roundSize - count($participantIds)
++            )
+             : 0;
+-        $byeIds = $this->selectByeIds(
+-            $participantIds,
+-            $byeCount,
+-            $runtime,
+-            $roundNumber
+-        );
+ 
+-        foreach ($byeIds as $participantId) {
+-            $matches[] = [
+-                'id' => 'SE-R' . $roundNumber . '-M' . (count($matches) + 1),
+-                'number' => count($matches) + 1,
+-                'participant_a_id' => $participantId,
+-                'participant_b_id' => null,
+-                'score_a' => null,
+-                'score_b' => null,
+-                'winner_id' => null,
+-                'loser_id' => null,
+-                'series_format' => $roundSeries['series_format'],
+-                'best_of' => (int) $roundSeries['best_of'],
+-                'fixed_games' => (int) $roundSeries['fixed_games'],
+-                'series_label' => $roundSeries['series_format'] === 'FIXED_GAMES'
+-                    ? $roundSeries['fixed_games'] . ' juegos fijos'
+-                    : 'BO' . $roundSeries['best_of'],
+-                'status' => 'PENDING',
+-            ];
+-        }
++        $byeIds =
++            $this->selectByeIds(
++                $participantIds,
++                $byeCount,
++                $runtime,
++                $roundNumber
++            );
+ 
+-        $playing = array_values(array_filter(
+-            $participantIds,
+-            fn($participantId) => ! in_array($participantId, $byeIds, true)
+-        ));
++        $pairings =
++            $this->buildRoundPairings(
++                $participantIds,
++                $byeIds,
++                $runtime,
++                $roundNumber,
++                $roundSize
++            );
++
++        $matches = [];
++        $competitiveMatches = 0;
++
++        foreach (
++            $pairings
++            as
++            [$participantA, $participantB]
++        ) {
++            if (
++                $participantA !== null
++                &&
++                $participantB !== null
++            ) {
++                $competitiveMatches++;
++            }
+ 
+-        foreach ($this->buildPairings($playing, $runtime, $roundNumber) as [$participantA, $participantB]) {
+             $matches[] = [
+                 'id' =>
+                 'SE-R'
+-                    .
+-                    $roundNumber
+-                    .
+-                    '-M'
+-                    .
+-                    (
+-                        count($matches)
+-                        +
+-                        1
+-                    ),
++                .
++                $roundNumber
++                .
++                '-M'
++                .
++                (count($matches) + 1),
+ 
+                 'number' =>
+-                count($matches)
+-                    +
+-                    1,
++                count($matches) + 1,
+ 
+                 'participant_a_id' =>
+                 $participantA,
+@@ -713,7 +796,7 @@ implements LabPhaseEngine
+                     ' '
+                     .
+                     (
+-                        $roundSeries['fixed_games'] === 1
++                        (int) $roundSeries['fixed_games'] === 1
+                         ? 'enfrentamiento fijo'
+                         : 'enfrentamientos fijos'
+                     )
+@@ -726,18 +809,43 @@ implements LabPhaseEngine
+             ];
+         }
+ 
+-        $runtime['matches_total'] +=
+-            count(
+-                $matches
+-            );
++        $runtime['structural_matches_total'] =
++            (int) (
++                $runtime['structural_matches_total']
++                ??
++                0
++            )
++            +
++            count($matches);
++
++        $runtime['competitive_matches_total'] =
++            (int) (
++                $runtime['competitive_matches_total']
++                ??
++                0
++            )
++            +
++            $competitiveMatches;
++
++        $runtime['matches_total'] =
++            $runtime['competitive_matches_total'];
+ 
+         return [
+             'number' =>
+             $roundNumber,
+ 
++            /*
++             * Capacidad nominal utilizada por las reglas por ronda.
++             */
+             'participants_in_round' =>
+             $roundSize,
+ 
++            /*
++             * Cantidad real de participantes activos al iniciar la ronda.
++             */
++            'participants_count' =>
++            count($participantIds),
++
+             'label' =>
+             count($participantIds)
+                 ===
+@@ -750,6 +858,12 @@ implements LabPhaseEngine
+             'status' =>
+             'RUNNING',
+ 
++            'survivors_after' =>
++            null,
++
++            'eliminated_count' =>
++            0,
++
+             'matches' =>
+             $matches,
+         ];
+@@ -765,31 +879,52 @@ implements LabPhaseEngine
+             return [];
+         }
+ 
+-        $policy = $runtime['bye_assignment'] ?? 'TOP_SEEDS';
++        $policy =
++            $runtime['bye_assignment']
++            ??
++            'TOP_SEEDS';
+ 
+         if ($policy === 'MANUAL') {
+-            $manual = array_values(array_intersect(
+-                $runtime['manual_bye_ids'] ?? [],
+-                $participantIds
+-            ));
++            $manual =
++                array_values(
++                    array_intersect(
++                        $runtime['manual_bye_ids'] ?? [],
++                        $participantIds
++                    )
++                );
++
++            if (
++                count($manual)
++                !==
++                count(array_unique($manual))
++            ) {
++                $this->fail(
++                    'La selección manual de BYEs contiene participantes duplicados.'
++                );
++            }
+ 
+             if (count($manual) !== $byeCount) {
+-                $this->fail("La primera ronda necesita exactamente {$byeCount} BYE manual(es).");
++                $this->fail(
++                    "La primera ronda necesita exactamente {$byeCount} BYE manual(es)."
++                );
+             }
+ 
+             return $manual;
+         }
+ 
+-        $candidates = $participantIds;
++        $candidates =
++            $participantIds;
+ 
+         if ($policy === 'RANDOM') {
+-            usort(
+-                $candidates,
+-                fn($left, $right) => strcmp(
+-                    hash('sha256', 'BYE:' . $roundNumber . ':' . $left),
+-                    hash('sha256', 'BYE:' . $roundNumber . ':' . $right)
+-                )
+-            );
++            $candidates =
++                $this->randomOrder(
++                    $candidates,
++                    ($runtime['random_context'] ?? 'SE')
++                    .
++                    ':BYE:'
++                    .
++                    $roundNumber
++                );
+         } else {
+             usort(
+                 $candidates,
+@@ -800,94 +935,696 @@ implements LabPhaseEngine
+             );
+         }
+ 
+-        return array_slice($candidates, 0, $byeCount);
++        return array_slice(
++            $candidates,
++            0,
++            $byeCount
++        );
+     }
+ 
+-    private function buildPairings(
++    private function buildRoundPairings(
+         array $participantIds,
++        array $byeIds,
+         array $runtime,
+-        int $roundNumber
++        int $roundNumber,
++        int $roundSize
+     ): array {
+-        $mode = $runtime['pairing_mode'] ?? 'STANDARD_SEEDED';
++        if ($roundNumber === 1) {
++            if (
++                ($runtime['pairing_mode'] ?? null)
++                ===
++                'STANDARD_SEEDED'
++            ) {
++                return $this->buildSeededFirstRoundPairings(
++                    $participantIds,
++                    $byeIds,
++                    $runtime,
++                    $roundSize
++                );
++            }
+ 
+-        if ($mode === 'RANDOM') {
+-            usort(
++            return $this->buildSimpleFirstRoundPairings(
++                $participantIds,
++                $byeIds,
++                $runtime,
++                $roundNumber
++            );
++        }
++
++        if (
++            $runtime['reseed_each_round']
++            ??
++            false
++        ) {
++            return $this->buildReseededPairings(
+                 $participantIds,
+-                fn($left, $right) => strcmp(
+-                    hash('sha256', 'PAIR:' . $roundNumber . ':' . $left),
+-                    hash('sha256', 'PAIR:' . $roundNumber . ':' . $right)
++                $runtime
++            );
++        }
++
++        /*
++         * Sin reseed se conserva la ruta fija del bracket:
++         * winner M1 vs winner M2, winner M3 vs winner M4, etc.
++         */
++        return $this->pairSequentially(
++            $participantIds
++        );
++    }
++
++    private function buildSeededFirstRoundPairings(
++        array $participantIds,
++        array $byeIds,
++        array $runtime,
++        int $roundSize
++    ): array {
++        $participantsBySeed = [];
++
++        foreach (
++            $runtime['seed']
++            as
++            $participantId => $seed
++        ) {
++            $participantsBySeed[(int) $seed] =
++                $participantId;
++        }
++
++        $slots = [];
++
++        foreach (
++            $this->canonicalSeedOrder($roundSize)
++            as
++            $seed
++        ) {
++            $slots[] =
++                $participantsBySeed[$seed]
++                ??
++                null;
++        }
++
++        if ($byeIds !== []) {
++            $slots =
++                $this->relocateSeededByes(
++                    $slots,
++                    $byeIds,
++                    $runtime
++                );
++        }
++
++        return array_map(
++            fn($pair) => [
++                $pair[0] ?? null,
++                $pair[1] ?? null,
++            ],
++            array_chunk($slots, 2)
++        );
++    }
++
++    private function relocateSeededByes(
++        array $slots,
++        array $desiredByeIds,
++        array $runtime
++    ): array {
++        $currentByeIds =
++            $this->byeRecipientsFromSlots(
++                $slots
++            );
++
++        $sortBySeed =
++            function (array &$ids) use ($runtime): void {
++                usort(
++                    $ids,
++                    fn($left, $right) =>
++                        ($runtime['seed'][$left] ?? PHP_INT_MAX)
++                        <=>
++                        ($runtime['seed'][$right] ?? PHP_INT_MAX)
++                );
++            };
++
++        $desiredByeIds =
++            array_values(
++                array_unique(
++                    $desiredByeIds
+                 )
+             );
++
++        $sortBySeed($desiredByeIds);
++        $sortBySeed($currentByeIds);
++
++        if (
++            count($desiredByeIds)
++            !==
++            count($currentByeIds)
++        ) {
++            $this->fail(
++                'La topología del bracket no coincide con la cantidad de BYEs requerida.'
++            );
+         }
+ 
+-        $pairs = [];
++        $gainBye =
++            array_values(
++                array_diff(
++                    $desiredByeIds,
++                    $currentByeIds
++                )
++            );
++
++        $loseBye =
++            array_values(
++                array_diff(
++                    $currentByeIds,
++                    $desiredByeIds
++                )
++            );
+ 
+-        if (in_array($mode, ['SEQUENTIAL', 'RANDOM'], true)) {
+-            for ($index = 0; $index < count($participantIds); $index += 2) {
+-                $pairs[] = [
+-                    $participantIds[$index] ?? null,
+-                    $participantIds[$index + 1] ?? null,
++        $sortBySeed($gainBye);
++        $sortBySeed($loseBye);
++
++        foreach (
++            $gainBye
++            as
++            $index => $participantId
++        ) {
++            $currentHost =
++                $loseBye[$index]
++                ??
++                null;
++
++            if ($currentHost === null) {
++                $this->fail(
++                    'No fue posible ubicar los BYEs dentro del bracket sembrado.'
++                );
++            }
++
++            $participantSlot =
++                array_search(
++                    $participantId,
++                    $slots,
++                    true
++                );
++
++            $hostSlot =
++                array_search(
++                    $currentHost,
++                    $slots,
++                    true
++                );
++
++            if (
++                $participantSlot === false
++                ||
++                $hostSlot === false
++            ) {
++                $this->fail(
++                    'No fue posible ubicar un participante dentro del bracket sembrado.'
++                );
++            }
++
++            [
++                $slots[$participantSlot],
++                $slots[$hostSlot],
++            ] = [
++                $slots[$hostSlot],
++                $slots[$participantSlot],
++            ];
++        }
++
++        $resolved =
++            $this->byeRecipientsFromSlots(
++                $slots
++            );
++
++        sort($resolved);
++
++        $expected =
++            $desiredByeIds;
++
++        sort($expected);
++
++        if ($resolved !== $expected) {
++            $this->fail(
++                'Los BYEs no pudieron integrarse correctamente en la topología del bracket.'
++            );
++        }
++
++        return $slots;
++    }
++
++    private function byeRecipientsFromSlots(
++        array $slots
++    ): array {
++        $recipients = [];
++
++        foreach (
++            array_chunk($slots, 2)
++            as
++            $pair
++        ) {
++            $left =
++                $pair[0]
++                ??
++                null;
++
++            $right =
++                $pair[1]
++                ??
++                null;
++
++            if (
++                $left !== null
++                &&
++                $right === null
++            ) {
++                $recipients[] =
++                    $left;
++            } elseif (
++                $left === null
++                &&
++                $right !== null
++            ) {
++                $recipients[] =
++                    $right;
++            }
++        }
++
++        return $recipients;
++    }
++
++    private function buildSimpleFirstRoundPairings(
++        array $participantIds,
++        array $byeIds,
++        array $runtime,
++        int $roundNumber
++    ): array {
++        $ordered =
++            $participantIds;
++
++        if (
++            ($runtime['pairing_mode'] ?? null)
++            ===
++            'RANDOM'
++        ) {
++            $ordered =
++                $this->randomOrder(
++                    $ordered,
++                    ($runtime['random_context'] ?? 'SE')
++                    .
++                    ':PAIR:'
++                    .
++                    $roundNumber
++                );
++        }
++
++        $byeSet =
++            array_fill_keys(
++                $byeIds,
++                true
++            );
++
++        $byePairs = [];
++        $playing = [];
++
++        foreach (
++            $ordered
++            as
++            $participantId
++        ) {
++            if (isset($byeSet[$participantId])) {
++                $byePairs[] = [
++                    $participantId,
++                    null,
+                 ];
++            } else {
++                $playing[] =
++                    $participantId;
+             }
++        }
++
++        return [
++            ...$byePairs,
++            ...$this->pairSequentially($playing),
++        ];
++    }
++
++    private function buildReseededPairings(
++        array $participantIds,
++        array $runtime
++    ): array {
++        $ordered =
++            $participantIds;
++
++        usort(
++            $ordered,
++            fn($left, $right) =>
++                ($runtime['seed'][$left] ?? PHP_INT_MAX)
++                <=>
++                ($runtime['seed'][$right] ?? PHP_INT_MAX)
++        );
+ 
+-            return $pairs;
++        if (count($ordered) % 2 !== 0) {
++            $this->fail(
++                'El reseeding produjo una cantidad impar de participantes.'
++            );
+         }
+ 
++        $pairs = [];
+         $left = 0;
+-        $right = count($participantIds) - 1;
+-        while ($left <= $right) {
+-            $participantA = $participantIds[$left++] ?? null;
+-            $participantB = $left <= $right ? ($participantIds[$right--] ?? null) : null;
+-            $pairs[] = [$participantA, $participantB];
++        $right = count($ordered) - 1;
++
++        while ($left < $right) {
++            $pairs[] = [
++                $ordered[$left++],
++                $ordered[$right--],
++            ];
++        }
++
++        return $pairs;
++    }
++
++    private function pairSequentially(
++        array $participantIds
++    ): array {
++        if (count($participantIds) % 2 !== 0) {
++            $this->fail(
++                'El bracket intentó crear una ronda con una cantidad impar sin BYE.'
++            );
++        }
++
++        $pairs = [];
++
++        for (
++            $index = 0;
++            $index < count($participantIds);
++            $index += 2
++        ) {
++            $pairs[] = [
++                $participantIds[$index],
++                $participantIds[$index + 1],
++            ];
+         }
+ 
+         return $pairs;
+     }
+ 
++    /**
++     * Orden canónico de slots para un bracket sembrado.
++     *
++     * 8 => [1, 8, 4, 5, 2, 7, 3, 6]
++     */
++    private function canonicalSeedOrder(
++        int $size
++    ): array {
++        if (
++            $size < 2
++            ||
++            ! $this->isPowerOfTwo($size)
++        ) {
++            $this->fail(
++                'El bracket sembrado necesita una capacidad potencia de 2.'
++            );
++        }
++
++        $order = [
++            1,
++            2,
++        ];
++
++        for (
++            $current = 4;
++            $current <= $size;
++            $current *= 2
++        ) {
++            $next = [];
++
++            foreach (
++                $order
++                as
++                $seed
++            ) {
++                $next[] =
++                    $seed;
++
++                $next[] =
++                    $current + 1 - $seed;
++            }
++
++            $order =
++                $next;
++        }
++
++        return $order;
++    }
++
++    private function randomOrder(
++        array $participantIds,
++        string $context
++    ): array {
++        usort(
++            $participantIds,
++            fn($left, $right) =>
++                strcmp(
++                    hash(
++                        'sha256',
++                        $context . ':' . $left
++                    ),
++                    hash(
++                        'sha256',
++                        $context . ':' . $right
++                    )
++                )
++        );
++
++        return $participantIds;
++    }
++
++    private function validateRankingSeeds(
++        array $participantIds,
++        array $participants
++    ): void {
++        $seen = [];
++
++        foreach (
++            $participantIds
++            as
++            $participantId
++        ) {
++            $rawSeed =
++                $participants[$participantId]['seed']
++                ??
++                null;
++
++            $seed =
++                filter_var(
++                    $rawSeed,
++                    FILTER_VALIDATE_INT
++                );
++
++            if (
++                $seed === false
++                ||
++                $seed < 1
++            ) {
++                $this->fail(
++                    "El participante {$participantId} necesita un seed entero positivo para usar Ranking."
++                );
++            }
++
++            if (isset($seen[$seed])) {
++                $this->fail(
++                    "El seed {$seed} está repetido entre {$seen[$seed]} y {$participantId}."
++                );
++            }
++
++            $seen[$seed] =
++                $participantId;
++        }
++    }
++
++    private function recordElimination(
++        array &$runtime,
++        string|int $participantId,
++        int $roundNumber,
++        string $matchId
++    ): void {
++        foreach (
++            $runtime['eliminations'] ?? []
++            as
++            $event
++        ) {
++            if (
++                ($event['participant_id'] ?? null)
++                ===
++                $participantId
++            ) {
++                $this->fail(
++                    "El participante {$participantId} ya había sido eliminado en esta fase."
++                );
++            }
++        }
++
++        $runtime['eliminations'][] = [
++            'participant_id' =>
++            $participantId,
++
++            'round_number' =>
++            $roundNumber,
++
++            'match_id' =>
++            $matchId,
++
++            'source' =>
++            'MATCH_RESULT',
++        ];
++
++        $runtime['eliminated_ids'] =
++            array_values(
++                array_unique([
++                    ...($runtime['eliminated_ids'] ?? []),
++                    $participantId,
++                ])
++            );
++    }
++
+     private function standings(
+         array $runtime,
+         array $survivors
+     ): array {
+-        $standings =
+-            [];
+-
+-        $position =
+-            1;
++        $standings = [];
++        $survivorCount =
++            count($survivors);
++
++        $orderedSurvivors =
++            $survivors;
++
++        usort(
++            $orderedSurvivors,
++            fn($left, $right) =>
++                ($runtime['seed'][$left] ?? PHP_INT_MAX)
++                <=>
++                ($runtime['seed'][$right] ?? PHP_INT_MAX)
++        );
+ 
+         foreach (
+-            $survivors
++            $orderedSurvivors
+             as
+             $participantId
+         ) {
+             $standings[] = [
++                /*
++                 * position se conserva para consumidores existentes.
++                 */
+                 'position' =>
+-                $position++,
++                1,
++
++                'position_from' =>
++                1,
++
++                'position_to' =>
++                $survivorCount,
+ 
+                 'participant_id' =>
+                 $participantId,
+ 
+                 'status' =>
+                 'SURVIVOR',
++
++                'placement_status' =>
++                $survivorCount === 1
++                    ? 'RANKED'
++                    : 'UNRANKED_SURVIVOR',
+             ];
+         }
+ 
++        $eventsByRound = [];
++
+         foreach (
+-            array_reverse(
+-                $runtime['eliminated_ids']
+-            )
++            $runtime['eliminations'] ?? []
+             as
+-            $participantId
++            $event
+         ) {
+-            $standings[] = [
+-                'position' =>
+-                $position++,
++            $eventsByRound[(int) $event['round_number']][] =
++                $event;
++        }
+ 
+-                'participant_id' =>
+-                $participantId,
++        krsort(
++            $eventsByRound,
++            SORT_NUMERIC
++        );
+ 
+-                'status' =>
+-                'ELIMINATED',
+-            ];
++        foreach (
++            $eventsByRound
++            as
++            $roundNumber => $events
++        ) {
++            $round =
++                collect($runtime['rounds'])
++                ->firstWhere(
++                    'number',
++                    $roundNumber
++                );
++
++            if (! is_array($round)) {
++                $this->fail(
++                    'No fue posible calcular la clasificación de una eliminación.'
++                );
++            }
++
++            $positionFrom =
++                (int) (
++                    $round['survivors_after']
++                    ??
++                    0
++                )
++                +
++                1;
++
++            $positionTo =
++                (int) (
++                    $round['participants_count']
++                    ??
++                    $positionFrom
++                );
++
++            usort(
++                $events,
++                fn($left, $right) =>
++                    ($runtime['seed'][$left['participant_id']] ?? PHP_INT_MAX)
++                    <=>
++                    ($runtime['seed'][$right['participant_id']] ?? PHP_INT_MAX)
++            );
++
++            foreach (
++                $events
++                as
++                $event
++            ) {
++                $standings[] = [
++                    'position' =>
++                    $positionFrom,
++
++                    'position_from' =>
++                    $positionFrom,
++
++                    'position_to' =>
++                    $positionTo,
++
++                    'participant_id' =>
++                    $event['participant_id'],
++
++                    'status' =>
++                    'ELIMINATED',
++
++                    'placement_status' =>
++                    $positionFrom === $positionTo
++                        ? 'RANKED'
++                        : 'TIED_BAND',
++
++                    'eliminated_round' =>
++                    $roundNumber,
++
++                    'match_id' =>
++                    $event['match_id'],
++                ];
++            }
+         }
+ 
+         return $standings;
+@@ -904,6 +1641,21 @@ implements LabPhaseEngine
+         return $size;
+     }
+ 
++    private function isPowerOfTwo(
++        int $value
++    ): bool {
++        return
++            $value > 0
++            &&
++            (
++                $value
++                &
++                ($value - 1)
++            )
++            ===
++            0;
++    }
++
+     private function fail(
+         string $message
+     ): never {
+diff --git a/app/Services/Tournaments/SingleElimination/SingleEliminationRoundAvailabilityService.php b/app/Services/Tournaments/SingleElimination/SingleEliminationRoundAvailabilityService.php
+index 1d5c6e9..a9cb53c 100644
+--- a/app/Services/Tournaments/SingleElimination/SingleEliminationRoundAvailabilityService.php
++++ b/app/Services/Tournaments/SingleElimination/SingleEliminationRoundAvailabilityService.php
+@@ -211,13 +211,25 @@ class SingleEliminationRoundAvailabilityService
+             !==
+             'ADVANCED'
+             &&
+-            ! $phaseTemplate->allow_byes
+-            &&
+             ! $this->isPowerOfTwo(
+                 $participants
+             )
+         ) {
+-            return false;
++            if (! $phaseTemplate->allow_byes) {
++                return false;
++            }
++
++            if ($settings?->remainder_policy === 'REJECT') {
++                return false;
++            }
++
++            if (
++                $settings?->remainder_policy !== null
++                &&
++                $settings->remainder_policy !== 'BYE'
++            ) {
++                return false;
++            }
+         }
+ 
+         return true;
+diff --git a/app/Services/Tournaments/SingleElimination/SingleEliminationValidator.php b/app/Services/Tournaments/SingleElimination/SingleEliminationValidator.php
+index 408a5a9..477a48c 100644
+--- a/app/Services/Tournaments/SingleElimination/SingleEliminationValidator.php
++++ b/app/Services/Tournaments/SingleElimination/SingleEliminationValidator.php
+@@ -101,10 +101,13 @@ class SingleEliminationValidator
+                 $settings->target_survivors
+             );
+ 
+-        if (
++        $advanced =
+             $settings->configuration_mode
+-            !==
+-            'ADVANCED'
++            ===
++            'ADVANCED';
++
++        if (
++            ! $advanced
+             &&
+             ! $this->isPowerOfTwo(
+                 $target
+@@ -119,26 +122,17 @@ class SingleEliminationValidator
+                 'La cantidad de participantes debe ser mayor que el objetivo de supervivientes.';
+         }
+ 
+-        if (
+-            $settings->configuration_mode
+-            !==
+-            'ADVANCED'
+-            &&
+-            ! $phaseTemplate->allow_byes
+-            &&
+-            ! $this->isPowerOfTwo(
+-                $participants
+-            )
+-        ) {
+-            $errors[] =
+-                'Esta Fase no permite BYEs. En modo básico la cantidad debe ser una potencia de 2.';
+-        }
+-
+-        if (
+-            $settings->configuration_mode
+-            ===
+-            'ADVANCED'
+-        ) {
++        if (! $advanced) {
++            $errors =
++                array_merge(
++                    $errors,
++                    $this->validateBasic(
++                        $phaseTemplate,
++                        $settings,
++                        $participants
++                    )
++                );
++        } else {
+             $errors =
+                 array_merge(
+                     $errors,
+@@ -149,6 +143,7 @@ class SingleEliminationValidator
+                 );
+         }
+ 
++
+         return array_values(
+             array_unique(
+                 $errors
+@@ -156,6 +151,94 @@ class SingleEliminationValidator
+         );
+     }
+ 
++    private function validateBasic(
++        PhaseTemplate $phaseTemplate,
++        PhaseSingleEliminationSetting $settings,
++        int $participants
++    ): array {
++        $errors = [];
++
++        if (
++            $settings->input_mode !== null
++            &&
++            $settings->input_mode !== 'POOL'
++        ) {
++            $errors[] =
++                'En modo básico la entrada debe usar Bolsa común (POOL).';
++        }
++
++        if (
++            $settings->routing_mode !== null
++            &&
++            $settings->routing_mode !== 'AUTOMATIC'
++        ) {
++            $errors[] =
++                'En modo básico el enrutamiento debe ser Automático.';
++        }
++
++        if (
++            $settings->encounter_profile !== null
++            &&
++            $settings->encounter_profile !== 'DUEL'
++        ) {
++            $errors[] =
++                'En modo básico el perfil de encuentro debe ser Duelo 2 → 1.';
++        }
++
++        if (
++            $settings->remainder_policy !== null
++            &&
++            ! in_array(
++                $settings->remainder_policy,
++                [
++                    'BYE',
++                    'REJECT',
++                ],
++                true
++            )
++        ) {
++            $errors[] =
++                'En modo básico los sobrantes solo admiten BYE o Rechazar.';
++        }
++
++        if (
++            $settings->remainder_policy === 'BYE'
++            &&
++            ! $phaseTemplate->allow_byes
++        ) {
++            $errors[] =
++                'La política BYE no puede usarse porque la Fase no permite BYEs.';
++        }
++
++        $rejectIrregular =
++            $settings->remainder_policy === 'REJECT'
++            ||
++            ! $phaseTemplate->allow_byes;
++
++        if (
++            $rejectIrregular
++            &&
++            ! $this->isPowerOfTwo(
++                $participants
++            )
++        ) {
++            $errors[] =
++                'La cantidad de participantes debe ser una potencia de 2 cuando los BYEs no pueden utilizarse.';
++        }
++
++        if (
++            (bool)
++            $settings->reseed_each_round
++            &&
++            $settings->pairing_mode !== 'STANDARD_SEEDED'
++        ) {
++            $errors[] =
++                'El reseeding del modo básico solo es compatible con Pairing Seeded estándar.';
++        }
++
++        return $errors;
++    }
++
+     private function validateAdvanced(
+         PhaseTemplate $phaseTemplate,
+         PhaseSingleEliminationSetting $settings
+diff --git a/tests/Unit/Tournaments/CompetitionLab/LabManualDecisionManagerSingleEliminationTest.php b/tests/Unit/Tournaments/CompetitionLab/LabManualDecisionManagerSingleEliminationTest.php
+new file mode 100644
+index 0000000..b4dd709
+--- /dev/null
++++ b/tests/Unit/Tournaments/CompetitionLab/LabManualDecisionManagerSingleEliminationTest.php
+@@ -0,0 +1,112 @@
++<?php
++
++namespace Tests\Unit\Tournaments\CompetitionLab;
++
++use App\Models\PhaseTemplate;
++use App\Services\Tournaments\CompetitionLab\Engines\LabManualDecisionManager;
++use App\Services\Tournaments\GroupStage\GroupStageAllocator;
++use Illuminate\Validation\ValidationException;
++use PHPUnit\Framework\TestCase;
++
++class LabManualDecisionManagerSingleEliminationTest extends TestCase
++{
++    public function test_preparation_rejects_duplicate_single_elimination_participants(): void
++    {
++        $manager = $this->manager();
++        $phase = $this->phase();
++
++        $this->expectException(ValidationException::class);
++        $this->expectExceptionMessage('participantes duplicados');
++
++        $manager->preparationDecision($phase, ['A', 'B', 'B', 'C']);
++    }
++
++    public function test_manual_order_rejects_duplicates_instead_of_deduplicating_them(): void
++    {
++        $manager = $this->manager();
++        $phase = $this->phase();
++
++        $this->expectException(ValidationException::class);
++        $this->expectExceptionMessage('El orden manual no puede repetir participantes.');
++
++        $manager->resolvePreparation(
++            $phase,
++            $this->pendingRuntime([
++                'requires_order' => true,
++                'bye_count' => 0,
++            ]),
++            $this->participants(),
++            [
++                'decision_id' => 'DEC-SE',
++                'ordered_participant_ids' => ['A', 'A', 'B', 'C'],
++                'selected_participant_ids' => [],
++            ],
++            fn() => $this->fail('El engine no debería prepararse con una decisión inválida.')
++        );
++    }
++
++    public function test_manual_bye_selection_rejects_duplicate_ids(): void
++    {
++        $manager = $this->manager();
++        $phase = $this->phase();
++
++        $this->expectException(ValidationException::class);
++        $this->expectExceptionMessage('La selección manual de BYEs no puede repetir participantes.');
++
++        $manager->resolvePreparation(
++            $phase,
++            $this->pendingRuntime([
++                'requires_order' => false,
++                'bye_count' => 2,
++            ]),
++            $this->participants(),
++            [
++                'decision_id' => 'DEC-SE',
++                'selected_participant_ids' => ['A', 'A'],
++            ],
++            fn() => $this->fail('El engine no debería prepararse con una decisión inválida.')
++        );
++    }
++
++    private function manager(): LabManualDecisionManager
++    {
++        return new LabManualDecisionManager(
++            $this->createMock(GroupStageAllocator::class)
++        );
++    }
++
++    private function phase(): PhaseTemplate
++    {
++        $phase = new PhaseTemplate();
++        $phase->forceFill([
++            'phase_type' => 'SINGLE_ELIMINATION',
++        ]);
++
++        return $phase;
++    }
++
++    private function pendingRuntime(array $constraints): array
++    {
++        return [
++            'engine' => 'SINGLE_ELIMINATION',
++            'status' => 'AWAITING_DECISION',
++            'manual_decision' => [
++                'id' => 'DEC-SE',
++                'scope' => 'PREPARATION',
++                'type' => 'SINGLE_ELIMINATION_SETUP',
++                'eligible_participant_ids' => ['A', 'B', 'C', 'D'],
++                'constraints' => $constraints,
++            ],
++        ];
++    }
++
++    private function participants(): array
++    {
++        return [
++            'A' => ['id' => 'A'],
++            'B' => ['id' => 'B'],
++            'C' => ['id' => 'C'],
++            'D' => ['id' => 'D'],
++        ];
++    }
++}
+diff --git a/tests/Unit/Tournaments/CompetitionLab/SingleEliminationLabEngineTest.php b/tests/Unit/Tournaments/CompetitionLab/SingleEliminationLabEngineTest.php
+index 0503245..d3c0af1 100644
+--- a/tests/Unit/Tournaments/CompetitionLab/SingleEliminationLabEngineTest.php
++++ b/tests/Unit/Tournaments/CompetitionLab/SingleEliminationLabEngineTest.php
+@@ -1,16 +1,475 @@
+ <?php
+ 
+-namespace Tests\Unit\Unit\Tournaments\CompetitionLab;
++namespace Tests\Unit\Tournaments\CompetitionLab;
+ 
++use App\Models\PhaseSingleEliminationSetting;
++use App\Models\PhaseTemplate;
++use App\Services\Tournaments\CompetitionLab\Engines\SingleEliminationGraphRuntime;
++use App\Services\Tournaments\CompetitionLab\Engines\SingleEliminationLabEngine;
++use App\Services\Tournaments\SingleElimination\SingleEliminationAdvancedCalculator;
++use App\Services\Tournaments\SingleElimination\SingleEliminationBracketCalculator;
++use App\Services\Tournaments\SingleElimination\SingleEliminationConfigurationInspector;
++use App\Services\Tournaments\SingleElimination\SingleEliminationRoundAvailabilityService;
++use App\Services\Tournaments\SingleElimination\SingleEliminationValidator;
++use Illuminate\Database\Eloquent\Collection as EloquentCollection;
++use Illuminate\Validation\ValidationException;
+ use PHPUnit\Framework\TestCase;
+ 
+ class SingleEliminationLabEngineTest extends TestCase
+ {
+-    /**
+-     * A basic unit test example.
+-     */
+-    public function test_example(): void
++    public function test_standard_seeded_uses_canonical_eight_player_layout(): void
+     {
+-        $this->assertTrue(true);
++        $engine = $this->engine();
++        $phase = $this->phase(8);
++        $participants = $this->participantsWithSeeds(8);
++        $ids = array_keys($participants);
++
++        $runtime = $engine->prepare($phase, $ids, $participants);
++
++        $this->assertSame(
++            [
++                ['P1', 'P8'],
++                ['P4', 'P5'],
++                ['P2', 'P7'],
++                ['P3', 'P6'],
++            ],
++            $this->pairs($runtime['rounds'][0]['matches'])
++        );
++    }
++
++    public function test_top_seed_byes_are_integrated_into_seeded_topology(): void
++    {
++        $engine = $this->engine();
++        $phase = $this->phase(5);
++        $participants = $this->participantsWithSeeds(5);
++
++        $runtime = $engine->prepare(
++            $phase,
++            array_keys($participants),
++            $participants
++        );
++
++        $matches = $runtime['rounds'][0]['matches'];
++
++        $this->assertSame(
++            [
++                ['P1', null],
++                ['P4', 'P5'],
++                ['P2', null],
++                ['P3', null],
++            ],
++            $this->pairs($matches)
++        );
++        $this->assertSame(3, $runtime['bye_count']);
++        $this->assertSame(1, $runtime['matches_total']);
++        $this->assertSame(0, $runtime['matches_completed']);
++        $this->assertSame(4, $runtime['structural_matches_total']);
++    }
++
++    public function test_fixed_bracket_preserves_match_paths_after_first_round(): void
++    {
++        $engine = $this->engine();
++        $phase = $this->phase(5);
++        $participants = $this->participantsWithSeeds(5);
++
++        $runtime = $engine->prepare(
++            $phase,
++            array_keys($participants),
++            $participants
++        );
++
++        $runtime = $engine->submit($runtime, 'SE-R1-M2', 1, 0);
++
++        $this->assertSame(2, $runtime['current_round']);
++        $this->assertSame(
++            [
++                ['P1', 'P4'],
++                ['P2', 'P3'],
++            ],
++            $this->pairs($runtime['rounds'][1]['matches'])
++        );
++    }
++
++    public function test_manual_byes_can_override_top_seeds_without_losing_topology(): void
++    {
++        $engine = $this->engine();
++        $settings = $this->settings([
++            'bye_assignment' => 'MANUAL',
++        ]);
++        $phase = $this->phase(5, $settings);
++        $participants = $this->participantsWithSeeds(5);
++        $participants['P1']['manual_bye'] = true;
++        $participants['P4']['manual_bye'] = true;
++        $participants['P5']['manual_bye'] = true;
++
++        $runtime = $engine->prepare(
++            $phase,
++            array_keys($participants),
++            $participants
++        );
++
++        $byeRecipients = collect($runtime['rounds'][0]['matches'])
++            ->where('status', 'BYE')
++            ->pluck('winner_id')
++            ->sort()
++            ->values()
++            ->all();
++
++        $this->assertSame(['P1', 'P4', 'P5'], $byeRecipients);
++        $this->assertSame(3, $runtime['bye_count']);
++    }
++
++    public function test_reseeding_changes_next_round_to_highest_vs_lowest_survivor(): void
++    {
++        $engine = $this->engine();
++        $settings = $this->settings([
++            'reseed_each_round' => true,
++        ]);
++        $phase = $this->phase(8, $settings);
++        $participants = $this->participantsWithSeeds(8);
++
++        $runtime = $engine->prepare(
++            $phase,
++            array_keys($participants),
++            $participants
++        );
++
++        // Winners: seeds 1, 4, 7 and 6.
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R1-M3', 'P7');
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R1-M1', 'P1');
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R1-M4', 'P6');
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R1-M2', 'P4');
++
++        $this->assertSame(
++            [
++                ['P1', 'P7'],
++                ['P4', 'P6'],
++            ],
++            $this->pairs($runtime['rounds'][1]['matches'])
++        );
++    }
++
++    public function test_duplicate_participants_are_rejected_instead_of_silently_deduplicated(): void
++    {
++        $engine = $this->engine();
++        $phase = $this->phase(4);
++        $participants = $this->participantsWithSeeds(4);
++
++        $this->expectException(ValidationException::class);
++        $this->expectExceptionMessage('participantes duplicados');
++
++        $engine->prepare(
++            $phase,
++            ['P1', 'P2', 'P2', 'P3'],
++            $participants
++        );
++    }
++
++    public function test_ranking_requires_a_positive_unique_seed_for_every_participant(): void
++    {
++        $engine = $this->engine();
++        $settings = $this->settings([
++            'seeding_mode' => 'RANKING',
++        ]);
++        $phase = $this->phase(4, $settings);
++        $participants = $this->participantsWithSeeds(4);
++        unset($participants['P3']['seed']);
++
++        $this->expectException(ValidationException::class);
++        $this->expectExceptionMessage('necesita un seed entero positivo');
++
++        $engine->prepare(
++            $phase,
++            array_keys($participants),
++            $participants
++        );
++    }
++
++    public function test_ranking_rejects_duplicate_seeds(): void
++    {
++        $engine = $this->engine();
++        $settings = $this->settings([
++            'seeding_mode' => 'RANKING',
++        ]);
++        $phase = $this->phase(4, $settings);
++        $participants = $this->participantsWithSeeds(4);
++        $participants['P4']['seed'] = 3;
++
++        $this->expectException(ValidationException::class);
++        $this->expectExceptionMessage('El seed 3 está repetido');
++
++        $engine->prepare(
++            $phase,
++            array_keys($participants),
++            $participants
++        );
++    }
++
++    public function test_random_seeding_is_reproducible_for_same_phase_and_participants(): void
++    {
++        $engine = $this->engine();
++        $settings = $this->settings([
++            'seeding_mode' => 'RANDOM',
++        ]);
++        $phase = $this->phase(8, $settings);
++        $participants = $this->participantsWithSeeds(8);
++        $ids = array_keys($participants);
++
++        $first = $engine->prepare($phase, $ids, $participants);
++        $second = $engine->prepare($phase, $ids, $participants);
++
++        $this->assertSame($first['seed'], $second['seed']);
++        $this->assertSame(
++            $this->pairs($first['rounds'][0]['matches']),
++            $this->pairs($second['rounds'][0]['matches'])
++        );
++    }
++
++    public function test_standings_use_placement_bands_independent_of_submit_order(): void
++    {
++        $engine = $this->engine();
++        $phase = $this->phase(8);
++        $participants = $this->participantsWithSeeds(8);
++        $runtime = $engine->prepare(
++            $phase,
++            array_keys($participants),
++            $participants
++        );
++
++        // Cuartos, deliberadamente enviados fuera del orden de los matches.
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R1-M4', 'P3');
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R1-M2', 'P4');
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R1-M1', 'P1');
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R1-M3', 'P2');
++
++        // Semifinales: P2 gana primero, luego P1.
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R2-M2', 'P2');
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R2-M1', 'P1');
++
++        // Final.
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R3-M1', 'P1');
++
++        $this->assertSame('COMPLETED', $runtime['status']);
++        $this->assertCount(7, $runtime['eliminations']);
++
++        $byParticipant = collect($runtime['standings'])
++            ->keyBy('participant_id');
++
++        $this->assertSame([1, 1], [
++            $byParticipant['P1']['position_from'],
++            $byParticipant['P1']['position_to'],
++        ]);
++        $this->assertSame([2, 2], [
++            $byParticipant['P2']['position_from'],
++            $byParticipant['P2']['position_to'],
++        ]);
++
++        foreach (['P3', 'P4'] as $participantId) {
++            $this->assertSame([3, 4], [
++                $byParticipant[$participantId]['position_from'],
++                $byParticipant[$participantId]['position_to'],
++            ]);
++        }
++
++        foreach (['P5', 'P6', 'P7', 'P8'] as $participantId) {
++            $this->assertSame([5, 8], [
++                $byParticipant[$participantId]['position_from'],
++                $byParticipant[$participantId]['position_to'],
++            ]);
++        }
++    }
++
++    public function test_runtime_counts_match_preview_for_five_participants_to_two_survivors(): void
++    {
++        $engine = $this->engine();
++        $settings = $this->settings([
++            'completion_mode' => 'SURVIVORS',
++            'target_survivors' => 2,
++        ]);
++        $phase = $this->phase(5, $settings);
++        $participants = $this->participantsWithSeeds(5);
++
++        $preview = (new SingleEliminationBracketCalculator(
++            new SingleEliminationValidator(),
++            new SingleEliminationAdvancedCalculator()
++        ))->calculate(
++            $phase,
++            $settings,
++            5,
++            new EloquentCollection()
++        );
++
++        $runtime = $engine->prepare(
++            $phase,
++            array_keys($participants),
++            $participants
++        );
++
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R1-M2', 'P4');
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R2-M1', 'P1');
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R2-M2', 'P2');
++
++        $this->assertSame('COMPLETED', $runtime['status']);
++        $this->assertSame($preview['initial_byes'], $runtime['bye_count']);
++        $this->assertSame($preview['round_count'], count($runtime['rounds']));
++        $this->assertSame($preview['total_series'], $runtime['matches_total']);
++        $this->assertSame($preview['survivors_count'], count($runtime['survivor_ids']));
++    }
++
++    public function test_two_survivors_share_first_place_band_without_fake_runner_up(): void
++    {
++        $engine = $this->engine();
++        $settings = $this->settings([
++            'completion_mode' => 'SURVIVORS',
++            'target_survivors' => 2,
++        ]);
++        $phase = $this->phase(8, $settings);
++        $participants = $this->participantsWithSeeds(8);
++        $runtime = $engine->prepare(
++            $phase,
++            array_keys($participants),
++            $participants
++        );
++
++        foreach ([
++            'SE-R1-M1' => 'P1',
++            'SE-R1-M2' => 'P4',
++            'SE-R1-M3' => 'P2',
++            'SE-R1-M4' => 'P3',
++        ] as $matchId => $winnerId) {
++            $runtime = $this->submitWinner($engine, $runtime, $matchId, $winnerId);
++        }
++
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R2-M1', 'P1');
++        $runtime = $this->submitWinner($engine, $runtime, 'SE-R2-M2', 'P2');
++
++        $this->assertSame('COMPLETED', $runtime['status']);
++        $this->assertSame(['P1', 'P2'], $runtime['survivor_ids']);
++
++        $survivors = collect($runtime['standings'])
++            ->where('status', 'SURVIVOR')
++            ->values();
++
++        $this->assertCount(2, $survivors);
++        foreach ($survivors as $standing) {
++            $this->assertSame(1, $standing['position_from']);
++            $this->assertSame(2, $standing['position_to']);
++            $this->assertSame('UNRANKED_SURVIVOR', $standing['placement_status']);
++        }
++    }
++
++    private function engine(): SingleEliminationLabEngine
++    {
++        $validator = new SingleEliminationValidator();
++        $inspector = new SingleEliminationConfigurationInspector(
++            new SingleEliminationRoundAvailabilityService(),
++            $validator
++        );
++
++        return new SingleEliminationLabEngine(
++            $validator,
++            $inspector,
++            $this->createMock(SingleEliminationGraphRuntime::class)
++        );
++    }
++
++    private function phase(
++        int $participants,
++        ?PhaseSingleEliminationSetting $settings = null
++    ): PhaseTemplate {
++        $phase = new PhaseTemplate();
++        $phase->forceFill([
++            'id' => 3200 + $participants,
++            'phase_type' => 'SINGLE_ELIMINATION',
++            'min_participants' => 2,
++            'max_participants' => 512,
++            'exact_participants' => $participants,
++            'participant_multiple' => null,
++            'allow_byes' => true,
++        ]);
++
++        $phase->setRelation(
++            'singleEliminationSetting',
++            $settings ?? $this->settings()
++        );
++        $phase->setRelation(
++            'singleEliminationRoundRules',
++            new EloquentCollection()
++        );
++
++        return $phase;
++    }
++
++    private function settings(array $overrides = []): PhaseSingleEliminationSetting
++    {
++        $settings = new PhaseSingleEliminationSetting();
++        $settings->forceFill(array_merge([
++            'configuration_mode' => 'BASIC',
++            'input_mode' => 'POOL',
++            'routing_mode' => 'AUTOMATIC',
++            'entrants_per_match' => 2,
++            'qualifiers_per_match' => 1,
++            'encounter_profile' => 'DUEL',
++            'remainder_policy' => 'BYE',
++            'completion_mode' => 'WINNER',
++            'target_survivors' => 1,
++            'seeding_mode' => 'RANKING',
++            'pairing_mode' => 'STANDARD_SEEDED',
++            'bye_assignment' => 'TOP_SEEDS',
++            'reseed_each_round' => false,
++            'series_format' => 'BEST_OF',
++            'default_best_of' => 1,
++            'fixed_games' => 1,
++        ], $overrides));
++
++        return $settings;
++    }
++
++    private function participantsWithSeeds(int $count): array
++    {
++        $participants = [];
++
++        for ($seed = 1; $seed <= $count; $seed++) {
++            $id = 'P' . $seed;
++            $participants[$id] = [
++                'id' => $id,
++                'name' => 'Participant ' . $seed,
++                'seed' => $seed,
++            ];
++        }
++
++        return $participants;
++    }
++
++    private function pairs(array $matches): array
++    {
++        return array_map(
++            fn($match) => [
++                $match['participant_a_id'],
++                $match['participant_b_id'],
++            ],
++            $matches
++        );
++    }
++
++    private function submitWinner(
++        SingleEliminationLabEngine $engine,
++        array $runtime,
++        string $matchId,
++        string $winnerId
++    ): array {
++        $match = collect($runtime['rounds'])
++            ->flatMap(fn($round) => $round['matches'])
++            ->firstWhere('id', $matchId);
++
++        $this->assertIsArray($match, "No existe el match {$matchId}.");
++        $this->assertContains($winnerId, [
++            $match['participant_a_id'],
++            $match['participant_b_id'],
++        ]);
++
++        return $winnerId === $match['participant_a_id']
++            ? $engine->submit($runtime, $matchId, 1, 0)
++            : $engine->submit($runtime, $matchId, 0, 1);
+     }
+ }
+diff --git a/tests/Unit/Tournaments/SingleEliminationRoundAvailabilityContractTest.php b/tests/Unit/Tournaments/SingleEliminationRoundAvailabilityContractTest.php
+new file mode 100644
+index 0000000..8d3c68d
+--- /dev/null
++++ b/tests/Unit/Tournaments/SingleEliminationRoundAvailabilityContractTest.php
+@@ -0,0 +1,67 @@
++<?php
++
++namespace Tests\Unit\Tournaments;
++
++use App\Models\PhaseSingleEliminationSetting;
++use App\Models\PhaseTemplate;
++use App\Services\Tournaments\SingleElimination\SingleEliminationRoundAvailabilityService;
++use PHPUnit\Framework\TestCase;
++
++class SingleEliminationRoundAvailabilityContractTest extends TestCase
++{
++    public function test_basic_reject_policy_excludes_irregular_participant_counts(): void
++    {
++        $service = new SingleEliminationRoundAvailabilityService();
++        $phase = $this->phase(5, true);
++        $settings = $this->settings('REJECT');
++
++        $this->assertFalse(
++            $service->participantCountIsAccepted($phase, 5, $settings)
++        );
++        $this->assertSame([], $service->possibleRoundSizes($phase, $settings));
++    }
++
++    public function test_basic_bye_policy_keeps_irregular_participant_counts_available(): void
++    {
++        $service = new SingleEliminationRoundAvailabilityService();
++        $phase = $this->phase(5, true);
++        $settings = $this->settings('BYE');
++
++        $this->assertTrue(
++            $service->participantCountIsAccepted($phase, 5, $settings)
++        );
++        $this->assertSame(
++            [8, 4, 2],
++            $service->possibleRoundSizes($phase, $settings)
++        );
++    }
++
++    private function phase(
++        int $exactParticipants,
++        bool $allowByes
++    ): PhaseTemplate {
++        $phase = new PhaseTemplate();
++        $phase->forceFill([
++            'phase_type' => 'SINGLE_ELIMINATION',
++            'min_participants' => 2,
++            'max_participants' => $exactParticipants,
++            'exact_participants' => $exactParticipants,
++            'participant_multiple' => null,
++            'allow_byes' => $allowByes,
++        ]);
++
++        return $phase;
++    }
++
++    private function settings(string $remainderPolicy): PhaseSingleEliminationSetting
++    {
++        $settings = new PhaseSingleEliminationSetting();
++        $settings->forceFill([
++            'configuration_mode' => 'BASIC',
++            'target_survivors' => 1,
++            'remainder_policy' => $remainderPolicy,
++        ]);
++
++        return $settings;
++    }
++}
+diff --git a/tests/Unit/Tournaments/SingleEliminationValidatorContractTest.php b/tests/Unit/Tournaments/SingleEliminationValidatorContractTest.php
+new file mode 100644
+index 0000000..5569afb
+--- /dev/null
++++ b/tests/Unit/Tournaments/SingleEliminationValidatorContractTest.php
+@@ -0,0 +1,160 @@
++<?php
++
++namespace Tests\Unit\Tournaments;
++
++use App\Models\PhaseSingleEliminationSetting;
++use App\Models\PhaseTemplate;
++use App\Services\Tournaments\SingleElimination\SingleEliminationValidator;
++use PHPUnit\Framework\TestCase;
++
++class SingleEliminationValidatorContractTest extends TestCase
++{
++    public function test_basic_rejects_advanced_input_and_routing_modes(): void
++    {
++        $errors = $this->validator()->validate(
++            $this->phase(8),
++            $this->settings([
++                'input_mode' => 'GROUPED',
++                'routing_mode' => 'MANUAL',
++            ]),
++            8
++        );
++
++        $this->assertContains(
++            'En modo básico la entrada debe usar Bolsa común (POOL).',
++            $errors
++        );
++        $this->assertContains(
++            'En modo básico el enrutamiento debe ser Automático.',
++            $errors
++        );
++    }
++
++    public function test_basic_rejects_multi_competitor_and_unsupported_remainder_policy(): void
++    {
++        $errors = $this->validator()->validate(
++            $this->phase(8),
++            $this->settings([
++                'encounter_profile' => 'MULTI_COMPETITOR',
++                'remainder_policy' => 'BALANCED',
++            ]),
++            8
++        );
++
++        $this->assertContains(
++            'En modo básico el perfil de encuentro debe ser Duelo 2 → 1.',
++            $errors
++        );
++        $this->assertContains(
++            'En modo básico los sobrantes solo admiten BYE o Rechazar.',
++            $errors
++        );
++    }
++
++    public function test_reject_policy_requires_power_of_two_even_when_phase_allows_byes(): void
++    {
++        $errors = $this->validator()->validate(
++            $this->phase(5, true),
++            $this->settings([
++                'remainder_policy' => 'REJECT',
++            ]),
++            5
++        );
++
++        $this->assertContains(
++            'La cantidad de participantes debe ser una potencia de 2 cuando los BYEs no pueden utilizarse.',
++            $errors
++        );
++    }
++
++    public function test_bye_policy_is_rejected_when_phase_contract_disallows_byes(): void
++    {
++        $errors = $this->validator()->validate(
++            $this->phase(5, false),
++            $this->settings([
++                'remainder_policy' => 'BYE',
++            ]),
++            5
++        );
++
++        $this->assertContains(
++            'La política BYE no puede usarse porque la Fase no permite BYEs.',
++            $errors
++        );
++    }
++
++    public function test_reseed_is_only_supported_with_standard_seeded_pairing(): void
++    {
++        $errors = $this->validator()->validate(
++            $this->phase(8),
++            $this->settings([
++                'pairing_mode' => 'RANDOM',
++                'reseed_each_round' => true,
++            ]),
++            8
++        );
++
++        $this->assertContains(
++            'El reseeding del modo básico solo es compatible con Pairing Seeded estándar.',
++            $errors
++        );
++    }
++
++    public function test_valid_basic_contract_has_no_errors(): void
++    {
++        $errors = $this->validator()->validate(
++            $this->phase(5),
++            $this->settings(),
++            5
++        );
++
++        $this->assertSame([], $errors);
++    }
++
++    private function validator(): SingleEliminationValidator
++    {
++        return new SingleEliminationValidator();
++    }
++
++    private function phase(
++        int $participants,
++        bool $allowByes = true
++    ): PhaseTemplate {
++        $phase = new PhaseTemplate();
++        $phase->forceFill([
++            'phase_type' => 'SINGLE_ELIMINATION',
++            'min_participants' => 2,
++            'max_participants' => 512,
++            'exact_participants' => $participants,
++            'participant_multiple' => null,
++            'allow_byes' => $allowByes,
++        ]);
++
++        return $phase;
++    }
++
++    private function settings(array $overrides = []): PhaseSingleEliminationSetting
++    {
++        $settings = new PhaseSingleEliminationSetting();
++        $settings->forceFill(array_merge([
++            'configuration_mode' => 'BASIC',
++            'input_mode' => 'POOL',
++            'routing_mode' => 'AUTOMATIC',
++            'entrants_per_match' => 2,
++            'qualifiers_per_match' => 1,
++            'encounter_profile' => 'DUEL',
++            'remainder_policy' => 'BYE',
++            'completion_mode' => 'WINNER',
++            'target_survivors' => 1,
++            'seeding_mode' => 'INPUT_ORDER',
++            'pairing_mode' => 'STANDARD_SEEDED',
++            'bye_assignment' => 'TOP_SEEDS',
++            'reseed_each_round' => false,
++            'series_format' => 'BEST_OF',
++            'default_best_of' => 1,
++            'fixed_games' => 1,
++        ], $overrides));
++
++        return $settings;
++    }
++}
+diff --git a/resources/views/tournaments/phase-templates/partials/single-elimination-advanced-settings-form.blade.php b/resources/views/tournaments/phase-templates/partials/single-elimination-advanced-settings-form.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/single-elimination-advanced-settings-form.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/single-elimination-advanced-settings-form.blade.php
+@@ -38,3 +38,14 @@
+                 <span class="flex items-start gap-3">
+                     <input type="radio" name="configuration_mode" value="BASIC" x-model="draft.configurationMode"
++                        @change="
++                            if ($event.target.checked) {
++                                const form = $event.target.form;
++                                form.elements.namedItem('input_mode').value = 'POOL';
++                                form.elements.namedItem('routing_mode').value = 'AUTOMATIC';
++                                form.elements.namedItem('entrants_per_match').value = '2';
++                                form.elements.namedItem('qualifiers_per_match').value = '1';
++                                form.elements.namedItem('encounter_profile').value = 'DUEL';
++                                form.elements.namedItem('remainder_policy').value = @js($phaseTemplate->allow_byes ? 'BYE' : 'REJECT');
++                            }
++                        "
+                         class="mt-0.5 border-slate-300 text-amber-600 focus:ring-amber-500">

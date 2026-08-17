@@ -17,6 +17,17 @@ final class LabManualDecisionManager
         PhaseTemplate $phase,
         array $participantIds
     ): ?array {
+        $participantIds = array_values($participantIds);
+
+        if (
+            $phase->phase_type === 'SINGLE_ELIMINATION'
+            && count($participantIds) !== count(array_unique($participantIds))
+        ) {
+            $this->fail(
+                'La entrada de Single Elimination contiene participantes duplicados.'
+            );
+        }
+
         $participantIds = array_values(array_unique($participantIds));
 
         return match ($phase->phase_type) {
@@ -72,7 +83,11 @@ final class LabManualDecisionManager
                 }
 
                 $byeCount = (int) data_get($decision, 'constraints.bye_count', 0);
-                $byeIds = array_values(array_unique($payload['selected_participant_ids'] ?? []));
+                $byeIds = array_values($payload['selected_participant_ids'] ?? []);
+
+                if (count($byeIds) !== count(array_unique($byeIds))) {
+                    $this->fail('La selección manual de BYEs no puede repetir participantes.');
+                }
 
                 if (count($byeIds) !== $byeCount) {
                     $this->fail("Debes seleccionar exactamente {$byeCount} participante(s) para BYE.");
@@ -261,7 +276,11 @@ final class LabManualDecisionManager
         array $eligible,
         array $ordered
     ): array {
-        $ordered = array_values(array_unique($ordered));
+        $ordered = array_values($ordered);
+
+        if (count($ordered) !== count(array_unique($ordered))) {
+            $this->fail('El orden manual no puede repetir participantes.');
+        }
 
         if (count($ordered) !== count($eligible)) {
             $this->fail('El orden manual debe contener a todos los participantes una sola vez.');

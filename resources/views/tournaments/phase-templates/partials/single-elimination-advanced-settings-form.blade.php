@@ -33,6 +33,17 @@
                     'border-slate-200 bg-white'">
                 <span class="flex items-start gap-3">
                     <input type="radio" name="configuration_mode" value="BASIC" x-model="draft.configurationMode"
+                        @change="
+                            if ($event.target.checked) {
+                                const form = $event.target.form;
+                                form.elements.namedItem('input_mode').value = 'POOL';
+                                form.elements.namedItem('routing_mode').value = 'AUTOMATIC';
+                                form.elements.namedItem('entrants_per_match').value = '2';
+                                form.elements.namedItem('qualifiers_per_match').value = '1';
+                                form.elements.namedItem('encounter_profile').value = 'DUEL';
+                                form.elements.namedItem('remainder_policy').value = @js($phaseTemplate->allow_byes ? 'BYE' : 'REJECT');
+                            }
+                        "
                         class="mt-0.5 border-slate-300 text-amber-600 focus:ring-amber-500">
 
                     <span>

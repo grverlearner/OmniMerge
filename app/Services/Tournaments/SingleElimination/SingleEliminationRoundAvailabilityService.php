@@ -211,13 +211,25 @@ class SingleEliminationRoundAvailabilityService
             !==
             'ADVANCED'
             &&
-            ! $phaseTemplate->allow_byes
-            &&
             ! $this->isPowerOfTwo(
                 $participants
             )
         ) {
-            return false;
+            if (! $phaseTemplate->allow_byes) {
+                return false;
+            }
+
+            if ($settings?->remainder_policy === 'REJECT') {
+                return false;
+            }
+
+            if (
+                $settings?->remainder_policy !== null
+                &&
+                $settings->remainder_policy !== 'BYE'
+            ) {
+                return false;
+            }
         }
 
         return true;
