@@ -257,6 +257,38 @@ class StorePhaseExitRequest extends FormRequest
         ];
     }
 
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $selector = (string) $this->input('selector_type');
+            $timing = (string) $this->input('exit_timing');
+
+            if (
+                $timing === 'ON_ELIMINATION'
+                && ! in_array(
+                    $selector,
+                    ['ELIMINATED', 'ELIMINATED_IN_ROUND', 'MATCH_LOSERS'],
+                    true
+                )
+            ) {
+                $validator->errors()->add(
+                    'exit_timing',
+                    'ON_ELIMINATION solo puede utilizar selectores de participantes eliminados.'
+                );
+            }
+
+            if (
+                $timing === 'ON_RULE_TRIGGER'
+                && $selector !== 'ENGINE_RULES'
+            ) {
+                $validator->errors()->add(
+                    'exit_timing',
+                    'ON_RULE_TRIGGER necesita el selector Reglas del Engine.'
+                );
+            }
+        });
+    }
+
     public function messages(): array
     {
         return [

@@ -102,6 +102,10 @@ class SingleEliminationGraphRuntime
             $runtime['rounds'][] = [
                 'id' => (int) $round->id,
                 'number' => (int) $round->stage_number,
+                'participants_in_round' => (int) (
+                    $round->participants_expected
+                    ?: $round->encounters->where('status', 'ACTIVE')->sum('entrants_count')
+                ),
                 'label' => $round->name,
                 'status' => 'WAITING',
                 'matches' => [],

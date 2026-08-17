@@ -2,7 +2,9 @@
 
 namespace App\Services\Tournaments\CompetitionLab\Engines;
 
+use App\Models\PhaseSwissSetting;
 use App\Models\PhaseTemplate;
+use App\Services\Tournaments\Swiss\SwissPairingCalculator;
 use App\Services\Tournaments\Swiss\SwissValidator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -12,7 +14,10 @@ implements LabPhaseEngine
 {
     public function __construct(
         private readonly
-        SwissValidator $validator
+        SwissValidator $validator,
+
+        private readonly
+        SwissPairingCalculator $pairingCalculator
     ) {}
 
     public function supports(
@@ -89,12 +94,6 @@ implements LabPhaseEngine
             );
         }
 
-        $participantIds =
-            $this->firstRoundOrder(
-                $participantIds,
-                $settings->first_round_mode
-            );
-
         $records =
             [];
 
@@ -110,6 +109,18 @@ implements LabPhaseEngine
 
                 'seed' =>
                 $index + 1,
+
+                'input_order' =>
+                $index + 1,
+
+                'side_a_count' =>
+                0,
+
+                'side_b_count' =>
+                0,
+
+                'float_count' =>
+                0,
 
                 'played' =>
                 0,
@@ -173,6 +184,9 @@ implements LabPhaseEngine
 
             'status' =>
             'RUNNING',
+
+            'pairing_settings' =>
+            $settings->getAttributes(),
 
             'completion_mode' =>
             $settings->completion_mode,
@@ -570,76 +584,83 @@ implements LabPhaseEngine
             +
             1;
 
-        $activeIds =
-            collect(
-                $runtime['records']
-            )
-            ->where(
-                'status',
-                'ACTIVE'
-            )
-            ->sort(
-                fn($left, $right) =>
-                $this->compareRecords(
-                    $left,
-                    $right,
-                    $runtime
-                )
-            )
-            ->pluck(
-                'participant_id'
-            )
+        $activeRecords = collect($runtime['records'])
+            ->where('status', 'ACTIVE')
+            ->values();
+
+        if ($activeRecords->count() < 2) {
+            return $this->complete($runtime);
+        }
+
+        $settings = (new PhaseSwissSetting())->forceFill(
+            $runtime['pairing_settings'] ?? []
+        );
+
+        $calculatorParticipants = $activeRecords
+            ->map(function (array $record): array {
+                return [
+                    'id' => $record['participant_id'],
+                    'seed' => $record['seed'],
+                    'input_order' => $record['input_order'] ?? $record['seed'],
+                    'label' => (string) $record['participant_id'],
+                    'wins' => $record['wins'],
+                    'draws' => $record['draws'],
+                    'losses' => $record['losses'],
+                    'standing_score' => $record['points'],
+                    'pairing_score' => $record['pairing_score'],
+                    'opponents' => $record['opponents'],
+                    'bye_count' => $record['bye_count'],
+                    'side_a_count' => $record['side_a_count'] ?? 0,
+                    'side_b_count' => $record['side_b_count'] ?? 0,
+                    'float_count' => $record['float_count'] ?? 0,
+                    'standing_position' => $record['position'] ?? $record['seed'],
+                    'active' => true,
+                ];
+            })
+            ->all();
+
+        $calculated = $this->pairingCalculator->generateRound(
+            $calculatorParticipants,
+            $settings,
+            $roundNumber
+        );
+
+        if (! ($calculated['valid'] ?? false)) {
+            $this->fail(implode(' ', $calculated['errors'] ?? [
+                'No fue posible generar la ronda Swiss.',
+            ]));
+        }
+
+        if ($calculated['manual_bye_required'] ?? false) {
+            $this->fail(
+                'La política de BYE manual todavía necesita una selección explícita antes de ejecutar el Lab.'
+            );
+        }
+
+        foreach ($calculated['warnings'] ?? [] as $warning) {
+            if (! in_array($warning, $runtime['pairing_relaxations'], true)) {
+                $runtime['pairing_relaxations'][] = $warning;
+            }
+        }
+
+        $byeId = $calculated['bye']['id'] ?? null;
+
+        $pairings = collect($calculated['pairings'] ?? [])
+            ->map(fn(array $pairing) => [
+                $pairing['participant_a']['id'],
+                $pairing['participant_b']['id'],
+            ])
             ->values()
             ->all();
 
-        if (
-            count($activeIds)
-            < 2
-        ) {
-            return $this->complete(
-                $runtime
-            );
+        foreach ($calculated['pairings'] ?? [] as $pairing) {
+            $leftId = $pairing['participant_a']['id'];
+            $rightId = $pairing['participant_b']['id'];
+            $runtime['records'][$leftId]['side_a_count'] =
+                ($runtime['records'][$leftId]['side_a_count'] ?? 0) + 1;
+            $runtime['records'][$rightId]['side_b_count'] =
+                ($runtime['records'][$rightId]['side_b_count'] ?? 0) + 1;
         }
-
-        $byeId =
-            null;
-
-        if (
-            count($activeIds)
-            %
-            2
-            !==
-            0
-        ) {
-            $byeId =
-                $this->selectBye(
-                    $activeIds,
-                    $runtime
-                );
-
-            if (! $byeId) {
-                $this->fail(
-                    'No existe un participante elegible para recibir el BYE.'
-                );
-            }
-
-            $activeIds =
-                array_values(
-                    array_filter(
-                        $activeIds,
-                        fn($participantId) =>
-                        $participantId
-                            !==
-                            $byeId
-                    )
-                );
-        }
-
-        $pairings =
-            $this->pairParticipants(
-                $activeIds,
-                $runtime
-            );
 
         $matches =
             [];
@@ -1012,6 +1033,33 @@ implements LabPhaseEngine
                 fn($standing) =>
                 $runtime['records'][$standing['participant_id']]
             )
+            ->all();
+
+        $outcomes = [];
+        foreach ($runtime['records'] as $participantId => $record) {
+            if ($record['status'] === 'ACTIVE' || ! $record['exit_id']) {
+                continue;
+            }
+
+            $exitId = (int) $record['exit_id'];
+            $outcomes[$exitId] ??= [
+                'exit_id' => $exitId,
+                'exit_name' => $record['exit_name'] ?? 'Salida',
+                'participant_ids' => [],
+            ];
+            $outcomes[$exitId]['participant_ids'][] = $participantId;
+        }
+
+        $runtime['outcomes'] = array_values($outcomes);
+        $runtime['survivor_ids'] = collect($runtime['records'])
+            ->where('status', 'QUALIFIED')
+            ->pluck('participant_id')
+            ->values()
+            ->all();
+        $runtime['eliminated_ids'] = collect($runtime['records'])
+            ->where('status', 'ELIMINATED')
+            ->pluck('participant_id')
+            ->values()
             ->all();
 
         return $runtime;

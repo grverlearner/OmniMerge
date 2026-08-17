@@ -3,6 +3,7 @@
 namespace App\Services\Tournaments\CompetitionLab\Runtime;
 
 use App\Models\TournamentPhaseConnection;
+use App\Services\Tournaments\Graph\Flow\EntryPortMergePolicy;
 use Illuminate\Support\Collection;
 
 class RuntimeConnectionRouter
@@ -13,7 +14,8 @@ class RuntimeConnectionRouter
         array $participantIds,
         string $sourceType,
         int $sourceId,
-        ?int $sourceExitId = null
+        ?int $sourceExitId = null,
+        bool $finalize = true
     ): array {
         $connections =
             $connections
@@ -81,18 +83,30 @@ class RuntimeConnectionRouter
                 (int)
                 $connection->id;
 
+            $previouslyRouted =
+                $state['connections'][$connectionId]['participant_ids']
+                ?? [];
+
+            $routed = array_values(array_unique([
+                ...$previouslyRouted,
+                ...$selected,
+            ]));
+
+            $newlyRouted = array_values(array_diff(
+                $selected,
+                $previouslyRouted
+            ));
+
             $state['connections'][$connectionId]['status'] =
-                $selected === []
-                ? 'CLOSED_EMPTY'
-                : 'ROUTED';
+                $finalize
+                ? ($routed === [] ? 'CLOSED_EMPTY' : 'ROUTED')
+                : 'ROUTING';
 
             $state['connections'][$connectionId]['participant_ids'] =
-                $selected;
+                $routed;
 
             $state['connections'][$connectionId]['routed_count'] =
-                count(
-                    $selected
-                );
+                count($routed);
 
             if (
                 $connection->target_type
@@ -107,7 +121,7 @@ class RuntimeConnectionRouter
                     $this->deliverToTerminal(
                         $state,
                         $connection,
-                        $selected
+                        $newlyRouted
                     );
 
                 $touchedTerminalIds[] =
@@ -127,7 +141,7 @@ class RuntimeConnectionRouter
                     $this->deliverToPort(
                         $state,
                         $connection,
-                        $selected
+                        $routed
                     );
 
                 if ($nodeId > 0) {
@@ -137,7 +151,7 @@ class RuntimeConnectionRouter
             }
 
             foreach (
-                $selected
+                $newlyRouted
                 as
                 $participantId
             ) {
@@ -294,16 +308,11 @@ class RuntimeConnectionRouter
         $port =
             &$state['nodes'][$nodeId]['entry_ports'][$portId];
 
-        $merged =
-            array_values(
-                array_unique([
-                    ...$port['participant_ids'],
-                    ...$participantIds,
-                ])
-            );
+        $connectionId = (int) $connection->id;
 
-        $port['participant_ids'] =
-            $merged;
+        $port['connection_payloads'] ??= [];
+        $port['connection_payloads'][$connectionId] =
+            array_values(array_unique($participantIds));
 
         $port['received_connection_ids'] =
             array_values(
@@ -313,10 +322,19 @@ class RuntimeConnectionRouter
                         ??
                         []
                     ),
-                    (int)
-                    $connection->id,
+                    $connectionId,
                 ])
             );
+
+        $merged = EntryPortMergePolicy::merge(
+            $port['merge_policy'] ?? 'APPEND',
+            $port['incoming_connection_ids'] ?? [],
+            $port['received_connection_ids'] ?? [],
+            $port['connection_payloads']
+        );
+
+        $port['participant_ids'] =
+            $merged;
 
         $maximum =
             $port['exact_participants']

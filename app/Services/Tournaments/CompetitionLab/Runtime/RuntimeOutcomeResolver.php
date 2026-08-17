@@ -34,10 +34,13 @@ class RuntimeOutcomeResolver
         |--------------------------------------------------------------------------
         */
 
+        $directOutcomes = array_merge(
+            $runtime['outcomes'] ?? [],
+            array_values($runtime['timed_outcomes'] ?? [])
+        );
+
         foreach (
-            $runtime['outcomes']
-                ??
-                []
+            $directOutcomes
             as
             $engineOutcome
         ) {
@@ -45,6 +48,16 @@ class RuntimeOutcomeResolver
                 $engineOutcome['exit_id']
                 ??
                 null;
+
+            if (
+                $exitId === null
+                ||
+                ! $phaseExits->contains(
+                    fn($exit) => (int) $exit->id === (int) $exitId
+                )
+            ) {
+                continue;
+            }
 
             $ids =
                 array_values(
@@ -82,7 +95,10 @@ class RuntimeOutcomeResolver
                     'Salida',
 
                 'selector_type' =>
-                'ENGINE_RULES',
+                $phaseExits
+                    ->firstWhere('id', (int) $exitId)
+                    ?->selector_type
+                    ?? 'ENGINE_RULES',
 
                 'participant_ids' =>
                 [],
@@ -167,6 +183,7 @@ class RuntimeOutcomeResolver
                     $exit->selector_type,
                     $exit->selector_from,
                     $exit->selector_to,
+                    $exit->selector_round_size,
                     $runtime,
                     $standings,
                     $available
@@ -245,6 +262,7 @@ class RuntimeOutcomeResolver
         string $selectorType,
         ?int $from,
         ?int $to,
+        ?int $roundSize,
         array $runtime,
         Collection $standings,
         array $available
@@ -276,8 +294,7 @@ class RuntimeOutcomeResolver
                 )
             ),
 
-            'ELIMINATED',
-            'ELIMINATED_IN_ROUND' =>
+            'ELIMINATED' =>
             array_values(
                 array_intersect(
                     $runtime['eliminated_ids']
@@ -285,6 +302,13 @@ class RuntimeOutcomeResolver
                         [],
                     $available
                 )
+            ),
+
+            'ELIMINATED_IN_ROUND' =>
+            $this->eliminatedInRoundIds(
+                $runtime,
+                $roundSize,
+                $availableMap
             ),
 
             'TOP_N' =>
@@ -373,6 +397,42 @@ class RuntimeOutcomeResolver
             default =>
             [],
         };
+    }
+
+    private function eliminatedInRoundIds(
+        array $runtime,
+        ?int $roundSize,
+        array $availableMap
+    ): array {
+        if ($roundSize === null || $roundSize <= 1) {
+            return [];
+        }
+
+        $eliminated = [];
+
+        foreach ($runtime['rounds'] ?? [] as $round) {
+            if ((int) ($round['participants_in_round'] ?? 0) !== $roundSize) {
+                continue;
+            }
+
+            foreach ($round['matches'] ?? [] as $match) {
+                foreach (
+                    array_values(array_unique([
+                        ...($match['eliminated_ids'] ?? []),
+                        ...(($match['loser_id'] ?? null) !== null
+                            ? [$match['loser_id']]
+                            : []),
+                    ]))
+                    as $participantId
+                ) {
+                    if (isset($availableMap[$participantId])) {
+                        $eliminated[] = $participantId;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($eliminated));
     }
 
     private function matchResultIds(

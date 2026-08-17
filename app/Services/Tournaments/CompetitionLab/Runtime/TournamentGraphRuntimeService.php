@@ -203,6 +203,7 @@ class TournamentGraphRuntimeService
         if ($runningNode) {
             return $this->simulateOneMatch(
                 $state,
+                $template,
                 (int)
                 $runningNode['id']
             );
@@ -285,6 +286,7 @@ class TournamentGraphRuntimeService
 
     public function afterNodeResult(
         array $state,
+        TournamentTemplate $template,
         int $nodeId
     ): array {
         if (
@@ -298,6 +300,12 @@ class TournamentGraphRuntimeService
         ) {
             return $state;
         }
+
+        $state = $this->routeTimedOutputs(
+            $state,
+            $template,
+            $nodeId
+        );
 
         if (
             $state['nodes'][$nodeId]['runtime']['status']
@@ -660,6 +668,99 @@ class TournamentGraphRuntimeService
         return $state;
     }
 
+    private function routeTimedOutputs(
+        array $state,
+        TournamentTemplate $template,
+        int $nodeId
+    ): array {
+        $nodeModel = $template
+            ->graphNodes
+            ->firstWhere('id', $nodeId);
+
+        if (
+            ! $nodeModel
+            || ! isset($state['nodes'][$nodeId]['runtime'])
+        ) {
+            return $state;
+        }
+
+        $runtime = &$state['nodes'][$nodeId]['runtime'];
+        $runtime['timed_outcomes'] ??= [];
+
+        foreach (
+            $nodeModel->phaseTemplate->exits
+                ->where('status', 'ACTIVE')
+                ->whereIn('exit_timing', ['ON_ELIMINATION', 'ON_RULE_TRIGGER'])
+            as $exit
+        ) {
+            if (
+                $exit->exit_timing === 'ON_RULE_TRIGGER'
+                && ! collect($runtime['outcomes'] ?? [])->contains(
+                    fn($outcome) =>
+                    (int) ($outcome['exit_id'] ?? 0) === (int) $exit->id
+                )
+            ) {
+                continue;
+            }
+
+            $resolutionRuntime = $runtime;
+            unset($resolutionRuntime['timed_outcomes']);
+
+            $resolution = $this->outcomeResolver->resolve(
+                collect([$exit]),
+                $resolutionRuntime,
+                $state['nodes'][$nodeId]['participant_ids']
+            );
+
+            $outcome = collect($resolution['outcomes'])
+                ->firstWhere('exit_id', (int) $exit->id);
+
+            if (! $outcome) {
+                continue;
+            }
+
+            $participantIds = array_values(array_unique(
+                $outcome['participant_ids'] ?? []
+            ));
+
+            $runtime['timed_outcomes'][$exit->id] = [
+                'exit_id' => (int) $exit->id,
+                'exit_name' => $exit->name,
+                'participant_ids' => $participantIds,
+            ];
+
+            $connections = $template
+                ->graphConnections
+                ->where('source_type', 'PHASE_EXIT')
+                ->where('source_node_id', $nodeId)
+                ->where('source_phase_exit_id', $exit->id);
+
+            $result = $this->connectionRouter->route(
+                $state,
+                $connections,
+                $participantIds,
+                'NODE',
+                $nodeId,
+                (int) $exit->id,
+                false
+            );
+
+            $state = $result['state'];
+            $runtime = &$state['nodes'][$nodeId]['runtime'];
+
+            foreach ($result['touched_node_ids'] as $targetNodeId) {
+                $this->enqueueNodeEvaluation(
+                    $state,
+                    (int) $targetNodeId
+                );
+            }
+        }
+
+        unset($runtime);
+
+        return $state;
+    }
+
     private function routeNode(
         array $state,
         TournamentTemplate $template,
@@ -806,6 +907,7 @@ class TournamentGraphRuntimeService
 
     private function simulateOneMatch(
         array $state,
+        TournamentTemplate $template,
         int $nodeId
     ): array {
         $runtime =
@@ -900,6 +1002,7 @@ class TournamentGraphRuntimeService
 
             return $this->afterNodeResult(
                 $state,
+                $template,
                 $nodeId
             );
         }
@@ -943,6 +1046,7 @@ class TournamentGraphRuntimeService
 
         return $this->afterNodeResult(
             $state,
+            $template,
             $nodeId
         );
     }
@@ -1091,42 +1195,32 @@ class TournamentGraphRuntimeService
         array $state,
         $node
     ): bool {
-        $incomingIds =
-            $node
-            ->entryPorts
-            ->flatMap(
-                fn($port) =>
-                $port
-                    ->incomingConnections
-                    ->where(
-                        'status',
-                        'ACTIVE'
-                    )
-                    ->pluck(
-                        'id'
-                    )
-            )
-            ->unique()
-            ->values();
+        $hasIncoming = false;
 
-        if ($incomingIds->isEmpty()) {
-            return false;
+        foreach ($node->entryPorts->where('status', 'ACTIVE') as $port) {
+            $incomingIds = $port
+                ->incomingConnections
+                ->where('status', 'ACTIVE')
+                ->pluck('id')
+                ->map(fn($id) => (int) $id)
+                ->values()
+                ->all();
+
+            if ($incomingIds === []) {
+                continue;
+            }
+
+            $hasIncoming = true;
+
+            if (! \App\Services\Tournaments\Graph\Flow\EntryPortMergePolicy::allFinal(
+                $incomingIds,
+                $state['connections'] ?? []
+            )) {
+                return false;
+            }
         }
 
-        return $incomingIds
-            ->every(
-                fn($connectionId) =>
-                in_array(
-                    $state['connections'][$connectionId]['status']
-                        ??
-                        'PENDING',
-                    [
-                        'ROUTED',
-                        'CLOSED_EMPTY',
-                    ],
-                    true
-                )
-            );
+        return $hasIncoming;
     }
 
     private function portContractErrors(

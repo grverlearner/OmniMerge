@@ -77,15 +77,6 @@ implements LabPhaseEngine
             ===
             'ADVANCED'
             &&
-            in_array(
-                $settings->structure_mode,
-                [
-                    'MANUAL',
-                    'HYBRID',
-                ],
-                true
-            )
-            &&
             $phase->singleEliminationRounds()
                 ->where('status', 'ACTIVE')
                 ->exists()
@@ -103,7 +94,7 @@ implements LabPhaseEngine
             'ADVANCED'
         ) {
             $this->fail(
-                'La configuración avanzada necesita un grafo interno manual o híbrido validado antes de ejecutarse en Competition Lab.'
+                'La configuración avanzada necesita una estructura interna activa y validada antes de ejecutarse en Competition Lab.'
             );
         }
 
@@ -370,6 +361,11 @@ implements LabPhaseEngine
                     $scoreA > $scoreB
                     ? $match['participant_b_id']
                     : $match['participant_a_id'];
+
+                $runtime['eliminated_ids'] = array_values(array_unique([
+                    ...($runtime['eliminated_ids'] ?? []),
+                    $match['loser_id'],
+                ]));
 
                 $match['status'] =
                     'COMPLETED';
@@ -716,6 +712,9 @@ implements LabPhaseEngine
             'number' =>
             $roundNumber,
 
+            'participants_in_round' =>
+            $this->roundSize(count($participantIds)),
+
             'label' =>
             count($participantIds)
                 ===
@@ -780,6 +779,17 @@ implements LabPhaseEngine
         }
 
         return $standings;
+    }
+
+    private function roundSize(int $participants): int
+    {
+        $size = 2;
+
+        while ($size < max(2, $participants)) {
+            $size *= 2;
+        }
+
+        return $size;
     }
 
     private function fail(

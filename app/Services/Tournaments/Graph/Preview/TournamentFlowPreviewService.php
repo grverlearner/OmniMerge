@@ -5,6 +5,7 @@ namespace App\Services\Tournaments\Graph\Preview;
 use App\Models\PhaseEntryPort;
 use App\Models\TournamentPhaseNode;
 use App\Models\TournamentTemplate;
+use App\Services\Tournaments\Graph\Flow\EntryPortMergePolicy;
 use App\Services\Tournaments\Graph\Flow\TournamentGraphFlowAnalysisService;
 use App\Services\Tournaments\Graph\Flow\TournamentGraphFlowValidationService;
 use App\Services\Tournaments\Graph\TournamentGraphValidationService;
@@ -861,33 +862,25 @@ class TournamentFlowPreviewService
             return [];
         }
 
-        if (
-            in_array(
-                $port->merge_policy,
-                [
-                    'FIRST_AVAILABLE',
-                    'PRIORITY',
-                ],
-                true
-            )
-        ) {
-            $first =
-                $connections->first();
-
-            return $connectionBuffers[$first->id]
-                ??
-                [];
-        }
-
-        return $connections
-            ->flatMap(
-                fn($connection) =>
-                $connectionBuffers[$connection->id]
-                    ??
-                    []
-            )
+        $orderedConnectionIds = $connections
+            ->pluck('id')
+            ->map(fn($id) => (int) $id)
             ->values()
             ->all();
+
+        $payloads = [];
+        foreach ($orderedConnectionIds as $connectionId) {
+            $payloads[$connectionId] =
+                $connectionBuffers[$connectionId]
+                ?? [];
+        }
+
+        return EntryPortMergePolicy::merge(
+            $port->merge_policy,
+            $orderedConnectionIds,
+            $orderedConnectionIds,
+            $payloads
+        );
     }
 
     private function connectionLocation(

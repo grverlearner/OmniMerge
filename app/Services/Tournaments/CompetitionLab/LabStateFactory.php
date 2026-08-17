@@ -211,15 +211,29 @@ class LabStateFactory
                                         'incoming_connection_ids' =>
                                         $port
                                             ->incomingConnections
+                                            ->where('status', 'ACTIVE')
+                                            ->sortBy(
+                                                fn($connection) =>
+                                                sprintf(
+                                                    '%010d-%010d-%010d',
+                                                    $connection->priority,
+                                                    $connection->sequence_number,
+                                                    $connection->id
+                                                )
+                                            )
                                             ->pluck('id')
                                             ->map(
                                                 fn($id) =>
                                                 (int)
                                                 $id
                                             )
+                                            ->values()
                                             ->all(),
 
                                         'received_connection_ids' =>
+                                        [],
+
+                                        'connection_payloads' =>
                                         [],
 
                                         'status' =>
@@ -336,6 +350,10 @@ class LabStateFactory
                         'priority' =>
                         (int)
                         $connection->priority,
+
+                        'sequence_number' =>
+                        (int)
+                        $connection->sequence_number,
 
                         'status' =>
                         'PENDING',
