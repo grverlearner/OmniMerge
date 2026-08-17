@@ -32,12 +32,47 @@ class SingleEliminationConfigurationInspector
 
         $obsoleteRules = [];
         $redundantRules = [];
+        $invalidRules = [];
 
         foreach (
             $roundRules
             as
             $roundRule
         ) {
+            $ruleErrors =
+                $this->validator
+                ->validateSeriesConfiguration(
+                    (string)
+                    (
+                        $roundRule->series_format
+                        ?:
+                        'BEST_OF'
+                    ),
+                    $roundRule->best_of,
+                    $roundRule->fixed_games,
+                    'La regla de '
+                        .
+                        $roundRule->round_label
+                );
+
+            if ($ruleErrors !== []) {
+                $invalidRules[] = [
+                    'id' =>
+                    (int)
+                    $roundRule->id,
+
+                    'round_size' =>
+                    (int)
+                    $roundRule->participants_in_round,
+
+                    'label' =>
+                    $roundRule->round_label,
+
+                    'errors' =>
+                    $ruleErrors,
+                ];
+            }
+
             if (
                 ! in_array(
                     (int)
@@ -64,6 +99,10 @@ class SingleEliminationConfigurationInspector
                         ' no puede existir con el contrato y objetivo actuales.',
                 ];
 
+                continue;
+            }
+
+            if ($ruleErrors !== []) {
                 continue;
             }
 
@@ -165,6 +204,18 @@ class SingleEliminationConfigurationInspector
                 $obsoleteRule['message'];
         }
 
+        foreach (
+            $invalidRules
+            as
+            $invalidRule
+        ) {
+            $errors =
+                array_merge(
+                    $errors,
+                    $invalidRule['errors']
+                );
+        }
+
         return [
             'valid' =>
             $errors === [],
@@ -198,6 +249,15 @@ class SingleEliminationConfigurationInspector
             'obsolete_rule_ids' =>
             array_column(
                 $obsoleteRules,
+                'id'
+            ),
+
+            'invalid_rules' =>
+            $invalidRules,
+
+            'invalid_rule_ids' =>
+            array_column(
+                $invalidRules,
                 'id'
             ),
 

@@ -7,6 +7,14 @@ use App\Models\PhaseTemplate;
 
 class SingleEliminationValidator
 {
+    private const BEST_OF_VALUES = [
+        1,
+        3,
+        5,
+        7,
+        9,
+    ];
+
     public function validate(
         PhaseTemplate $phaseTemplate,
         PhaseSingleEliminationSetting $settings,
@@ -94,6 +102,22 @@ class SingleEliminationValidator
                 '.';
         }
 
+        $errors =
+            array_merge(
+                $errors,
+                $this->validateSeriesConfiguration(
+                    (string)
+                    (
+                        $settings->series_format
+                        ?:
+                        'BEST_OF'
+                    ),
+                    $settings->default_best_of,
+                    $settings->fixed_games,
+                    'La configuración general'
+                )
+            );
+
         $target =
             max(
                 1,
@@ -143,12 +167,82 @@ class SingleEliminationValidator
                 );
         }
 
-
         return array_values(
             array_unique(
                 $errors
             )
         );
+    }
+
+    public function validateSeriesConfiguration(
+        string $format,
+        ?int $bestOf,
+        ?int $fixedGames,
+        string $context = 'La serie'
+    ): array {
+        $errors = [];
+
+        $format =
+            strtoupper(
+                trim(
+                    $format
+                )
+            );
+
+        if (
+            ! in_array(
+                $format,
+                [
+                    'BEST_OF',
+                    'FIXED_GAMES',
+                ],
+                true
+            )
+        ) {
+            return [
+                $context
+                .
+                ' usa un formato de serie no soportado.',
+            ];
+        }
+
+        if ($format === 'BEST_OF') {
+            $bestOf =
+                $bestOf
+                ??
+                1;
+
+            if (
+                ! in_array(
+                    (int)
+                    $bestOf,
+                    self::BEST_OF_VALUES,
+                    true
+                )
+            ) {
+                $errors[] =
+                    $context
+                    .
+                    ' debe usar BO1, BO3, BO5, BO7 o BO9.';
+            }
+
+            return $errors;
+        }
+
+        if (
+            $fixedGames === null
+            ||
+            $fixedGames < 1
+            ||
+            $fixedGames > 99
+        ) {
+            $errors[] =
+                $context
+                .
+                ' debe usar una cantidad fija entre 1 y 99 juegos.';
+        }
+
+        return $errors;
     }
 
     private function validateBasic(
