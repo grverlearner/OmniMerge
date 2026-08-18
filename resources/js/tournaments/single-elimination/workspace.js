@@ -23,6 +23,10 @@ export default function singleEliminationWorkspace(
         previewMessage:
             '',
 
+        previewState:
+            configuration.initialPreviewState
+            || 'IDLE',
+
         previewUrl:
             configuration.previewUrl
             || '',
@@ -151,6 +155,22 @@ export default function singleEliminationWorkspace(
                     ) {
                         this.dirty =
                             true;
+
+                        /*
+                         * La respuesta HTML contiene old(), mientras el
+                         * Preview inicial del servidor usa la configuración
+                         * persistida. Recalculamos inmediatamente para que
+                         * ambos representen el mismo borrador.
+                         */
+                        this.previewState =
+                            'UPDATING';
+
+                        this.previewMessage =
+                            'Recalculando el borrador devuelto por validación...';
+
+                        this.schedulePreview(
+                            0
+                        );
                     }
                 }
             );
@@ -492,6 +512,17 @@ export default function singleEliminationWorkspace(
                 !==
                 this.initialSnapshot;
 
+            this.previewState =
+                'IDLE';
+
+            this.previewError =
+                '';
+
+            this.previewMessage =
+                this.dirty
+                    ? 'Hay cambios pendientes de recalcular.'
+                    : 'Comprobando la configuración guardada.';
+
             this.schedulePreview();
         },
 
@@ -801,8 +832,11 @@ export default function singleEliminationWorkspace(
             this.previewController
                 ?.abort();
 
-            this.previewController =
+            const controller =
                 new AbortController();
+
+            this.previewController =
+                controller;
 
             const payload =
                 new FormData(form);
@@ -828,9 +862,10 @@ export default function singleEliminationWorkspace(
             );
 
             this.previewLoading = true;
+            this.previewState = 'UPDATING';
             this.previewError = '';
             this.previewMessage =
-                'Actualizando vista previa...';
+                'Calculando el borrador actual...';
 
             try {
                 const response =
@@ -858,8 +893,7 @@ export default function singleEliminationWorkspace(
                                 payload,
 
                             signal:
-                                this.previewController
-                                    .signal,
+                                controller.signal,
                         }
                     );
 
@@ -872,6 +906,19 @@ export default function singleEliminationWorkspace(
                             data
                         )
                     );
+                }
+
+                /*
+                 * Si otra petición comenzó mientras esta respuesta
+                 * viajaba, no permitimos que la respuesta antigua
+                 * reemplace el Preview más reciente.
+                 */
+                if (
+                    this.previewController
+                    !==
+                    controller
+                ) {
+                    return;
                 }
 
                 const container =
@@ -909,10 +956,43 @@ export default function singleEliminationWorkspace(
                         data.diagnostic_html;
                 }
 
-                this.previewMessage =
-                    data.valid
-                        ? 'Vista previa actualizada.'
-                        : 'La configuración necesita revisión.';
+                const hasWarnings =
+                    (
+                        data.preview
+                            ?.warnings
+                        ?? []
+                    ).length > 0
+                    ||
+                    (
+                        data.diagnostic
+                            ?.warnings
+                        ?? []
+                    ).length > 0
+                    ||
+                    data.preview
+                        ?.complete
+                    ===
+                    false;
+
+                if (!data.valid) {
+                    this.previewState =
+                        'ERROR';
+
+                    this.previewMessage =
+                        'La configuración temporal es incompatible.';
+                } else if (hasWarnings) {
+                    this.previewState =
+                        'WARNING';
+
+                    this.previewMessage =
+                        'La vista previa es válida, pero necesita atención.';
+                } else {
+                    this.previewState =
+                        'VALID';
+
+                    this.previewMessage =
+                        'La vista previa coincide con el borrador actual.';
+                }
             } catch (error) {
                 if (
                     error.name
@@ -922,15 +1002,40 @@ export default function singleEliminationWorkspace(
                     return;
                 }
 
+                if (
+                    this.previewController
+                    !==
+                    controller
+                ) {
+                    return;
+                }
+
+                this.previewState =
+                    'ERROR';
+
                 this.previewError =
                     error.message
                     ||
                     'No se pudo actualizar la vista previa.';
 
-                this.previewMessage = '';
+                this.previewMessage =
+                    'No se pudo validar el borrador actual.';
             } finally {
-                this.previewLoading =
-                    false;
+                /*
+                 * Una petición abortada no puede apagar el loading
+                 * de la petición que la reemplazó.
+                 */
+                if (
+                    this.previewController
+                    ===
+                    controller
+                ) {
+                    this.previewLoading =
+                        false;
+
+                    this.previewController =
+                        null;
+                }
             }
         },
 

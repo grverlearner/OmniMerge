@@ -230,12 +230,21 @@ class SingleEliminationConfigurationInspector
             'warnings' =>
             array_values(
                 array_unique(
-                    array_merge(
-                        $warnings,
-                        array_column(
-                            $redundantRules,
-                            'message'
-                        )
+                    $warnings
+                )
+            ),
+
+            /*
+             * Las reglas redundantes no bloquean ni representan
+             * un riesgo de ejecución. Se exponen por separado para
+             * que la interfaz no las presente como advertencias.
+             */
+            'recommendations' =>
+            array_values(
+                array_unique(
+                    array_column(
+                        $redundantRules,
+                        'message'
                     )
                 )
             ),

@@ -235,11 +235,19 @@ class SingleEliminationController extends Controller
         UpdateSingleEliminationSettingsRequest $request,
         PhaseTemplate $phaseTemplate
     ): RedirectResponse {
-        $this->settingsService
+        $settings =
+            $this->settingsService
             ->update(
                 $phaseTemplate,
                 $request->validated()
             );
+
+        $message =
+            $settings->structure_status
+            ===
+            'STALE'
+                ? 'Configuración actualizada. La estructura existente quedó desactualizada; revísala o regénérala antes de ejecutar.'
+                : 'Configuración de Eliminación directa actualizada.';
 
         return redirect()
             ->route(
@@ -248,7 +256,7 @@ class SingleEliminationController extends Controller
             )
             ->with(
                 'success',
-                'Configuración de Eliminación directa actualizada.'
+                $message
             );
     }
 

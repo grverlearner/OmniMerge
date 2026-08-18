@@ -1,0 +1,771 @@
+diff --git a/app/Services/Tournaments/SingleElimination/SingleEliminationConfigurationInspector.php b/app/Services/Tournaments/SingleElimination/SingleEliminationConfigurationInspector.php
+--- a/app/Services/Tournaments/SingleElimination/SingleEliminationConfigurationInspector.php
++++ b/app/Services/Tournaments/SingleElimination/SingleEliminationConfigurationInspector.php
+@@ -224,14 +224,23 @@
+             'warnings' =>
+             array_values(
+                 array_unique(
+-                    array_merge(
+-                        $warnings,
+-                        array_column(
+-                            $redundantRules,
+-                            'message'
+-                        )
++                    $warnings
++                )
++            ),
++
++            /*
++             * Las reglas redundantes no bloquean ni representan
++             * un riesgo de ejecución. Se exponen por separado para
++             * que la interfaz no las presente como advertencias.
++             */
++            'recommendations' =>
++            array_values(
++                array_unique(
++                    array_column(
++                        $redundantRules,
++                        'message'
+                     )
+                 )
+             ),
+ 
+             'possible_round_sizes' =>
+diff --git a/app/Http/Controllers/Tournaments/SingleEliminationController.php b/app/Http/Controllers/Tournaments/SingleEliminationController.php
+--- a/app/Http/Controllers/Tournaments/SingleEliminationController.php
++++ b/app/Http/Controllers/Tournaments/SingleEliminationController.php
+@@ -181,20 +181,28 @@
+     public function update(
+         UpdateSingleEliminationSettingsRequest $request,
+         PhaseTemplate $phaseTemplate
+     ): RedirectResponse {
+-        $this->settingsService
++        $settings =
++            $this->settingsService
+             ->update(
+                 $phaseTemplate,
+                 $request->validated()
+             );
++
++        $message =
++            $settings->structure_status
++            ===
++            'STALE'
++                ? 'Configuración actualizada. La estructura existente quedó desactualizada; revísala o regénérala antes de ejecutar.'
++                : 'Configuración de Eliminación directa actualizada.';
+ 
+         return redirect()
+             ->route(
+                 'tournaments.single-elimination.show',
+                 $phaseTemplate
+             )
+             ->with(
+                 'success',
+-                'Configuración de Eliminación directa actualizada.'
++                $message
+             );
+     }
+diff --git a/resources/js/tournaments/single-elimination/workspace.js b/resources/js/tournaments/single-elimination/workspace.js
+--- a/resources/js/tournaments/single-elimination/workspace.js
++++ b/resources/js/tournaments/single-elimination/workspace.js
+@@ -20,6 +20,10 @@
+         previewMessage:
+             '',
++
++        previewState:
++            configuration.initialPreviewState
++            || 'IDLE',
+ 
+         previewUrl:
+             configuration.previewUrl
+             || '',
+@@ -146,8 +150,24 @@
+                     if (
+                         configuration.hasErrors
+                     ) {
+                         this.dirty =
+                             true;
++
++                        /*
++                         * La respuesta HTML contiene old(), mientras el
++                         * Preview inicial del servidor usa la configuración
++                         * persistida. Recalculamos inmediatamente para que
++                         * ambos representen el mismo borrador.
++                         */
++                        this.previewState =
++                            'UPDATING';
++
++                        this.previewMessage =
++                            'Recalculando el borrador devuelto por validación...';
++
++                        this.schedulePreview(
++                            0
++                        );
+                     }
+                 }
+             );
+@@ -482,14 +502,25 @@
+         markSettingsDirty() {
+             this.syncDraft();
+ 
+             this.dirty =
+                 Boolean(
+                     configuration.hasErrors
+                 )
+                 ||
+                 this.formSnapshot()
+                 !==
+                 this.initialSnapshot;
+ 
++            this.previewState =
++                'IDLE';
++
++            this.previewError =
++                '';
++
++            this.previewMessage =
++                this.dirty
++                    ? 'Hay cambios pendientes de recalcular.'
++                    : 'Comprobando la configuración guardada.';
++
+             this.schedulePreview();
+         },
+@@ -789,147 +820,221 @@
+         async refreshPreview() {
+             const form =
+                 this.settingsForm();
+ 
+             if (
+                 !form
+                 ||
+                 !this.previewUrl
+             ) {
+                 return;
+             }
+ 
+             this.previewController
+                 ?.abort();
+ 
++            const controller =
++                new AbortController();
++
+             this.previewController =
+-                new AbortController();
++                controller;
+ 
+             const payload =
+                 new FormData(form);
+ 
+             payload.delete('_method');
+ 
+             if (
+                 !payload.has(
+                     'reseed_each_round'
+                 )
+             ) {
+                 payload.set(
+                     'reseed_each_round',
+                     '0'
+                 );
+             }
+ 
+             payload.set(
+                 'participants',
+                 String(
+                     this.previewParticipantCount()
+                 )
+             );
+ 
+             this.previewLoading = true;
++            this.previewState = 'UPDATING';
+             this.previewError = '';
+             this.previewMessage =
+-                'Actualizando vista previa...';
++                'Calculando el borrador actual...';
+ 
+             try {
+                 const response =
+                     await fetch(
+                         this.previewUrl,
+                         {
+                             method:
+                                 'POST',
+ 
+                             headers: {
+                                 Accept:
+                                     'application/json',
+ 
+                                 'X-CSRF-TOKEN':
+                                     document
+                                         .querySelector(
+                                             'meta[name="csrf-token"]'
+                                         )
+                                         ?.content
+                                     ||
+                                     '',
+                             },
+ 
+                             body:
+                                 payload,
+ 
+                             signal:
+-                                this.previewController
+-                                    .signal,
++                                controller.signal,
+                         }
+                     );
+ 
+                 const data =
+                     await response.json();
+ 
+                 if (!response.ok) {
+                     throw new Error(
+                         this.firstValidationMessage(
+                             data
+                         )
+                     );
+                 }
+ 
++                /*
++                 * Si otra petición comenzó mientras esta respuesta
++                 * viajaba, no permitimos que la respuesta antigua
++                 * reemplace el Preview más reciente.
++                 */
++                if (
++                    this.previewController
++                    !==
++                    controller
++                ) {
++                    return;
++                }
++
+                 const container =
+                     this.$refs
+                         .previewContainer;
+ 
+                 if (
+                     container
+                     &&
+                     typeof data.html
+                     ===
+                     'string'
+                 ) {
+                     container.innerHTML =
+                         data.html;
+ 
+                     window.Alpine
+                         ?.initTree(
+                             container
+                         );
+                 }
+ 
+                 const diagnosticContainer =
+                     this.$refs
+                         .diagnosticContainer;
+ 
+                 if (
+                     diagnosticContainer
+                     &&
+                     typeof data.diagnostic_html
+                     ===
+                     'string'
+                 ) {
+                     diagnosticContainer.innerHTML =
+                         data.diagnostic_html;
+                 }
+ 
+-                this.previewMessage =
+-                    data.valid
+-                        ? 'Vista previa actualizada.'
+-                        : 'La configuración necesita revisión.';
++                const hasWarnings =
++                    (
++                        data.preview
++                            ?.warnings
++                        ?? []
++                    ).length > 0
++                    ||
++                    (
++                        data.diagnostic
++                            ?.warnings
++                        ?? []
++                    ).length > 0
++                    ||
++                    data.preview
++                        ?.complete
++                    ===
++                    false;
++
++                if (!data.valid) {
++                    this.previewState =
++                        'ERROR';
++
++                    this.previewMessage =
++                        'La configuración temporal es incompatible.';
++                } else if (hasWarnings) {
++                    this.previewState =
++                        'WARNING';
++
++                    this.previewMessage =
++                        'La vista previa es válida, pero necesita atención.';
++                } else {
++                    this.previewState =
++                        'VALID';
++
++                    this.previewMessage =
++                        'La vista previa coincide con el borrador actual.';
++                }
+             } catch (error) {
+                 if (
+                     error.name
+                     ===
+                     'AbortError'
+                 ) {
+                     return;
+                 }
++
++                if (
++                    this.previewController
++                    !==
++                    controller
++                ) {
++                    return;
++                }
++
++                this.previewState =
++                    'ERROR';
+ 
+                 this.previewError =
+                     error.message
+                     ||
+                     'No se pudo actualizar la vista previa.';
+ 
+-                this.previewMessage = '';
++                this.previewMessage =
++                    'No se pudo validar el borrador actual.';
+             } finally {
+-                this.previewLoading =
+-                    false;
++                /*
++                 * Una petición abortada no puede apagar el loading
++                 * de la petición que la reemplazó.
++                 */
++                if (
++                    this.previewController
++                    ===
++                    controller
++                ) {
++                    this.previewLoading =
++                        false;
++
++                    this.previewController =
++                        null;
++                }
+             }
+         },
+diff --git a/resources/views/tournaments/phase-templates/single-elimination.blade.php b/resources/views/tournaments/phase-templates/single-elimination.blade.php
+--- a/resources/views/tournaments/phase-templates/single-elimination.blade.php
++++ b/resources/views/tournaments/phase-templates/single-elimination.blade.php
+@@ -6,4 +6,17 @@
++    @php
++        $initialPreviewState = !($preview['valid'] ?? false) || !($diagnostic['valid'] ?? false)
++            ? 'ERROR'
++            : (
++                !($preview['complete'] ?? true)
++                || !empty($preview['warnings'] ?? [])
++                || !empty($diagnostic['warnings'] ?? [])
++                    ? 'WARNING'
++                    : 'VALID'
++            );
++    @endphp
++
+     <div x-data="singleEliminationWorkspace({
+         initialView: 'summary',
+         phaseName: @js($phaseTemplate->name),
++        initialPreviewState: @js($initialPreviewState),
+         previewUrl: @js(route('tournaments.single-elimination.preview', $phaseTemplate)),
+@@ -195,11 +208,64 @@
+-                    <div class="mb-3 min-h-5">
+-                        <p x-show="previewLoading" class="text-[11px] font-black text-amber-600"
+-                            x-text="previewMessage"></p>
++                    <div class="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
++                        <div class="rounded-2xl border px-4 py-3 transition"
++                            :class="dirty
++                                ? 'border-amber-200 bg-amber-50'
++                                : 'border-emerald-200 bg-emerald-50'">
++                            <p class="text-[9px] font-black uppercase tracking-wider"
++                                :class="dirty ? 'text-amber-600' : 'text-emerald-600'">
++                                Borrador
++                            </p>
+ 
+-                        <p x-show="! previewLoading && previewError"
+-                            class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700"
+-                            x-text="previewError"></p>
++                            <p class="mt-1 text-xs font-black"
++                                :class="dirty ? 'text-amber-900' : 'text-emerald-900'"
++                                x-text="dirty ? 'Cambios sin guardar' : 'Sin cambios'"></p>
++                        </div>
+ 
+-                        <p x-show="! previewLoading && ! previewError && previewMessage"
+-                            class="text-[11px] font-black text-emerald-600" x-text="previewMessage"></p>
++                        <div class="rounded-2xl border px-4 py-3 transition"
++                            :class="{
++                                'border-slate-200 bg-slate-50': previewState === 'IDLE',
++                                'border-indigo-200 bg-indigo-50': previewState === 'UPDATING',
++                                'border-emerald-200 bg-emerald-50': previewState === 'VALID',
++                                'border-amber-200 bg-amber-50': previewState === 'WARNING',
++                                'border-red-200 bg-red-50': previewState === 'ERROR',
++                            }">
++                            <div class="flex items-center justify-between gap-2">
++                                <p class="text-[9px] font-black uppercase tracking-wider"
++                                    :class="{
++                                        'text-slate-500': previewState === 'IDLE',
++                                        'text-indigo-600': previewState === 'UPDATING',
++                                        'text-emerald-600': previewState === 'VALID',
++                                        'text-amber-600': previewState === 'WARNING',
++                                        'text-red-600': previewState === 'ERROR',
++                                    }">
++                                    Vista previa
++                                </p>
++
++                                <span x-show="previewLoading"
++                                    class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600"></span>
++                            </div>
++
++                            <p class="mt-1 text-xs font-black"
++                                :class="{
++                                    'text-slate-800': previewState === 'IDLE',
++                                    'text-indigo-900': previewState === 'UPDATING',
++                                    'text-emerald-900': previewState === 'VALID',
++                                    'text-amber-900': previewState === 'WARNING',
++                                    'text-red-900': previewState === 'ERROR',
++                                }"
++                                x-text="{
++                                    IDLE: 'Pendiente de recalcular',
++                                    UPDATING: 'Actualizando vista previa',
++                                    VALID: 'Vista previa válida',
++                                    WARNING: 'Válida con advertencias',
++                                    ERROR: 'Configuración incompatible',
++                                }[previewState] || 'Pendiente'"></p>
++
++                            <p x-show="previewMessage && !previewError"
++                                class="mt-1 text-[10px] leading-4 text-slate-500"
++                                x-text="previewMessage"></p>
++
++                            <p x-show="previewError"
++                                class="mt-1 text-[10px] font-bold leading-4 text-red-700"
++                                x-text="previewError"></p>
++                        </div>
+                     </div>
+diff --git a/resources/views/tournaments/phase-templates/partials/single-elimination-advanced-settings-form.blade.php b/resources/views/tournaments/phase-templates/partials/single-elimination-advanced-settings-form.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/single-elimination-advanced-settings-form.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/single-elimination-advanced-settings-form.blade.php
+@@ -54,7 +54,14 @@
+-                        <span class="block text-sm font-black text-slate-900">
+-                            Básico
++                        <span class="flex flex-wrap items-center gap-2">
++                            <span class="block text-sm font-black text-slate-900">
++                                Básico
++                            </span>
++
++                            <span
++                                class="rounded-full bg-emerald-100 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-emerald-700">
++                                Stable V1 · Disponible
++                            </span>
+                         </span>
+ 
+                         <span class="mt-1 block text-[11px] leading-5 text-slate-500">
+-                            Conserva el bracket clásico: duelos 2 → 1 y objetivos potencia de 2.
++                            Contrato estable: POOL · Automático · Duelo 2 → 1 · sobrantes por BYE o Rechazar.
+                         </span>
+@@ -80,7 +87,14 @@
+-                        <span class="block text-sm font-black text-slate-900">
+-                            Avanzado
++                        <span class="flex flex-wrap items-center gap-2">
++                            <span class="block text-sm font-black text-slate-900">
++                                Avanzado
++                            </span>
++
++                            <span
++                                class="rounded-full bg-fuchsia-100 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-fuchsia-700">
++                                Structure Graph
++                            </span>
+                         </span>
+ 
+                         <span class="mt-1 block text-[11px] leading-5 text-slate-500">
+-                            Habilita formatos K → Q, perfiles múltiples y políticas de sobrantes.
++                            Habilita K → Q, multicompetidor y políticas avanzadas. Las capacidades manuales o personalizadas no ejecutables se marcan como Próximamente.
+                         </span>
+@@ -92 +106,18 @@
++        <div class="mt-4 grid gap-2 sm:grid-cols-3">
++            <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
++                <p class="text-[8px] font-black uppercase tracking-wider text-emerald-700">BASIC Stable V1</p>
++                <p class="mt-1 text-[10px] font-bold text-emerald-900">Disponible y ejecutable</p>
++            </div>
++
++            <div class="rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-3 py-2">
++                <p class="text-[8px] font-black uppercase tracking-wider text-fuchsia-700">ADVANCED</p>
++                <p class="mt-1 text-[10px] font-bold text-fuchsia-900">Disponible con Structure Graph</p>
++            </div>
++
++            <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
++                <p class="text-[8px] font-black uppercase tracking-wider text-slate-500">Manual / Custom</p>
++                <p class="mt-1 text-[10px] font-bold text-slate-700">Próximamente cuando no exista runtime</p>
++            </div>
++        </div>
++
+         <x-input-error :messages="$errors->get('configuration_mode')" class="mt-3" />
+@@ -151,3 +182,5 @@
+-                    <option value="CUSTOM">
+-                        Personalizado · requiere estructura
++                    <option value="CUSTOM"
++                        @disabled(old('encounter_profile', $settings->encounter_profile) !== 'CUSTOM')
++                        :disabled="draft.encounterProfile !== 'CUSTOM'">
++                        Personalizado · Próximamente · no ejecutable
+                     </option>
+@@ -184,3 +217,5 @@
+-                    <option value="MANUAL">
+-                        Resolución manual · requiere estructura
++                    <option value="MANUAL"
++                        @disabled(old('remainder_policy', $settings->remainder_policy) !== 'MANUAL')
++                        :disabled="draft.remainderPolicy !== 'MANUAL'">
++                        Resolución manual · Próximamente · no ejecutable
+                     </option>
+@@ -225,4 +260,5 @@
+                     <option value="CUSTOM"
+-                        @disabled(old('input_mode', $settings->input_mode) !== 'CUSTOM')>
+-                        Personalizada · Próximamente
++                        @disabled(old('input_mode', $settings->input_mode) !== 'CUSTOM')
++                        :disabled="draft.inputMode !== 'CUSTOM'">
++                        Personalizada · Próximamente · no ejecutable
+                     </option>
+@@ -249,7 +285,11 @@
+-                    <option value="MANUAL">
+-                        Manual · requiere constructor
++                    <option value="MANUAL"
++                        @disabled(old('routing_mode', $settings->routing_mode) !== 'MANUAL')
++                        :disabled="draft.routingMode !== 'MANUAL'">
++                        Manual · Próximamente · no ejecutable
+                     </option>
+ 
+-                    <option value="CUSTOM">
+-                        Personalizado · requiere constructor
++                    <option value="CUSTOM"
++                        @disabled(old('routing_mode', $settings->routing_mode) !== 'CUSTOM')
++                        :disabled="draft.routingMode !== 'CUSTOM'">
++                        Personalizado · Próximamente · no ejecutable
+                     </option>
+@@ -264,27 +304,46 @@
+         <div x-cloak
+             x-show="draft.encounterProfile === 'CUSTOM' || draft.remainderPolicy === 'MANUAL' || draft.inputMode === 'CUSTOM' || draft.routingMode === 'MANUAL' || draft.routingMode === 'CUSTOM'"
+             class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+             <div class="flex items-start gap-3">
+-                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-black text-amber-700">!</span>
++                <span
++                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-black text-amber-700">!</span>
++
+                 <div>
+-                    <p class="text-xs font-black text-amber-900">Requiere completar la estructura</p>
++                    <div class="flex flex-wrap items-center gap-2">
++                        <p class="text-xs font-black text-amber-900">
++                            Capacidad no ejecutable en Stable V1
++                        </p>
++
++                        <span
++                            class="rounded-full bg-slate-900 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-white">
++                            Próximamente
++                        </span>
++                    </div>
++
+                     <p class="mt-1 text-[10px] leading-5 text-amber-800">
+-                        La opción se guardará, pero la fase no estará lista para ejecutarse hasta que construyas
+-                        sus etapas, encuentros, conexiones y puertas en la sección Estructura.
++                        Este valor solo permanece disponible cuando ya existe en una configuración heredada,
++                        para que puedas visualizarlo y corregirlo. Construir la estructura no basta para volverlo
++                        ejecutable: selecciona una alternativa disponible antes de ejecutar la fase.
+                     </p>
+-                    <a href="{{ route('tournaments.single-elimination.structure.show', [
+-                        'phaseTemplate' => $phaseTemplate,
+-                        'workspace' => 'CUSTOM',
+-                    ]) }}"
+-                        class="mt-3 inline-flex text-[10px] font-black text-amber-900 underline decoration-amber-400 underline-offset-4">
+-                        Abrir constructor personalizado →
+-                    </a>
+                 </div>
+             </div>
+         </div>
+ 
++        <div x-cloak
++            x-show="draft.inputMode === 'GROUPED' || draft.inputMode === 'HYBRID'"
++            class="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
++            <p class="text-xs font-black text-indigo-900">
++                Requiere revisión en Structure Graph
++            </p>
++
++            <p class="mt-1 text-[10px] leading-5 text-indigo-700">
++                Las entradas agrupadas o híbridas generan una puerta estructural provisional.
++                Antes de ejecutar debes revisar cómo se alimentan sus slots dentro de Estructura.
++            </p>
++        </div>
++
+         <div class="mt-4 rounded-2xl border border-fuchsia-100 bg-white p-4 text-xs leading-5 text-slate-500">
+-            La configuración automática puede generar la estructura desde estas reglas.
+-            Si seleccionas entrada o enrutamiento manual, deberás completar etapas,
+-            encuentros, conexiones y slots desde la sección Estructura antes de probarla.
++            El modo avanzado puede generar una base estructural desde estas reglas.
++            Los avisos del Preview indican si la definición actual es completa, requiere revisión
++            o depende de una capacidad que todavía no tiene runtime estable.
+         </div>
+diff --git a/resources/views/tournaments/phase-templates/partials/single-elimination-diagnostic.blade.php b/resources/views/tournaments/phase-templates/partials/single-elimination-diagnostic.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/single-elimination-diagnostic.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/single-elimination-diagnostic.blade.php
+@@ -1,50 +1,101 @@
+-@if (!$diagnostic['valid'] || $diagnostic['warnings'] !== [])
++@php
++    $diagnosticWarnings = $diagnostic['warnings'] ?? [];
++    $diagnosticRecommendations = $diagnostic['recommendations'] ?? [];
++@endphp
++
++@if (!$diagnostic['valid'] || $diagnosticWarnings !== [] || $diagnosticRecommendations !== [])
+     <section class="mt-6 space-y-3">
+         @if (!$diagnostic['valid'])
+             <div class="rounded-3xl border border-red-200 bg-red-50 p-5">
+                 <div class="flex items-start gap-3">
+                     <span
+                         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-100 font-black text-red-700">
+                         !
+                     </span>
+ 
+                     <div>
+                         <p class="font-black text-red-900">
+-                            Configuración incompatible
++                            Errores de configuración
++                        </p>
++
++                        <p class="mt-1 text-[10px] leading-5 text-red-700">
++                            Estos problemas bloquean una configuración válida o su ejecución prevista.
+                         </p>
+ 
+                         <div class="mt-2 space-y-1">
+                             @foreach ($diagnostic['errors'] as $error)
+                                 <p class="text-xs leading-5 text-red-700">
+                                     • {{ $error }}
+                                 </p>
+                             @endforeach
+                         </div>
+                     </div>
+                 </div>
+             </div>
+         @endif
+ 
+-        @if ($diagnostic['warnings'] !== [])
++        @if ($diagnosticWarnings !== [])
+             <div class="rounded-3xl border border-amber-200 bg-amber-50 p-5">
+-                <p class="font-black text-amber-900">
+-                    Recomendaciones
+-                </p>
++                <div class="flex items-start gap-3">
++                    <span
++                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100 font-black text-amber-700">
++                        !
++                    </span>
+ 
+-                <div class="mt-2 space-y-1">
+-                    @foreach ($diagnostic['warnings'] as $warning)
+-                        <p class="text-xs leading-5 text-amber-800">
+-                            • {{ $warning }}
++                    <div>
++                        <p class="font-black text-amber-900">
++                            Advertencias
+                         </p>
+-                    @endforeach
++
++                        <p class="mt-1 text-[10px] leading-5 text-amber-700">
++                            La definición puede ser válida, pero necesita atención antes de considerarla lista.
++                        </p>
++
++                        <div class="mt-2 space-y-1">
++                            @foreach ($diagnosticWarnings as $warning)
++                                <p class="text-xs leading-5 text-amber-800">
++                                    • {{ $warning }}
++                                </p>
++                            @endforeach
++                        </div>
++                    </div>
++                </div>
++            </div>
++        @endif
++
++        @if ($diagnosticRecommendations !== [])
++            <div class="rounded-3xl border border-indigo-200 bg-indigo-50 p-5">
++                <div class="flex items-start gap-3">
++                    <span
++                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 font-black text-indigo-700">
++                        i
++                    </span>
++
++                    <div>
++                        <p class="font-black text-indigo-900">
++                            Recomendaciones
++                        </p>
++
++                        <p class="mt-1 text-[10px] leading-5 text-indigo-700">
++                            No bloquean la configuración; ayudan a mantener una definición más clara y mínima.
++                        </p>
++
++                        <div class="mt-2 space-y-1">
++                            @foreach ($diagnosticRecommendations as $recommendation)
++                                <p class="text-xs leading-5 text-indigo-800">
++                                    • {{ $recommendation }}
++                                </p>
++                            @endforeach
++                        </div>
++                    </div>
+                 </div>
+             </div>
+         @endif
+     </section>
+ @else
+     <section class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+         <p class="text-xs font-black text-emerald-800">
+-            ✓ El contrato, el objetivo y los overrides son compatibles.
++            ✓ El contrato, el objetivo y los overrides son compatibles sin advertencias.
+         </p>
+     </section>
+ @endif
+diff --git a/resources/views/tournaments/phase-templates/partials/single-elimination-preview.blade.php b/resources/views/tournaments/phase-templates/partials/single-elimination-preview.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/single-elimination-preview.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/single-elimination-preview.blade.php
+@@ -22,19 +22,23 @@
+-            @if ($preview['valid'] && ($preview['complete'] ?? true))
++            @if (
++                $preview['valid']
++                && ($preview['complete'] ?? true)
++                && empty($preview['warnings'] ?? [])
++            )
+                 <span
+                     class="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-400/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                     <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+-                    Configuración válida
++                    Vista previa válida
+                 </span>
+             @elseif ($preview['valid'])
+                 <span
+                     class="inline-flex w-fit items-center gap-2 rounded-full bg-amber-400/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                     <span class="h-2 w-2 rounded-full bg-amber-400"></span>
+-                    Definición parcial
++                    Vista previa con advertencias
+                 </span>
+             @else
+                 <span
+                     class="inline-flex w-fit items-center gap-2 rounded-full bg-red-400/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-red-300">
+                     <span class="h-2 w-2 rounded-full bg-red-400"></span>
+-                    Requiere revisión
++                    Configuración incompatible
+                 </span>
+             @endif
+@@ -73,3 +77,3 @@
+             <p class="text-[10px] font-black uppercase tracking-wider text-amber-700">
+-                Avisos de la definición
++                Advertencias de la vista previa
+             </p>

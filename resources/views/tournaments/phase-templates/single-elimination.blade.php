@@ -3,9 +3,22 @@
         Eliminación Simple · {{ $phaseTemplate->name }}
     </x-slot>
 
+    @php
+        $initialPreviewState = !($preview['valid'] ?? false) || !($diagnostic['valid'] ?? false)
+            ? 'ERROR'
+            : (
+                !($preview['complete'] ?? true)
+                || !empty($preview['warnings'] ?? [])
+                || !empty($diagnostic['warnings'] ?? [])
+                    ? 'WARNING'
+                    : 'VALID'
+            );
+    @endphp
+
     <div x-data="singleEliminationWorkspace({
         initialView: 'summary',
         phaseName: @js($phaseTemplate->name),
+        initialPreviewState: @js($initialPreviewState),
         previewUrl: @js(route('tournaments.single-elimination.preview', $phaseTemplate)),
         previewParticipants: @js((int) $previewParticipants),
         hasErrors: @js($errors->any()),
@@ -194,16 +207,69 @@
 
             <aside>
                 <div class="xl:sticky xl:top-24">
-                    <div class="mb-3 min-h-5">
-                        <p x-show="previewLoading" class="text-[11px] font-black text-amber-600"
-                            x-text="previewMessage"></p>
+                    <div class="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                        <div class="rounded-2xl border px-4 py-3 transition"
+                            :class="dirty
+                                ? 'border-amber-200 bg-amber-50'
+                                : 'border-emerald-200 bg-emerald-50'">
+                            <p class="text-[9px] font-black uppercase tracking-wider"
+                                :class="dirty ? 'text-amber-600' : 'text-emerald-600'">
+                                Borrador
+                            </p>
 
-                        <p x-show="! previewLoading && previewError"
-                            class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700"
-                            x-text="previewError"></p>
+                            <p class="mt-1 text-xs font-black"
+                                :class="dirty ? 'text-amber-900' : 'text-emerald-900'"
+                                x-text="dirty ? 'Cambios sin guardar' : 'Sin cambios'"></p>
+                        </div>
 
-                        <p x-show="! previewLoading && ! previewError && previewMessage"
-                            class="text-[11px] font-black text-emerald-600" x-text="previewMessage"></p>
+                        <div class="rounded-2xl border px-4 py-3 transition"
+                            :class="{
+                                'border-slate-200 bg-slate-50': previewState === 'IDLE',
+                                'border-indigo-200 bg-indigo-50': previewState === 'UPDATING',
+                                'border-emerald-200 bg-emerald-50': previewState === 'VALID',
+                                'border-amber-200 bg-amber-50': previewState === 'WARNING',
+                                'border-red-200 bg-red-50': previewState === 'ERROR',
+                            }">
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-[9px] font-black uppercase tracking-wider"
+                                    :class="{
+                                        'text-slate-500': previewState === 'IDLE',
+                                        'text-indigo-600': previewState === 'UPDATING',
+                                        'text-emerald-600': previewState === 'VALID',
+                                        'text-amber-600': previewState === 'WARNING',
+                                        'text-red-600': previewState === 'ERROR',
+                                    }">
+                                    Vista previa
+                                </p>
+
+                                <span x-show="previewLoading"
+                                    class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600"></span>
+                            </div>
+
+                            <p class="mt-1 text-xs font-black"
+                                :class="{
+                                    'text-slate-800': previewState === 'IDLE',
+                                    'text-indigo-900': previewState === 'UPDATING',
+                                    'text-emerald-900': previewState === 'VALID',
+                                    'text-amber-900': previewState === 'WARNING',
+                                    'text-red-900': previewState === 'ERROR',
+                                }"
+                                x-text="{
+                                    IDLE: 'Pendiente de recalcular',
+                                    UPDATING: 'Actualizando vista previa',
+                                    VALID: 'Vista previa válida',
+                                    WARNING: 'Válida con advertencias',
+                                    ERROR: 'Configuración incompatible',
+                                }[previewState] || 'Pendiente'"></p>
+
+                            <p x-show="previewMessage && !previewError"
+                                class="mt-1 text-[10px] leading-4 text-slate-500"
+                                x-text="previewMessage"></p>
+
+                            <p x-show="previewError"
+                                class="mt-1 text-[10px] font-bold leading-4 text-red-700"
+                                x-text="previewError"></p>
+                        </div>
                     </div>
 
                     <div x-ref="previewContainer">

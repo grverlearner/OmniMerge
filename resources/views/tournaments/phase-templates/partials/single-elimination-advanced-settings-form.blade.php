@@ -47,12 +47,19 @@
                         class="mt-0.5 border-slate-300 text-amber-600 focus:ring-amber-500">
 
                     <span>
-                        <span class="block text-sm font-black text-slate-900">
-                            Básico
+                        <span class="flex flex-wrap items-center gap-2">
+                            <span class="block text-sm font-black text-slate-900">
+                                Básico
+                            </span>
+
+                            <span
+                                class="rounded-full bg-emerald-100 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-emerald-700">
+                                Stable V1 · Disponible
+                            </span>
                         </span>
 
                         <span class="mt-1 block text-[11px] leading-5 text-slate-500">
-                            Conserva el bracket clásico: duelos 2 → 1 y objetivos potencia de 2.
+                            Contrato estable: POOL · Automático · Duelo 2 → 1 · sobrantes por BYE o Rechazar.
                         </span>
                     </span>
                 </span>
@@ -67,16 +74,40 @@
                         class="mt-0.5 border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500">
 
                     <span>
-                        <span class="block text-sm font-black text-slate-900">
-                            Avanzado
+                        <span class="flex flex-wrap items-center gap-2">
+                            <span class="block text-sm font-black text-slate-900">
+                                Avanzado
+                            </span>
+
+                            <span
+                                class="rounded-full bg-fuchsia-100 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-fuchsia-700">
+                                Structure Graph
+                            </span>
                         </span>
 
                         <span class="mt-1 block text-[11px] leading-5 text-slate-500">
-                            Habilita formatos K → Q, perfiles múltiples y políticas de sobrantes.
+                            Habilita K → Q, multicompetidor y políticas avanzadas. Las capacidades manuales o personalizadas no ejecutables se marcan como Próximamente.
                         </span>
                     </span>
                 </span>
             </label>
+        </div>
+
+        <div class="mt-4 grid gap-2 sm:grid-cols-3">
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                <p class="text-[8px] font-black uppercase tracking-wider text-emerald-700">BASIC Stable V1</p>
+                <p class="mt-1 text-[10px] font-bold text-emerald-900">Disponible y ejecutable</p>
+            </div>
+
+            <div class="rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-3 py-2">
+                <p class="text-[8px] font-black uppercase tracking-wider text-fuchsia-700">ADVANCED</p>
+                <p class="mt-1 text-[10px] font-bold text-fuchsia-900">Disponible con Structure Graph</p>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p class="text-[8px] font-black uppercase tracking-wider text-slate-500">Manual / Custom</p>
+                <p class="mt-1 text-[10px] font-bold text-slate-700">Próximamente cuando no exista runtime</p>
+            </div>
         </div>
 
         <x-input-error :messages="$errors->get('configuration_mode')" class="mt-3" />
@@ -152,8 +183,10 @@
                         Multicompetidor
                     </option>
 
-                    <option value="CUSTOM">
-                        Personalizado · requiere estructura
+                    <option value="CUSTOM"
+                        @disabled(old('encounter_profile', $settings->encounter_profile) !== 'CUSTOM')
+                        :disabled="draft.encounterProfile !== 'CUSTOM'">
+                        Personalizado · Próximamente · no ejecutable
                     </option>
                 </select>
 
@@ -185,8 +218,10 @@
                         Encuentro incompleto
                     </option>
 
-                    <option value="MANUAL">
-                        Resolución manual · requiere estructura
+                    <option value="MANUAL"
+                        @disabled(old('remainder_policy', $settings->remainder_policy) !== 'MANUAL')
+                        :disabled="draft.remainderPolicy !== 'MANUAL'">
+                        Resolución manual · Próximamente · no ejecutable
                     </option>
 
                     <option value="REJECT">
@@ -223,8 +258,9 @@
                     </option>
 
                     <option value="CUSTOM"
-                        @disabled(old('input_mode', $settings->input_mode) !== 'CUSTOM')>
-                        Personalizada · Próximamente
+                        @disabled(old('input_mode', $settings->input_mode) !== 'CUSTOM')
+                        :disabled="draft.inputMode !== 'CUSTOM'">
+                        Personalizada · Próximamente · no ejecutable
                     </option>
                 </select>
 
@@ -246,12 +282,16 @@
                         Por posición
                     </option>
 
-                    <option value="MANUAL">
-                        Manual · requiere constructor
+                    <option value="MANUAL"
+                        @disabled(old('routing_mode', $settings->routing_mode) !== 'MANUAL')
+                        :disabled="draft.routingMode !== 'MANUAL'">
+                        Manual · Próximamente · no ejecutable
                     </option>
 
-                    <option value="CUSTOM">
-                        Personalizado · requiere constructor
+                    <option value="CUSTOM"
+                        @disabled(old('routing_mode', $settings->routing_mode) !== 'CUSTOM')
+                        :disabled="draft.routingMode !== 'CUSTOM'">
+                        Personalizado · Próximamente · no ejecutable
                     </option>
                 </select>
 
@@ -263,28 +303,47 @@
             x-show="draft.encounterProfile === 'CUSTOM' || draft.remainderPolicy === 'MANUAL' || draft.inputMode === 'CUSTOM' || draft.routingMode === 'MANUAL' || draft.routingMode === 'CUSTOM'"
             class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div class="flex items-start gap-3">
-                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-black text-amber-700">!</span>
+                <span
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-black text-amber-700">!</span>
+
                 <div>
-                    <p class="text-xs font-black text-amber-900">Requiere completar la estructura</p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <p class="text-xs font-black text-amber-900">
+                            Capacidad no ejecutable en Stable V1
+                        </p>
+
+                        <span
+                            class="rounded-full bg-slate-900 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-white">
+                            Próximamente
+                        </span>
+                    </div>
+
                     <p class="mt-1 text-[10px] leading-5 text-amber-800">
-                        La opción se guardará, pero la fase no estará lista para ejecutarse hasta que construyas
-                        sus etapas, encuentros, conexiones y puertas en la sección Estructura.
+                        Este valor solo permanece disponible cuando ya existe en una configuración heredada,
+                        para que puedas visualizarlo y corregirlo. Construir la estructura no basta para volverlo
+                        ejecutable: selecciona una alternativa disponible antes de ejecutar la fase.
                     </p>
-                    <a href="{{ route('tournaments.single-elimination.structure.show', [
-                        'phaseTemplate' => $phaseTemplate,
-                        'workspace' => 'CUSTOM',
-                    ]) }}"
-                        class="mt-3 inline-flex text-[10px] font-black text-amber-900 underline decoration-amber-400 underline-offset-4">
-                        Abrir constructor personalizado →
-                    </a>
                 </div>
             </div>
         </div>
 
+        <div x-cloak
+            x-show="draft.inputMode === 'GROUPED' || draft.inputMode === 'HYBRID'"
+            class="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+            <p class="text-xs font-black text-indigo-900">
+                Requiere revisión en Structure Graph
+            </p>
+
+            <p class="mt-1 text-[10px] leading-5 text-indigo-700">
+                Las entradas agrupadas o híbridas generan una puerta estructural provisional.
+                Antes de ejecutar debes revisar cómo se alimentan sus slots dentro de Estructura.
+            </p>
+        </div>
+
         <div class="mt-4 rounded-2xl border border-fuchsia-100 bg-white p-4 text-xs leading-5 text-slate-500">
-            La configuración automática puede generar la estructura desde estas reglas.
-            Si seleccionas entrada o enrutamiento manual, deberás completar etapas,
-            encuentros, conexiones y slots desde la sección Estructura antes de probarla.
+            El modo avanzado puede generar una base estructural desde estas reglas.
+            Los avisos del Preview indican si la definición actual es completa, requiere revisión
+            o depende de una capacidad que todavía no tiene runtime estable.
         </div>
     </div>
 </section>

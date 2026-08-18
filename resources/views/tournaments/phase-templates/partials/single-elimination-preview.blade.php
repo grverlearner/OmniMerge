@@ -18,23 +18,27 @@
                 </p>
             </div>
 
-            @if ($preview['valid'] && ($preview['complete'] ?? true))
+            @if (
+                $preview['valid']
+                && ($preview['complete'] ?? true)
+                && empty($preview['warnings'] ?? [])
+            )
                 <span
                     class="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-400/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-300">
                     <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
-                    Configuración válida
+                    Vista previa válida
                 </span>
             @elseif ($preview['valid'])
                 <span
                     class="inline-flex w-fit items-center gap-2 rounded-full bg-amber-400/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-amber-300">
                     <span class="h-2 w-2 rounded-full bg-amber-400"></span>
-                    Definición parcial
+                    Vista previa con advertencias
                 </span>
             @else
                 <span
                     class="inline-flex w-fit items-center gap-2 rounded-full bg-red-400/15 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-red-300">
                     <span class="h-2 w-2 rounded-full bg-red-400"></span>
-                    Requiere revisión
+                    Configuración incompatible
                 </span>
             @endif
         </div>
@@ -72,7 +76,7 @@
     @if (!empty($preview['warnings']))
         <div class="border-b border-amber-100 bg-amber-50 p-5">
             <p class="text-[10px] font-black uppercase tracking-wider text-amber-700">
-                Avisos de la definición
+                Advertencias de la vista previa
             </p>
 
             @foreach ($preview['warnings'] as $warning)
