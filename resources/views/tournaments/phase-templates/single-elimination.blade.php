@@ -5,6 +5,7 @@
 
     <div x-data="singleEliminationWorkspace({
         initialView: 'summary',
+        phaseName: @js($phaseTemplate->name),
         previewUrl: @js(route('tournaments.single-elimination.preview', $phaseTemplate)),
         previewParticipants: @js((int) $previewParticipants),
         hasErrors: @js($errors->any()),

@@ -125,6 +125,19 @@ export default function singleEliminationWorkspace(
         beforeUnloadHandler:
             null,
 
+        navigationClickHandler:
+            null,
+
+        navigationConfirmationOpen:
+            false,
+
+        intentionalNavigation:
+            false,
+
+        phaseName:
+            configuration.phaseName
+            || 'Eliminación Simple',
+
         init() {
             this.$nextTick(
                 () => {
@@ -148,6 +161,8 @@ export default function singleEliminationWorkspace(
                         !this.dirty
                         ||
                         this.submitting
+                        ||
+                        this.intentionalNavigation
                     ) {
                         return;
                     }
@@ -156,10 +171,266 @@ export default function singleEliminationWorkspace(
                     event.returnValue = '';
                 };
 
+            this.navigationClickHandler =
+                (event) => {
+                    this.handleNavigationClick(
+                        event
+                    );
+                };
+
             window.addEventListener(
                 'beforeunload',
                 this.beforeUnloadHandler
             );
+
+            document.addEventListener(
+                'click',
+                this.navigationClickHandler,
+                true
+            );
+        },
+
+        destroy() {
+            if (this.beforeUnloadHandler) {
+                window.removeEventListener(
+                    'beforeunload',
+                    this.beforeUnloadHandler
+                );
+            }
+
+            if (this.navigationClickHandler) {
+                document.removeEventListener(
+                    'click',
+                    this.navigationClickHandler,
+                    true
+                );
+            }
+
+            this.stopPendingPreview();
+        },
+
+        navigationDestination(event) {
+            if (
+                event.defaultPrevented
+                ||
+                event.button !== 0
+                ||
+                event.ctrlKey
+                ||
+                event.metaKey
+                ||
+                event.shiftKey
+                ||
+                event.altKey
+            ) {
+                return null;
+            }
+
+            const eventTarget =
+                event.target
+                instanceof Element
+                    ? event.target
+                    : null;
+
+            const anchor =
+                eventTarget
+                    ?.closest(
+                        'a[href]'
+                    )
+                ?? null;
+
+            if (!anchor) {
+                return null;
+            }
+
+            if (
+                anchor.hasAttribute(
+                    'download'
+                )
+                ||
+                anchor.hasAttribute(
+                    'data-omni-unsaved-ignore'
+                )
+            ) {
+                return null;
+            }
+
+            const target =
+                (
+                    anchor.getAttribute(
+                        'target'
+                    )
+                    || ''
+                )
+                    .trim()
+                    .toLowerCase();
+
+            if (
+                target
+                &&
+                target !== '_self'
+            ) {
+                return null;
+            }
+
+            let destination;
+
+            try {
+                destination =
+                    new URL(
+                        anchor.href,
+                        window.location.href
+                    );
+            } catch {
+                return null;
+            }
+
+            if (
+                ![
+                    'http:',
+                    'https:',
+                ].includes(
+                    destination.protocol
+                )
+                ||
+                destination.origin
+                !==
+                window.location.origin
+            ) {
+                return null;
+            }
+
+            const current =
+                new URL(
+                    window.location.href
+                );
+
+            /*
+             * Un cambio únicamente de hash permanece dentro
+             * del mismo documento y no pierde el formulario.
+             */
+            if (
+                destination.pathname
+                ===
+                current.pathname
+                &&
+                destination.search
+                ===
+                current.search
+            ) {
+                return null;
+            }
+
+            return destination.href;
+        },
+
+        handleNavigationClick(event) {
+            if (
+                !this.dirty
+                ||
+                this.submitting
+                ||
+                this.intentionalNavigation
+            ) {
+                return;
+            }
+
+            const destination =
+                this.navigationDestination(
+                    event
+                );
+
+            if (!destination) {
+                return;
+            }
+
+            /*
+             * preventDefault debe ocurrir antes del await.
+             * Así el navegador nunca abandona la página
+             * mientras OmniConfirm está esperando respuesta.
+             */
+            event.preventDefault();
+
+            if (
+                this.navigationConfirmationOpen
+            ) {
+                return;
+            }
+
+            void this.confirmNavigation(
+                destination
+            );
+        },
+
+        async confirmNavigation(
+            destination
+        ) {
+            if (
+                this.navigationConfirmationOpen
+                ||
+                !destination
+            ) {
+                return;
+            }
+
+            this.navigationConfirmationOpen =
+                true;
+
+            try {
+                const accepted =
+                    await window
+                        .OmniConfirm
+                        ?.request?.({
+                            title:
+                                'Cambios sin guardar',
+
+                            message:
+                                'Tienes cambios en las reglas que todavía no se han guardado.',
+
+                            detail:
+                                'Si sales ahora, OmniMerge descartará los cambios locales de esta pantalla.',
+
+                            subject:
+                                this.phaseName,
+
+                            actionLabel:
+                                'Descartar y salir',
+
+                            cancelLabel:
+                                'Seguir editando',
+
+                            variant:
+                                'warning',
+
+                            icon:
+                                '!',
+                        });
+
+                if (!accepted) {
+                    return;
+                }
+
+                this.intentionalNavigation =
+                    true;
+
+                this.stopPendingPreview();
+
+                window.location.assign(
+                    destination
+                );
+            } finally {
+                /*
+                 * Si la navegación fue aceptada dejamos el flag
+                 * activo hasta que el documento se descargue.
+                 * Así beforeunload no abre un segundo diálogo.
+                 */
+                if (
+                    !this.intentionalNavigation
+                ) {
+                    this.navigationConfirmationOpen =
+                        false;
+                }
+            }
         },
 
         settingsForm() {
@@ -213,6 +484,10 @@ export default function singleEliminationWorkspace(
             this.syncDraft();
 
             this.dirty =
+                Boolean(
+                    configuration.hasErrors
+                )
+                ||
                 this.formSnapshot()
                 !==
                 this.initialSnapshot;
@@ -369,7 +644,7 @@ export default function singleEliminationWorkspace(
             form.requestSubmit();
         },
 
-        discardSettings() {
+        async discardSettings() {
             const form =
                 this.settingsForm();
 
@@ -377,7 +652,77 @@ export default function singleEliminationWorkspace(
                 !form
                 ||
                 this.submitting
+                ||
+                !this.dirty
+                ||
+                this.navigationConfirmationOpen
             ) {
+                return;
+            }
+
+            this.navigationConfirmationOpen =
+                true;
+
+            let accepted =
+                false;
+
+            try {
+                accepted =
+                    Boolean(
+                        await window
+                            .OmniConfirm
+                            ?.request?.({
+                                title:
+                                    'Descartar cambios',
+
+                                message:
+                                    '¿Quieres recuperar la última configuración guardada?',
+
+                                detail:
+                                    'Los cambios locales realizados en las reglas de esta pantalla se perderán.',
+
+                                subject:
+                                    this.phaseName,
+
+                                actionLabel:
+                                    'Descartar cambios',
+
+                                cancelLabel:
+                                    'Seguir editando',
+
+                                variant:
+                                    'warning',
+
+                                icon:
+                                    '↺',
+                            })
+                    );
+            } finally {
+                this.navigationConfirmationOpen =
+                    false;
+            }
+
+            if (!accepted) {
+                return;
+            }
+
+            /*
+             * Tras una validación fallida, Laravel renderiza old()
+             * como valores por defecto del formulario. Un form.reset()
+             * volvería justamente a esos valores rechazados, no a lo
+             * persistido. Recargar el GET limpia ese estado y recupera
+             * la configuración realmente guardada.
+             */
+            if (
+                configuration.hasErrors
+            ) {
+                this.intentionalNavigation =
+                    true;
+
+                this.stopPendingPreview();
+
+                window.location.reload();
+
                 return;
             }
 
@@ -407,6 +752,21 @@ export default function singleEliminationWorkspace(
                     this.schedulePreview(0);
                 }
             );
+        },
+
+        stopPendingPreview() {
+            window.clearTimeout(
+                this.previewTimer
+            );
+
+            this.previewTimer =
+                null;
+
+            this.previewController
+                ?.abort();
+
+            this.previewController =
+                null;
         },
 
         schedulePreview(delay = 400) {
