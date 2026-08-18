@@ -193,12 +193,46 @@
                                                             : 'i'
                                                 "></span>
 
-                                            <div>
-                                                <p class="font-mono text-[8px] font-bold text-slate-400"
-                                                    x-text="issue.code"></p>
+                                            <div class="min-w-0">
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <p class="text-[10px] font-black text-slate-900"
+                                                        x-text="issue.title || severityLabel(issue.severity)"></p>
+
+                                                    <p class="font-mono text-[8px] font-bold text-slate-400"
+                                                        x-text="issue.code"></p>
+                                                </div>
 
                                                 <p class="mt-1 text-[11px] font-bold leading-5 text-slate-700"
                                                     x-text="issue.message"></p>
+
+                                                <div class="mt-3 space-y-2">
+                                                    <div x-show="issue.element"
+                                                        class="rounded-xl bg-white/70 px-3 py-2">
+                                                        <p class="text-[8px] font-black uppercase tracking-wider text-slate-400">
+                                                            Elemento
+                                                        </p>
+                                                        <p class="mt-1 text-[10px] font-bold text-slate-700"
+                                                            x-text="issue.element"></p>
+                                                    </div>
+
+                                                    <div x-show="issue.impact"
+                                                        class="rounded-xl bg-white/70 px-3 py-2">
+                                                        <p class="text-[8px] font-black uppercase tracking-wider text-slate-400">
+                                                            Impacto
+                                                        </p>
+                                                        <p class="mt-1 text-[10px] leading-4 text-slate-600"
+                                                            x-text="issue.impact"></p>
+                                                    </div>
+
+                                                    <div x-show="issue.action"
+                                                        class="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                                                        <p class="text-[8px] font-black uppercase tracking-wider text-violet-500">
+                                                            Qué hacer
+                                                        </p>
+                                                        <p class="mt-1 text-[10px] font-bold leading-4 text-slate-700"
+                                                            x-text="issue.action"></p>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -485,16 +519,29 @@
                                         x-text="issue.code"></span>
                                 </div>
 
-                                <p class="mt-1 text-xs font-bold leading-5 text-slate-700" x-text="issue.message"></p>
+                                <p class="mt-1 text-xs font-black leading-5 text-slate-800"
+                                    x-text="issue.title || issue.message"></p>
 
-                                <p class="mt-2 truncate text-[9px] font-black text-slate-500"
-                                    x-text="issue.entity_label"></p>
+                                <p class="mt-1 text-[10px] leading-4 text-slate-600"
+                                    x-text="issue.message"></p>
+
+                                <p class="mt-2 text-[9px] font-black text-slate-500"
+                                    x-text="issue.element || issue.entity_label"></p>
+
+                                <div x-show="issue.action"
+                                    class="mt-3 rounded-xl border border-white/80 bg-white/70 px-3 py-2">
+                                    <p class="text-[8px] font-black uppercase tracking-wider text-violet-500">
+                                        Siguiente acción
+                                    </p>
+                                    <p class="mt-1 text-[9px] font-bold leading-4 text-slate-700"
+                                        x-text="issue.action"></p>
+                                </div>
                             </div>
                         </div>
                     </button>
                 </template>
 
-                <div x-show="payload.issues.length === 0"
+                <div x-show="payload.issues.length === 0 && payload.structure.status === 'VALID'"
                     class="rounded-3xl border border-emerald-200 bg-emerald-50 p-8 text-center">
                     <span
                         class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-lg font-black text-emerald-700">
@@ -506,8 +553,24 @@
                     </p>
 
                     <p class="mt-1 text-xs text-emerald-700">
-                        El grafo no tiene errores, advertencias ni recomendaciones.
+                        El snapshot validado no tiene errores, advertencias ni recomendaciones.
                     </p>
+                </div>
+
+                <div x-show="payload.issues.length === 0 && payload.structure.status !== 'VALID'"
+                    class="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center">
+                    <span
+                        class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-200 text-lg font-black text-slate-600">
+                        ◇
+                    </span>
+
+                    <p class="mt-3 font-black text-slate-900"
+                        x-text="payload.structure.status_label"></p>
+
+                    <p class="mt-1 text-xs leading-5 text-slate-500"
+                        x-text="payload.structure.status === 'NOT_GENERATED'
+                            ? 'No existe estructura todavía. Genera el grafo antes de buscar problemas.'
+                            : 'No hay issues listados, pero el estado actual todavía no habilita el runtime.'"></p>
                 </div>
             </div>
         </aside>

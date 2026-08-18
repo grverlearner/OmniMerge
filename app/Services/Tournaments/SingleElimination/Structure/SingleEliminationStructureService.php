@@ -24,6 +24,9 @@ class SingleEliminationStructureService
         SingleEliminationStructureFingerprint $fingerprint,
 
         private readonly
+        SingleEliminationStructureStatusResolver $statusResolver,
+
+        private readonly
         SingleEliminationSettingsService $settingsService,
 
         private readonly
@@ -122,42 +125,42 @@ class SingleEliminationStructureService
                         $phaseTemplate->fresh()
                     );
 
-                $structureStatus =
-                    ! ($validation['valid'] ?? false)
-                    ? 'INVALID'
-                    : (
-                        ! ($validation['executable'] ?? false)
-                        ? 'BLOCKED'
-                        : 'VALID'
+                $validation =
+                    $this->statusResolver
+                    ->afterValidation(
+                        $validation,
+                        $settings->structure_status,
+                        $fingerprint
                     );
 
+                $hasStructure =
+                    (bool)
+                    $validation['has_structure'];
+
+                /*
+                 * Validar una fase todavía vacía no debe convertir
+                 * NOT_GENERATED en INVALID. Se conserva el ciclo de
+                 * vida real y tampoco se crea un fingerprint "válido"
+                 * para una estructura que aún no existe.
+                 */
                 $settings->update([
                     'structure_status' =>
-                    $structureStatus,
+                    $validation[
+                        'structure_status'
+                    ],
 
                     'structure_fingerprint' =>
-                    $fingerprint,
+                    $hasStructure
+                        ? $fingerprint
+                        : null,
 
                     'structure_validated_at' =>
-                    now(),
+                    $hasStructure
+                        ? now()
+                        : null,
                 ]);
 
-                return array_merge(
-                    $validation,
-                    [
-                        'structure_status' =>
-                        $structureStatus,
-
-                        'fingerprint' =>
-                        $fingerprint,
-
-                        'fingerprint_matches' =>
-                        true,
-
-                        'runtime_ready' =>
-                        $structureStatus === 'VALID',
-                    ]
-                );
+                return $validation;
             }
         );
     }
@@ -251,38 +254,14 @@ class SingleEliminationStructureService
         $freshSettings =
             $settings->fresh();
 
-        $storedFingerprint =
-            (string) (
-                $freshSettings->structure_fingerprint
-                ??
-                ''
-            );
-
-        $fingerprintMatches =
-            $storedFingerprint !== ''
-            &&
-            hash_equals(
-                $storedFingerprint,
+        $validation =
+            $this->statusResolver
+            ->forPayload(
+                $validation,
+                $freshSettings->structure_status,
+                $freshSettings->structure_fingerprint,
                 $currentFingerprint
             );
-
-        $validation['structure_status'] =
-            $freshSettings->structure_status;
-
-        $validation['fingerprint'] =
-            $currentFingerprint;
-
-        $validation['fingerprint_matches'] =
-            $fingerprintMatches;
-
-        $validation['runtime_ready'] =
-            $freshSettings->structure_status === 'VALID'
-            &&
-            ($validation['valid'] ?? false)
-            &&
-            ($validation['executable'] ?? false)
-            &&
-            $fingerprintMatches;
 
         $visualizer =
             $this->presenter

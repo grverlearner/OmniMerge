@@ -324,7 +324,7 @@ class PhaseSingleEliminationSetting extends Model
             'Pendiente de validación',
 
             'VALID' =>
-            'Lista para probar',
+            'Lista para ejecutar',
 
             'INVALID' =>
             'Requiere correcciones',

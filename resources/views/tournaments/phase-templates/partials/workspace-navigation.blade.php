@@ -15,12 +15,24 @@
             ? $phaseTemplate->singleEliminationSetting
             : null);
 
-    $structureStatus = $workspaceSettings?->structure_status;
+    $structureStatus = isset($validation)
+        ? data_get(
+            $validation,
+            'structure_status',
+            $workspaceSettings?->structure_status
+        )
+        : $workspaceSettings?->structure_status;
+
     $validationErrors = isset($validation)
         ? (int) data_get($validation, 'counts.errors', 0)
         : 0;
+
     $isExecutable = isset($validation)
-        ? (bool) data_get($validation, 'executable', false)
+        ? (bool) data_get(
+            $validation,
+            'runtime_ready',
+            false
+        )
         : null;
 
     [$readinessLabel, $readinessClasses, $readinessDot] = match (true) {
@@ -39,13 +51,18 @@
             'border-amber-200 bg-amber-50 text-amber-700',
             'bg-amber-500',
         ],
-        $structureStatus === 'VALID' && $isExecutable === false => [
+        $structureStatus === 'BLOCKED' => [
             'Válida, no ejecutable',
+            'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700',
+            'bg-fuchsia-500',
+        ],
+        $structureStatus === 'VALID' && $isExecutable === false => [
+            'Requiere revalidación',
             'border-amber-200 bg-amber-50 text-amber-700',
             'bg-amber-500',
         ],
         $structureStatus === 'VALID' => [
-            'Lista para probar',
+            'Lista para ejecutar',
             'border-emerald-200 bg-emerald-50 text-emerald-700',
             'bg-emerald-500',
         ],

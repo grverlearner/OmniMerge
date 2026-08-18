@@ -161,18 +161,20 @@ class SingleEliminationStructureController extends Controller
         $validation =
             $result['validation'];
 
+        [$flashType, $message] =
+            $this->statusFeedback(
+                $validation,
+                'GENERATE'
+            );
+
         return redirect()
             ->route(
                 'tournaments.single-elimination.structure.show',
                 $phaseTemplate
             )
             ->with(
-                $validation['valid']
-                    ? 'success'
-                    : 'warning',
-                $validation['valid']
-                    ? 'La estructura interna fue generada y validada correctamente.'
-                    : 'La estructura fue generada, pero necesita correcciones.'
+                $flashType,
+                $message
             );
     }
 
@@ -194,18 +196,20 @@ class SingleEliminationStructureController extends Controller
                 $phaseTemplate
             );
 
+        [$flashType, $message] =
+            $this->statusFeedback(
+                $validation,
+                'VALIDATE'
+            );
+
         return redirect()
             ->route(
                 'tournaments.single-elimination.structure.show',
                 $phaseTemplate
             )
             ->with(
-                $validation['valid']
-                    ? 'success'
-                    : 'warning',
-                $validation['valid']
-                    ? 'El grafo interno es válido.'
-                    : 'El grafo interno contiene errores que deben corregirse.'
+                $flashType,
+                $message
             );
     }
 
@@ -231,6 +235,12 @@ class SingleEliminationStructureController extends Controller
         $validation =
             $result['validation'];
 
+        [$flashType, $message] =
+            $this->statusFeedback(
+                $validation,
+                'UPDATE'
+            );
+
         return redirect()
             ->route(
                 'tournaments.single-elimination.structure.show',
@@ -247,13 +257,64 @@ class SingleEliminationStructureController extends Controller
                 ]
             )
             ->with(
-                $validation['valid']
-                    ? 'success'
-                    : 'warning',
-                $validation['valid']
-                    ? 'El elemento fue actualizado y la estructura continúa siendo válida.'
-                    : 'El elemento fue actualizado, pero la estructura ahora necesita correcciones.'
+                $flashType,
+                $message
             );
+    }
+
+    private function statusFeedback(
+        array $validation,
+        string $action
+    ): array {
+        $status =
+            (string) (
+                $validation['structure_status']
+                ?? 'INVALID'
+            );
+
+        return match ($status) {
+            'VALID' => [
+                'success',
+
+                $action === 'GENERATE'
+                    ? 'La estructura fue generada, validada y está lista para ejecutar.'
+                    : (
+                        $action === 'UPDATE'
+                        ? 'El elemento fue actualizado y la estructura quedó validada y ejecutable.'
+                        : 'El grafo interno está validado y listo para ejecutar.'
+                    ),
+            ],
+
+            'BLOCKED' => [
+                'warning',
+
+                'La estructura es coherente, pero no es ejecutable todavía. Revisa los bloqueos del diagnóstico antes de continuar.',
+            ],
+
+            'NOT_GENERATED' => [
+                'warning',
+
+                'Todavía no existe una estructura interna. Genérala o constrúyela antes de ejecutar la validación.',
+            ],
+
+            'STALE' => [
+                'warning',
+
+                'La estructura está desactualizada respecto del último snapshot validado. Revísala y vuelve a validar o regenerar.',
+            ],
+
+            'GENERATED' => [
+                'warning',
+
+                'La estructura existe, pero está pendiente de validación.',
+            ],
+
+            default => [
+                'warning',
+
+                'La estructura contiene errores que deben corregirse antes de ejecutarla.',
+            ],
+        };
     }
 
     private function ensureCorrectType(

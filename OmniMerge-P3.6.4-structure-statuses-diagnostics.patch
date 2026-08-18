@@ -1,0 +1,1541 @@
+diff --git a/app/Models/PhaseSingleEliminationSetting.php b/app/Models/PhaseSingleEliminationSetting.php
+--- a/app/Models/PhaseSingleEliminationSetting.php
++++ b/app/Models/PhaseSingleEliminationSetting.php
+@@ -300,10 +300,10 @@
+             'GENERATED' =>
+             'Pendiente de validación',
+ 
+             'VALID' =>
+-            'Lista para probar',
++            'Lista para ejecutar',
+ 
+             'INVALID' =>
+             'Requiere correcciones',
+ 
+             'BLOCKED' =>
+diff --git a/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureService.php b/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureService.php
+--- a/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureService.php
++++ b/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureService.php
+@@ -20,5 +20,8 @@
+         private readonly
+         SingleEliminationStructureFingerprint $fingerprint,
+ 
+         private readonly
++        SingleEliminationStructureStatusResolver $statusResolver,
++
++        private readonly
+         SingleEliminationSettingsService $settingsService,
+@@ -96,72 +99,72 @@
+     public function validateAndPersist(
+         PhaseTemplate $phaseTemplate
+     ): array {
+         return DB::transaction(
+             function () use (
+                 $phaseTemplate
+             ) {
+                 $settings =
+                     $this->settingsService
+                     ->ensure(
+                         $phaseTemplate
+                     );
+ 
+                 $validation =
+                     $this->executionPolicy
+                     ->apply(
+                         $this->validator
+                         ->validate(
+                             $phaseTemplate
+                         )
+                     );
+ 
+                 $fingerprint =
+                     $this->fingerprint
+                     ->forPhase(
+                         $phaseTemplate->fresh()
+                     );
+ 
+-                $structureStatus =
+-                    ! ($validation['valid'] ?? false)
+-                    ? 'INVALID'
+-                    : (
+-                        ! ($validation['executable'] ?? false)
+-                        ? 'BLOCKED'
+-                        : 'VALID'
++                $validation =
++                    $this->statusResolver
++                    ->afterValidation(
++                        $validation,
++                        $settings->structure_status,
++                        $fingerprint
+                     );
+ 
++                $hasStructure =
++                    (bool)
++                    $validation['has_structure'];
++
++                /*
++                 * Validar una fase todavía vacía no debe convertir
++                 * NOT_GENERATED en INVALID. Se conserva el ciclo de
++                 * vida real y tampoco se crea un fingerprint "válido"
++                 * para una estructura que aún no existe.
++                 */
+                 $settings->update([
+                     'structure_status' =>
+-                    $structureStatus,
++                    $validation[
++                        'structure_status'
++                    ],
+ 
+                     'structure_fingerprint' =>
+-                    $fingerprint,
++                    $hasStructure
++                        ? $fingerprint
++                        : null,
+ 
+                     'structure_validated_at' =>
+-                    now(),
++                    $hasStructure
++                        ? now()
++                        : null,
+                 ]);
+ 
+-                return array_merge(
+-                    $validation,
+-                    [
+-                        'structure_status' =>
+-                        $structureStatus,
+-
+-                        'fingerprint' =>
+-                        $fingerprint,
+-
+-                        'fingerprint_matches' =>
+-                        true,
+-
+-                        'runtime_ready' =>
+-                        $structureStatus === 'VALID',
+-                    ]
+-                );
++                return $validation;
+             }
+         );
+     }
+ 
+     /*
+     |--------------------------------------------------------------------------
+     | Edición segura desde el inspector
+     |--------------------------------------------------------------------------
+@@ -219,34 +222,10 @@
+-        $storedFingerprint =
+-            (string) (
+-                $freshSettings->structure_fingerprint
+-                ??
+-                ''
+-            );
+-
+-        $fingerprintMatches =
+-            $storedFingerprint !== ''
+-            &&
+-            hash_equals(
+-                $storedFingerprint,
++        $validation =
++            $this->statusResolver
++            ->forPayload(
++                $validation,
++                $freshSettings->structure_status,
++                $freshSettings->structure_fingerprint,
+                 $currentFingerprint
+             );
+ 
+-        $validation['structure_status'] =
+-            $freshSettings->structure_status;
+-
+-        $validation['fingerprint'] =
+-            $currentFingerprint;
+-
+-        $validation['fingerprint_matches'] =
+-            $fingerprintMatches;
+-
+-        $validation['runtime_ready'] =
+-            $freshSettings->structure_status === 'VALID'
+-            &&
+-            ($validation['valid'] ?? false)
+-            &&
+-            ($validation['executable'] ?? false)
+-            &&
+-            $fingerprintMatches;
+-
+         $visualizer =
+diff --git a/app/Http/Controllers/Tournaments/SingleEliminationStructureController.php b/app/Http/Controllers/Tournaments/SingleEliminationStructureController.php
+--- a/app/Http/Controllers/Tournaments/SingleEliminationStructureController.php
++++ b/app/Http/Controllers/Tournaments/SingleEliminationStructureController.php
+@@ -146,16 +146,18 @@
+         $validation =
+             $result['validation'];
++
++        [$flashType, $message] =
++            $this->statusFeedback(
++                $validation,
++                'GENERATE'
++            );
+ 
+         return redirect()
+             ->route(
+                 'tournaments.single-elimination.structure.show',
+                 $phaseTemplate
+             )
+             ->with(
+-                $validation['valid']
+-                    ? 'success'
+-                    : 'warning',
+-                $validation['valid']
+-                    ? 'La estructura interna fue generada y validada correctamente.'
+-                    : 'La estructura fue generada, pero necesita correcciones.'
++                $flashType,
++                $message
+             );
+@@ -181,13 +183,15 @@
++        [$flashType, $message] =
++            $this->statusFeedback(
++                $validation,
++                'VALIDATE'
++            );
++
+         return redirect()
+             ->route(
+                 'tournaments.single-elimination.structure.show',
+                 $phaseTemplate
+             )
+             ->with(
+-                $validation['valid']
+-                    ? 'success'
+-                    : 'warning',
+-                $validation['valid']
+-                    ? 'El grafo interno es válido.'
+-                    : 'El grafo interno contiene errores que deben corregirse.'
++                $flashType,
++                $message
+             );
+@@ -220,4 +224,10 @@
+         $validation =
+             $result['validation'];
+ 
++        [$flashType, $message] =
++            $this->statusFeedback(
++                $validation,
++                'UPDATE'
++            );
++
+         return redirect()
+@@ -244,11 +254,62 @@
+             ->with(
+-                $validation['valid']
+-                    ? 'success'
+-                    : 'warning',
+-                $validation['valid']
+-                    ? 'El elemento fue actualizado y la estructura continúa siendo válida.'
+-                    : 'El elemento fue actualizado, pero la estructura ahora necesita correcciones.'
++                $flashType,
++                $message
+             );
+     }
+ 
++    private function statusFeedback(
++        array $validation,
++        string $action
++    ): array {
++        $status =
++            (string) (
++                $validation['structure_status']
++                ?? 'INVALID'
++            );
++
++        return match ($status) {
++            'VALID' => [
++                'success',
++
++                $action === 'GENERATE'
++                    ? 'La estructura fue generada, validada y está lista para ejecutar.'
++                    : (
++                        $action === 'UPDATE'
++                        ? 'El elemento fue actualizado y la estructura quedó validada y ejecutable.'
++                        : 'El grafo interno está validado y listo para ejecutar.'
++                    ),
++            ],
++
++            'BLOCKED' => [
++                'warning',
++
++                'La estructura es coherente, pero no es ejecutable todavía. Revisa los bloqueos del diagnóstico antes de continuar.',
++            ],
++
++            'NOT_GENERATED' => [
++                'warning',
++
++                'Todavía no existe una estructura interna. Genérala o constrúyela antes de ejecutar la validación.',
++            ],
++
++            'STALE' => [
++                'warning',
++
++                'La estructura está desactualizada respecto del último snapshot validado. Revísala y vuelve a validar o regenerar.',
++            ],
++
++            'GENERATED' => [
++                'warning',
++
++                'La estructura existe, pero está pendiente de validación.',
++            ],
++
++            default => [
++                'warning',
++
++                'La estructura contiene errores que deben corregirse antes de ejecutarla.',
++            ],
++        };
++    }
++
+     private function ensureCorrectType(
+diff --git a/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructurePresenter.php b/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructurePresenter.php
+--- a/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructurePresenter.php
++++ b/app/Services/Tournaments/SingleElimination/Visualization/SingleEliminationStructurePresenter.php
+@@ -108,10 +108,22 @@
+             'structure' => [
+                 'status' =>
+-                $settings->structure_status
++                $validation['structure_status']
++                    ??
++                    $settings->structure_status
+                     ??
+                     'NOT_GENERATED',
+ 
+                 'status_label' =>
+-                $settings->structure_status_label,
++                data_get(
++                    $validation,
++                    'status.label',
++                    $settings->structure_status_label
++                ),
++
++                'runtime_ready' =>
++                (bool) (
++                    $validation['runtime_ready']
++                    ?? false
++                ),
+ 
+                 'version' =>
+@@ -153,3 +165,12 @@
+                 'executable' =>
+-                (bool) $validation['executable'],
++                (bool) (
++                    $validation['runtime_ready']
++                    ?? false
++                ),
++
++                'structurally_executable' =>
++                (bool) (
++                    $validation['executable']
++                    ?? false
++                ),
+             ],
+diff --git a/resources/views/tournaments/phase-templates/partials/workspace-navigation.blade.php b/resources/views/tournaments/phase-templates/partials/workspace-navigation.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/workspace-navigation.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/workspace-navigation.blade.php
+@@ -18,7 +18,19 @@
+-    $structureStatus = $workspaceSettings?->structure_status;
++    $structureStatus = isset($validation)
++        ? data_get(
++            $validation,
++            'structure_status',
++            $workspaceSettings?->structure_status
++        )
++        : $workspaceSettings?->structure_status;
++
+     $validationErrors = isset($validation)
+         ? (int) data_get($validation, 'counts.errors', 0)
+         : 0;
++
+     $isExecutable = isset($validation)
+-        ? (bool) data_get($validation, 'executable', false)
++        ? (bool) data_get(
++            $validation,
++            'runtime_ready',
++            false
++        )
+         : null;
+@@ -44,10 +56,15 @@
++        $structureStatus === 'BLOCKED' => [
++            'Válida, no ejecutable',
++            'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700',
++            'bg-fuchsia-500',
++        ],
+         $structureStatus === 'VALID' && $isExecutable === false => [
+-            'Válida, no ejecutable',
++            'Requiere revalidación',
+             'border-amber-200 bg-amber-50 text-amber-700',
+             'bg-amber-500',
+         ],
+         $structureStatus === 'VALID' => [
+-            'Lista para probar',
++            'Lista para ejecutar',
+             'border-emerald-200 bg-emerald-50 text-emerald-700',
+             'bg-emerald-500',
+         ],
+diff --git a/resources/views/tournaments/phase-templates/single-elimination.blade.php b/resources/views/tournaments/phase-templates/single-elimination.blade.php
+--- a/resources/views/tournaments/phase-templates/single-elimination.blade.php
++++ b/resources/views/tournaments/phase-templates/single-elimination.blade.php
+@@ -128,4 +128,5 @@
+                 'VALID' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                 'INVALID' => 'border-red-200 bg-red-50 text-red-700',
+                 'STALE' => 'border-amber-200 bg-amber-50 text-amber-700',
++                'BLOCKED' => 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700',
+                 'GENERATED' => 'border-indigo-200 bg-indigo-50 text-indigo-700',
+diff --git a/resources/views/tournaments/phase-templates/single-elimination-structure.blade.php b/resources/views/tournaments/phase-templates/single-elimination-structure.blade.php
+--- a/resources/views/tournaments/phase-templates/single-elimination-structure.blade.php
++++ b/resources/views/tournaments/phase-templates/single-elimination-structure.blade.php
+@@ -27,6 +27,46 @@
++        $structureState = $validation['status'] ?? [
++            'code' => $validation['structure_status'] ?? 'NOT_GENERATED',
++            'label' => $settings->structure_status_label,
++            'headline' => 'Estado estructural',
++            'description' => 'Ejecuta la validación para actualizar el diagnóstico.',
++            'action' => 'Revisar estructura',
++            'tone' => 'SLATE',
++        ];
++
++        $structureStatus = $structureState['code'];
++        $hasStructure = (bool) ($validation['has_structure'] ?? $rounds->isNotEmpty());
++        $runtimeReady = (bool) ($validation['runtime_ready'] ?? false);
++
++        [$statusPanelClasses, $statusIconClasses] = match ($structureState['tone'] ?? 'SLATE') {
++            'EMERALD' => [
++                'border-emerald-200 bg-emerald-50 text-emerald-900',
++                'bg-emerald-100 text-emerald-700',
++            ],
++            'RED' => [
++                'border-red-200 bg-red-50 text-red-900',
++                'bg-red-100 text-red-700',
++            ],
++            'AMBER' => [
++                'border-amber-200 bg-amber-50 text-amber-900',
++                'bg-amber-100 text-amber-700',
++            ],
++            'FUCHSIA' => [
++                'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-900',
++                'bg-fuchsia-100 text-fuchsia-700',
++            ],
++            'INDIGO' => [
++                'border-indigo-200 bg-indigo-50 text-indigo-900',
++                'bg-indigo-100 text-indigo-700',
++            ],
++            default => [
++                'border-slate-200 bg-slate-50 text-slate-900',
++                'bg-slate-200 text-slate-700',
++            ],
++        };
++
+         $initialWorkspace = in_array($requestedWorkspace, ['AUTO', 'CUSTOM', 'REVIEW'], true)
+             ? $requestedWorkspace
+             : ($settings->structure_mode === 'MANUAL'
+                 ? 'CUSTOM'
+-                : ($rounds->isNotEmpty() ? 'REVIEW' : 'AUTO'));
++                : ($hasStructure ? 'REVIEW' : 'AUTO'));
+     @endphp
+@@ -139,17 +179,67 @@
+         @if ($errors->any())
+             <div class="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4">
+                 <p class="font-black text-red-900">
+                     No se pudo completar la acción
+                 </p>
+ 
+                 <div class="mt-2 space-y-1">
+                     @foreach ($errors->all() as $error)
+                         <p class="text-xs leading-5 text-red-700">
+                             • {{ $error }}
+                         </p>
+                     @endforeach
+                 </div>
+             </div>
+         @endif
+ 
++        <section class="mt-5 rounded-3xl border p-5 {{ $statusPanelClasses }}">
++            <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
++                <div class="flex items-start gap-3">
++                    <span
++                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-base font-black {{ $statusIconClasses }}">
++                        {{ $runtimeReady ? '✓' : ($structureStatus === 'BLOCKED' ? '!' : '◇') }}
++                    </span>
++
++                    <div>
++                        <div class="flex flex-wrap items-center gap-2">
++                            <span class="rounded-full bg-white/70 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider">
++                                {{ $structureState['label'] }}
++                            </span>
++
++                            @if ($runtimeReady)
++                                <span
++                                    class="rounded-full bg-emerald-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white">
++                                    Runtime ready
++                                </span>
++                            @endif
++                        </div>
++
++                        <h2 class="mt-2 text-base font-black">
++                            {{ $structureState['headline'] }}
++                        </h2>
++
++                        <p class="mt-1 max-w-3xl text-xs leading-5 opacity-80">
++                            {{ $structureState['description'] }}
++                        </p>
++                    </div>
++                </div>
++
++                <div class="shrink-0 text-left lg:text-right">
++                    <p class="text-[9px] font-black uppercase tracking-wider opacity-60">
++                        Siguiente acción
++                    </p>
++
++                    <p class="mt-1 text-xs font-black">
++                        {{ $structureState['action'] }}
++                    </p>
++
++                    @if ($hasStructure && !($validation['fingerprint_matches'] ?? false))
++                        <p class="mt-1 text-[9px] font-bold opacity-70">
++                            Fingerprint pendiente de confirmar
++                        </p>
++                    @endif
++                </div>
++            </div>
++        </section>
++
+         <div x-data="{ workspaceMode: @js($initialWorkspace) }">
+@@ -196,17 +286,17 @@
+                     </button>
+ 
+-                    <button type="button" @click="workspaceMode = 'REVIEW'" @disabled($rounds->isEmpty())
++                    <button type="button" @click="workspaceMode = 'REVIEW'" @disabled(!$hasStructure)
+                         :class="workspaceMode === 'REVIEW'
+                             ? 'border-indigo-300 bg-indigo-50 text-indigo-900 shadow-sm'
+                             : 'border-transparent bg-white text-slate-500 hover:bg-slate-50'"
+                         class="rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-40">
+                         <span class="text-[9px] font-black uppercase tracking-wider text-indigo-600">Revisión</span>
+                         <span class="mt-1 block text-sm font-black">Visualizar y validar</span>
+                         <span class="mt-1 block text-[10px] leading-4 opacity-70">
+-                            {{ $rounds->isEmpty() ? 'Disponible después de crear la estructura.' : 'Inspecciona encuentros, slots y conexiones.' }}
++                            {{ !$hasStructure ? 'Disponible después de crear la estructura.' : 'Inspecciona encuentros, slots y conexiones.' }}
+                         </span>
+                     </button>
+                 </div>
+             </section>
+ 
+         {{-- Generación y validación --}}
+@@ -280,11 +370,11 @@
+                 <div class="mt-5 flex flex-wrap gap-2">
+                     <button type="submit"
+                         class="rounded-xl bg-violet-600 px-5 py-3 text-xs font-black text-white shadow-lg shadow-violet-500/20 transition hover:bg-violet-700">
+-                        {{ ($settings->structure_version ?? 0) > 0 ? 'Regenerar estructura' : 'Generar estructura' }}
++                        {{ $hasStructure ? 'Regenerar estructura' : 'Generar estructura' }}
+                     </button>
+ 
+                     <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
+                         class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-xs font-black text-slate-600 transition hover:bg-slate-50">
+                         Editar reglas
+                     </a>
+                 </div>
+@@ -345,19 +435,25 @@
+                 <button type="button" @click="problemsOpen = true"
+                     class="mt-4 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700 transition hover:border-violet-300 hover:text-violet-700">
+                     Ver diagnóstico
+                 </button>
+ 
+                 <form method="POST"
+                     action="{{ route('tournaments.single-elimination.structure.validate', $phaseTemplate) }}"
+                     class="mt-2">
+                     @csrf
+ 
+-                    <button type="submit"
+-                        class="w-full rounded-xl bg-slate-900 px-4 py-3 text-xs font-black text-white transition hover:bg-slate-800">
+-                        Ejecutar validación
++                    <button type="submit" @disabled(!$hasStructure)
++                        class="w-full rounded-xl bg-slate-900 px-4 py-3 text-xs font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300">
++                        {{ $hasStructure ? 'Ejecutar validación' : 'Genera la estructura primero' }}
+                     </button>
+                 </form>
++
++                @if (!$hasStructure)
++                    <p class="mt-2 text-center text-[9px] font-bold leading-4 text-slate-400">
++                        NOT_GENERATED es un estado inicial, no un error estructural.
++                    </p>
++                @endif
+             </aside>
+         </section>
+ 
+         {{-- Diseñador de grafo personalizado --}}
+@@ -403,13 +499,20 @@
+                 <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+-                    Revisa primero la configuración matemática y después
+-                    utiliza el botón “Generar estructura”.
++                    Este es el estado NOT_GENERATED. No hay errores que reparar:
++                    crea el grafo desde las reglas o empieza una estructura personalizada.
+                 </p>
+ 
+-                <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
+-                    class="mt-5 inline-flex rounded-xl bg-violet-600 px-5 py-3 text-xs font-black text-white shadow-lg shadow-violet-500/20">
+-                    Revisar configuración
+-                </a>
++                <div class="mt-5 flex flex-wrap justify-center gap-2">
++                    <button type="button" @click="workspaceMode = 'AUTO'"
++                        class="inline-flex rounded-xl bg-violet-600 px-5 py-3 text-xs font-black text-white shadow-lg shadow-violet-500/20">
++                        Generar estructura
++                    </button>
++
++                    <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
++                        class="inline-flex rounded-xl border border-violet-200 bg-white px-5 py-3 text-xs font-black text-violet-700">
++                        Revisar reglas
++                    </a>
++                </div>
+             </section>
+         @else
+             {{-- Barra de herramientas --}}
+             @include('tournaments.phase-templates.partials.single-elimination-visualizer-toolbar')
+diff --git a/resources/views/tournaments/phase-templates/partials/single-elimination-visualizer-inspector.blade.php b/resources/views/tournaments/phase-templates/partials/single-elimination-visualizer-inspector.blade.php
+--- a/resources/views/tournaments/phase-templates/partials/single-elimination-visualizer-inspector.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/single-elimination-visualizer-inspector.blade.php
+@@ -224,7 +224,41 @@
+-                                            <div>
+-                                                <p class="font-mono text-[8px] font-bold text-slate-400"
+-                                                    x-text="issue.code"></p>
++                                            <div class="min-w-0">
++                                                <div class="flex flex-wrap items-center gap-2">
++                                                    <p class="text-[10px] font-black text-slate-900"
++                                                        x-text="issue.title || severityLabel(issue.severity)"></p>
++
++                                                    <p class="font-mono text-[8px] font-bold text-slate-400"
++                                                        x-text="issue.code"></p>
++                                                </div>
+ 
+                                                 <p class="mt-1 text-[11px] font-bold leading-5 text-slate-700"
+                                                     x-text="issue.message"></p>
++
++                                                <div class="mt-3 space-y-2">
++                                                    <div x-show="issue.element"
++                                                        class="rounded-xl bg-white/70 px-3 py-2">
++                                                        <p class="text-[8px] font-black uppercase tracking-wider text-slate-400">
++                                                            Elemento
++                                                        </p>
++                                                        <p class="mt-1 text-[10px] font-bold text-slate-700"
++                                                            x-text="issue.element"></p>
++                                                    </div>
++
++                                                    <div x-show="issue.impact"
++                                                        class="rounded-xl bg-white/70 px-3 py-2">
++                                                        <p class="text-[8px] font-black uppercase tracking-wider text-slate-400">
++                                                            Impacto
++                                                        </p>
++                                                        <p class="mt-1 text-[10px] leading-4 text-slate-600"
++                                                            x-text="issue.impact"></p>
++                                                    </div>
++
++                                                    <div x-show="issue.action"
++                                                        class="rounded-xl border border-slate-200 bg-white px-3 py-2">
++                                                        <p class="text-[8px] font-black uppercase tracking-wider text-violet-500">
++                                                            Qué hacer
++                                                        </p>
++                                                        <p class="mt-1 text-[10px] font-bold leading-4 text-slate-700"
++                                                            x-text="issue.action"></p>
++                                                    </div>
++                                                </div>
+                                             </div>
+@@ -489,28 +523,57 @@
+-                                <p class="mt-1 text-xs font-bold leading-5 text-slate-700" x-text="issue.message"></p>
++                                <p class="mt-1 text-xs font-black leading-5 text-slate-800"
++                                    x-text="issue.title || issue.message"></p>
+ 
+-                                <p class="mt-2 truncate text-[9px] font-black text-slate-500"
+-                                    x-text="issue.entity_label"></p>
++                                <p class="mt-1 text-[10px] leading-4 text-slate-600"
++                                    x-text="issue.message"></p>
++
++                                <p class="mt-2 text-[9px] font-black text-slate-500"
++                                    x-text="issue.element || issue.entity_label"></p>
++
++                                <div x-show="issue.action"
++                                    class="mt-3 rounded-xl border border-white/80 bg-white/70 px-3 py-2">
++                                    <p class="text-[8px] font-black uppercase tracking-wider text-violet-500">
++                                        Siguiente acción
++                                    </p>
++                                    <p class="mt-1 text-[9px] font-bold leading-4 text-slate-700"
++                                        x-text="issue.action"></p>
++                                </div>
+                             </div>
+                         </div>
+                     </button>
+                 </template>
+ 
+-                <div x-show="payload.issues.length === 0"
++                <div x-show="payload.issues.length === 0 && payload.structure.status === 'VALID'"
+                     class="rounded-3xl border border-emerald-200 bg-emerald-50 p-8 text-center">
+                     <span
+                         class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-lg font-black text-emerald-700">
+                         ✓
+                     </span>
+ 
+                     <p class="mt-3 font-black text-emerald-900">
+                         Sin problemas
+                     </p>
+ 
+                     <p class="mt-1 text-xs text-emerald-700">
+-                        El grafo no tiene errores, advertencias ni recomendaciones.
++                        El snapshot validado no tiene errores, advertencias ni recomendaciones.
+                     </p>
++                </div>
++
++                <div x-show="payload.issues.length === 0 && payload.structure.status !== 'VALID'"
++                    class="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center">
++                    <span
++                        class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-200 text-lg font-black text-slate-600">
++                        ◇
++                    </span>
++
++                    <p class="mt-3 font-black text-slate-900"
++                        x-text="payload.structure.status_label"></p>
++
++                    <p class="mt-1 text-xs leading-5 text-slate-500"
++                        x-text="payload.structure.status === 'NOT_GENERATED'
++                            ? 'No existe estructura todavía. Genera el grafo antes de buscar problemas.'
++                            : 'No hay issues listados, pero el estado actual todavía no habilita el runtime.'"></p>
+                 </div>
+             </div>
+         </aside>
+     </div>
+ </template>
+diff --git a/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureStatusResolver.php b/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureStatusResolver.php
+new file mode 100644
+--- /dev/null
++++ b/app/Services/Tournaments/SingleElimination/Structure/SingleEliminationStructureStatusResolver.php
+@@ -0,0 +1,522 @@
++<?php
++
++namespace App\Services\Tournaments\SingleElimination\Structure;
++
++final class SingleEliminationStructureStatusResolver
++{
++    public function afterValidation(
++        array $validation,
++        ?string $persistedStatus,
++        string $fingerprint
++    ): array {
++        $hasStructure =
++            $this->hasStructure(
++                $validation
++            );
++
++        $status =
++            ! $hasStructure
++                ? 'NOT_GENERATED'
++                : (
++                    ! ($validation['valid'] ?? false)
++                    ? 'INVALID'
++                    : (
++                        ! ($validation['executable'] ?? false)
++                        ? 'BLOCKED'
++                        : 'VALID'
++                    )
++                );
++
++        return $this->finalize(
++            $validation,
++            $status,
++            $persistedStatus,
++            $fingerprint,
++            $hasStructure,
++            $hasStructure
++        );
++    }
++
++    public function forPayload(
++        array $validation,
++        ?string $persistedStatus,
++        ?string $storedFingerprint,
++        string $currentFingerprint
++    ): array {
++        $persistedStatus =
++            strtoupper(
++                trim(
++                    (string) (
++                        $persistedStatus
++                        ?: 'NOT_GENERATED'
++                    )
++                )
++            );
++
++        $storedFingerprint =
++            trim(
++                (string) $storedFingerprint
++            );
++
++        $hasStructure =
++            $this->hasStructure(
++                $validation
++            );
++
++        $fingerprintMatches =
++            $hasStructure
++            &&
++            $storedFingerprint !== ''
++            &&
++            hash_equals(
++                $storedFingerprint,
++                $currentFingerprint
++            );
++
++        if (! $hasStructure) {
++            $status =
++                'NOT_GENERATED';
++        } elseif (
++            $persistedStatus === 'STALE'
++        ) {
++            $status =
++                'STALE';
++        } elseif (
++            $storedFingerprint !== ''
++            &&
++            ! $fingerprintMatches
++        ) {
++            /*
++             * Una estructura que cambió después de ser validada ya
++             * no representa el snapshot aprobado, aunque el validador
++             * pueda seguir considerándola matemáticamente coherente.
++             */
++            $status =
++                'STALE';
++        } elseif (
++            $persistedStatus === 'GENERATED'
++            ||
++            $storedFingerprint === ''
++        ) {
++            $status =
++                'GENERATED';
++        } elseif (
++            ! ($validation['valid'] ?? false)
++        ) {
++            $status =
++                'INVALID';
++        } elseif (
++            ! ($validation['executable'] ?? false)
++        ) {
++            $status =
++                'BLOCKED';
++        } elseif (
++            $persistedStatus === 'VALID'
++        ) {
++            $status =
++                'VALID';
++        } else {
++            /*
++             * Nunca elevamos silenciosamente INVALID/BLOCKED a VALID.
++             * Si el código o los datos hicieron que el grafo vuelva a
++             * ser compatible, debe pasar otra validación explícita.
++             */
++            $status =
++                'GENERATED';
++        }
++
++        return $this->finalize(
++            $validation,
++            $status,
++            $persistedStatus,
++            $currentFingerprint,
++            $hasStructure,
++            $fingerprintMatches
++        );
++    }
++
++    private function finalize(
++        array $validation,
++        string $status,
++        ?string $persistedStatus,
++        string $fingerprint,
++        bool $hasStructure,
++        bool $fingerprintMatches
++    ): array {
++        if (! $hasStructure) {
++            /*
++             * "Todavía no generado" es un estado del ciclo de vida,
++             * no una estructura inválida. El validator puede reportar
++             * NO_INPUT_GATES/NO_ROUNDS/NO_ENCOUNTERS, pero mostrarlos
++             * como errores rojos antes de generar sería engañoso.
++             */
++            $validation['errors'] = [];
++            $validation['warnings'] = [];
++            $validation['recommendations'] = [];
++            $validation['blocking_issues'] = [];
++            $validation['valid'] = false;
++            $validation['executable'] = false;
++        } else {
++            $validation['errors'] =
++                $this->enrichIssues(
++                    $validation['errors']
++                    ?? [],
++                    'ERROR'
++                );
++
++            $validation['warnings'] =
++                $this->enrichIssues(
++                    $validation['warnings']
++                    ?? [],
++                    'WARNING'
++                );
++
++            $validation['recommendations'] =
++                $this->enrichIssues(
++                    $validation['recommendations']
++                    ?? [],
++                    'RECOMMENDATION'
++                );
++
++            $validation['blocking_issues'] =
++                $this->enrichIssues(
++                    $validation['blocking_issues']
++                    ?? [],
++                    'WARNING'
++                );
++
++            if (
++                $status === 'STALE'
++                &&
++                ! $fingerprintMatches
++            ) {
++                $validation['warnings'][] =
++                    $this->enrichIssue(
++                        [
++                            'code' =>
++                                'STRUCTURE_FINGERPRINT_STALE',
++
++                            'message' =>
++                                'La estructura actual ya no coincide con el fingerprint de la última validación.',
++
++                            'entity_type' =>
++                                'PHASE_TEMPLATE',
++
++                            'entity_id' =>
++                                null,
++
++                            'entity_code' =>
++                                null,
++                        ],
++                        'WARNING'
++                    );
++            }
++        }
++
++        $validation['counts'] = [
++            'errors' =>
++                count(
++                    $validation['errors']
++                    ?? []
++                ),
++
++            'warnings' =>
++                count(
++                    $validation['warnings']
++                    ?? []
++                ),
++
++            'recommendations' =>
++                count(
++                    $validation['recommendations']
++                    ?? []
++                ),
++        ];
++
++        $runtimeReady =
++            $status === 'VALID'
++            &&
++            ($validation['valid'] ?? false)
++            &&
++            ($validation['executable'] ?? false)
++            &&
++            $fingerprintMatches;
++
++        $validation['structure_status'] =
++            $status;
++
++        $validation['persisted_structure_status'] =
++            $persistedStatus
++            ?: 'NOT_GENERATED';
++
++        $validation['has_structure'] =
++            $hasStructure;
++
++        $validation['fingerprint'] =
++            $fingerprint;
++
++        $validation['fingerprint_matches'] =
++            $fingerprintMatches;
++
++        $validation['runtime_ready'] =
++            $runtimeReady;
++
++        $validation['status'] =
++            $this->statusMetadata(
++                $status,
++                $runtimeReady
++            );
++
++        return $validation;
++    }
++
++    private function hasStructure(
++        array $validation
++    ): bool {
++        $stats =
++            $validation['stats']
++            ?? [];
++
++        foreach (
++            [
++                'input_gates',
++                'rounds',
++                'encounters',
++                'connections',
++            ]
++            as
++            $key
++        ) {
++            if (
++                (int) ($stats[$key] ?? 0)
++                >
++                0
++            ) {
++                return true;
++            }
++        }
++
++        return false;
++    }
++
++    private function enrichIssues(
++        array $issues,
++        string $severity
++    ): array {
++        return array_values(
++            array_map(
++                fn(array $issue) =>
++                    $this->enrichIssue(
++                        $issue,
++                        $severity
++                    ),
++                $issues
++            )
++        );
++    }
++
++    private function enrichIssue(
++        array $issue,
++        string $severity
++    ): array {
++        $code =
++            (string) (
++                $issue['code']
++                ?? 'STRUCTURE_DIAGNOSTIC'
++            );
++
++        $entityType =
++            (string) (
++                $issue['entity_type']
++                ?? ''
++            );
++
++        $entityId =
++            $issue['entity_id']
++            ?? null;
++
++        $entityCode =
++            trim(
++                (string) (
++                    $issue['entity_code']
++                    ?? ''
++                )
++            );
++
++        $element =
++            $entityCode !== ''
++                ? $entityCode
++                : (
++                    $entityType !== ''
++                    && $entityId !== null
++                    ? $entityType
++                        . ' #'
++                        . $entityId
++                    : 'Estructura general'
++                );
++
++        [$title, $impact, $action] =
++            $this->guidance(
++                $code,
++                $severity
++            );
++
++        return [
++            ...$issue,
++
++            'severity' =>
++                $severity,
++
++            'title' =>
++                $issue['title']
++                ?? $title,
++
++            'element' =>
++                $issue['element']
++                ?? $element,
++
++            'impact' =>
++                $issue['impact']
++                ?? $impact,
++
++            'action' =>
++                $issue['action']
++                ?? $action,
++        ];
++    }
++
++    private function guidance(
++        string $code,
++        string $severity
++    ): array {
++        return match ($code) {
++            'NO_INPUT_GATES' => [
++                'Falta una entrada',
++                'El grafo no tiene un punto desde el que puedan entrar participantes.',
++                'Genera la estructura o crea y conecta una puerta de entrada válida.',
++            ],
++
++            'NO_ROUNDS' => [
++                'Faltan rondas',
++                'No existe una secuencia competitiva que pueda procesar participantes.',
++                'Genera la estructura o crea al menos una ronda con sus encuentros.',
++            ],
++
++            'NO_ENCOUNTERS' => [
++                'Faltan encuentros',
++                'La estructura no contiene unidades competitivas capaces de producir resultados.',
++                'Agrega encuentros a las rondas y vuelve a ejecutar la validación.',
++            ],
++
++            'INPUT_PLACEHOLDER_REQUIRES_REVIEW' => [
++                'Entrada provisional',
++                'La estructura puede ser coherente, pero el runtime no debe consumir una puerta provisional sin revisión.',
++                'Revisa esa puerta en Structure Graph y reemplaza o confirma su distribución antes de ejecutar.',
++            ],
++
++            'STRUCTURE_FINGERPRINT_STALE' => [
++                'Validación desactualizada',
++                'El snapshot estructural actual es distinto del que fue validado anteriormente.',
++                'Revisa los cambios y ejecuta una nueva validación; regenera si las reglas también cambiaron.',
++            ],
++
++            default =>
++            match ($severity) {
++                'ERROR' => [
++                    'Error estructural',
++                    'Este problema impide considerar válida la estructura.',
++                    'Corrige el elemento indicado y vuelve a ejecutar la validación.',
++                ],
++
++                'WARNING' => [
++                    'Advertencia estructural',
++                    'La definición necesita revisión antes de considerarse lista para ejecutar.',
++                    'Revisa el elemento y la ruta afectada antes de continuar.',
++                ],
++
++                default => [
++                    'Recomendación',
++                    'No bloquea la estructura, pero puede mejorar su claridad o consistencia.',
++                    'Revísala cuando quieras simplificar o reforzar la definición.',
++                ],
++            },
++        };
++    }
++
++    private function statusMetadata(
++        string $status,
++        bool $runtimeReady
++    ): array {
++        return match ($status) {
++            'NOT_GENERATED' => [
++                'code' => 'NOT_GENERATED',
++                'label' => 'Sin estructura',
++                'headline' => 'Todavía no existe un grafo interno',
++                'description' => 'Genera una estructura desde las reglas o construye una personalizada antes de validarla.',
++                'action' => 'Generar estructura',
++                'tone' => 'SLATE',
++                'runtime_ready' => false,
++            ],
++
++            'GENERATED' => [
++                'code' => 'GENERATED',
++                'label' => 'Pendiente de validación',
++                'headline' => 'La estructura cambió y necesita validación',
++                'description' => 'El grafo existe, pero todavía no hay un snapshot validado que pueda usar el runtime.',
++                'action' => 'Ejecutar validación',
++                'tone' => 'INDIGO',
++                'runtime_ready' => false,
++            ],
++
++            'VALID' => [
++                'code' => 'VALID',
++                'label' => 'Lista para ejecutar',
++                'headline' => 'Estructura validada y ejecutable',
++                'description' => 'Contrato, rutas, liveness y fingerprint representan el grafo que puede consumir el runtime.',
++                'action' => 'Continuar',
++                'tone' => 'EMERALD',
++                'runtime_ready' => $runtimeReady,
++            ],
++
++            'INVALID' => [
++                'code' => 'INVALID',
++                'label' => 'Requiere correcciones',
++                'headline' => 'La estructura contiene errores bloqueantes',
++                'description' => 'Hay reglas, capacidades o rutas que impiden validar el grafo actual.',
++                'action' => 'Revisar errores',
++                'tone' => 'RED',
++                'runtime_ready' => false,
++            ],
++
++            'STALE' => [
++                'code' => 'STALE',
++                'label' => 'Estructura desactualizada',
++                'headline' => 'La estructura ya no representa el snapshot validado',
++                'description' => 'Las reglas o el propio grafo cambiaron después de la última validación.',
++                'action' => 'Revalidar o regenerar',
++                'tone' => 'AMBER',
++                'runtime_ready' => false,
++            ],
++
++            'BLOCKED' => [
++                'code' => 'BLOCKED',
++                'label' => 'Válida, pero no ejecutable',
++                'headline' => 'La estructura es coherente, pero tiene bloqueos de runtime',
++                'description' => 'No hay errores estructurales, pero una capacidad pendiente impide ejecutarla de forma segura.',
++                'action' => 'Resolver bloqueos',
++                'tone' => 'FUCHSIA',
++                'runtime_ready' => false,
++            ],
++
++            default => [
++                'code' => $status,
++                'label' => $status,
++                'headline' => 'Estado estructural desconocido',
++                'description' => 'Vuelve a validar la estructura para obtener un estado reconocido.',
++                'action' => 'Ejecutar validación',
++                'tone' => 'SLATE',
++                'runtime_ready' => false,
++            ],
++        };
++    }
++}
+diff --git a/tests/Unit/Tournaments/SingleEliminationStructureStatusResolverTest.php b/tests/Unit/Tournaments/SingleEliminationStructureStatusResolverTest.php
+new file mode 100644
+--- /dev/null
++++ b/tests/Unit/Tournaments/SingleEliminationStructureStatusResolverTest.php
+@@ -0,0 +1,299 @@
++<?php
++
++namespace Tests\Unit\Tournaments;
++
++use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureStatusResolver;
++use PHPUnit\Framework\TestCase;
++
++class SingleEliminationStructureStatusResolverTest extends TestCase
++{
++    private SingleEliminationStructureStatusResolver $resolver;
++
++    protected function setUp(): void
++    {
++        parent::setUp();
++
++        $this->resolver =
++            new SingleEliminationStructureStatusResolver();
++    }
++
++    public function test_empty_graph_is_not_generated_instead_of_invalid(): void
++    {
++        $validation =
++            $this->resolver
++            ->forPayload(
++                $this->validation(
++                    valid: false,
++                    executable: false,
++                    stats: [
++                        'input_gates' => 0,
++                        'rounds' => 0,
++                        'encounters' => 0,
++                        'connections' => 0,
++                    ],
++                    errors: [
++                        $this->issue(
++                            'NO_INPUT_GATES'
++                        ),
++                    ]
++                ),
++                'NOT_GENERATED',
++                null,
++                'empty-fingerprint'
++            );
++
++        $this->assertSame(
++            'NOT_GENERATED',
++            $validation['structure_status']
++        );
++
++        $this->assertFalse(
++            $validation['has_structure']
++        );
++
++        $this->assertSame(
++            [],
++            $validation['errors']
++        );
++
++        $this->assertSame(
++            0,
++            $validation['counts']['errors']
++        );
++
++        $this->assertFalse(
++            $validation['runtime_ready']
++        );
++    }
++
++    public function test_valid_requires_matching_validated_fingerprint(): void
++    {
++        $validation =
++            $this->resolver
++            ->forPayload(
++                $this->validation(),
++                'VALID',
++                'same',
++                'same'
++            );
++
++        $this->assertSame(
++            'VALID',
++            $validation['structure_status']
++        );
++
++        $this->assertTrue(
++            $validation['fingerprint_matches']
++        );
++
++        $this->assertTrue(
++            $validation['runtime_ready']
++        );
++
++        $this->assertSame(
++            'Lista para ejecutar',
++            $validation['status']['label']
++        );
++    }
++
++    public function test_fingerprint_mismatch_becomes_stale_even_if_persisted_status_is_valid(): void
++    {
++        $validation =
++            $this->resolver
++            ->forPayload(
++                $this->validation(),
++                'VALID',
++                'old',
++                'new'
++            );
++
++        $this->assertSame(
++            'STALE',
++            $validation['structure_status']
++        );
++
++        $this->assertFalse(
++            $validation['runtime_ready']
++        );
++
++        $this->assertFalse(
++            $validation['fingerprint_matches']
++        );
++
++        $this->assertSame(
++            'STRUCTURE_FINGERPRINT_STALE',
++            $validation['warnings'][0]['code']
++        );
++
++        $this->assertNotEmpty(
++            $validation['warnings'][0]['action']
++        );
++    }
++
++    public function test_missing_validated_fingerprint_keeps_structure_pending_validation(): void
++    {
++        $validation =
++            $this->resolver
++            ->forPayload(
++                $this->validation(),
++                'GENERATED',
++                null,
++                'current'
++            );
++
++        $this->assertSame(
++            'GENERATED',
++            $validation['structure_status']
++        );
++
++        $this->assertFalse(
++            $validation['runtime_ready']
++        );
++
++        $this->assertSame(
++            'INDIGO',
++            $validation['status']['tone']
++        );
++    }
++
++    public function test_structurally_valid_but_non_executable_graph_is_blocked(): void
++    {
++        $validation =
++            $this->resolver
++            ->afterValidation(
++                $this->validation(
++                    executable: false,
++                    warnings: [
++                        $this->issue(
++                            'INPUT_PLACEHOLDER_REQUIRES_REVIEW',
++                            'INPUT_GATE',
++                            7,
++                            'IN-001'
++                        ),
++                    ]
++                ),
++                'GENERATED',
++                'fingerprint'
++            );
++
++        $this->assertSame(
++            'BLOCKED',
++            $validation['structure_status']
++        );
++
++        $this->assertFalse(
++            $validation['runtime_ready']
++        );
++
++        $this->assertSame(
++            'FUCHSIA',
++            $validation['status']['tone']
++        );
++
++        $this->assertSame(
++            'IN-001',
++            $validation['warnings'][0]['element']
++        );
++
++        $this->assertStringContainsString(
++            'runtime',
++            strtolower(
++                $validation['warnings'][0]['impact']
++            )
++        );
++    }
++
++    public function test_explicit_validation_can_promote_graph_to_valid(): void
++    {
++        $validation =
++            $this->resolver
++            ->afterValidation(
++                $this->validation(),
++                'GENERATED',
++                'fingerprint'
++            );
++
++        $this->assertSame(
++            'VALID',
++            $validation['structure_status']
++        );
++
++        $this->assertTrue(
++            $validation['runtime_ready']
++        );
++
++        $this->assertTrue(
++            $validation['fingerprint_matches']
++        );
++    }
++
++    private function validation(
++        bool $valid = true,
++        bool $executable = true,
++        ?array $stats = null,
++        array $errors = [],
++        array $warnings = [],
++        array $recommendations = []
++    ): array {
++        return [
++            'valid' => $valid,
++            'executable' => $executable,
++
++            'errors' =>
++                $errors,
++
++            'warnings' =>
++                $warnings,
++
++            'recommendations' =>
++                $recommendations,
++
++            'blocking_issues' =>
++                [],
++
++            'counts' => [
++                'errors' =>
++                    count($errors),
++
++                'warnings' =>
++                    count($warnings),
++
++                'recommendations' =>
++                    count($recommendations),
++            ],
++
++            'stats' =>
++                $stats
++                ?? [
++                    'input_gates' => 1,
++                    'rounds' => 2,
++                    'encounters' => 3,
++                    'connections' => 4,
++                ],
++        ];
++    }
++
++    private function issue(
++        string $code,
++        ?string $entityType = null,
++        ?int $entityId = null,
++        ?string $entityCode = null
++    ): array {
++        return [
++            'code' =>
++                $code,
++
++            'message' =>
++                'Mensaje de prueba.',
++
++            'entity_type' =>
++                $entityType,
++
++            'entity_id' =>
++                $entityId,
++
++            'entity_code' =>
++                $entityCode,
++        ];
++    }
++}

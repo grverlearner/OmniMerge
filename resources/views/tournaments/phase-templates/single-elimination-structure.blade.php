@@ -24,11 +24,51 @@
 
         $requestedWorkspace = request()->query('workspace');
 
+        $structureState = $validation['status'] ?? [
+            'code' => $validation['structure_status'] ?? 'NOT_GENERATED',
+            'label' => $settings->structure_status_label,
+            'headline' => 'Estado estructural',
+            'description' => 'Ejecuta la validación para actualizar el diagnóstico.',
+            'action' => 'Revisar estructura',
+            'tone' => 'SLATE',
+        ];
+
+        $structureStatus = $structureState['code'];
+        $hasStructure = (bool) ($validation['has_structure'] ?? $rounds->isNotEmpty());
+        $runtimeReady = (bool) ($validation['runtime_ready'] ?? false);
+
+        [$statusPanelClasses, $statusIconClasses] = match ($structureState['tone'] ?? 'SLATE') {
+            'EMERALD' => [
+                'border-emerald-200 bg-emerald-50 text-emerald-900',
+                'bg-emerald-100 text-emerald-700',
+            ],
+            'RED' => [
+                'border-red-200 bg-red-50 text-red-900',
+                'bg-red-100 text-red-700',
+            ],
+            'AMBER' => [
+                'border-amber-200 bg-amber-50 text-amber-900',
+                'bg-amber-100 text-amber-700',
+            ],
+            'FUCHSIA' => [
+                'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-900',
+                'bg-fuchsia-100 text-fuchsia-700',
+            ],
+            'INDIGO' => [
+                'border-indigo-200 bg-indigo-50 text-indigo-900',
+                'bg-indigo-100 text-indigo-700',
+            ],
+            default => [
+                'border-slate-200 bg-slate-50 text-slate-900',
+                'bg-slate-200 text-slate-700',
+            ],
+        };
+
         $initialWorkspace = in_array($requestedWorkspace, ['AUTO', 'CUSTOM', 'REVIEW'], true)
             ? $requestedWorkspace
             : ($settings->structure_mode === 'MANUAL'
                 ? 'CUSTOM'
-                : ($rounds->isNotEmpty() ? 'REVIEW' : 'AUTO'));
+                : ($hasStructure ? 'REVIEW' : 'AUTO'));
     @endphp
 
     <div x-data="singleEliminationStructureVisualizer(
@@ -141,6 +181,56 @@
             </div>
         @endif
 
+        <section class="mt-5 rounded-3xl border p-5 {{ $statusPanelClasses }}">
+            <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                <div class="flex items-start gap-3">
+                    <span
+                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-base font-black {{ $statusIconClasses }}">
+                        {{ $runtimeReady ? '✓' : ($structureStatus === 'BLOCKED' ? '!' : '◇') }}
+                    </span>
+
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="rounded-full bg-white/70 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider">
+                                {{ $structureState['label'] }}
+                            </span>
+
+                            @if ($runtimeReady)
+                                <span
+                                    class="rounded-full bg-emerald-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white">
+                                    Runtime ready
+                                </span>
+                            @endif
+                        </div>
+
+                        <h2 class="mt-2 text-base font-black">
+                            {{ $structureState['headline'] }}
+                        </h2>
+
+                        <p class="mt-1 max-w-3xl text-xs leading-5 opacity-80">
+                            {{ $structureState['description'] }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="shrink-0 text-left lg:text-right">
+                    <p class="text-[9px] font-black uppercase tracking-wider opacity-60">
+                        Siguiente acción
+                    </p>
+
+                    <p class="mt-1 text-xs font-black">
+                        {{ $structureState['action'] }}
+                    </p>
+
+                    @if ($hasStructure && !($validation['fingerprint_matches'] ?? false))
+                        <p class="mt-1 text-[9px] font-bold opacity-70">
+                            Fingerprint pendiente de confirmar
+                        </p>
+                    @endif
+                </div>
+            </div>
+        </section>
+
         <div x-data="{ workspaceMode: @js($initialWorkspace) }">
             <section class="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <div class="border-b border-slate-100 px-5 py-4">
@@ -176,7 +266,7 @@
                         <span class="mt-1 block text-[10px] leading-4 opacity-70">Para encuentros K → Q y conexiones libres.</span>
                     </button>
 
-                    <button type="button" @click="workspaceMode = 'REVIEW'" @disabled($rounds->isEmpty())
+                    <button type="button" @click="workspaceMode = 'REVIEW'" @disabled(!$hasStructure)
                         :class="workspaceMode === 'REVIEW'
                             ? 'border-indigo-300 bg-indigo-50 text-indigo-900 shadow-sm'
                             : 'border-transparent bg-white text-slate-500 hover:bg-slate-50'"
@@ -184,7 +274,7 @@
                         <span class="text-[9px] font-black uppercase tracking-wider text-indigo-600">Revisión</span>
                         <span class="mt-1 block text-sm font-black">Visualizar y validar</span>
                         <span class="mt-1 block text-[10px] leading-4 opacity-70">
-                            {{ $rounds->isEmpty() ? 'Disponible después de crear la estructura.' : 'Inspecciona encuentros, slots y conexiones.' }}
+                            {{ !$hasStructure ? 'Disponible después de crear la estructura.' : 'Inspecciona encuentros, slots y conexiones.' }}
                         </span>
                     </button>
                 </div>
@@ -276,7 +366,7 @@
                 <div class="mt-5 flex flex-wrap gap-2">
                     <button type="submit"
                         class="rounded-xl bg-violet-600 px-5 py-3 text-xs font-black text-white shadow-lg shadow-violet-500/20 transition hover:bg-violet-700">
-                        {{ ($settings->structure_version ?? 0) > 0 ? 'Regenerar estructura' : 'Generar estructura' }}
+                        {{ $hasStructure ? 'Regenerar estructura' : 'Generar estructura' }}
                     </button>
 
                     <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
@@ -342,11 +432,17 @@
                     class="mt-2">
                     @csrf
 
-                    <button type="submit"
-                        class="w-full rounded-xl bg-slate-900 px-4 py-3 text-xs font-black text-white transition hover:bg-slate-800">
-                        Ejecutar validación
+                    <button type="submit" @disabled(!$hasStructure)
+                        class="w-full rounded-xl bg-slate-900 px-4 py-3 text-xs font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300">
+                        {{ $hasStructure ? 'Ejecutar validación' : 'Genera la estructura primero' }}
                     </button>
                 </form>
+
+                @if (!$hasStructure)
+                    <p class="mt-2 text-center text-[9px] font-bold leading-4 text-slate-400">
+                        NOT_GENERATED es un estado inicial, no un error estructural.
+                    </p>
+                @endif
             </aside>
         </section>
 
@@ -386,14 +482,21 @@
                 </h2>
 
                 <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-                    Revisa primero la configuración matemática y después
-                    utiliza el botón “Generar estructura”.
+                    Este es el estado NOT_GENERATED. No hay errores que reparar:
+                    crea el grafo desde las reglas o empieza una estructura personalizada.
                 </p>
 
-                <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
-                    class="mt-5 inline-flex rounded-xl bg-violet-600 px-5 py-3 text-xs font-black text-white shadow-lg shadow-violet-500/20">
-                    Revisar configuración
-                </a>
+                <div class="mt-5 flex flex-wrap justify-center gap-2">
+                    <button type="button" @click="workspaceMode = 'AUTO'"
+                        class="inline-flex rounded-xl bg-violet-600 px-5 py-3 text-xs font-black text-white shadow-lg shadow-violet-500/20">
+                        Generar estructura
+                    </button>
+
+                    <a href="{{ route('tournaments.single-elimination.show', $phaseTemplate) }}"
+                        class="inline-flex rounded-xl border border-violet-200 bg-white px-5 py-3 text-xs font-black text-violet-700">
+                        Revisar reglas
+                    </a>
+                </div>
             </section>
         @else
             {{-- Barra de herramientas --}}

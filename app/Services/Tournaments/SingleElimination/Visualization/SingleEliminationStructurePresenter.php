@@ -122,12 +122,24 @@ class SingleEliminationStructurePresenter
 
             'structure' => [
                 'status' =>
-                $settings->structure_status
+                $validation['structure_status']
+                    ??
+                    $settings->structure_status
                     ??
                     'NOT_GENERATED',
 
                 'status_label' =>
-                $settings->structure_status_label,
+                data_get(
+                    $validation,
+                    'status.label',
+                    $settings->structure_status_label
+                ),
+
+                'runtime_ready' =>
+                (bool) (
+                    $validation['runtime_ready']
+                    ?? false
+                ),
 
                 'version' =>
                 (int) (
@@ -155,7 +167,16 @@ class SingleEliminationStructurePresenter
                 $settings->configuration_mode,
 
                 'executable' =>
-                (bool) $validation['executable'],
+                (bool) (
+                    $validation['runtime_ready']
+                    ?? false
+                ),
+
+                'structurally_executable' =>
+                (bool) (
+                    $validation['executable']
+                    ?? false
+                ),
             ],
 
             'stats' =>

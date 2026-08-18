@@ -127,6 +127,7 @@
                 'VALID' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
                 'INVALID' => 'border-red-200 bg-red-50 text-red-700',
                 'STALE' => 'border-amber-200 bg-amber-50 text-amber-700',
+                'BLOCKED' => 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700',
                 'GENERATED' => 'border-indigo-200 bg-indigo-50 text-indigo-700',
                 default => 'border-slate-200 bg-slate-50 text-slate-600',
             };
