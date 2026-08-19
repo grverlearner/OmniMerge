@@ -164,6 +164,93 @@ class PhaseInputGate extends Model
         };
     }
 
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->status) {
+            'ACTIVE' =>
+            'Activa',
+
+            'INACTIVE' =>
+            'Inactiva',
+
+            default =>
+            $this->status
+                ?:
+                'Sin estado',
+        };
+    }
+
+    public function getCoverageLabelAttribute(): string
+    {
+        $connections =
+            $this->relationLoaded(
+                'outgoingConnections'
+            )
+                ? $this->outgoingConnections
+                : $this
+                    ->outgoingConnections()
+                    ->get();
+
+        $activeConnections =
+            $connections
+            ->where(
+                'status',
+                'ACTIVE'
+            )
+            ->values();
+
+        $positionConnections =
+            $activeConnections
+            ->where(
+                'allocation_mode',
+                'POSITION'
+            );
+
+        if (
+            $this->exact_participants !== null
+            &&
+            $positionConnections->isNotEmpty()
+        ) {
+            $coveredPositions =
+                $positionConnections
+                ->pluck(
+                    'allocation_value'
+                )
+                ->filter(
+                    fn($value) =>
+                    $value !== null
+                )
+                ->map(
+                    fn($value) =>
+                    (int) $value
+                )
+                ->filter(
+                    fn(int $position) =>
+                    $position > 0
+                )
+                ->unique()
+                ->count();
+
+            return $coveredPositions
+                .
+                ' / '
+                .
+                $this->exact_participants
+                .
+                ' posiciones cubiertas';
+        }
+
+        $routes =
+            $activeConnections
+            ->count();
+
+        return $routes
+            .
+            ($routes === 1
+                ? ' ruta activa'
+                : ' rutas activas');
+    }
+
     public function getContractLabelAttribute(): string
     {
         if (

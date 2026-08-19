@@ -1,0 +1,321 @@
+diff --git a/app/Models/PhaseInputGate.php b/app/Models/PhaseInputGate.php
+index eddfc323a15eb21dbd9fd2f300b1a98615c100fb..db6954b9d01eafabf615c8637d2b470bf02436a0 100644
+--- a/app/Models/PhaseInputGate.php
++++ b/app/Models/PhaseInputGate.php
+@@ -71,6 +71,93 @@ class PhaseInputGate extends Model
+         };
+     }
+ 
++    public function getStatusLabelAttribute(): string
++    {
++        return match ($this->status) {
++            'ACTIVE' =>
++            'Activa',
++
++            'INACTIVE' =>
++            'Inactiva',
++
++            default =>
++            $this->status
++                ?:
++                'Sin estado',
++        };
++    }
++
++    public function getCoverageLabelAttribute(): string
++    {
++        $connections =
++            $this->relationLoaded(
++                'outgoingConnections'
++            )
++                ? $this->outgoingConnections
++                : $this
++                    ->outgoingConnections()
++                    ->get();
++
++        $activeConnections =
++            $connections
++            ->where(
++                'status',
++                'ACTIVE'
++            )
++            ->values();
++
++        $positionConnections =
++            $activeConnections
++            ->where(
++                'allocation_mode',
++                'POSITION'
++            );
++
++        if (
++            $this->exact_participants !== null
++            &&
++            $positionConnections->isNotEmpty()
++        ) {
++            $coveredPositions =
++                $positionConnections
++                ->pluck(
++                    'allocation_value'
++                )
++                ->filter(
++                    fn($value) =>
++                    $value !== null
++                )
++                ->map(
++                    fn($value) =>
++                    (int) $value
++                )
++                ->filter(
++                    fn(int $position) =>
++                    $position > 0
++                )
++                ->unique()
++                ->count();
++
++            return $coveredPositions
++                .
++                ' / '
++                .
++                $this->exact_participants
++                .
++                ' posiciones cubiertas';
++        }
++
++        $routes =
++            $activeConnections
++            ->count();
++
++        return $routes
++            .
++            ($routes === 1
++                ? ' ruta activa'
++                : ' rutas activas');
++    }
++
+     public function getContractLabelAttribute(): string
+     {
+         if (
+diff --git a/resources/views/tournaments/phase-templates/partials/single-elimination-io-manager.blade.php b/resources/views/tournaments/phase-templates/partials/single-elimination-io-manager.blade.php
+index 8a5bb7199823c0702226bd1c2954c9bcc5de5507..3d6ed05ea607940ca27cbe15cfd02a60e9d5233c 100644
+--- a/resources/views/tournaments/phase-templates/partials/single-elimination-io-manager.blade.php
++++ b/resources/views/tournaments/phase-templates/partials/single-elimination-io-manager.blade.php
+@@ -43,6 +43,53 @@
+                                         {{ $phaseInputGate->description ?: 'Sin descripción adicional.' }}
+                                     </p>
+ 
++                                    <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
++                                        <div class="rounded-2xl border border-fuchsia-100 bg-fuchsia-50/60 p-3">
++                                            <p class="text-[8px] font-black uppercase tracking-wider text-fuchsia-500">
++                                                Tipo
++                                            </p>
++                                            <p class="mt-1 text-[11px] font-black text-fuchsia-900">
++                                                {{ $phaseInputGate->type_label }}
++                                            </p>
++                                        </div>
++
++                                        <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3">
++                                            <p class="text-[8px] font-black uppercase tracking-wider text-indigo-500">
++                                                Capacidad
++                                            </p>
++                                            <p class="mt-1 text-[11px] font-black text-indigo-900">
++                                                {{ $phaseInputGate->contract_label }}
++                                            </p>
++                                        </div>
++
++                                        <div class="rounded-2xl border border-sky-100 bg-sky-50/60 p-3">
++                                            <p class="text-[8px] font-black uppercase tracking-wider text-sky-500">
++                                                Distribución
++                                            </p>
++                                            <p class="mt-1 text-[11px] font-black text-sky-900">
++                                                {{ $phaseInputGate->distribution_label }}
++                                            </p>
++                                        </div>
++
++                                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
++                                            <p class="text-[8px] font-black uppercase tracking-wider text-slate-500">
++                                                Estado
++                                            </p>
++                                            <p class="mt-1 text-[11px] font-black {{ $phaseInputGate->status === 'ACTIVE' ? 'text-emerald-700' : 'text-slate-600' }}">
++                                                {{ $phaseInputGate->status_label }}
++                                            </p>
++                                        </div>
++
++                                        <div class="rounded-2xl border border-amber-100 bg-amber-50/60 p-3">
++                                            <p class="text-[8px] font-black uppercase tracking-wider text-amber-600">
++                                                Cobertura
++                                            </p>
++                                            <p class="mt-1 text-[11px] font-black text-amber-900">
++                                                {{ $phaseInputGate->coverage_label }}
++                                            </p>
++                                        </div>
++                                    </div>
++
+                                     <div class="mt-3 flex flex-wrap gap-2 text-[9px] font-bold">
+                                         <span class="rounded-lg bg-slate-50 px-2.5 py-1.5 font-mono text-slate-500">
+                                             {{ $phaseInputGate->code }}
+@@ -148,6 +195,47 @@
+                                         {{ $phaseExit->selection_summary }}
+                                     </p>
+ 
++                                    <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
++                                        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-3">
++                                            <p class="text-[8px] font-black uppercase tracking-wider text-emerald-600">
++                                                Selector
++                                            </p>
++                                            <p class="mt-1 text-[11px] font-black text-emerald-900">
++                                                {{ $phaseExit->selector_label }}
++                                            </p>
++                                            <p class="mt-1 text-[9px] leading-4 text-emerald-700">
++                                                {{ $phaseExit->selection_summary }}
++                                            </p>
++                                        </div>
++
++                                        <div class="rounded-2xl border border-sky-100 bg-sky-50/60 p-3">
++                                            <p class="text-[8px] font-black uppercase tracking-wider text-sky-600">
++                                                Timing
++                                            </p>
++                                            <p class="mt-1 text-[11px] font-black text-sky-900">
++                                                {{ $phaseExit->timing_label }}
++                                            </p>
++                                        </div>
++
++                                        <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3">
++                                            <p class="text-[8px] font-black uppercase tracking-wider text-indigo-600">
++                                                Contrato
++                                            </p>
++                                            <p class="mt-1 text-[11px] font-black text-indigo-900">
++                                                {{ $phaseExit->contract_label }}
++                                            </p>
++                                        </div>
++
++                                        <div class="rounded-2xl border border-violet-100 bg-violet-50/60 p-3">
++                                            <p class="text-[8px] font-black uppercase tracking-wider text-violet-600">
++                                                Modo de resolución
++                                            </p>
++                                            <p class="mt-1 text-[11px] font-black text-violet-900">
++                                                {{ $phaseExit->resolution_mode_label }}
++                                            </p>
++                                        </div>
++                                    </div>
++
+                                     <div class="mt-3 flex flex-wrap gap-2">
+                                         @forelse ($phaseExit->incomingInternalConnections as $connection)
+                                             <span
+@@ -171,7 +259,11 @@
+ 
+                                     <form method="POST"
+                                         action="{{ route('tournaments.phase-exits.destroy', [$phaseTemplate, $phaseExit]) }}"
+-                                        class="shrink-0">
++                                        class="shrink-0" data-omni-confirm data-confirm-variant="danger"
++                                        data-confirm-icon="×" data-confirm-title="Eliminar puerta de salida"
++                                        data-confirm-message="La salida solo se eliminará si no tiene rutas internas ni conexiones activas en el Tournament Graph."
++                                        data-confirm-subject="{{ $phaseExit->name }}"
++                                        data-confirm-action="Eliminar salida">
+                                         @csrf
+                                         @method('DELETE')
+ 
+diff --git a/tests/Unit/Tournaments/PhaseIoPresentationContractTest.php b/tests/Unit/Tournaments/PhaseIoPresentationContractTest.php
+new file mode 100644
+index 0000000000000000000000000000000000000000..ea0c25b04bf64fc4bedd1cb47d57bbe0193a7444
+--- /dev/null
++++ b/tests/Unit/Tournaments/PhaseIoPresentationContractTest.php
+@@ -0,0 +1,98 @@
++<?php
++
++namespace Tests\Unit\Tournaments;
++
++use App\Models\PhaseExit;
++use App\Models\PhaseInputGate;
++use App\Models\PhaseSingleEliminationConnection;
++use Illuminate\Database\Eloquent\Collection as EloquentCollection;
++use PHPUnit\Framework\TestCase;
++
++class PhaseIoPresentationContractTest extends TestCase
++{
++    public function test_input_gate_exposes_human_labels_and_exact_position_coverage(): void
++    {
++        $gate = new PhaseInputGate();
++        $gate->forceFill([
++            'input_type' => 'POOL',
++            'distribution_mode' => 'BALANCED',
++            'exact_participants' => 4,
++            'status' => 'ACTIVE',
++        ]);
++
++        $gate->setRelation(
++            'outgoingConnections',
++            new EloquentCollection([
++                $this->connection('POSITION', 1, 'ACTIVE'),
++                $this->connection('POSITION', 2, 'ACTIVE'),
++                $this->connection('POSITION', 3, 'ACTIVE'),
++                $this->connection('POSITION', 4, 'INACTIVE'),
++            ])
++        );
++
++        $this->assertSame('Bolsa general', $gate->type_label);
++        $this->assertSame('4 exactos', $gate->contract_label);
++        $this->assertSame('Balanceada', $gate->distribution_label);
++        $this->assertSame('Activa', $gate->status_label);
++        $this->assertSame(
++            '3 / 4 posiciones cubiertas',
++            $gate->coverage_label
++        );
++    }
++
++    public function test_input_gate_coverage_falls_back_to_active_routes_without_position_mapping(): void
++    {
++        $gate = new PhaseInputGate();
++        $gate->forceFill([
++            'exact_participants' => null,
++            'min_participants' => null,
++            'max_participants' => null,
++            'status' => 'INACTIVE',
++        ]);
++
++        $gate->setRelation(
++            'outgoingConnections',
++            new EloquentCollection([
++                $this->connection('ALL', null, 'ACTIVE'),
++                $this->connection('ALL', null, 'INACTIVE'),
++            ])
++        );
++
++        $this->assertSame('Flexible', $gate->contract_label);
++        $this->assertSame('Inactiva', $gate->status_label);
++        $this->assertSame('1 ruta activa', $gate->coverage_label);
++    }
++
++    public function test_phase_exit_exposes_selector_timing_contract_and_resolution_labels(): void
++    {
++        $exit = new PhaseExit();
++        $exit->forceFill([
++            'selector_type' => 'TOP_N',
++            'selector_from' => 2,
++            'exit_timing' => 'PHASE_END',
++            'resolution_mode' => 'SELECTOR',
++            'exact_participants' => 2,
++        ]);
++
++        $this->assertSame('Mejores N', $exit->selector_label);
++        $this->assertSame('Los mejores 2', $exit->selection_summary);
++        $this->assertSame('Al finalizar la Fase', $exit->timing_label);
++        $this->assertSame('2 exactos', $exit->contract_label);
++        $this->assertSame('Selector del Engine', $exit->resolution_mode_label);
++    }
++
++    private function connection(
++        string $allocationMode,
++        ?int $allocationValue,
++        string $status
++    ): PhaseSingleEliminationConnection {
++        $connection = new PhaseSingleEliminationConnection();
++        $connection->forceFill([
++            'allocation_mode' => $allocationMode,
++            'allocation_value' => $allocationValue,
++            'status' => $status,
++        ]);
++
++        return $connection;
++    }
++}

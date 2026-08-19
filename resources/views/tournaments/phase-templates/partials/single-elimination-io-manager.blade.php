@@ -112,6 +112,53 @@
                                         {{ $phaseInputGate->description ?: 'Sin descripción adicional.' }}
                                     </p>
 
+                                    <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                                        <div class="rounded-2xl border border-fuchsia-100 bg-fuchsia-50/60 p-3">
+                                            <p class="text-[8px] font-black uppercase tracking-wider text-fuchsia-500">
+                                                Tipo
+                                            </p>
+                                            <p class="mt-1 text-[11px] font-black text-fuchsia-900">
+                                                {{ $phaseInputGate->type_label }}
+                                            </p>
+                                        </div>
+
+                                        <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3">
+                                            <p class="text-[8px] font-black uppercase tracking-wider text-indigo-500">
+                                                Capacidad
+                                            </p>
+                                            <p class="mt-1 text-[11px] font-black text-indigo-900">
+                                                {{ $phaseInputGate->contract_label }}
+                                            </p>
+                                        </div>
+
+                                        <div class="rounded-2xl border border-sky-100 bg-sky-50/60 p-3">
+                                            <p class="text-[8px] font-black uppercase tracking-wider text-sky-500">
+                                                Distribución
+                                            </p>
+                                            <p class="mt-1 text-[11px] font-black text-sky-900">
+                                                {{ $phaseInputGate->distribution_label }}
+                                            </p>
+                                        </div>
+
+                                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                                            <p class="text-[8px] font-black uppercase tracking-wider text-slate-500">
+                                                Estado
+                                            </p>
+                                            <p class="mt-1 text-[11px] font-black {{ $phaseInputGate->status === 'ACTIVE' ? 'text-emerald-700' : 'text-slate-600' }}">
+                                                {{ $phaseInputGate->status_label }}
+                                            </p>
+                                        </div>
+
+                                        <div class="rounded-2xl border border-amber-100 bg-amber-50/60 p-3">
+                                            <p class="text-[8px] font-black uppercase tracking-wider text-amber-600">
+                                                Cobertura
+                                            </p>
+                                            <p class="mt-1 text-[11px] font-black text-amber-900">
+                                                {{ $phaseInputGate->coverage_label }}
+                                            </p>
+                                        </div>
+                                    </div>
+
                                     <div class="mt-3 flex flex-wrap gap-2 text-[9px] font-bold">
                                         <span class="rounded-lg bg-slate-50 px-2.5 py-1.5 font-mono text-slate-500">
                                             {{ $phaseInputGate->code }}
@@ -281,6 +328,47 @@
                                         {{ $phaseExit->selection_summary }}
                                     </p>
 
+                                    <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                                        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-3">
+                                            <p class="text-[8px] font-black uppercase tracking-wider text-emerald-600">
+                                                Selector
+                                            </p>
+                                            <p class="mt-1 text-[11px] font-black text-emerald-900">
+                                                {{ $phaseExit->selector_label }}
+                                            </p>
+                                            <p class="mt-1 text-[9px] leading-4 text-emerald-700">
+                                                {{ $phaseExit->selection_summary }}
+                                            </p>
+                                        </div>
+
+                                        <div class="rounded-2xl border border-sky-100 bg-sky-50/60 p-3">
+                                            <p class="text-[8px] font-black uppercase tracking-wider text-sky-600">
+                                                Timing
+                                            </p>
+                                            <p class="mt-1 text-[11px] font-black text-sky-900">
+                                                {{ $phaseExit->timing_label }}
+                                            </p>
+                                        </div>
+
+                                        <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3">
+                                            <p class="text-[8px] font-black uppercase tracking-wider text-indigo-600">
+                                                Contrato
+                                            </p>
+                                            <p class="mt-1 text-[11px] font-black text-indigo-900">
+                                                {{ $phaseExit->contract_label }}
+                                            </p>
+                                        </div>
+
+                                        <div class="rounded-2xl border border-violet-100 bg-violet-50/60 p-3">
+                                            <p class="text-[8px] font-black uppercase tracking-wider text-violet-600">
+                                                Modo de resolución
+                                            </p>
+                                            <p class="mt-1 text-[11px] font-black text-violet-900">
+                                                {{ $phaseExit->resolution_mode_label }}
+                                            </p>
+                                        </div>
+                                    </div>
+
                                     <div class="mt-3 flex flex-wrap gap-2">
                                         @forelse ($phaseExit->incomingInternalConnections as $connection)
                                             <span
@@ -304,7 +392,11 @@
 
                                     <form method="POST"
                                         action="{{ route('tournaments.phase-exits.destroy', [$phaseTemplate, $phaseExit]) }}"
-                                        class="shrink-0">
+                                        class="shrink-0" data-omni-confirm data-confirm-variant="danger"
+                                        data-confirm-icon="×" data-confirm-title="Eliminar puerta de salida"
+                                        data-confirm-message="La salida solo se eliminará si no tiene rutas internas ni conexiones activas en el Tournament Graph."
+                                        data-confirm-subject="{{ $phaseExit->name }}"
+                                        data-confirm-action="Eliminar salida">
                                         @csrf
                                         @method('DELETE')
 
