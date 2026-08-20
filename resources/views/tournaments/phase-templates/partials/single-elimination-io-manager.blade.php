@@ -35,8 +35,7 @@
     </header>
 
     {{-- Entradas --}}
-    <div id="input-gates" x-cloak x-show="gateTab === 'input'" x-transition
-        class="scroll-mt-28 p-5 sm:p-8">
+    <div id="input-gates" x-cloak x-show="gateTab === 'input'" x-transition class="scroll-mt-28 p-5 sm:p-8">
         <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
                 <p class="text-[10px] font-black uppercase tracking-wider text-fuchsia-600">
@@ -82,11 +81,6 @@
                                         <h4 class="font-black text-slate-900">
                                             {{ $phaseInputGate->name }}
                                         </h4>
-
-                                        <span
-                                            class="rounded-full bg-fuchsia-50 px-2.5 py-1 text-[9px] font-black text-fuchsia-700">
-                                            {{ $phaseInputGate->type_label }}
-                                        </span>
 
                                         <span
                                             class="rounded-full bg-indigo-50 px-2.5 py-1 text-[9px] font-black text-indigo-700">
@@ -144,7 +138,8 @@
                                             <p class="text-[8px] font-black uppercase tracking-wider text-slate-500">
                                                 Estado
                                             </p>
-                                            <p class="mt-1 text-[11px] font-black {{ $phaseInputGate->status === 'ACTIVE' ? 'text-emerald-700' : 'text-slate-600' }}">
+                                            <p
+                                                class="mt-1 text-[11px] font-black {{ $phaseInputGate->status === 'ACTIVE' ? 'text-emerald-700' : 'text-slate-600' }}">
                                                 {{ $phaseInputGate->status_label }}
                                             </p>
                                         </div>
@@ -176,10 +171,10 @@
                                     </div>
                                 </div>
 
-                                <div class="flex shrink-0 flex-wrap gap-2">
+                                <div class="flex shrink-0 flex-col gap-2">
                                     <button type="button" @click="editing = !editing"
                                         class="rounded-xl border border-fuchsia-200 px-3 py-2 text-[10px] font-black text-fuchsia-700">
-                                        <span x-text="editing ? 'Cerrar' : 'Editar y mapear'"></span>
+                                        <span x-text="editing ? 'Cerrar' : 'Editar'"></span>
                                     </button>
 
                                     <form method="POST"
@@ -278,8 +273,7 @@
     </div>
 
     {{-- Salidas --}}
-    <div id="output-gates" x-cloak x-show="gateTab === 'output'" x-transition
-        class="scroll-mt-28 p-5 sm:p-8">
+    <div id="output-gates" x-cloak x-show="gateTab === 'output'" x-transition class="scroll-mt-28 p-5 sm:p-8">
         <div>
             <p class="text-[10px] font-black uppercase tracking-wider text-emerald-600">
                 Clasificados que abandonan la fase
@@ -384,16 +378,16 @@
                                     </div>
                                 </div>
 
-                                <div class="flex shrink-0 items-start gap-2">
+                                <div class="flex shrink-0 flex-col gap-2">
                                     <button type="button" @click="editing = !editing"
-                                        class="inline-flex h-10 w-24 items-center justify-center rounded-xl border border-emerald-200 bg-white text-[10px] font-black text-emerald-700 transition hover:bg-emerald-50">
+                                        class="rounded-xl border border-emerald-200 px-3 py-2 text-[10px] font-black text-emerald-700">
                                         <span x-text="editing ? 'Cerrar' : 'Editar'"></span>
                                     </button>
 
                                     <form method="POST"
                                         action="{{ route('tournaments.phase-exits.destroy', [$phaseTemplate, $phaseExit]) }}"
-                                        class="shrink-0" data-omni-confirm data-confirm-variant="danger"
-                                        data-confirm-icon="×" data-confirm-title="Eliminar puerta de salida"
+                                        data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                        data-confirm-title="Eliminar puerta de salida"
                                         data-confirm-message="La salida solo se eliminará si no tiene rutas internas ni conexiones activas en el Tournament Graph."
                                         data-confirm-subject="{{ $phaseExit->name }}"
                                         data-confirm-action="Eliminar salida">
@@ -403,7 +397,7 @@
                                         <input type="hidden" name="return_to" value="structure_io">
 
                                         <button type="submit"
-                                            class="inline-flex h-10 w-24 items-center justify-center rounded-xl bg-red-50 text-[10px] font-black text-red-600 transition hover:bg-red-100">
+                                            class="rounded-xl bg-red-50 px-3 py-2 text-[10px] font-black text-red-600">
                                             Eliminar
                                         </button>
                                     </form>

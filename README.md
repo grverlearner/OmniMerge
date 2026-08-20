@@ -1209,6 +1209,63 @@ AttributeContextService
 
 ---
 
+# 🏆 Estado Single Elimination P3.6
+
+**Progreso actual:** Las entregas P3.6.1 a P3.6.6 han sido implementadas, centrándose en la estabilización de la experiencia de usuario, estados, errores y confirmaciones para el motor Single Elimination.
+
+| Entrega | Enfoque | Estado |
+|---------|---------|--------|
+| **P3.6.1** | OmniConfirm estable | ✅ Confirmaciones en formularios y acciones JS |
+| **P3.6.2** | Protección cambios sin guardar | ✅ Navegación interna y "Descartar" protegidas |
+| **P3.6.3** | Reglas, capability gating + Preview | ✅ Badges de capacidad y estados de Preview |
+| **P3.6.4** | Structure statuses + diagnostics | ⏳ Pendiente (next patch) |
+| **P3.6.5** | IO Manager + Phase Exits | ✅ Labels, cobertura, vista IO Manager |
+| **P3.6.6** | Competition Lab base, BYE y errores | ✅ Estados match, errores runtime, confirmaciones |
+
+**Principios clave:**
+- **UX veraz:** Una opción no implementada no debe parecer utilizable
+- **Estados claros:** WAITING (⏳), PENDING (🔄), BYE (👉), COMPLETED (✅)
+- **Confirmaciones consistentes:** `OmniConfirm` modal para acciones destructivas
+- **Blade resistente:** Usar helpers existentes, evitar dependencias de helpers nuevos
+
+**Siguiente paso:** P3.7 - Puertas de salida y validación final antes de declarar Single Elimination ENGINE STABLE V1.
+
+---
+
+## 🛠️ Tecnologías
+
+## Backend
+
+* PHP 8.2+
+* Laravel 12
+* Eloquent ORM
+* Laravel Policies
+* Form Requests
+* Services
+* Blade
+
+## Base de datos
+
+* MySQL
+
+## Frontend
+
+* Blade
+* Tailwind CSS
+* Alpine.js
+* JavaScript
+* Vite
+
+## Desarrollo
+
+* Composer
+* Node.js
+* npm
+* Git
+* GitHub
+
+---
+
 # 🗄️ Modelo conceptual de datos
 
 La plataforma contiene diferentes grupos de tablas.
@@ -1868,12 +1925,14 @@ en vez de consultar la Base de cada Entidad individualmente.
 | Resolver de Versiones          | ✅ Implementado                    |
 | Multimedia de Versiones        | ✅ Implementado                    |
 | Presentación pública           | 🟡 Implementado / en refinamiento |
+| **Single Elimination**         | **🟡 En refinamiento P3.6**        |
 | Base activa                    | 🟡 Implementación reciente        |
 | Contextos de Atributos         | 🟡 Implementado / en refinamiento |
 | Relaciones entre Catálogos     | 🟡 Implementado / en refinamiento |
 | Componentes globales de imagen | 🟡 En integración                 |
 | OmniConfirm                    | 🟡 En integración                 |
 | Tests automatizados            | 🟡 Cobertura parcial              |
+| **P3.6 progreso**              | **P3.6.1–P3.6.6 completados**    |
 | Universos                      | ⏳ Pendiente                       |
 | Torneos                        | ⏳ Pendiente                       |
 | Simulaciones                   | ⏳ Pendiente                       |
