@@ -150,6 +150,21 @@ class PhaseExitController extends Controller
             );
         }
 
+        if (
+            $request->input('return_to')
+            ===
+            'round_robin_io'
+            &&
+            $phaseTemplate->phase_type
+            ===
+            'ROUND_ROBIN'
+        ) {
+            return redirect()->route(
+                'tournaments.round-robin.io',
+                $phaseTemplate
+            );
+        }
+
         return redirect()->route(
             'tournaments.phase-templates.show',
             $phaseTemplate

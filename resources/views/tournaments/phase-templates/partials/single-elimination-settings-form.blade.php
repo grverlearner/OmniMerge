@@ -109,6 +109,33 @@
         </button>
 
         <div x-show="sections.distribution" x-transition class="border-t border-indigo-100 bg-indigo-50/30 p-5">
+            <div x-cloak x-show="draft.configurationMode === 'ADVANCED'"
+                class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <div class="flex items-start gap-3">
+                    <span
+                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-black text-amber-700">!</span>
+
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <p class="text-xs font-black text-amber-900">
+                                Sin efecto en modo Avanzado
+                            </p>
+
+                            <span
+                                class="rounded-full bg-slate-900 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-white">
+                                Próximamente
+                            </span>
+                        </div>
+
+                        <p class="mt-1 text-[10px] leading-5 text-amber-800">
+                            El Structure Graph todavía no aplica Seeding ni Pairing al generar o ejecutar la
+                            estructura interna: el orden de entrada de los participantes se respeta tal cual llega.
+                            Estos valores solo tienen efecto real en modo Básico.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid gap-4 md:grid-cols-2">
                 <div>
                     <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
@@ -195,6 +222,32 @@
         </button>
 
         <div x-show="sections.byes" x-transition class="border-t border-cyan-100 bg-cyan-50/30 p-5">
+            <div x-cloak x-show="draft.configurationMode === 'ADVANCED'"
+                class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <div class="flex items-start gap-3">
+                    <span
+                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-black text-amber-700">!</span>
+
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <p class="text-xs font-black text-amber-900">
+                                Sin efecto en modo Avanzado
+                            </p>
+
+                            <span
+                                class="rounded-full bg-slate-900 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-white">
+                                Próximamente
+                            </span>
+                        </div>
+
+                        <p class="mt-1 text-[10px] leading-5 text-amber-800">
+                            El Structure Graph asigna los BYEs a quienes queden sin encuentro disponible según el
+                            orden de entrada, sin aplicar esta política. Solo tiene efecto real en modo Básico.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             @if ($phaseTemplate->allow_byes)
                 <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
                     Asignar BYEs a

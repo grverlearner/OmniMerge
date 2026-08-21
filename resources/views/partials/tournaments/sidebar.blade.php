@@ -79,7 +79,7 @@
             <div class="space-y-1">
 
                 <a href="{{ route('tournaments.templates.index') }}"
-                    class="{{ request()->routeIs('tournaments.templates.*') || request()->routeIs('tournaments.phases.*')
+                    class="{{ request()->routeIs('tournaments.templates.*')
                         ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-950/30'
                         : 'text-slate-300 hover:bg-slate-900 hover:text-white' }}
                         flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition">

@@ -118,22 +118,61 @@
         ];
     }
 
-    if ($canUpdatePhase && $phaseTemplate->phase_type === 'SINGLE_ELIMINATION') {
-        $tabs[] = [
-            'key' => 'structure',
-            'label' => 'Estructura',
-            'description' => 'Etapas y encuentros',
-            'icon' => '◇',
-            'url' => route('tournaments.single-elimination.structure.show', $phaseTemplate),
-        ];
+    /*
+     * Pestañas adicionales por motor. Single Elimination necesita
+     * "Estructura" (grafo interno editable); Round Robin no, porque su
+     * calendario es enteramente determinístico (ver docs/md/18-Fase-2-Round-Robin.md,
+     * sección 4). Ambos comparten "Entrada y salida" y "Simulador".
+     */
+    $engineTabs = match ($phaseTemplate->phase_type) {
+        'SINGLE_ELIMINATION' => [
+            [
+                'key' => 'structure',
+                'label' => 'Estructura',
+                'description' => 'Etapas y encuentros',
+                'icon' => '◇',
+                'url' => route('tournaments.single-elimination.structure.show', $phaseTemplate),
+            ],
+            [
+                'key' => 'io',
+                'label' => 'Entradas y salidas',
+                'description' => 'Puertas y slots',
+                'icon' => '⇄',
+                'url' => route('tournaments.single-elimination.structure.io', $phaseTemplate),
+            ],
+            [
+                'key' => 'simulator',
+                'label' => 'Simulador',
+                'description' => 'Probar con participantes ficticios',
+                'icon' => '▶',
+                'url' => route('tournaments.single-elimination.simulator.show', $phaseTemplate),
+            ],
+        ],
 
-        $tabs[] = [
-            'key' => 'io',
-            'label' => 'Entradas y salidas',
-            'description' => 'Puertas y slots',
-            'icon' => '⇄',
-            'url' => route('tournaments.single-elimination.structure.io', $phaseTemplate),
-        ];
+        'ROUND_ROBIN' => [
+            [
+                'key' => 'io',
+                'label' => 'Entrada y salida',
+                'description' => 'Puertas de salida',
+                'icon' => '⇄',
+                'url' => route('tournaments.round-robin.io', $phaseTemplate),
+            ],
+            [
+                'key' => 'simulator',
+                'label' => 'Simulador',
+                'description' => 'Probar con participantes ficticios',
+                'icon' => '▶',
+                'url' => route('tournaments.round-robin.simulator.show', $phaseTemplate),
+            ],
+        ],
+
+        default => [],
+    };
+
+    if ($canUpdatePhase) {
+        foreach ($engineTabs as $engineTab) {
+            $tabs[] = $engineTab;
+        }
     }
 @endphp
 

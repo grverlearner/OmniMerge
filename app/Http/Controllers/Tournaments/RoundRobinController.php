@@ -173,6 +173,38 @@ class RoundRobinController extends Controller
 
     /*
     |--------------------------------------------------------------------------
+    | Entrada y salida
+    |--------------------------------------------------------------------------
+    */
+
+    public function io(
+        PhaseTemplate $phaseTemplate
+    ): View {
+        $this->authorize(
+            'update',
+            $phaseTemplate
+        );
+
+        $this->ensureCorrectType(
+            $phaseTemplate
+        );
+
+        $exits =
+            $phaseTemplate
+            ->exits()
+            ->get();
+
+        return view(
+            'tournaments.phase-templates.round-robin-io',
+            compact(
+                'phaseTemplate',
+                'exits'
+            )
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Update
     |--------------------------------------------------------------------------
     */

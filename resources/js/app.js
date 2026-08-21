@@ -4,12 +4,16 @@ import tournamentFlowBuilder from './tournaments/graph/flow-builder';
 import competitionLab from './tournaments/lab/competition-lab';
 import singleEliminationWorkspace from './tournaments/single-elimination/workspace';
 import singleEliminationStructureVisualizer from './tournaments/single-elimination/structure-visualizer';
+import singleEliminationSimulator from './tournaments/single-elimination/simulator';
+import roundRobinSimulator from './tournaments/round-robin/simulator';
 import phaseTemplateDesigner from './tournaments/phase-templates/designer';
 
 window.Alpine = Alpine;
 window.tournamentFlowBuilder = tournamentFlowBuilder;
 window.singleEliminationWorkspace = singleEliminationWorkspace;
 window.singleEliminationStructureVisualizer = singleEliminationStructureVisualizer;
+window.singleEliminationSimulator = singleEliminationSimulator;
+window.roundRobinSimulator = roundRobinSimulator;
 window.phaseTemplateDesigner = phaseTemplateDesigner;
 
 
@@ -218,6 +222,14 @@ document.addEventListener(
         Alpine.data(
             'singleEliminationStructureVisualizer',
             singleEliminationStructureVisualizer
+        );
+        Alpine.data(
+            'singleEliminationSimulator',
+            singleEliminationSimulator
+        );
+        Alpine.data(
+            'roundRobinSimulator',
+            roundRobinSimulator
         );
         Alpine.data(
             'phaseTemplateDesigner',

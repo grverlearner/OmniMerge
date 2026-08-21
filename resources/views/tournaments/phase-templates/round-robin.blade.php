@@ -555,33 +555,13 @@
         </h2>
 
         <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
-            Round Robin utilizará especialmente selectores como
-            TOP_N, BOTTOM_N, RANK_POSITION, RANK_RANGE y REMAINING.
-            El destino de esas salidas se decidirá posteriormente
-            dentro del Tournament Graph.
+            Round Robin admite <strong>Mejores N</strong>, <strong>Últimos N</strong>,
+            <strong>Posición específica</strong> y <strong>Rango de posiciones</strong>
+            sobre la clasificación final. Se gestionan en su propia pestaña,
+            junto al resto de puertas de la fase.
         </p>
 
-        <div class="mt-5 flex flex-wrap gap-2">
-
-            <span class="rounded-xl bg-white px-3 py-2 text-xs font-black text-indigo-700 shadow-sm">
-                TOP_N
-            </span>
-
-            <span class="rounded-xl bg-white px-3 py-2 text-xs font-black text-orange-700 shadow-sm">
-                BOTTOM_N
-            </span>
-
-            <span class="rounded-xl bg-white px-3 py-2 text-xs font-black text-violet-700 shadow-sm">
-                RANK_RANGE
-            </span>
-
-            <span class="rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-600 shadow-sm">
-                REMAINING
-            </span>
-
-        </div>
-
-        <a href="{{ route('tournaments.phase-templates.show', $phaseTemplate) }}#exits"
+        <a href="{{ route('tournaments.round-robin.io', $phaseTemplate) }}"
             class="mt-5 inline-flex rounded-xl bg-amber-500 px-4 py-3 text-xs font-black text-white">
             Configurar puertas de salida →
         </a>

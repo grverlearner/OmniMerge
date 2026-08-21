@@ -50,8 +50,8 @@
     {{-- SELECTOR --}}
 
     <div x-data="{
-        selector: @js(old('selector_type', $editingExit ? $phaseExit->selector_type : ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION' ? 'SURVIVORS' : (in_array($phaseTemplate->phase_type, ['GROUP_STAGE', 'SWISS'], true) ? 'ENGINE_RULES' : 'MATCH_WINNERS')))),
-    
+        selector: @js(old('selector_type', $editingExit ? $phaseExit->selector_type : ($phaseTemplate->phase_type === 'SINGLE_ELIMINATION' ? 'SURVIVORS' : (in_array($phaseTemplate->phase_type, ['GROUP_STAGE', 'SWISS'], true) ? 'ENGINE_RULES' : ($phaseTemplate->phase_type === 'ROUND_ROBIN' ? 'TOP_N' : 'MATCH_WINNERS'))))),
+
         timing: @js(old('exit_timing', $editingExit ? $phaseExit->exit_timing : 'PHASE_END'))
     }">
 
@@ -105,13 +105,15 @@
 
             <optgroup label="Selectores generales">
 
-                <option value="MATCH_WINNERS">
-                    Ganadores de enfrentamientos
-                </option>
+                @if ($phaseTemplate->phase_type !== 'ROUND_ROBIN')
+                    <option value="MATCH_WINNERS">
+                        Ganadores de enfrentamientos
+                    </option>
 
-                <option value="MATCH_LOSERS">
-                    Perdedores de enfrentamientos
-                </option>
+                    <option value="MATCH_LOSERS">
+                        Perdedores de enfrentamientos
+                    </option>
+                @endif
 
                 <option value="TOP_N">
                     Mejores N
@@ -245,7 +247,8 @@
 
             </select>
 
-            <input x-show="selector === 'ELIMINATED_IN_ROUND'" type="hidden" name="exit_timing" value="ON_ELIMINATION">
+            <input x-show="selector === 'ELIMINATED_IN_ROUND'" :disabled="selector !== 'ELIMINATED_IN_ROUND'"
+                type="hidden" name="exit_timing" value="ON_ELIMINATION">
 
         </div>
 

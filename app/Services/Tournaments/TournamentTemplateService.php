@@ -402,8 +402,9 @@ class TournamentTemplateService
 | TOURNAMENT GRAPH
 |--------------------------------------------------------------------------
 |
-| El grafo es el flujo vigente. TournamentPhase pertenece al sistema
-| anterior y ya no se replica en nuevas copias.
+| El grafo es el único flujo de fases del sistema. El modelo legacy
+| TournamentPhase fue retirado por completo en la Fase 1 (ver
+| docs/md/16-Fase-1-Single-Elimination.md).
 |
 */
 

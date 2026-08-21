@@ -146,20 +146,6 @@ class TournamentTemplate extends Model
     }
 
 
-    public function phases(): HasMany
-    {
-        return $this
-            ->hasMany(
-                TournamentPhase::class
-            )
-            ->orderBy(
-                'sort_order'
-            )
-            ->orderBy(
-                'id'
-            );
-    }
-
     public function graphNodes(): HasMany
     {
         return $this

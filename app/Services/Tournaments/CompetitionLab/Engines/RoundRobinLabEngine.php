@@ -5,6 +5,7 @@ namespace App\Services\Tournaments\CompetitionLab\Engines;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\CompetitionLab\Runtime\CutoffPolicyResolver;
 use App\Services\Tournaments\RoundRobin\RoundRobinValidator;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class RoundRobinLabEngine
@@ -193,13 +194,21 @@ implements LabPhaseEngine, SupportsManualDecision
             'cutoff_exits' =>
             $phase->exits
                 ->where('status', 'ACTIVE')
-                ->whereIn('selector_type', ['TOP_N', 'BOTTOM_N'])
+                ->whereIn('selector_type', ['TOP_N', 'BOTTOM_N', 'RANK_POSITION', 'RANK_RANGE'])
                 ->sortBy(fn($exit) => sprintf('%010d-%010d-%010d', $exit->priority, $exit->sort_order, $exit->id))
                 ->map(fn($exit) => [
                     'id' => (int) $exit->id,
                     'name' => $exit->name,
                     'selector_type' => $exit->selector_type,
                     'take' => (int) $exit->selector_from,
+                    'range_from' => in_array($exit->selector_type, ['RANK_POSITION', 'RANK_RANGE'], true)
+                        ? (int) $exit->selector_from
+                        : null,
+                    'range_to' => match ($exit->selector_type) {
+                        'RANK_POSITION' => (int) $exit->selector_from,
+                        'RANK_RANGE' => (int) $exit->selector_to,
+                        default => null,
+                    },
                 ])
                 ->values()
                 ->all(),
@@ -771,13 +780,38 @@ implements LabPhaseEngine, SupportsManualDecision
                 array $right
             ) use (
                 $criteria,
-                $fieldMap
+                $fieldMap,
+                $runtime
             ): int {
                 foreach (
                     $criteria
                     as
                     $criterion
                 ) {
+                    if (
+                        ($criterion['criterion'] ?? null)
+                        ===
+                        'HEAD_TO_HEAD'
+                    ) {
+                        $comparison =
+                            $this->headToHeadComparison(
+                                $left,
+                                $right,
+                                $runtime
+                            );
+
+                        if ($comparison === 0) {
+                            continue;
+                        }
+
+                        return
+                            $criterion['direction']
+                            ===
+                            'ASC'
+                            ? $comparison
+                            : -$comparison;
+                    }
+
                     $field =
                         $fieldMap[$criterion['criterion']]
                         ??
@@ -887,10 +921,6 @@ implements LabPhaseEngine, SupportsManualDecision
                 ->reject(fn($row) => isset($consumed[$row['participant_id']]))
                 ->values();
 
-            if ($exit['selector_type'] === 'BOTTOM_N') {
-                $pool = $pool->reverse()->values();
-            }
-
             $decisionKey = 'ROUND_ROBIN:CUTOFF:' . $exit['id'];
             $resolvedIds = $runtime['resolved_cutoffs'][$decisionKey] ?? null;
 
@@ -898,9 +928,23 @@ implements LabPhaseEngine, SupportsManualDecision
                 $selectedRows = $pool
                     ->filter(fn($row) => in_array($row['participant_id'], $resolvedIds, true))
                     ->values();
+            } elseif (in_array($exit['selector_type'], ['RANK_POSITION', 'RANK_RANGE'], true)) {
+                $resolution = $this->resolveRankRange($pool, $exit, $runtime, $decisionKey);
+
+                if ($resolution['decision'] !== null) {
+                    $runtime['status'] = 'AWAITING_DECISION';
+                    $runtime['manual_decision'] = $resolution['decision'];
+                    return $runtime;
+                }
+
+                $selectedRows = collect($resolution['selected']);
             } else {
+                $orderedPool = $exit['selector_type'] === 'BOTTOM_N'
+                    ? $pool->reverse()->values()
+                    : $pool;
+
                 $resolved = $this->cutoffResolver->resolve(
-                    $pool->all(),
+                    $orderedPool->all(),
                     (int) $exit['take'],
                     $runtime['cutoff_tie_policy'] ?? 'USE_TIEBREAKERS',
                     fn(array $left, array $right): bool =>
@@ -951,6 +995,14 @@ implements LabPhaseEngine, SupportsManualDecision
                 continue;
             }
 
+            if (($criterion['criterion'] ?? null) === 'HEAD_TO_HEAD') {
+                if ($this->headToHeadComparison($left, $right, $runtime) !== 0) {
+                    return false;
+                }
+
+                continue;
+            }
+
             $field = match ($criterion['criterion'] ?? null) {
                 'POINTS' => 'points',
                 'WINS' => 'wins',
@@ -968,6 +1020,136 @@ implements LabPhaseEngine, SupportsManualDecision
         }
 
         return true;
+    }
+
+    /**
+     * Compara los puntos obtenidos exclusivamente en los enfrentamientos
+     * directos entre $left y $right (soporta múltiples ciclos: si se
+     * enfrentaron más de una vez, se suman los puntos de todos esos
+     * encuentros ya completados). Retorna >0 si $left tiene ventaja,
+     * <0 si la tiene $right, 0 si están empatados o todavía no se
+     * enfrentaron.
+     */
+    private function headToHeadComparison(array $left, array $right, array $runtime): int
+    {
+        $leftId = $left['participant_id'];
+        $rightId = $right['participant_id'];
+
+        $leftPoints = 0.0;
+        $rightPoints = 0.0;
+
+        foreach ($runtime['rounds'] as $round) {
+            foreach ($round['matches'] as $match) {
+                if ($match['status'] !== 'COMPLETED') {
+                    continue;
+                }
+
+                $isBetweenThem =
+                    ($match['participant_a_id'] === $leftId && $match['participant_b_id'] === $rightId)
+                    || ($match['participant_a_id'] === $rightId && $match['participant_b_id'] === $leftId);
+
+                if (! $isBetweenThem) {
+                    continue;
+                }
+
+                if ($match['winner_id'] === $leftId) {
+                    $leftPoints += $runtime['points']['win'];
+                    $rightPoints += $runtime['points']['loss'];
+                } elseif ($match['winner_id'] === $rightId) {
+                    $rightPoints += $runtime['points']['win'];
+                    $leftPoints += $runtime['points']['loss'];
+                } else {
+                    $leftPoints += $runtime['points']['draw'];
+                    $rightPoints += $runtime['points']['draw'];
+                }
+            }
+        }
+
+        return $leftPoints <=> $rightPoints;
+    }
+
+    /**
+     * Resuelve un corte por posición/rango (RANK_POSITION es un RANK_RANGE
+     * con from === to). Reutiliza CutoffPolicyResolver dos veces sobre el
+     * mismo pool -una vez para el límite superior del rango, otra para el
+     * límite inferior- y resta ambos resultados, en vez de modificar el
+     * resolver compartido (que solo entiende "los primeros N").
+     */
+    private function resolveRankRange(
+        Collection $pool,
+        array $exit,
+        array $runtime,
+        string $decisionKey
+    ): array {
+        $from = max(1, (int) ($exit['range_from'] ?? 1));
+        $to = max($from, (int) ($exit['range_to'] ?? $from));
+
+        $tiedFn = fn(array $left, array $right): bool =>
+            $this->competitivelyTied($left, $right, $runtime);
+
+        $toKey = $decisionKey . ':TO';
+        $toResolvedIds = $runtime['resolved_cutoffs'][$toKey] ?? null;
+
+        if (is_array($toResolvedIds)) {
+            $selectedUpToTo = $pool
+                ->filter(fn($row) => in_array($row['participant_id'], $toResolvedIds, true))
+                ->values()
+                ->all();
+        } else {
+            $uptoTo = $this->cutoffResolver->resolve(
+                $pool->all(),
+                $to,
+                $runtime['cutoff_tie_policy'] ?? 'USE_TIEBREAKERS',
+                $tiedFn,
+                $toKey,
+                'Resolver empate Round Robin (límite superior del rango)'
+            );
+
+            if ($uptoTo['decision'] !== null) {
+                return $uptoTo;
+            }
+
+            $selectedUpToTo = $uptoTo['selected'];
+        }
+
+        if ($from <= 1) {
+            return [
+                'selected' => $selectedUpToTo,
+                'decision' => null,
+            ];
+        }
+
+        $fromKey = $decisionKey . ':FROM';
+        $fromResolvedIds = $runtime['resolved_cutoffs'][$fromKey] ?? null;
+
+        if (is_array($fromResolvedIds)) {
+            $excludedIds = $fromResolvedIds;
+        } else {
+            $uptoFromMinusOne = $this->cutoffResolver->resolve(
+                $pool->all(),
+                $from - 1,
+                $runtime['cutoff_tie_policy'] ?? 'USE_TIEBREAKERS',
+                $tiedFn,
+                $fromKey,
+                'Resolver empate Round Robin (límite inferior del rango)'
+            );
+
+            if ($uptoFromMinusOne['decision'] !== null) {
+                return $uptoFromMinusOne;
+            }
+
+            $excludedIds = collect($uptoFromMinusOne['selected'])
+                ->pluck('participant_id')
+                ->all();
+        }
+
+        return [
+            'selected' => collect($selectedUpToTo)
+                ->reject(fn($row) => in_array($row['participant_id'], $excludedIds, true))
+                ->values()
+                ->all(),
+            'decision' => null,
+        ];
     }
 
     private function gameMetrics(array $runtime, string $participantId): array

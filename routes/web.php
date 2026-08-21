@@ -30,7 +30,6 @@ use App\Http\Controllers\Entities\EntityBaseVersionController;
 
 use App\Http\Controllers\Tournaments\TournamentDashboardController;
 use App\Http\Controllers\Tournaments\TournamentTemplateController;
-use App\Http\Controllers\Tournaments\TournamentPhaseController;
 use App\Http\Controllers\Tournaments\TournamentLabController;
 
 use App\Http\Controllers\Tournaments\PhaseTemplateController;
@@ -38,6 +37,7 @@ use App\Http\Controllers\Tournaments\PhaseExitController;
 use App\Http\Controllers\Tournaments\SingleEliminationController;
 use App\Http\Controllers\Tournaments\SingleEliminationRoundRuleController;
 use App\Http\Controllers\Tournaments\RoundRobinController;
+use App\Http\Controllers\Tournaments\RoundRobinSimulatorController;
 use App\Http\Controllers\Tournaments\RoundRobinTiebreakerController;
 use App\Http\Controllers\Tournaments\GroupStageController;
 use App\Http\Controllers\Tournaments\GroupStageGroupController;
@@ -58,6 +58,7 @@ use App\Http\Controllers\Tournaments\TournamentPhaseConnectionController;
 use App\Http\Controllers\Tournaments\TournamentGraphPresetController;
 use App\Http\Controllers\Tournaments\TournamentFlowPreviewController;
 
+use App\Http\Controllers\Tournaments\SingleEliminationSimulatorController;
 use App\Http\Controllers\Tournaments\SingleEliminationStructureController;
 use App\Http\Controllers\Tournaments\SingleEliminationGraphController;
 
@@ -416,6 +417,47 @@ Route::middleware('auth')->group(function () {
 
                 /*
                 |--------------------------------------------------------------------------
+                | Simulador de Eliminación Simple
+                |--------------------------------------------------------------------------
+                |
+                | Prueba la configuración real de la fase con participantes
+                | ficticios, sin depender de un TournamentTemplate. Reutiliza
+                | los mismos motores que el Competition Lab; no persiste nada.
+                |
+                */
+
+                Route::get(
+                    '/phases/{phaseTemplate}/single-elimination/simulator',
+                    [
+                        SingleEliminationSimulatorController::class,
+                        'show',
+                    ]
+                )->name(
+                    'single-elimination.simulator.show'
+                );
+
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/simulator/initialize',
+                    [
+                        SingleEliminationSimulatorController::class,
+                        'initialize',
+                    ]
+                )->name(
+                    'single-elimination.simulator.initialize'
+                );
+
+                Route::post(
+                    '/phases/{phaseTemplate}/single-elimination/simulator/action',
+                    [
+                        SingleEliminationSimulatorController::class,
+                        'action',
+                    ]
+                )->name(
+                    'single-elimination.simulator.action'
+                );
+
+                /*
+                |--------------------------------------------------------------------------
                 | Diseñador de grafo interno personalizado
                 |--------------------------------------------------------------------------
                 */
@@ -566,6 +608,52 @@ Route::middleware('auth')->group(function () {
                     ]
                 )->name(
                     'round-robin.update'
+                );
+
+                Route::get(
+                    '/phases/{phaseTemplate}/round-robin/io',
+                    [
+                        RoundRobinController::class,
+                        'io',
+                    ]
+                )->name(
+                    'round-robin.io'
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | Simulador de Round Robin
+                |--------------------------------------------------------------------------
+                */
+
+                Route::get(
+                    '/phases/{phaseTemplate}/round-robin/simulator',
+                    [
+                        RoundRobinSimulatorController::class,
+                        'show',
+                    ]
+                )->name(
+                    'round-robin.simulator.show'
+                );
+
+                Route::post(
+                    '/phases/{phaseTemplate}/round-robin/simulator/initialize',
+                    [
+                        RoundRobinSimulatorController::class,
+                        'initialize',
+                    ]
+                )->name(
+                    'round-robin.simulator.initialize'
+                );
+
+                Route::post(
+                    '/phases/{phaseTemplate}/round-robin/simulator/action',
+                    [
+                        RoundRobinSimulatorController::class,
+                        'action',
+                    ]
+                )->name(
+                    'round-robin.simulator.action'
                 );
 
                 /*
@@ -1395,83 +1483,6 @@ Route::middleware('auth')->group(function () {
                 );
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | Fases
-                |--------------------------------------------------------------------------
-                */
-
-
-                Route::get(
-                    '/templates/{tournamentTemplate}/phases',
-                    [
-                        TournamentPhaseController::class,
-                        'index',
-                    ]
-                )
-                    ->name(
-                        'phases.index'
-                    );
-
-
-                Route::get(
-                    '/templates/{tournamentTemplate}/phases/create',
-                    [
-                        TournamentPhaseController::class,
-                        'create',
-                    ]
-                )
-                    ->name(
-                        'phases.create'
-                    );
-
-
-                Route::post(
-                    '/templates/{tournamentTemplate}/phases',
-                    [
-                        TournamentPhaseController::class,
-                        'store',
-                    ]
-                )
-                    ->name(
-                        'phases.store'
-                    );
-
-
-                Route::get(
-                    '/templates/{tournamentTemplate}/phases/{phase}/edit',
-                    [
-                        TournamentPhaseController::class,
-                        'edit',
-                    ]
-                )
-                    ->name(
-                        'phases.edit'
-                    );
-
-
-                Route::put(
-                    '/templates/{tournamentTemplate}/phases/{phase}',
-                    [
-                        TournamentPhaseController::class,
-                        'update',
-                    ]
-                )
-                    ->name(
-                        'phases.update'
-                    );
-
-
-                Route::delete(
-                    '/templates/{tournamentTemplate}/phases/{phase}',
-                    [
-                        TournamentPhaseController::class,
-                        'destroy',
-                    ]
-                )
-                    ->name(
-                        'phases.destroy'
-                    );
             }
         );
 
