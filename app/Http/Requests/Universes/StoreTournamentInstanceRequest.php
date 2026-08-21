@@ -118,7 +118,7 @@ class StoreTournamentInstanceRequest extends FormRequest
             'assignments.*.*' => [
                 'integer',
 
-                Rule::exists('universe_competitors', 'id')
+                Rule::exists('universe_entities', 'id')
                     ->where(
                         'universe_id',
                         $universeId
@@ -170,26 +170,26 @@ class StoreTournamentInstanceRequest extends FormRequest
         foreach (
             (array) $this->validated('assignments')
             as
-            $startId => $competitorIds
+            $startId => $universeEntityIds
         ) {
 
             $ids = [];
 
-            foreach ((array) $competitorIds as $competitorId) {
+            foreach ((array) $universeEntityIds as $universeEntityId) {
 
-                $competitorId = (int) $competitorId;
+                $universeEntityId = (int) $universeEntityId;
 
                 if (
-                    $competitorId <= 0
+                    $universeEntityId <= 0
                     ||
-                    isset($seen[$competitorId])
+                    isset($seen[$universeEntityId])
                 ) {
                     continue;
                 }
 
-                $seen[$competitorId] = true;
+                $seen[$universeEntityId] = true;
 
-                $ids[] = $competitorId;
+                $ids[] = $universeEntityId;
             }
 
             if ($ids === []) {

@@ -33,10 +33,11 @@ use App\Http\Controllers\Tournaments\TournamentTemplateController;
 use App\Http\Controllers\Tournaments\TournamentLabController;
 use App\Http\Controllers\Universes\UniverseController;
 use App\Http\Controllers\Universes\UniverseDashboardController;
-use App\Http\Controllers\Universes\UniverseCompetitorController;
+use App\Http\Controllers\Universes\UniverseEntityController;
 use App\Http\Controllers\Universes\UniverseSeasonController;
 use App\Http\Controllers\Universes\UniverseTournamentController;
 use App\Http\Controllers\Universes\TournamentInstanceController;
+use App\Http\Controllers\Universes\UniverseHistoryController;
 
 use App\Http\Controllers\Tournaments\PhaseTemplateController;
 use App\Http\Controllers\Tournaments\PhaseExitController;
@@ -181,15 +182,15 @@ Route::middleware('auth')->group(function () {
                             | Competidores
                             */
 
-                            Route::prefix('competitors')
-                                ->name('competitors.')
+                            Route::prefix('entities')
+                                ->name('entities.')
                                 ->group(
                                     function () {
 
                                         Route::get(
                                             '/',
                                             [
-                                                UniverseCompetitorController::class,
+                                                UniverseEntityController::class,
                                                 'index',
                                             ]
                                         )->name('index');
@@ -197,7 +198,7 @@ Route::middleware('auth')->group(function () {
                                         Route::get(
                                             '/create',
                                             [
-                                                UniverseCompetitorController::class,
+                                                UniverseEntityController::class,
                                                 'create',
                                             ]
                                         )->name('create');
@@ -205,26 +206,46 @@ Route::middleware('auth')->group(function () {
                                         Route::post(
                                             '/',
                                             [
-                                                UniverseCompetitorController::class,
+                                                UniverseEntityController::class,
                                                 'store',
                                             ]
                                         )->name('store');
 
                                         Route::put(
-                                            '/{competitor}',
+                                            '/{entity}',
                                             [
-                                                UniverseCompetitorController::class,
+                                                UniverseEntityController::class,
                                                 'update',
                                             ]
                                         )->name('update');
 
                                         Route::delete(
-                                            '/{competitor}',
+                                            '/{entity}',
                                             [
-                                                UniverseCompetitorController::class,
+                                                UniverseEntityController::class,
                                                 'destroy',
                                             ]
                                         )->name('destroy');
+
+                                        Route::get(
+                                            '/{entity}/head-to-head',
+                                            [
+                                                UniverseEntityController::class,
+                                                'headToHead',
+                                            ]
+                                        )->name('head-to-head');
+
+                                        /*
+                                         * Al final: si estuviera antes
+                                         * capturaria /create.
+                                         */
+                                        Route::get(
+                                            '/{entity}',
+                                            [
+                                                UniverseEntityController::class,
+                                                'show',
+                                            ]
+                                        )->name('show');
                                     }
                                 );
 
@@ -474,6 +495,19 @@ Route::middleware('auth')->group(function () {
                                         )->name('destroy');
                                     }
                                 );
+
+
+                            /*
+                            | Historial (Fase 8)
+                            */
+
+                            Route::get(
+                                '/history',
+                                [
+                                    UniverseHistoryController::class,
+                                    'index',
+                                ]
+                            )->name('history');
 
 
                             /*
@@ -2100,9 +2134,22 @@ Route::middleware('auth')->group(function () {
         'versions',
         VersionController::class
     );
-
-
     /*
+|--------------------------------------------------------------------------
+| (El historial competitivo ya no vive en la Biblioteca)
+|--------------------------------------------------------------------------
+|
+| La Biblioteca es solo material reutilizable: no acumula torneos,
+| victorias ni campeonatos. Eso pertenece a la entidad del UNIVERSO, y
+| se consulta en universes.entities.show.
+|
+| Ver docs/md/27-Entidades-Propias-Del-Universo.md
+|
+*/
+
+
+
+/*
 |--------------------------------------------------------------------------
 | VERSIONES DE UNA ENTIDAD
 |--------------------------------------------------------------------------

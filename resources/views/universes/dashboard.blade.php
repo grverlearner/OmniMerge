@@ -52,7 +52,7 @@
 
     <section class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
 
-        @foreach ([['Universos', $statistics['total'], '🌌'], ['Activos', $statistics['active'], '●'], ['Borradores', $statistics['draft'], '◆'], ['Competidores', $statistics['competitors'], '✦'], ['Torneos', $statistics['tournaments'], '🏆']] as [$label, $value, $icon])
+        @foreach ([['Universos', $statistics['total'], '🌌'], ['Activos', $statistics['active'], '●'], ['Borradores', $statistics['draft'], '◆'], ['Competidores', $statistics['entities'], '✦'], ['Torneos', $statistics['tournaments'], '🏆']] as [$label, $value, $icon])
             <article class="rounded-2xl border border-slate-200 bg-white p-5">
                 <div class="flex items-center justify-between gap-3">
                     <div>
@@ -114,7 +114,7 @@
                         <p class="mt-1 font-mono text-[9px] text-slate-400">
                             {{ $recentUniverse->code }}
                             ·
-                            {{ $recentUniverse->competitors_count }} competidores
+                            {{ $recentUniverse->entities_count }} competidores
                             ·
                             {{ $recentUniverse->universe_tournaments_count }} torneos
                         </p>

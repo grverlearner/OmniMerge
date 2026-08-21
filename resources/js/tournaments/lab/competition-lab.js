@@ -846,6 +846,47 @@ export default function competitionLab(config) {
                 id;
         },
 
+        /*
+         * Contexto de Biblioteca del participante (Fase 7).
+         *
+         * Devuelve una cadena vacía cuando el participante es sintético
+         * (Competition Lab), de modo que la tarjeta se ve igual que
+         * antes y solo se enriquece cuando hay una Entidad detrás.
+         */
+        participantSubtitle(id) {
+            const participant =
+                this.state
+                    ?.participants
+                    ?.[id];
+
+            if (!participant) {
+                return '';
+            }
+
+            const featured =
+                (participant.attributes ?? [])
+                    .find(attribute => attribute.featured)
+                ??
+                (participant.attributes ?? [])[0];
+
+            if (featured) {
+                return featured.name
+                    + ' '
+                    + featured.display;
+            }
+
+            return participant.entity_type_name ?? '';
+        },
+
+        participantImage(id) {
+            return this.state
+                ?.participants
+                ?.[id]
+                ?.image_url
+                ??
+                null;
+        },
+
         pendingDecisionNode() {
             return this.nodes().find(node =>
                 node?.runtime?.status === 'AWAITING_DECISION'

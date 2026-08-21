@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 |
 | El nombre y el seed son copias del momento en que arrancó la
 | competición: si después cambia el Universo, el histórico no se altera.
-| universe_competitor_id y entity_id son solo enlaces opcionales.
+| universe_entity_id y entity_id son solo enlaces opcionales.
 |
 */
 
@@ -26,8 +26,12 @@ class TournamentInstanceParticipant extends Model
     protected $fillable = [
         'tournament_instance_id',
         'runtime_key',
-        'universe_competitor_id',
+        'universe_entity_id',
         'entity_id',
+        'entity_version_id',
+        'entity_version_name',
+        'entity_type_name',
+        'attribute_snapshot',
         'name',
         'seed',
         'source_start_id',
@@ -39,11 +43,15 @@ class TournamentInstanceParticipant extends Model
         'points',
         'final_location_type',
         'final_location_name',
+        'outcome',
+        'placement',
+        'round_reached',
     ];
 
     protected function casts(): array
     {
         return [
+            'attribute_snapshot' => 'array',
             'seed' => 'integer',
             'source_start_id' => 'integer',
             'matches' => 'integer',
@@ -51,6 +59,8 @@ class TournamentInstanceParticipant extends Model
             'draws' => 'integer',
             'losses' => 'integer',
             'points' => 'integer',
+            'placement' => 'integer',
+            'round_reached' => 'integer',
         ];
     }
 
@@ -64,14 +74,27 @@ class TournamentInstanceParticipant extends Model
     public function universeCompetitor(): BelongsTo
     {
         return $this->belongsTo(
-            UniverseCompetitor::class
+            UniverseEntity::class
         );
     }
 
-    public function entity(): BelongsTo
+    public function universeEntity(): BelongsTo
     {
         return $this->belongsTo(
-            Entity::class
+            UniverseEntity::class,
+            'universe_entity_id'
+        );
+    }
+
+    /*
+     * Solo procedencia: de qué Entidad de Biblioteca se importó la del
+     * Universo. Nunca se agregan estadísticas por aquí.
+     */
+    public function sourceEntity(): BelongsTo
+    {
+        return $this->belongsTo(
+            Entity::class,
+            'source_entity_id'
         );
     }
 

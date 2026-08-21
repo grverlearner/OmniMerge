@@ -6,7 +6,7 @@ use App\Models\Universe;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateUniverseCompetitorRequest extends FormRequest
+class UpdateUniverseEntityRequest extends FormRequest
 {
     public function authorize(): bool
     {

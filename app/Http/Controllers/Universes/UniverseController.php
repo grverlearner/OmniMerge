@@ -93,7 +93,7 @@ class UniverseController extends Controller
                 $user
             )
             ->withCount([
-                'competitors',
+                'entities',
                 'seasons',
                 'universeTournaments',
             ])
@@ -270,14 +270,14 @@ class UniverseController extends Controller
          */
         $statistics = [
 
-            'competitors' =>
+            'entities' =>
             $universe
-                ->competitors()
+                ->entities()
                 ->count(),
 
             'active_competitors' =>
             $universe
-                ->competitors()
+                ->entities()
                 ->where(
                     'status',
                     'ACTIVE'
@@ -300,8 +300,7 @@ class UniverseController extends Controller
 
         $recentCompetitors =
             $universe
-            ->competitors()
-            ->with('entity')
+            ->entities()
             ->latest()
             ->limit(6)
             ->get();

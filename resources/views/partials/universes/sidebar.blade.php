@@ -8,7 +8,7 @@
 
     if ($currentUniverse) {
         $currentUniverse->loadCount([
-            'competitors',
+            'entities',
             'seasons',
             'universeTournaments',
             'tournamentInstances',
@@ -152,18 +152,18 @@
 
                 <div class="space-y-1">
 
-                    <a href="{{ route('universes.competitors.index', $currentUniverse) }}"
-                        class="{{ request()->routeIs('universes.competitors.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
+                    <a href="{{ route('universes.entities.index', $currentUniverse) }}"
+                        class="{{ request()->routeIs('universes.entities.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
 
                         <span class="text-lg">✦</span>
 
                         <span class="flex-1">
-                            Competidores
+                            Entidades
                         </span>
 
                         <span
-                            class="{{ request()->routeIs('universes.competitors.*') ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400' }} rounded-full px-2 py-0.5 text-[10px] font-black">
-                            {{ $currentUniverse->competitors_count }}
+                            class="{{ request()->routeIs('universes.entities.*') ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400' }} rounded-full px-2 py-0.5 text-[10px] font-black">
+                            {{ $currentUniverse->entities_count }}
                         </span>
                     </a>
 
@@ -229,6 +229,15 @@
                 </p>
 
                 <div class="space-y-1">
+
+                    <a href="{{ route('universes.history', $currentUniverse) }}"
+                        class="{{ request()->routeIs('universes.history') ? $itemActive : $itemIdle }} {{ $itemBase }}">
+
+                        <span class="text-lg">◷</span>
+
+                        Historial
+                    </a>
+
 
                     <div class="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-600">
                         <span class="text-lg">◇</span>

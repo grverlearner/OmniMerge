@@ -38,18 +38,52 @@ class TournamentInstanceMatch extends Model
         'loser_key',
         'is_draw',
         'series',
+        'participant_a_universe_entity_id',
+        'participant_b_universe_entity_id',
+        'winner_universe_entity_id',
+        'group_label',
+        'completed_at',
     ];
 
     protected function casts(): array
     {
         return [
             'node_id' => 'integer',
+            'completed_at' => 'datetime',
             'round_number' => 'integer',
             'score_a' => 'integer',
             'score_b' => 'integer',
             'is_draw' => 'boolean',
             'series' => 'array',
         ];
+    }
+
+    /*
+     * Entidades desnormalizadas: permiten pintar imágenes en el
+     * historial sin pasar por la tabla de participantes.
+     */
+    public function participantAEntity(): BelongsTo
+    {
+        return $this->belongsTo(
+            UniverseEntity::class,
+            'participant_a_universe_entity_id'
+        );
+    }
+
+    public function participantBEntity(): BelongsTo
+    {
+        return $this->belongsTo(
+            UniverseEntity::class,
+            'participant_b_universe_entity_id'
+        );
+    }
+
+    public function winnerEntity(): BelongsTo
+    {
+        return $this->belongsTo(
+            UniverseEntity::class,
+            'winner_universe_entity_id'
+        );
     }
 
     public function tournamentInstance(): BelongsTo

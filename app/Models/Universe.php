@@ -66,10 +66,10 @@ class Universe extends Model
      * Entidades de la Biblioteca incorporadas a este Universo.
      * La Entity NO se copia (docs/md/09-Para Futuro.md §46).
      */
-    public function competitors(): HasMany
+    public function entities(): HasMany
     {
         return $this->hasMany(
-            UniverseCompetitor::class
+            UniverseEntity::class
         );
     }
 

@@ -7,6 +7,7 @@ use App\Models\TournamentInstanceEvent;
 use App\Models\TournamentInstanceMatch;
 use App\Models\TournamentInstanceParticipant;
 use App\Models\TournamentInstancePhase;
+use App\Models\TournamentInstancePhaseParticipant;
 
 /*
 |--------------------------------------------------------------------------
@@ -47,6 +48,20 @@ class TournamentInstanceProjector
         );
 
         $this->projectMatches(
+            $instance,
+            $state
+        );
+
+        /*
+         * Historial (Fase 8). Depende de que fases y encuentros ya
+         * estén proyectados, por eso va después.
+         */
+        $this->projectPhaseStandings(
+            $instance,
+            $state
+        );
+
+        $this->projectOutcomes(
             $instance,
             $state
         );
@@ -192,6 +207,11 @@ class TournamentInstanceProjector
                 $state
             );
 
+        $entities =
+            $this->participantEntities(
+                $state
+            );
+
         foreach (
             ($state['nodes'] ?? [])
             as
@@ -218,7 +238,8 @@ class TournamentInstanceProjector
                     $instance,
                     $nodeId,
                     $match,
-                    $names
+                    $names,
+                    $entities
                 );
             }
         }
@@ -231,7 +252,8 @@ class TournamentInstanceProjector
     private function collectMatches(
         array $runtime,
         ?int $roundNumber = null,
-        ?string $roundLabel = null
+        ?string $roundLabel = null,
+        ?string $groupLabel = null
     ): array {
 
         $found = [];
@@ -240,6 +262,7 @@ class TournamentInstanceProjector
 
             $runtime['__round_number'] = $roundNumber;
             $runtime['__round_label'] = $roundLabel;
+            $runtime['__group_label'] = $groupLabel;
 
             return [$runtime];
         }
@@ -252,6 +275,7 @@ class TournamentInstanceProjector
 
             $childRound = $roundNumber;
             $childLabel = $roundLabel;
+            $childGroup = $groupLabel;
 
             /*
              * Al atravesar una ronda se recuerda su número y etiqueta
@@ -266,12 +290,27 @@ class TournamentInstanceProjector
                 $childLabel = $value['label'] ?? null;
             }
 
+            /*
+             * Al atravesar un grupo (Group Stage) se recuerda su nombre.
+             */
+            if (
+                isset($value['standings'])
+                &&
+                isset($value['participant_ids'])
+            ) {
+                $childGroup =
+                    $value['name']
+                    ?? $value['code']
+                    ?? $childGroup;
+            }
+
             $found = array_merge(
                 $found,
                 $this->collectMatches(
                     $value,
                     $childRound,
-                    $childLabel
+                    $childLabel,
+                    $childGroup
                 )
             );
         }
@@ -297,7 +336,8 @@ class TournamentInstanceProjector
         TournamentInstance $instance,
         int $nodeId,
         array $match,
-        array $names
+        array $names,
+        array $entities = []
     ): void {
 
         $keyA =
@@ -392,8 +432,472 @@ class TournamentInstanceProjector
                     $match['games']
                         ?? $match['series']
                         ?? null,
+
+                    /*
+                     * Desnormalización para el historial por Entidad y
+                     * el head-to-head: sin esto cada consulta necesitaría
+                     * un join a participantes.
+                     */
+                    'participant_a_universe_entity_id' =>
+                    $keyA !== null
+                        ? ($entities[(string) $keyA] ?? null)
+                        : null,
+
+                    'participant_b_universe_entity_id' =>
+                    $keyB !== null
+                        ? ($entities[(string) $keyB] ?? null)
+                        : null,
+
+                    'winner_universe_entity_id' =>
+                    $winner !== null
+                        ? ($entities[(string) $winner] ?? null)
+                        : null,
+
+                    'group_label' =>
+                    $match['__group_label'] ?? null,
+
+                    /*
+                     * Se sella la primera vez que el encuentro aparece
+                     * terminado; a partir de ahí no se toca, para que el
+                     * orden cronológico sea estable.
+                     */
+                    'completed_at' =>
+                    ($match['status'] ?? null) === 'COMPLETED'
+                        ? (
+                            TournamentInstanceMatch::query()
+                            ->where(
+                                'tournament_instance_id',
+                                $instance->id
+                            )
+                            ->where(
+                                'runtime_match_id',
+                                (string) $match['id']
+                            )
+                            ->value('completed_at')
+                            ?? now()
+                        )
+                        : null,
                 ]
             );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Clasificación por fase (Fase 8)
+    |--------------------------------------------------------------------------
+    |
+    | Los motores YA calculan esto: Round Robin lo deja en
+    | runtime['standings'] y Group Stage en runtime['groups'][].standings.
+    | Aquí solo se saca del JSON a una tabla consultable.
+    |
+    | Se lee de forma defensiva: un motor futuro que publique standings
+    | con la misma forma queda proyectado sin tocar esta clase.
+    |
+    */
+
+    private function projectPhaseStandings(
+        TournamentInstance $instance,
+        array $state
+    ): void {
+
+        $entities =
+            $this->participantEntities(
+                $state
+            );
+
+        $names =
+            $this->participantNames(
+                $state
+            );
+
+        $phases =
+            TournamentInstancePhase::query()
+            ->where(
+                'tournament_instance_id',
+                $instance->id
+            )
+            ->get()
+            ->keyBy('node_id');
+
+        foreach (
+            ($state['nodes'] ?? [])
+            as
+            $node
+        ) {
+
+            $phase =
+                $phases->get(
+                    (int) ($node['id'] ?? 0)
+                );
+
+            $runtime =
+                $node['runtime'] ?? null;
+
+            if (
+                ! $phase
+                ||
+                ! is_array($runtime)
+            ) {
+                continue;
+            }
+
+            /*
+             * Quién salió vivo de la fase. Los motores lo publican como
+             * survivor_ids; si no está, no se afirma nada.
+             */
+            $survivors =
+                array_map(
+                    'strval',
+                    $runtime['survivor_ids'] ?? []
+                );
+
+            $hasSurvivors =
+                array_key_exists(
+                    'survivor_ids',
+                    $runtime
+                );
+
+            foreach (
+                $this->standingRows($runtime)
+                as
+                [$row, $groupLabel]
+            ) {
+
+                $key =
+                    (string) (
+                        $row['participant_id']
+                        ?? ''
+                    );
+
+                if ($key === '') {
+                    continue;
+                }
+
+                TournamentInstancePhaseParticipant::query()
+                    ->updateOrCreate(
+                        [
+                            'tournament_instance_phase_id' =>
+                            $phase->id,
+
+                            'runtime_key' =>
+                            $key,
+                        ],
+                        [
+                            'tournament_instance_id' =>
+                            $instance->id,
+
+                            'universe_entity_id' =>
+                            $entities[$key] ?? null,
+
+                            'participant_name' =>
+                            mb_substr(
+                                (string) ($names[$key] ?? $key),
+                                0,
+                                150
+                            ),
+
+                            'group_label' =>
+                            $groupLabel,
+
+                            'position' =>
+                            isset($row['position'])
+                                ? (int) $row['position']
+                                : null,
+
+                            'matches' =>
+                            (int) ($row['played'] ?? $row['matches'] ?? 0),
+
+                            'wins' =>
+                            (int) ($row['wins'] ?? 0),
+
+                            'draws' =>
+                            (int) ($row['draws'] ?? 0),
+
+                            'losses' =>
+                            (int) ($row['losses'] ?? 0),
+
+                            'points' =>
+                            (int) ($row['points'] ?? 0),
+
+                            'score_for' =>
+                            (int) ($row['score_for'] ?? 0),
+
+                            'score_against' =>
+                            (int) ($row['score_against'] ?? 0),
+
+                            'score_difference' =>
+                            (int) ($row['score_difference'] ?? 0),
+
+                            'status' =>
+                            ! $hasSurvivors
+                                ? 'PLAYED'
+                                : (
+                                    in_array($key, $survivors, true)
+                                    ? 'ADVANCED'
+                                    : 'ELIMINATED'
+                                ),
+                        ]
+                    );
+            }
+        }
+    }
+
+    /*
+     * Devuelve pares [fila, etiqueta de grupo]. Cubre las dos formas que
+     * publican los motores actuales.
+     */
+    private function standingRows(
+        array $runtime
+    ): array {
+
+        $rows = [];
+
+        foreach (
+            ($runtime['groups'] ?? [])
+            as
+            $group
+        ) {
+
+            $label =
+                $group['name']
+                ?? $group['code']
+                ?? null;
+
+            foreach (
+                ($group['standings'] ?? [])
+                as
+                $row
+            ) {
+                $rows[] = [$row, $label];
+            }
+        }
+
+        if ($rows !== []) {
+            return $rows;
+        }
+
+        foreach (
+            ($runtime['standings'] ?? [])
+            as
+            $row
+        ) {
+
+            $rows[] = [
+                $row,
+
+                $row['group_name'] ?? null,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Desenlace de cada participante (Fase 8)
+    |--------------------------------------------------------------------------
+    |
+    | El tipo del terminal donde acabó cada uno (CHAMPION, ELIMINATED...)
+    | existe en el estado pero se perdía al proyectar: solo se guardaba el
+    | nombre. Sin el tipo no se puede consultar quién ganó.
+    |
+    */
+
+    private function projectOutcomes(
+        TournamentInstance $instance,
+        array $state
+    ): void {
+
+        /*
+         * Terminales por nombre, para poder traducir la ubicación final
+         * de un participante a un tipo de desenlace.
+         */
+        $terminalTypes = [];
+
+        foreach (
+            ($state['terminals'] ?? [])
+            as
+            $terminal
+        ) {
+
+            $terminalTypes[(string) ($terminal['name'] ?? '')] =
+                (string) ($terminal['type'] ?? '');
+        }
+
+        $roundsReached =
+            $this->roundsReached(
+                $instance
+            );
+
+        $champions = [];
+
+        foreach (
+            ($state['participants'] ?? [])
+            as
+            $key => $participant
+        ) {
+
+            $location =
+                $participant['current_location'] ?? [];
+
+            $terminalType =
+                ($location['type'] ?? null) === 'TERMINAL'
+                ? ($terminalTypes[(string) ($location['name'] ?? '')] ?? null)
+                : null;
+
+            $status =
+                $participant['status'] ?? null;
+
+            $outcome =
+                match (true) {
+
+                    /*
+                     * Llegó a un terminal: ahí sí hay desenlace firme.
+                     */
+                    $terminalType === 'CHAMPION' =>
+                    'CHAMPION',
+
+                    $terminalType !== null
+                        && $terminalType !== '' =>
+                    'ELIMINATED',
+
+                    $status === 'ELIMINATED' =>
+                    'ELIMINATED',
+
+                    /*
+                     * Sigue jugando. No es "sin ubicar": es que la
+                     * competición todavía no ha terminado para él.
+                     */
+                    in_array(
+                        $status,
+                        [
+                            'COMPETING',
+                            'ACTIVE',
+                            'WAITING',
+                        ],
+                        true
+                    ) =>
+                    'IN_PROGRESS',
+
+                    default =>
+                    'UNPLACED',
+                };
+
+            if ($outcome === 'CHAMPION') {
+                $champions[] = (string) $key;
+            }
+
+            TournamentInstanceParticipant::query()
+                ->where(
+                    'tournament_instance_id',
+                    $instance->id
+                )
+                ->where(
+                    'runtime_key',
+                    (string) $key
+                )
+                ->update([
+
+                    'outcome' =>
+                    $outcome,
+
+                    'round_reached' =>
+                    $roundsReached[(string) $key] ?? null,
+
+                    /*
+                     * Solo se afirma la posición cuando es indiscutible.
+                     * Un orden inventado sería peor que no tener dato.
+                     */
+                    'placement' =>
+                    $outcome === 'CHAMPION'
+                        ? 1
+                        : null,
+
+                    'updated_at' =>
+                    now(),
+                ]);
+        }
+    }
+
+    /*
+     * Ronda más lejana en la que aparece cada participante. Solo tiene
+     * sentido en motores con rondas; en los demás queda a null porque no
+     * habrá encuentros con round_number.
+     */
+    private function roundsReached(
+        TournamentInstance $instance
+    ): array {
+
+        $reached = [];
+
+        TournamentInstanceMatch::query()
+            ->where(
+                'tournament_instance_id',
+                $instance->id
+            )
+            ->whereNotNull('round_number')
+            ->get([
+                'participant_a_key',
+                'participant_b_key',
+                'round_number',
+            ])
+            ->each(
+                function ($match) use (&$reached) {
+
+                    foreach (
+                        [
+                            $match->participant_a_key,
+                            $match->participant_b_key,
+                        ]
+                        as
+                        $key
+                    ) {
+
+                        if ($key === null) {
+                            continue;
+                        }
+
+                        $reached[(string) $key] =
+                            max(
+                                $reached[(string) $key] ?? 0,
+                                (int) $match->round_number
+                            );
+                    }
+                }
+            );
+
+        return $reached;
+    }
+
+    /*
+     * Mapa clave de runtime → id de la ENTIDAD DEL UNIVERSO.
+     *
+     * Nunca la de Biblioteca: las estadísticas pertenecen al Universo.
+     */
+    private function participantEntities(
+        array $state
+    ): array {
+
+        $entities = [];
+
+        foreach (
+            ($state['participants'] ?? [])
+            as
+            $key => $participant
+        ) {
+
+            /*
+             * universe_competitor_id es el nombre que tenía esta misma
+             * clave antes de separar Biblioteca y Universo. Los estados
+             * ya guardados la conservan, y sus ids son los mismos.
+             */
+            $entities[(string) $key] =
+                $participant['universe_entity_id']
+                ?? $participant['universe_competitor_id']
+                ?? null;
+        }
+
+        return $entities;
     }
 
     private function participantNames(

@@ -108,7 +108,7 @@
 
             </section>
 
-        @elseif ($competitors->isEmpty())
+        @elseif ($universeEntities->isEmpty())
 
             <section
                 class="
@@ -132,7 +132,7 @@
                     de jugar una competición.
                 </p>
 
-                <a href="{{ route('universes.competitors.create', $universe) }}"
+                <a href="{{ route('universes.entities.create', $universe) }}"
                     class="
                         mt-5
                         inline-flex
@@ -155,6 +155,10 @@
                 x-data="{
                     assigned: {},
 
+                    search: '',
+
+                    typeFilter: 'ALL',
+
                     recount() {
                         const next = {};
 
@@ -172,6 +176,39 @@
                         return Object
                             .values(this.assigned)
                             .reduce((sum, value) => sum + value, 0);
+                    },
+
+                    /*
+                     * Un competidor es visible si coincide con la búsqueda
+                     * y con el tipo. Se evalúa por ficha con x-show.
+                     */
+                    matches(haystack, typeId) {
+                        const bySearch =
+                            !this.search
+                            ||
+                            haystack.includes(this.search.toLowerCase());
+
+                        const byType =
+                            this.typeFilter === 'ALL'
+                            ||
+                            this.typeFilter === typeId;
+
+                        return bySearch && byType;
+                    },
+
+                    selectVisible(startId, value) {
+                        this.$el
+                            .querySelector('[data-start=\'' + startId + '\']')
+                            .querySelectorAll('[data-competitor]')
+                            .forEach((card) => {
+                                if (card.offsetParent === null) {
+                                    return;
+                                }
+
+                                card.querySelector('input').checked = value;
+                            });
+
+                        this.recount();
                     }
                 }"
                 x-init="recount()"
@@ -393,6 +430,57 @@
                     @endif
 
 
+                    {{-- BUSCADOR Y FILTRO --}}
+
+                    @if ($starts->isNotEmpty())
+                        <div
+                            class="
+                                mt-6
+                                grid
+                                gap-3
+                                md:grid-cols-2
+                            ">
+
+                            <input x-model="search" type="search"
+                                placeholder="Buscar competidor..."
+                                class="
+                                    rounded-xl
+                                    border-slate-300
+                                    text-sm
+                                    text-slate-900
+                                    placeholder:text-slate-400
+                                    focus:border-violet-400
+                                    focus:ring-violet-400
+                                ">
+
+
+                            <select x-model="typeFilter"
+                                class="
+                                    rounded-xl
+                                    border-slate-300
+                                    bg-white
+                                    text-sm
+                                    text-slate-900
+                                    focus:border-violet-400
+                                    focus:ring-violet-400
+                                ">
+
+                                <option value="ALL">
+                                    Todos los tipos
+                                </option>
+
+                                @foreach ($universeEntities->pluck('entity.entityType')->filter()->unique('id') as $type)
+                                    <option value="{{ $type->id }}">
+                                        {{ $type->name }}
+                                    </option>
+                                @endforeach
+
+                            </select>
+
+                        </div>
+                    @endif
+
+
                     <div class="mt-6 space-y-6">
 
                         @foreach ($starts as $start)
@@ -455,36 +543,66 @@
 
                                 <div
                                     class="
+                                        mt-3
+                                        flex
+                                        flex-wrap
+                                        gap-2
+                                    ">
+
+                                    <button type="button"
+                                        @click="selectVisible('{{ $start->id }}', true)"
+                                        class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-black text-slate-600">
+                                        Seleccionar visibles
+                                    </button>
+
+                                    <button type="button"
+                                        @click="selectVisible('{{ $start->id }}', false)"
+                                        class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-black text-slate-600">
+                                        Quitar todos
+                                    </button>
+
+                                </div>
+
+
+                                <div
+                                    class="
                                         mt-4
                                         grid
-                                        max-h-72
+                                        max-h-96
                                         gap-2
                                         overflow-y-auto
                                         pr-1
                                         sm:grid-cols-2
-                                        lg:grid-cols-3
+                                        xl:grid-cols-3
                                     ">
 
-                                    @foreach ($competitors as $competitor)
+                                    @foreach ($universeEntities as $universeEntity)
                                         <label
+                                            data-competitor
+                                            x-show="matches(
+                                                @js(mb_strtolower($universeEntity->display_label . ' ' . ($universeEntity->code ?? '') . ' ' . ($universeEntity->entity_type_name ?? ''))),
+                                                '{{ $universeEntity->id }}'
+                                            )"
                                             class="
                                                 flex
                                                 cursor-pointer
                                                 items-center
-                                                gap-3
+                                                gap-2.5
                                                 rounded-xl
                                                 border-2
                                                 border-slate-200
+                                                bg-white
                                                 p-2.5
                                                 transition
+                                                hover:border-violet-300
                                                 has-[:checked]:border-violet-500
                                                 has-[:checked]:bg-violet-50
                                             ">
 
                                             <input type="checkbox"
                                                 name="assignments[{{ $start->id }}][]"
-                                                value="{{ $competitor->id }}"
-                                                @checked(in_array((string) $competitor->id, (array) (old('assignments')[$start->id] ?? []), true))
+                                                value="{{ $universeEntity->id }}"
+                                                @checked(in_array((string) $universeEntity->id, (array) (old('assignments')[$start->id] ?? []), true))
                                                 class="
                                                     shrink-0
                                                     rounded
@@ -493,40 +611,15 @@
                                                 ">
 
 
-                                            <div
-                                                class="
-                                                    flex
-                                                    h-8
-                                                    w-8
-                                                    shrink-0
-                                                    items-center
-                                                    justify-center
-                                                    overflow-hidden
-                                                    rounded-lg
-                                                    bg-violet-100
-                                                    text-violet-500
-                                                ">
-
-                                                @if ($competitor->entity?->image_url)
-                                                    <img src="{{ $competitor->entity->image_url }}"
-                                                        alt="{{ $competitor->display_label }}"
-                                                        class="h-full w-full object-cover">
-                                                @else
-                                                    ✦
-                                                @endif
-
-                                            </div>
-
-
-                                            <span
-                                                class="
-                                                    truncate
-                                                    text-[11px]
-                                                    font-black
-                                                    text-slate-700
-                                                ">
-                                                {{ $competitor->display_label }}
-                                            </span>
+                                            @include('universes.competitions.partials.participant-chip', [
+                                                'name' => $universeEntity->display_label,
+                                                'imageUrl' => $universeEntity->image_url,
+                                                'typeName' => $universeEntity->entity_type_name,
+                                                'versionName' => null,
+                                                'attributes' => [],
+                                                'seed' => null,
+                                                'size' => 'sm',
+                                            ])
 
                                         </label>
                                     @endforeach

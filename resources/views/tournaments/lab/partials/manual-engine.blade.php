@@ -283,11 +283,20 @@
                                 <div x-show="!usesQualifierSelection(match)"
                                     class="mt-3 grid grid-cols-[minmax(0,1fr)_50px_14px_50px_minmax(0,1fr)] items-center gap-2">
 
-                                    <p class="truncate text-right text-[10px] font-black"
-                                        x-text="participantName(
-                                            match.participant_a_id
-                                        )">
-                                    </p>
+                                    <div class="min-w-0 text-right">
+
+                                        <p class="truncate text-[10px] font-black"
+                                            x-text="participantName(
+                                                match.participant_a_id
+                                            )">
+                                        </p>
+
+                                        {{-- Contexto de la Entidad, si es real --}}
+                                        <p class="mt-0.5 truncate text-[8px] font-bold text-violet-500"
+                                            x-show="participantSubtitle(match.participant_a_id)"
+                                            x-text="participantSubtitle(match.participant_a_id)">
+                                        </p>
+                                    </div>
 
                                     <template x-if="match.status === 'PENDING'">
 
@@ -323,11 +332,19 @@
                                         </span>
                                     </template>
 
-                                    <p class="truncate text-[10px] font-black"
-                                        x-text="participantName(
-                                            match.participant_b_id
-                                        )">
-                                    </p>
+                                    <div class="min-w-0">
+
+                                        <p class="truncate text-[10px] font-black"
+                                            x-text="participantName(
+                                                match.participant_b_id
+                                            )">
+                                        </p>
+
+                                        <p class="mt-0.5 truncate text-[8px] font-bold text-violet-500"
+                                            x-show="participantSubtitle(match.participant_b_id)"
+                                            x-text="participantSubtitle(match.participant_b_id)">
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <div x-show="usesQualifierSelection(match)" class="mt-3">

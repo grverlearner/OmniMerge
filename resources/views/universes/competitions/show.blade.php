@@ -169,6 +169,113 @@
         </section>
 
 
+        {{-- ============================================ --}}
+        {{-- CAMPEÓN --}}
+        {{-- ============================================ --}}
+
+        @if ($history['champion'])
+            <section
+                class="mt-6 overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-white">
+
+                <div class="grid items-center gap-6 p-7 sm:grid-cols-[auto_minmax(0,1fr)]">
+
+                    <div
+                        class="mx-auto flex h-32 w-32 items-center justify-center overflow-hidden rounded-3xl bg-violet-100 text-6xl text-violet-400 shadow-lg shadow-violet-600/10 ring-4 ring-violet-500/20 sm:mx-0">
+
+                        @if ($history['champion']->universeEntity?->image_url)
+                            <img src="{{ $history['champion']->universeEntity->image_url }}"
+                                alt="{{ $history['champion']->name }}"
+                                class="h-full w-full object-cover">
+                        @else
+                            ✦
+                        @endif
+
+                    </div>
+
+
+                    <div class="text-center sm:text-left">
+
+                        <p class="text-[10px] font-black uppercase tracking-[0.22em] text-violet-600">
+                            🏆 Campeón
+                        </p>
+
+                        <h2 class="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                            {{ $history['champion']->name }}
+                        </h2>
+
+                        <p class="mt-1 text-xs text-slate-500">
+                            {{ $history['champion']->entity_type_name }}
+
+                            @if ($history['champion']->entity_version_name)
+                                · <span class="text-violet-500">
+                                    {{ $history['champion']->entity_version_name }}
+                                </span>
+                            @endif
+                        </p>
+
+
+                        <div class="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+
+                            <span class="rounded-xl bg-white px-3 py-2 text-[11px] font-black text-slate-700 shadow-sm">
+                                {{ $history['champion']->wins }}G
+                                · {{ $history['champion']->draws }}E
+                                · {{ $history['champion']->losses }}P
+                            </span>
+
+                            <span class="rounded-xl bg-white px-3 py-2 text-[11px] font-black text-slate-700 shadow-sm">
+                                {{ $history['champion']->points }} pts
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+        @endif
+
+
+        {{-- ============================================ --}}
+        {{-- CIFRAS --}}
+        {{-- ============================================ --}}
+
+        <section class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+
+            @foreach ([
+        ['Competidores', $history['participants'], '✦'],
+        ['Fases', $history['phases'], '◆'],
+        ['Encuentros', $history['matches'], '⚔'],
+        ['Jugados', $history['matches_played'], '✓'],
+        ['Duración', $history['duration'] ?? '—', '◷'],
+    ] as [$label, $value, $icon])
+                <article class="rounded-2xl border border-slate-200 bg-white p-4">
+
+                    <div class="flex items-center justify-between gap-2">
+
+                        <div class="min-w-0">
+                            <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                {{ $label }}
+                            </p>
+
+                            <p class="mt-1.5 truncate text-2xl font-black text-slate-900">
+                                {{ $value }}
+                            </p>
+                        </div>
+
+                        <span
+                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                            {{ $icon }}
+                        </span>
+
+                    </div>
+
+                </article>
+            @endforeach
+
+        </section>
+
+
         {{-- ESTADOS CERRADOS / PAUSADOS --}}
 
         @if ($competition->isClosed())
@@ -262,6 +369,84 @@
 
 
         {{-- ============================================ --}}
+        {{-- DESARROLLO DE LA COMPETICIÓN --}}
+        {{-- ============================================ --}}
+
+        @if ($phaseBlocks->isNotEmpty())
+            <div x-data="{ phase: 0, total: {{ $phaseBlocks->count() }} }" class="mt-8">
+
+                <div class="flex flex-wrap items-end justify-between gap-4">
+
+                    <div>
+                        <p class="text-xs font-black uppercase tracking-[0.18em] text-violet-600">
+                            Cómo se desarrolló
+                        </p>
+
+                        <h3 class="mt-2 text-2xl font-black text-slate-900">
+                            ◆ Fases
+                        </h3>
+                    </div>
+
+
+                    @if ($phaseBlocks->count() > 1)
+                        <div class="flex items-center gap-2">
+
+                            <button type="button" @click="phase = Math.max(0, phase - 1)"
+                                :disabled="phase === 0"
+                                class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 disabled:opacity-40">
+                                ← Anterior
+                            </button>
+
+                            <span class="text-xs font-black text-slate-400">
+                                <span x-text="phase + 1"></span> / <span x-text="total"></span>
+                            </span>
+
+                            <button type="button" @click="phase = Math.min(total - 1, phase + 1)"
+                                :disabled="phase === total - 1"
+                                class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 disabled:opacity-40">
+                                Siguiente →
+                            </button>
+
+                        </div>
+                    @endif
+
+                </div>
+
+
+                @if ($phaseBlocks->count() > 1)
+                    <div class="mt-4 flex flex-wrap gap-2">
+
+                        @foreach ($phaseBlocks as $index => $block)
+                            <button type="button" @click="phase = {{ $index }}"
+                                :class="phase === {{ $index }}
+                                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20'
+                                    : 'bg-white text-slate-500 border border-slate-200'"
+                                class="rounded-xl px-3 py-2 text-[11px] font-black transition">
+                                {{ $block['phase']->node_name }}
+                            </button>
+                        @endforeach
+
+                    </div>
+                @endif
+
+
+                <div class="mt-5 space-y-5">
+
+                    @foreach ($phaseBlocks as $index => $block)
+                        <div x-show="phase === {{ $index }}" x-cloak>
+                            @include('universes.competitions.partials.history.phase', [
+                                'block' => $block,
+                            ])
+                        </div>
+                    @endforeach
+
+                </div>
+
+            </div>
+        @endif
+
+
+        {{-- ============================================ --}}
         {{-- PARTICIPANTES CONGELADOS --}}
         {{-- ============================================ --}}
 
@@ -312,12 +497,24 @@
                                     {{ $participant->seed }}
                                 </td>
 
-                                <td class="py-2.5 pr-4 font-black text-slate-800">
-                                    {{ $participant->name }}
+                                <td class="py-2.5 pr-4">
 
-                                    @unless ($participant->universe_competitor_id)
-                                        <span class="ml-1 text-[9px] font-bold text-slate-400">
-                                            (ya no está en el Universo)
+                                    {{-- Entidad, versión y atributos congelados al empezar --}}
+                                    @include('universes.competitions.partials.participant-chip', [
+                                        'name' => $participant->name,
+                                        'imageUrl' => $participant->universeEntity?->image_url,
+                                        'typeName' => $participant->entity_type_name,
+                                        'versionName' => $participant->entity_version_name,
+                                        'attributes' => $participant->attribute_snapshot ?? [],
+                                        'seed' => null,
+                                        'size' => 'sm',
+                                        'maxAttributes' => 4,
+                                    ])
+
+
+                                    @unless ($participant->universe_entity_id)
+                                        <span class="mt-1 block text-[9px] font-bold text-slate-400">
+                                            Ya no está en el Universo
                                         </span>
                                     @endunless
                                 </td>

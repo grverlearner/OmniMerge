@@ -7,9 +7,10 @@ use App\Http\Requests\Universes\StoreTournamentInstanceRequest;
 use App\Http\Requests\Universes\TournamentInstanceActionRequest;
 use App\Models\TournamentInstance;
 use App\Models\Universe;
-use App\Models\UniverseCompetitor;
+use App\Models\UniverseEntity;
 use App\Models\UniverseTournament;
 use App\Services\Tournaments\CompetitionLab\CompetitionLabService;
+use App\Services\Tournaments\History\TournamentHistoryService;
 use App\Services\Tournaments\Runtime\TournamentInstanceRuntimeService;
 use App\Services\Tournaments\Runtime\TournamentInstanceService;
 use Illuminate\Http\JsonResponse;
@@ -39,7 +40,10 @@ class TournamentInstanceController extends Controller
         TournamentInstanceRuntimeService $runtime,
 
         private readonly
-        CompetitionLabService $engine
+        CompetitionLabService $engine,
+
+        private readonly
+        TournamentHistoryService $history
     ) {}
 
     /*
@@ -199,8 +203,8 @@ class TournamentInstanceController extends Controller
                 ->values();
         }
 
-        $competitors =
-            UniverseCompetitor::query()
+        $universeEntities =
+            UniverseEntity::query()
             ->where(
                 'universe_id',
                 $universe->id
@@ -209,12 +213,15 @@ class TournamentInstanceController extends Controller
                 'status',
                 'ACTIVE'
             )
-            ->with('entity')
+            /*
+             * Sin eager loading de Biblioteca: la entidad del Universo
+             * lleva su propia copia de nombre, imagen, tipo y atributos.
+             */
             ->get()
             ->sortBy(
-                fn($competitor) =>
+                fn($universeEntity) =>
                 mb_strtolower(
-                    $competitor->display_label
+                    $universeEntity->display_label
                 )
             )
             ->values();
@@ -241,7 +248,7 @@ class TournamentInstanceController extends Controller
                 'universeTournament',
                 'template',
                 'starts',
-                'competitors',
+                'entities',
                 'seasons',
                 'activeSeason',
                 'graphErrors'
@@ -327,9 +334,15 @@ class TournamentInstanceController extends Controller
             $this->runtime
             ->payload($competition);
 
+        /*
+         * La Entidad se carga solo para la imagen y para poder enlazar
+         * a su ficha: el nombre, la versión y los atributos que se
+         * muestran vienen congelados de la propia fila.
+         */
         $participants =
             $competition
             ->participants()
+            ->with('universeEntity')
             ->get();
 
         $events =
@@ -339,6 +352,22 @@ class TournamentInstanceController extends Controller
             ->limit(40)
             ->get();
 
+        /*
+         * Historial (Fase 8). Se calcula siempre: una competición en
+         * curso también tiene historia parcial que merece verse.
+         */
+        $history =
+            $this->history
+            ->summary($competition);
+
+        $phaseBlocks =
+            $this->history
+            ->phases($competition);
+
+        $finalStandings =
+            $this->history
+            ->standings($competition);
+
         return view(
             'universes.competitions.show',
             compact(
@@ -346,7 +375,10 @@ class TournamentInstanceController extends Controller
                 'competition',
                 'payload',
                 'participants',
-                'events'
+                'events',
+                'history',
+                'phaseBlocks',
+                'finalStandings'
             )
         );
     }

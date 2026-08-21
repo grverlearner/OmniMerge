@@ -155,7 +155,7 @@
                             gap-3
                         ">
 
-                        <a href="{{ route('universes.competitors.create', $universe) }}"
+                        <a href="{{ route('universes.entities.create', $universe) }}"
                             class="
                                 rounded-xl
                                 bg-violet-600
@@ -224,7 +224,7 @@
         ">
 
         @foreach ([
-        ['label' => 'Competidores', 'value' => $statistics['competitors'], 'icon' => '✦'],
+        ['label' => 'Competidores', 'value' => $statistics['entities'], 'icon' => '✦'],
         ['label' => 'Competidores activos', 'value' => $statistics['active_competitors'], 'icon' => '●'],
         ['label' => 'Temporadas', 'value' => $statistics['seasons'], 'icon' => '◷'],
         ['label' => 'Torneos', 'value' => $statistics['tournaments'], 'icon' => '🏆'],
@@ -510,7 +510,7 @@
                 </div>
 
 
-                <a href="{{ route('universes.competitors.index', $universe) }}"
+                <a href="{{ route('universes.entities.index', $universe) }}"
                     class="
                         text-xs
                         font-black
@@ -539,7 +539,7 @@
                     space-y-2
                 ">
 
-                @forelse ($recentCompetitors as $competitor)
+                @forelse ($recentCompetitors as $universeEntity)
                     <div
                         class="
                             flex
@@ -564,9 +564,9 @@
                                 text-violet-500
                             ">
 
-                            @if ($competitor->entity?->image_url)
-                                <img src="{{ $competitor->entity->image_url }}"
-                                    alt="{{ $competitor->display_label }}"
+                            @if ($universeEntity->image_url)
+                                <img src="{{ $universeEntity->image_url }}"
+                                    alt="{{ $universeEntity->display_label }}"
                                     class="h-full w-full object-cover">
                             @else
                                 ✦
@@ -583,7 +583,7 @@
                                     font-black
                                     text-slate-800
                                 ">
-                                {{ $competitor->display_label }}
+                                {{ $universeEntity->display_label }}
                             </p>
 
 
@@ -594,7 +594,7 @@
                                     text-[9px]
                                     text-slate-400
                                 ">
-                                {{ $competitor->entity?->code }}
+                                {{ $universeEntity->code }}
                             </p>
                         </div>
 

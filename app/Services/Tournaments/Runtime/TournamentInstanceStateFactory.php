@@ -3,7 +3,7 @@
 namespace App\Services\Tournaments\Runtime;
 
 use App\Models\TournamentTemplate;
-use App\Models\UniverseCompetitor;
+use App\Models\UniverseEntity;
 use App\Services\Tournaments\CompetitionLab\LabStateFactory;
 use Illuminate\Support\Collection;
 
@@ -26,7 +26,10 @@ class TournamentInstanceStateFactory
 {
     public function __construct(
         private readonly
-        LabStateFactory $labStateFactory
+        LabStateFactory $labStateFactory,
+
+        private readonly
+        TournamentParticipantResolver $participantResolver
     ) {}
 
     /*
@@ -36,7 +39,7 @@ class TournamentInstanceStateFactory
         TournamentTemplate $template,
         int $userId,
         array $assignments,
-        Collection $competitors
+        Collection $universeEntities
     ): array {
 
         $participants = [];
@@ -48,13 +51,13 @@ class TournamentInstanceStateFactory
             $start
         ) {
 
-            $competitorIds =
+            $universeEntityIds =
                 array_values(
                     $assignments[$start->id]
                     ?? []
                 );
 
-            if ($competitorIds === []) {
+            if ($universeEntityIds === []) {
                 continue;
             }
 
@@ -62,14 +65,14 @@ class TournamentInstanceStateFactory
 
             $position = 0;
 
-            foreach ($competitorIds as $competitorId) {
+            foreach ($universeEntityIds as $universeEntityId) {
 
-                $competitor =
-                    $competitors->get(
-                        (int) $competitorId
+                $universeEntity =
+                    $universeEntities->get(
+                        (int) $universeEntityId
                     );
 
-                if (! $competitor) {
+                if (! $universeEntity) {
                     continue;
                 }
 
@@ -77,12 +80,12 @@ class TournamentInstanceStateFactory
 
                 $key =
                     $this->runtimeKey(
-                        $competitor
+                        $universeEntity
                     );
 
                 $participants[$key] =
                     $this->participant(
-                        $competitor,
+                        $universeEntity,
                         $start,
                         $key,
                         $position
@@ -171,18 +174,18 @@ class TournamentInstanceStateFactory
     |--------------------------------------------------------------------------
     |
     | El motor trata esta clave como una cadena opaca, igual que hace con
-    | los 'LAB-...' del Competition Lab. Se deriva del UniverseCompetitor
+    | los 'LAB-...' del Competition Lab. Se deriva del UniverseEntity
     | para poder volver del estado a la fila proyectada.
     |
     */
 
     private function runtimeKey(
-        UniverseCompetitor $competitor
+        UniverseEntity $universeEntity
     ): string {
 
         return 'UC-'
             . str_pad(
-                (string) $competitor->id,
+                (string) $universeEntity->id,
                 6,
                 '0',
                 STR_PAD_LEFT
@@ -190,11 +193,19 @@ class TournamentInstanceStateFactory
     }
 
     private function participant(
-        UniverseCompetitor $competitor,
+        UniverseEntity $universeEntity,
         $start,
         string $key,
         int $position
     ): array {
+
+        /*
+         * Resuelve y congela la Entidad, su versión y sus atributos.
+         * A partir de aquí el torneo no vuelve a mirar la Biblioteca.
+         */
+        $context =
+            $this->participantResolver
+            ->resolve($universeEntity);
 
         $location = [
 
@@ -224,7 +235,7 @@ class TournamentInstanceStateFactory
             $key,
 
             'name' =>
-            $competitor->display_label,
+            $context['name'],
 
             'source_start_id' =>
             (int) $start->id,
@@ -239,22 +250,33 @@ class TournamentInstanceStateFactory
             $position,
 
             /*
-             * Enlace con la Biblioteca. Estos campos ya existían vacíos
-             * en el Lab: aquí por fin se rellenan.
+             * Contexto de la Biblioteca congelado (Fase 7). Estos campos
+             * existían vacíos desde el diseño original del Lab: aquí por
+             * fin se rellenan con la Entidad, su versión y sus atributos.
+             *
+             * Los motores los ignoran: para ellos el participante sigue
+             * siendo una clave de array.
              */
-            'entity_id' =>
-            $competitor->entity_id
-                ? (int) $competitor->entity_id
-                : null,
+            'universe_entity_id' =>
+            $context['universe_entity_id'],
+
+            'source_entity_id' =>
+            $context['source_entity_id'],
 
             'entity_version_id' =>
-            null,
+            $context['entity_version_id'],
 
-            'universe_competitor_id' =>
-            (int) $competitor->id,
+            'entity_version_name' =>
+            $context['entity_version_name'],
+
+            'entity_type_name' =>
+            $context['entity_type_name'],
+
+            'attributes' =>
+            $context['attributes'],
 
             'image_url' =>
-            $competitor->entity?->image_url,
+            $context['image_url'],
 
             'status' =>
             'WAITING',

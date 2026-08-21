@@ -7,7 +7,7 @@ use App\Models\TournamentInstanceParticipant;
 use App\Models\TournamentInstanceSnapshot;
 use App\Models\TournamentInstanceState;
 use App\Models\Universe;
-use App\Models\UniverseCompetitor;
+use App\Models\UniverseEntity;
 use App\Models\UniverseTournament;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -72,7 +72,7 @@ class TournamentInstanceService
             ]);
         }
 
-        $competitorIds =
+        $universeEntityIds =
             collect($assignments)
             ->flatten()
             ->map(
@@ -81,7 +81,7 @@ class TournamentInstanceService
             ->unique()
             ->values();
 
-        if ($competitorIds->isEmpty()) {
+        if ($universeEntityIds->isEmpty()) {
 
             throw ValidationException::withMessages([
                 'assignments' => [
@@ -90,21 +90,28 @@ class TournamentInstanceService
             ]);
         }
 
-        $competitors =
-            UniverseCompetitor::query()
+        $universeEntities =
+            UniverseEntity::query()
             ->where(
                 'universe_id',
                 $universe->id
             )
             ->whereIn(
                 'id',
-                $competitorIds
+                $universeEntityIds
             )
-            ->with('entity')
+            /*
+             * Lo que necesita TournamentParticipantResolver para
+             * resolver versión y atributos sin caer en N+1.
+             */
+            /*
+             * Ya no hace falta cargar nada de Biblioteca: la entidad del
+             * Universo lleva su propia copia.
+             */
             ->get()
             ->keyBy('id');
 
-        if ($competitors->count() !== $competitorIds->count()) {
+        if ($universeEntities->count() !== $universeEntityIds->count()) {
 
             throw ValidationException::withMessages([
                 'assignments' => [
@@ -138,7 +145,7 @@ class TournamentInstanceService
                 $universeTournament,
                 $data,
                 $assignments,
-                $competitors,
+                $universeEntities,
                 $snapshot,
                 $frozenTemplate,
                 $template
@@ -207,7 +214,7 @@ class TournamentInstanceService
                         $frozenTemplate,
                         (int) $universe->user_id,
                         $assignments,
-                        $competitors
+                        $universeEntities
                     );
 
                 TournamentInstanceState::query()
@@ -229,7 +236,7 @@ class TournamentInstanceService
                 $this->freezeParticipants(
                     $instance,
                     $state,
-                    $competitors
+                    $universeEntities
                 );
 
                 $instance->update([
@@ -265,7 +272,7 @@ class TournamentInstanceService
     private function freezeParticipants(
         TournamentInstance $instance,
         array $state,
-        $competitors
+        $universeEntities
     ): void {
 
         $rows = [];
@@ -276,13 +283,13 @@ class TournamentInstanceService
             $key => $participant
         ) {
 
-            $competitorId =
-                $participant['universe_competitor_id']
+            $universeEntityId =
+                $participant['universe_entity_id']
                 ?? null;
 
-            $competitor =
-                $competitorId
-                ? $competitors->get((int) $competitorId)
+            $universeEntity =
+                $universeEntityId
+                ? $universeEntities->get((int) $universeEntityId)
                 : null;
 
             $rows[] = [
@@ -293,11 +300,31 @@ class TournamentInstanceService
                 'runtime_key' =>
                 (string) $key,
 
-                'universe_competitor_id' =>
-                $competitorId,
+                'universe_entity_id' =>
+                $universeEntityId,
 
-                'entity_id' =>
-                $competitor?->entity_id,
+                /*
+                 * Contexto de Biblioteca congelado (Fase 7). Los nombres
+                 * se copian, no se leen por join: renombrar la Entidad o
+                 * su versión no debe alterar un torneo ya jugado.
+                 */
+                'source_entity_id' =>
+                $participant['source_entity_id'] ?? null,
+
+                'entity_version_id' =>
+                $participant['entity_version_id'] ?? null,
+
+                'entity_version_name' =>
+                $participant['entity_version_name'] ?? null,
+
+                'entity_type_name' =>
+                $participant['entity_type_name'] ?? null,
+
+                'attribute_snapshot' =>
+                json_encode(
+                    $participant['attributes'] ?? [],
+                    JSON_UNESCAPED_UNICODE
+                ),
 
                 'name' =>
                 mb_substr(

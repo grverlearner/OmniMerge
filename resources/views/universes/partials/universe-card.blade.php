@@ -197,7 +197,7 @@
                     gap-2
                 ">
 
-                @foreach ([['Competidores', $universe->competitors_count ?? 0], ['Temporadas', $universe->seasons_count ?? 0], ['Torneos', $universe->universe_tournaments_count ?? 0]] as [$label, $value])
+                @foreach ([['Competidores', $universe->entities_count ?? 0], ['Temporadas', $universe->seasons_count ?? 0], ['Torneos', $universe->universe_tournaments_count ?? 0]] as [$label, $value])
                     <div
                         class="
                             rounded-xl

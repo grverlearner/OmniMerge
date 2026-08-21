@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Universes;
 
 use App\Http\Controllers\Controller;
 use App\Models\Universe;
-use App\Models\UniverseCompetitor;
+use App\Models\UniverseEntity;
 use App\Models\UniverseTournament;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -56,8 +56,8 @@ class UniverseDashboardController extends Controller
                 )
                 ->count(),
 
-            'competitors' =>
-            UniverseCompetitor::query()
+            'entities' =>
+            UniverseEntity::query()
                 ->whereIn(
                     'universe_id',
                     (clone $universes)->select('id')
@@ -79,7 +79,7 @@ class UniverseDashboardController extends Controller
                 $user
             )
             ->withCount([
-                'competitors',
+                'entities',
                 'seasons',
                 'universeTournaments',
             ])
