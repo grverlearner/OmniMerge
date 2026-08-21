@@ -1,0 +1,227 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Support\Facades\Storage;
+
+class Universe extends Model
+{
+    use HasFactory;
+    use SoftDeletes;
+
+    protected $fillable = [
+
+        'user_id',
+
+        'sequence_number',
+
+        'code',
+
+        'name',
+
+        'slug',
+
+        'description',
+
+        'image',
+
+        'status',
+
+        'settings',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+
+            'sequence_number' =>
+            'integer',
+
+            'settings' =>
+            'array',
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relaciones
+    |--------------------------------------------------------------------------
+    */
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(
+            User::class
+        );
+    }
+
+    /*
+     * Entidades de la Biblioteca incorporadas a este Universo.
+     * La Entity NO se copia (docs/md/09-Para Futuro.md §46).
+     */
+    public function competitors(): HasMany
+    {
+        return $this->hasMany(
+            UniverseCompetitor::class
+        );
+    }
+
+    /*
+     * El tiempo propio del Universo.
+     */
+    public function seasons(): HasMany
+    {
+        return $this->hasMany(
+            UniverseSeason::class
+        )
+            ->orderByDesc('number');
+    }
+
+    /*
+     * Uso de plantillas de torneo dentro de este Universo.
+     */
+    public function universeTournaments(): HasMany
+    {
+        return $this->hasMany(
+            UniverseTournament::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Temporada actual
+    |--------------------------------------------------------------------------
+    |
+    | Se deriva de la regla "una sola temporada ACTIVE por Universo",
+    | no se duplica en una columna.
+    |
+    */
+
+    public function activeSeason(): ?UniverseSeason
+    {
+        if (
+            $this->relationLoaded(
+                'seasons'
+            )
+        ) {
+
+            return $this
+                ->getRelation('seasons')
+                ->firstWhere(
+                    'status',
+                    'ACTIVE'
+                );
+        }
+
+        return $this
+            ->seasons()
+            ->where(
+                'status',
+                'ACTIVE'
+            )
+            ->first();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Scopes
+    |--------------------------------------------------------------------------
+    */
+
+    public function scopeOwnedBy(
+        Builder $query,
+        User $user
+    ): Builder {
+
+        return $query->where(
+            'user_id',
+            $user->id
+        );
+    }
+
+    public function scopeActive(
+        Builder $query
+    ): Builder {
+
+        return $query->where(
+            'status',
+            'ACTIVE'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Imagen
+    |--------------------------------------------------------------------------
+    */
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image) {
+            return null;
+        }
+
+        /** @var FilesystemAdapter $disk */
+        $disk =
+            Storage::disk(
+                'public'
+            );
+
+        if (! $disk->exists(
+            $this->image
+        )) {
+            return null;
+        }
+
+        return $disk->url(
+            $this->image
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Código
+    |--------------------------------------------------------------------------
+    */
+
+    public static function formatCode(
+        int $sequence
+    ): string {
+
+        return sprintf(
+            'UNI%06d',
+            $sequence
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Etiquetas
+    |--------------------------------------------------------------------------
+    */
+
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->status) {
+
+            'DRAFT' =>
+            'Borrador',
+
+            'ACTIVE' =>
+            'Activo',
+
+            'ARCHIVED' =>
+            'Archivado',
+
+            default =>
+            $this->status,
+        };
+    }
+}

@@ -231,4 +231,17 @@ class User extends Authenticatable
             PhaseTemplate::class
         );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Universos
+    |--------------------------------------------------------------------------
+    */
+
+    public function universes(): HasMany
+    {
+        return $this->hasMany(
+            Universe::class
+        );
+    }
 }

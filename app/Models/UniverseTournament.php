@@ -1,0 +1,120 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+/*
+|--------------------------------------------------------------------------
+| UniverseTournament (UniverseTournamentDefinition)
+|--------------------------------------------------------------------------
+|
+| Uso concreto de una TournamentTemplate dentro de un Universo
+| (docs/md/09-Para Futuro.md §57).
+|
+| La plantilla sigue siendo un diseño reutilizable de la Biblioteca
+| de Torneos: este modelo solo describe cómo la usa este Universo.
+|
+| No pertenece a una temporada: la definición es atemporal. Cuando
+| exista TournamentInstance (Fase 6 / Sprint U6) será la instancia
+| la que pertenezca a una temporada concreta.
+|
+*/
+
+class UniverseTournament extends Model
+{
+    use HasFactory;
+    use SoftDeletes;
+
+    protected $fillable = [
+
+        'universe_id',
+
+        'tournament_template_id',
+
+        'name',
+
+        'description',
+
+        'status',
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relaciones
+    |--------------------------------------------------------------------------
+    */
+
+    public function universe(): BelongsTo
+    {
+        return $this->belongsTo(
+            Universe::class
+        );
+    }
+
+    public function tournamentTemplate(): BelongsTo
+    {
+        return $this->belongsTo(
+            TournamentTemplate::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Scopes
+    |--------------------------------------------------------------------------
+    */
+
+    public function scopeActive(
+        Builder $query
+    ): Builder {
+
+        return $query->where(
+            'status',
+            'ACTIVE'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Etiquetas
+    |--------------------------------------------------------------------------
+    */
+
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->status) {
+
+            'DRAFT' =>
+            'Borrador',
+
+            'ACTIVE' =>
+            'Activo',
+
+            'ARCHIVED' =>
+            'Archivado',
+
+            default =>
+            $this->status,
+        };
+    }
+
+    public static function statuses(): array
+    {
+        return [
+
+            'DRAFT' =>
+            'Borrador',
+
+            'ACTIVE' =>
+            'Activo',
+
+            'ARCHIVED' =>
+            'Archivado',
+        ];
+    }
+}

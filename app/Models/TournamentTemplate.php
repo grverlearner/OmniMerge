@@ -112,6 +112,20 @@ class TournamentTemplate extends Model
     }
 
 
+    /*
+     * Usos de esta plantilla dentro de Universos.
+     *
+     * Una plantilla es un diseño reutilizable: puede ser adoptada
+     * por varios Universos a la vez (docs/md/09-Para Futuro.md §57).
+     */
+    public function universeTournaments(): HasMany
+    {
+        return $this->hasMany(
+            UniverseTournament::class
+        );
+    }
+
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(

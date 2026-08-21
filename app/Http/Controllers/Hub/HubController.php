@@ -70,6 +70,10 @@ class HubController extends Controller
             $user->tournamentTemplates()
                 ->count(),
 
+            'universes' =>
+            $user->universes()
+                ->count(),
+
             /*
              * Todavía no incluimos TournamentTemplates
              * en public_content porque Comunidad de

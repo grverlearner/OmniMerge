@@ -1,8 +1,8 @@
 @php
 
-    $editing = isset($tournamentTemplate);
+    $editing = isset($universe);
 
-    $currentImage = $editing ? $tournamentTemplate->image_url : null;
+    $currentImage = $editing ? $universe->image_url : null;
 
 @endphp
 
@@ -73,7 +73,7 @@
                     font-black
                     uppercase
                     tracking-wider
-                    text-amber-600
+                    text-violet-600
                 ">
                 01 · Identidad
             </p>
@@ -86,7 +86,7 @@
                     font-black
                     text-slate-900
                 ">
-                Información de la plantilla
+                Información del Universo
             </h3>
 
 
@@ -96,8 +96,9 @@
                     text-sm
                     text-slate-500
                 ">
-                Define el concepto general. Las fases y reglas
-                específicas se configurarán después.
+                El Universo agrupa tus torneos bajo un mismo
+                nombre. Las reglas específicas viven en cada
+                plantilla de torneo.
             </p>
 
         </div>
@@ -172,7 +173,7 @@
                                 class="
                                     text-4xl
                                 ">
-                                🏆
+                                🌌
                             </span>
 
 
@@ -273,16 +274,16 @@
 
 
                     <input type="text" name="name"
-                        value="{{ old('name', $editing ? $tournamentTemplate->name : '') }}"
-                        placeholder="Ej. Copa Eliminación Clásica"
+                        value="{{ old('name', $editing ? $universe->name : '') }}"
+                        placeholder="Ej. Universo Shonen"
                         class="
                             mt-2
                             w-full
                             rounded-xl
                             border-slate-300
                             text-slate-900
-                            focus:border-amber-400
-                            focus:ring-amber-400
+                            focus:border-violet-400
+                            focus:ring-violet-400
                         ">
 
 
@@ -305,16 +306,16 @@
                     </label>
 
 
-                    <textarea name="description" rows="7" placeholder="Explica la finalidad y estructura general de esta plantilla..."
+                    <textarea name="description" rows="7" placeholder="Explica qué reúne este Universo y qué tipo de torneos vivirán en él..."
                         class="
                             mt-2
                             w-full
                             rounded-xl
                             border-slate-300
                             text-slate-900
-                            focus:border-amber-400
-                            focus:ring-amber-400
-                        ">{{ old('description', $editing ? $tournamentTemplate->description : '') }}</textarea>
+                            focus:border-violet-400
+                            focus:ring-violet-400
+                        ">{{ old('description', $editing ? $universe->description : '') }}</textarea>
 
 
                     <x-input-error :messages="$errors->get('description')" class="mt-2" />
@@ -326,8 +327,8 @@
                     class="
                         rounded-2xl
                         border
-                        border-amber-200
-                        bg-amber-50
+                        border-violet-200
+                        bg-violet-50
                         p-4
                     ">
 
@@ -337,7 +338,7 @@
                             font-black
                             uppercase
                             tracking-wider
-                            text-amber-700
+                            text-violet-700
                         ">
                         Código interno
                     </p>
@@ -349,9 +350,9 @@
                             font-mono
                             text-sm
                             font-black
-                            text-amber-950
+                            text-violet-950
                         ">
-                        {{ $editing ? $tournamentTemplate->code : $previewCode }}
+                        {{ $editing ? $universe->code : $previewCode }}
                     </p>
 
 
@@ -359,13 +360,12 @@
                         class="
                             mt-1
                             text-xs
-                            text-amber-800/70
+                            text-violet-800/70
                         ">
                         OmniMerge genera este código automáticamente.
                     </p>
 
                 </div>
-
 
             </div>
 
@@ -374,7 +374,7 @@
     </section>
 
 
-    {{-- PARTICIPANTES --}}
+    {{-- ESTADO --}}
 
     <section
         class="
@@ -391,9 +391,9 @@
                 font-black
                 uppercase
                 tracking-wider
-                text-amber-600
+                text-violet-600
             ">
-            02 · Participantes
+            02 · Organización
         </p>
 
 
@@ -404,308 +404,53 @@
                 font-black
                 text-slate-900
             ">
-            Capacidad general
+            Estado del Universo
         </h3>
 
 
-        <p class="
-                mt-2
-                text-sm
-                text-slate-500
-            ">
-            Define el rango aceptado por la plantilla.
-            El Universo podrá aplicar restricciones adicionales posteriormente.
-        </p>
-
-
         <div
             class="
-                mt-6
-                grid
-                gap-5
-                md:grid-cols-2
-            ">
-
-            <div>
-
-                <label
-                    class="
-                        text-xs
-                        font-black
-                        uppercase
-                        text-slate-500
-                    ">
-                    Mínimo *
-                </label>
-
-
-                <input type="number" name="min_participants" min="2" max="512"
-                    value="{{ old('min_participants', $editing ? $tournamentTemplate->min_participants : 2) }}"
-                    class="
-                        mt-2
-                        w-full
-                        rounded-xl
-                        border-slate-300
-                        focus:border-amber-400
-                        focus:ring-amber-400
-                    ">
-
-
-                <x-input-error :messages="$errors->get('min_participants')" class="mt-2" />
-
-            </div>
-
-
-            <div>
-
-                <label
-                    class="
-                        text-xs
-                        font-black
-                        uppercase
-                        text-slate-500
-                    ">
-                    Máximo
-                </label>
-
-
-                <input type="number" name="max_participants" min="2" max="512"
-                    value="{{ old('max_participants', $editing ? $tournamentTemplate->max_participants : '') }}"
-                    placeholder="Sin límite definido"
-                    class="
-                        mt-2
-                        w-full
-                        rounded-xl
-                        border-slate-300
-                        focus:border-amber-400
-                        focus:ring-amber-400
-                    ">
-
-
-                <x-input-error :messages="$errors->get('max_participants')" class="mt-2" />
-
-            </div>
-
-        </div>
-
-
-        <label
-            class="
                 mt-5
-                flex
-                cursor-pointer
-                items-start
-                gap-3
-                rounded-2xl
-                border
-                border-slate-200
-                p-4
+                max-w-sm
             ">
 
-            <input type="checkbox" name="allow_byes" value="1" @checked(old('allow_byes', $editing ? $tournamentTemplate->allow_byes : false))
+            <label
                 class="
-                    mt-0.5
-                    rounded
+                    text-xs
+                    font-black
+                    uppercase
+                    text-slate-500
+                ">
+                Estado
+            </label>
+
+
+            <select name="status"
+                class="
+                    mt-2
+                    w-full
+                    rounded-xl
                     border-slate-300
-                    text-amber-500
-                    focus:ring-amber-500
+                    focus:border-violet-400
+                    focus:ring-violet-400
                 ">
 
-
-            <span>
-
-                <span
-                    class="
-                        block
-                        text-sm
-                        font-black
-                        text-slate-800
-                    ">
-                    Permitir BYE
-                </span>
-
-
-                <span
-                    class="
-                        mt-1
-                        block
-                        text-xs
-                        leading-5
-                        text-slate-500
-                    ">
-                    Una fase futura podrá permitir que determinados
-                    participantes avancen automáticamente cuando la
-                    llave no esté completa.
-                </span>
-
-            </span>
-
-        </label>
-
-    </section>
-
-
-    {{-- PUBLICACIÓN --}}
-
-    <section
-        class="
-            rounded-3xl
-            border
-            border-slate-200
-            bg-white
-            p-6
-        ">
-
-        <p
-            class="
-                text-[10px]
-                font-black
-                uppercase
-                tracking-wider
-                text-amber-600
-            ">
-            03 · Organización
-        </p>
-
-
-        <div
-            class="
-                mt-5
-                grid
-                gap-5
-                md:grid-cols-2
-            ">
-
-            <div>
-
-                <label
-                    class="
-                        text-xs
-                        font-black
-                        uppercase
-                        text-slate-500
-                    ">
-                    Estado
-                </label>
-
-
-                <select name="status"
-                    class="
-                        mt-2
-                        w-full
-                        rounded-xl
-                        border-slate-300
-                        focus:border-amber-400
-                        focus:ring-amber-400
-                    ">
-
-                    @foreach ([
+                @foreach ([
         'DRAFT' => 'Borrador',
-        'ACTIVE' => 'Activa',
-        'ARCHIVED' => 'Archivada',
+        'ACTIVE' => 'Activo',
+        'ARCHIVED' => 'Archivado',
     ] as $value => $label)
-                        <option value="{{ $value }}" @selected(old('status', $editing ? $tournamentTemplate->status : 'DRAFT') === $value)>
-                            {{ $label }}
-                        </option>
-                    @endforeach
+                    <option value="{{ $value }}" @selected(old('status', $editing ? $universe->status : 'DRAFT') === $value)>
+                        {{ $label }}
+                    </option>
+                @endforeach
 
-                </select>
-
-            </div>
+            </select>
 
 
-            <div>
-
-                <label
-                    class="
-                        text-xs
-                        font-black
-                        uppercase
-                        text-slate-500
-                    ">
-                    Visibilidad
-                </label>
-
-
-                <select name="visibility"
-                    class="
-                        mt-2
-                        w-full
-                        rounded-xl
-                        border-slate-300
-                        focus:border-amber-400
-                        focus:ring-amber-400
-                    ">
-
-                    @foreach ([
-        'PRIVATE' => 'Privada',
-        'PUBLIC' => 'Pública',
-        'UNLISTED' => 'No listada',
-    ] as $value => $label)
-                        <option value="{{ $value }}" @selected(old('visibility', $editing ? $tournamentTemplate->visibility : 'PRIVATE') === $value)>
-                            {{ $label }}
-                        </option>
-                    @endforeach
-
-                </select>
-
-            </div>
+            <x-input-error :messages="$errors->get('status')" class="mt-2" />
 
         </div>
-
-
-        <label
-            class="
-                mt-5
-                flex
-                cursor-pointer
-                items-start
-                gap-3
-                rounded-2xl
-                border
-                border-violet-200
-                bg-violet-50/50
-                p-4
-            ">
-
-            <input type="checkbox" name="allow_cloning" value="1" @checked(old('allow_cloning', $editing ? $tournamentTemplate->allow_cloning : true))
-                class="
-                    mt-0.5
-                    rounded
-                    border-violet-300
-                    text-violet-600
-                    focus:ring-violet-500
-                ">
-
-
-            <span>
-
-                <span
-                    class="
-                        block
-                        text-sm
-                        font-black
-                        text-violet-900
-                    ">
-                    Permitir clonación cuando sea pública
-                </span>
-
-
-                <span
-                    class="
-                        mt-1
-                        block
-                        text-xs
-                        leading-5
-                        text-violet-700
-                    ">
-                    Dejamos preparado este comportamiento para
-                    la futura integración de Plantillas con Comunidad.
-                </span>
-
-            </span>
-
-        </label>
 
     </section>
 
@@ -721,7 +466,7 @@
             sm:justify-end
         ">
 
-        <a href="{{ $editing ? route('tournaments.templates.show', $tournamentTemplate) : route('tournaments.templates.index') }}"
+        <a href="{{ $editing ? route('universes.show', $universe) : route('universes.index') }}"
             class="
                 rounded-xl
                 border
@@ -741,18 +486,18 @@
         <button type="submit"
             class="
                 rounded-xl
-                bg-amber-500
+                bg-violet-500
                 px-6
                 py-3
                 text-sm
                 font-black
                 text-white
                 shadow-lg
-                shadow-amber-500/20
+                shadow-violet-500/20
                 transition
-                hover:bg-amber-600
+                hover:bg-violet-600
             ">
-            {{ $editing ? 'Guardar cambios' : 'Crear plantilla' }}
+            {{ $editing ? 'Guardar cambios' : 'Crear Universo' }}
         </button>
 
     </div>

@@ -760,16 +760,18 @@
             {{-- UNIVERSOS --}}
             {{-- ================================================= --}}
 
-            <article
+            <a href="{{ route('universes.dashboard') }}"
                 class="
-                    relative
-                    overflow-hidden
+                    group
                     rounded-3xl
                     border
-                    border-dashed
                     border-white/10
-                    bg-white/[0.02]
+                    bg-white/[0.03]
                     p-7
+                    transition
+                    hover:-translate-y-1
+                    hover:border-violet-400/30
+                    hover:bg-violet-500/[0.04]
                 ">
 
                 <div
@@ -797,16 +799,16 @@
                     <span
                         class="
                             rounded-full
-                            bg-amber-500/10
+                            bg-emerald-500/10
                             px-3
                             py-1
                             text-[10px]
                             font-black
                             uppercase
                             tracking-wider
-                            text-amber-400
+                            text-emerald-400
                         ">
-                        Próximamente
+                        Disponible
                     </span>
 
                 </div>
@@ -829,32 +831,49 @@
                         min-h-[72px]
                         text-sm
                         leading-6
-                        text-slate-500
+                        text-slate-400
                     ">
-                    Construye mundos independientes,
-                    incorpora entidades y define reglas,
-                    temporadas y eventos.
+                    Agrupa tus plantillas de torneo bajo un mismo
+                    contenedor organizativo.
                 </p>
 
 
                 <div
                     class="
                         mt-6
+                        flex
+                        items-center
+                        justify-between
                         border-t
                         border-white/10
                         pt-5
                     ">
+
                     <span
                         class="
                             text-xs
                             font-semibold
-                            text-slate-600
+                            text-slate-500
                         ">
-                        Módulo en desarrollo
+                        {{ $statistics['universes'] }}
+                        universos
                     </span>
+
+
+                    <span
+                        class="
+                            text-sm
+                            font-black
+                            text-violet-300
+                            transition
+                            group-hover:translate-x-1
+                        ">
+                        Entrar →
+                    </span>
+
                 </div>
 
-            </article>
+            </a>
 
             {{-- ================================================= --}}
             {{-- TORNEOS --}}

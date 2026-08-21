@@ -31,6 +31,11 @@ use App\Http\Controllers\Entities\EntityBaseVersionController;
 use App\Http\Controllers\Tournaments\TournamentDashboardController;
 use App\Http\Controllers\Tournaments\TournamentTemplateController;
 use App\Http\Controllers\Tournaments\TournamentLabController;
+use App\Http\Controllers\Universes\UniverseController;
+use App\Http\Controllers\Universes\UniverseDashboardController;
+use App\Http\Controllers\Universes\UniverseCompetitorController;
+use App\Http\Controllers\Universes\UniverseSeasonController;
+use App\Http\Controllers\Universes\UniverseTournamentController;
 
 use App\Http\Controllers\Tournaments\PhaseTemplateController;
 use App\Http\Controllers\Tournaments\PhaseExitController;
@@ -90,6 +95,334 @@ Route::middleware('auth')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
+    | UNIVERSOS
+    |--------------------------------------------------------------------------
+    |
+    | Módulo propio, con su propia interfaz y sidebar. Un Universo es el
+    | contenedor donde las Entidades de la Biblioteca adquieren contexto
+    | competitivo (Competidores), el Universo adquiere tiempo propio
+    | (Temporadas) y adopta plantillas de torneo (Torneos).
+    |
+    | Ver docs/md/23-Fase-Universos-Workspace.md
+    |
+    */
+
+
+    Route::prefix(
+        'universes'
+    )
+        ->name(
+            'universes.'
+        )
+        ->group(
+            function () {
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Módulo
+                |--------------------------------------------------------------------------
+                |
+                | Las rutas estáticas van antes de /{universe}.
+                |
+                */
+
+
+                Route::get(
+                    '/',
+                    [
+                        UniverseController::class,
+                        'index',
+                    ]
+                )->name('index');
+
+                Route::get(
+                    '/dashboard',
+                    UniverseDashboardController::class
+                )->name('dashboard');
+
+                Route::get(
+                    '/create',
+                    [
+                        UniverseController::class,
+                        'create',
+                    ]
+                )->name('create');
+
+                Route::post(
+                    '/',
+                    [
+                        UniverseController::class,
+                        'store',
+                    ]
+                )->name('store');
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Contenido de un Universo
+                |--------------------------------------------------------------------------
+                |
+                | scopeBindings() garantiza que el hijo pertenezca al
+                | Universo de la URL: si no, responde 404 en vez de
+                | permitir acceso cruzado entre Universos.
+                |
+                */
+
+
+                Route::prefix('/{universe}')
+                    ->scopeBindings()
+                    ->group(
+                        function () {
+
+
+                            /*
+                            | Competidores
+                            */
+
+                            Route::prefix('competitors')
+                                ->name('competitors.')
+                                ->group(
+                                    function () {
+
+                                        Route::get(
+                                            '/',
+                                            [
+                                                UniverseCompetitorController::class,
+                                                'index',
+                                            ]
+                                        )->name('index');
+
+                                        Route::get(
+                                            '/create',
+                                            [
+                                                UniverseCompetitorController::class,
+                                                'create',
+                                            ]
+                                        )->name('create');
+
+                                        Route::post(
+                                            '/',
+                                            [
+                                                UniverseCompetitorController::class,
+                                                'store',
+                                            ]
+                                        )->name('store');
+
+                                        Route::put(
+                                            '/{competitor}',
+                                            [
+                                                UniverseCompetitorController::class,
+                                                'update',
+                                            ]
+                                        )->name('update');
+
+                                        Route::delete(
+                                            '/{competitor}',
+                                            [
+                                                UniverseCompetitorController::class,
+                                                'destroy',
+                                            ]
+                                        )->name('destroy');
+                                    }
+                                );
+
+
+                            /*
+                            | Temporadas
+                            */
+
+                            Route::prefix('seasons')
+                                ->name('seasons.')
+                                ->group(
+                                    function () {
+
+                                        Route::get(
+                                            '/',
+                                            [
+                                                UniverseSeasonController::class,
+                                                'index',
+                                            ]
+                                        )->name('index');
+
+                                        Route::get(
+                                            '/create',
+                                            [
+                                                UniverseSeasonController::class,
+                                                'create',
+                                            ]
+                                        )->name('create');
+
+                                        Route::post(
+                                            '/',
+                                            [
+                                                UniverseSeasonController::class,
+                                                'store',
+                                            ]
+                                        )->name('store');
+
+                                        Route::get(
+                                            '/{season}/edit',
+                                            [
+                                                UniverseSeasonController::class,
+                                                'edit',
+                                            ]
+                                        )->name('edit');
+
+                                        Route::put(
+                                            '/{season}',
+                                            [
+                                                UniverseSeasonController::class,
+                                                'update',
+                                            ]
+                                        )->name('update');
+
+                                        Route::patch(
+                                            '/{season}/activate',
+                                            [
+                                                UniverseSeasonController::class,
+                                                'activate',
+                                            ]
+                                        )->name('activate');
+
+                                        Route::patch(
+                                            '/{season}/complete',
+                                            [
+                                                UniverseSeasonController::class,
+                                                'complete',
+                                            ]
+                                        )->name('complete');
+
+                                        Route::patch(
+                                            '/{season}/archive',
+                                            [
+                                                UniverseSeasonController::class,
+                                                'archive',
+                                            ]
+                                        )->name('archive');
+
+                                        Route::delete(
+                                            '/{season}',
+                                            [
+                                                UniverseSeasonController::class,
+                                                'destroy',
+                                            ]
+                                        )->name('destroy');
+                                    }
+                                );
+
+
+                            /*
+                            | Torneos del Universo
+                            */
+
+                            Route::prefix('tournaments')
+                                ->name('tournaments.')
+                                ->group(
+                                    function () {
+
+                                        Route::get(
+                                            '/',
+                                            [
+                                                UniverseTournamentController::class,
+                                                'index',
+                                            ]
+                                        )->name('index');
+
+                                        Route::get(
+                                            '/create',
+                                            [
+                                                UniverseTournamentController::class,
+                                                'create',
+                                            ]
+                                        )->name('create');
+
+                                        Route::post(
+                                            '/',
+                                            [
+                                                UniverseTournamentController::class,
+                                                'store',
+                                            ]
+                                        )->name('store');
+
+                                        Route::get(
+                                            '/{universeTournament}/edit',
+                                            [
+                                                UniverseTournamentController::class,
+                                                'edit',
+                                            ]
+                                        )->name('edit');
+
+                                        Route::put(
+                                            '/{universeTournament}',
+                                            [
+                                                UniverseTournamentController::class,
+                                                'update',
+                                            ]
+                                        )->name('update');
+
+                                        Route::delete(
+                                            '/{universeTournament}',
+                                            [
+                                                UniverseTournamentController::class,
+                                                'destroy',
+                                            ]
+                                        )->name('destroy');
+                                    }
+                                );
+
+
+                            /*
+                            | El propio Universo
+                            */
+
+                            Route::get(
+                                '/edit',
+                                [
+                                    UniverseController::class,
+                                    'edit',
+                                ]
+                            )->name('edit');
+
+                            Route::get(
+                                '/',
+                                [
+                                    UniverseController::class,
+                                    'show',
+                                ]
+                            )->name('show');
+
+                            Route::put(
+                                '/',
+                                [
+                                    UniverseController::class,
+                                    'update',
+                                ]
+                            )->name('update');
+
+                            Route::patch(
+                                '/archive',
+                                [
+                                    UniverseController::class,
+                                    'archive',
+                                ]
+                            )->name('archive');
+
+                            Route::delete(
+                                '/',
+                                [
+                                    UniverseController::class,
+                                    'destroy',
+                                ]
+                            )->name('destroy');
+                        }
+                    );
+            }
+        );
+
+
+    /*
+    |--------------------------------------------------------------------------
     | TORNEOS
     |--------------------------------------------------------------------------
     */
@@ -119,6 +452,8 @@ Route::middleware('auth')->group(function () {
                     ->name(
                         'dashboard'
                     );
+
+
 
 
                 /*
