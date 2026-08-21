@@ -3,6 +3,7 @@
 namespace Tests\Unit\Tournaments\CompetitionLab;
 
 use App\Services\Tournaments\CompetitionLab\Engines\SingleEliminationGraphRuntime;
+use App\Services\Tournaments\SingleElimination\SingleEliminationSettingsService;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureExecutionPolicy;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureFingerprint;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureValidator;
@@ -20,7 +21,8 @@ class SingleEliminationGraphRuntimeLivenessTest extends TestCase
                     SingleEliminationStructureValidator::class
                 ),
                 new SingleEliminationStructureExecutionPolicy(),
-                new SingleEliminationStructureFingerprint()
+                new SingleEliminationStructureFingerprint(),
+                new SingleEliminationSettingsService()
             );
 
         $state = [

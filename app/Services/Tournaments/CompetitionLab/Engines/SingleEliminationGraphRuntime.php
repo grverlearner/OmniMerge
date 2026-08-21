@@ -3,6 +3,7 @@
 namespace App\Services\Tournaments\CompetitionLab\Engines;
 
 use App\Models\PhaseTemplate;
+use App\Services\Tournaments\SingleElimination\SingleEliminationSettingsService;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureExecutionPolicy;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureFingerprint;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureValidator;
@@ -18,7 +19,10 @@ class SingleEliminationGraphRuntime
         SingleEliminationStructureExecutionPolicy $executionPolicy,
 
         private readonly
-        SingleEliminationStructureFingerprint $fingerprint
+        SingleEliminationStructureFingerprint $fingerprint,
+
+        private readonly
+        SingleEliminationSettingsService $settingsService
     ) {}
 
     public function prepare(PhaseTemplate $phase, array $participantIds): array
@@ -27,14 +31,17 @@ class SingleEliminationGraphRuntime
             'singleEliminationSetting'
         );
 
+        /*
+         * Ver nota equivalente en RoundRobinLabEngine::prepare(): si
+         * loadMissing() ya trajo la fila, se usa tal cual; ensure() solo
+         * entra en juego cuando realmente no existe (fase nunca visitada en
+         * su pestaña "Reglas", ej. colocada directamente como Node del
+         * Tournament Graph). El estado de la estructura (siguiente chequeo)
+         * sigue siendo una decisión real que no se auto-genera.
+         */
         $settings =
-            $phase->singleEliminationSetting;
-
-        if (! $settings) {
-            $this->fail(
-                'La fase no tiene configuración Single Elimination.'
-            );
-        }
+            $phase->singleEliminationSetting
+            ?? $this->settingsService->ensure($phase);
 
         if ($settings->structure_status !== 'VALID') {
             $this->fail(

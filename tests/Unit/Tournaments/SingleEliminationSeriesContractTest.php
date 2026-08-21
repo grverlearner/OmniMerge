@@ -11,6 +11,7 @@ use App\Services\Tournaments\SingleElimination\SingleEliminationAdvancedCalculat
 use App\Services\Tournaments\SingleElimination\SingleEliminationBracketCalculator;
 use App\Services\Tournaments\SingleElimination\SingleEliminationConfigurationInspector;
 use App\Services\Tournaments\SingleElimination\SingleEliminationRoundAvailabilityService;
+use App\Services\Tournaments\SingleElimination\SingleEliminationSettingsService;
 use App\Services\Tournaments\SingleElimination\SingleEliminationValidator;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use PHPUnit\Framework\TestCase;
@@ -310,7 +311,8 @@ class SingleEliminationSeriesContractTest extends TestCase
             $this->inspector(),
             $this->createMock(
                 SingleEliminationGraphRuntime::class
-            )
+            ),
+            new SingleEliminationSettingsService()
         );
     }
 

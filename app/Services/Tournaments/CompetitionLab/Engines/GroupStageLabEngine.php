@@ -5,6 +5,7 @@ namespace App\Services\Tournaments\CompetitionLab\Engines;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\CompetitionLab\Runtime\CutoffPolicyResolver;
 use App\Services\Tournaments\GroupStage\GroupStageAllocator;
+use App\Services\Tournaments\GroupStage\GroupStageSettingsService;
 use Illuminate\Validation\ValidationException;
 
 class GroupStageLabEngine
@@ -15,7 +16,10 @@ implements LabPhaseEngine, SupportsManualDecision
         GroupStageAllocator $allocator,
 
         private readonly
-        CutoffPolicyResolver $cutoffResolver
+        CutoffPolicyResolver $cutoffResolver,
+
+        private readonly
+        GroupStageSettingsService $settingsService
     ) {}
 
     public function supports(
@@ -40,14 +44,16 @@ implements LabPhaseEngine, SupportsManualDecision
             'groupStageAdvancementRules.group',
         ]);
 
+        /*
+         * Ver nota equivalente en RoundRobinLabEngine::prepare(): si
+         * loadMissing() ya trajo la fila, se usa tal cual; ensure() solo
+         * entra en juego cuando realmente no existe (fase nunca visitada en
+         * su pestaña "Reglas", ej. colocada directamente como Node del
+         * Tournament Graph).
+         */
         $settings =
-            $phase->groupStageSetting;
-
-        if (! $settings) {
-            $this->fail(
-                'La fase no tiene configuración Group Stage.'
-            );
-        }
+            $phase->groupStageSetting
+            ?? $this->settingsService->ensure($phase);
 
         $participantIds =
             array_values(

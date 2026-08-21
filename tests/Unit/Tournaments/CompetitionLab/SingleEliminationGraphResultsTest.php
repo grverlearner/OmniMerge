@@ -3,6 +3,7 @@
 namespace Tests\Unit\Tournaments\CompetitionLab;
 
 use App\Services\Tournaments\CompetitionLab\Engines\SingleEliminationGraphRuntime;
+use App\Services\Tournaments\SingleElimination\SingleEliminationSettingsService;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureExecutionPolicy;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureFingerprint;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureValidator;
@@ -106,7 +107,8 @@ class SingleEliminationGraphResultsTest extends TestCase
         return new SingleEliminationGraphRuntime(
             $this->createMock(SingleEliminationStructureValidator::class),
             new SingleEliminationStructureExecutionPolicy(),
-            new SingleEliminationStructureFingerprint()
+            new SingleEliminationStructureFingerprint(),
+            new SingleEliminationSettingsService()
         );
     }
 

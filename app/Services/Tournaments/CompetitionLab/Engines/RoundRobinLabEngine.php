@@ -4,6 +4,7 @@ namespace App\Services\Tournaments\CompetitionLab\Engines;
 
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\CompetitionLab\Runtime\CutoffPolicyResolver;
+use App\Services\Tournaments\RoundRobin\RoundRobinSettingsService;
 use App\Services\Tournaments\RoundRobin\RoundRobinValidator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -16,7 +17,10 @@ implements LabPhaseEngine, SupportsManualDecision
         RoundRobinValidator $validator,
 
         private readonly
-        CutoffPolicyResolver $cutoffResolver
+        CutoffPolicyResolver $cutoffResolver,
+
+        private readonly
+        RoundRobinSettingsService $settingsService
     ) {}
     
     public function supports(
@@ -39,14 +43,18 @@ implements LabPhaseEngine, SupportsManualDecision
             'exits',
         ]);
 
+        /*
+         * Una fase puede llegar aquí sin haber sido visitada nunca en su
+         * pestaña "Reglas" -por ejemplo, colocada directamente como Node de
+         * un Tournament Graph-, y esa pestaña es la única que hasta ahora
+         * garantizaba la fila de configuración. Si loadMissing() ya la trajo
+         * (caso normal), se usa tal cual; solo se recurre a ensure() -que
+         * reutiliza esa misma lógica de defaults + firstOrCreate- cuando
+         * realmente no existe.
+         */
         $settings =
-            $phase->roundRobinSetting;
-
-        if (! $settings) {
-            $this->fail(
-                'La fase no tiene una configuración Round Robin.'
-            );
-        }
+            $phase->roundRobinSetting
+            ?? $this->settingsService->ensure($phase);
 
         $participantIds =
             array_values(

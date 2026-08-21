@@ -5,6 +5,7 @@ namespace App\Services\Tournaments\CompetitionLab\Engines;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\SingleElimination\SingleEliminationValidator;
 use App\Services\Tournaments\SingleElimination\SingleEliminationConfigurationInspector;
+use App\Services\Tournaments\SingleElimination\SingleEliminationSettingsService;
 use Illuminate\Validation\ValidationException;
 
 class SingleEliminationLabEngine
@@ -18,7 +19,10 @@ implements LabPhaseEngine
         SingleEliminationConfigurationInspector $inspector,
 
         private readonly
-        SingleEliminationGraphRuntime $graphRuntime
+        SingleEliminationGraphRuntime $graphRuntime,
+
+        private readonly
+        SingleEliminationSettingsService $settingsService
     ) {}
 
     public function supports(
@@ -40,14 +44,16 @@ implements LabPhaseEngine
             'singleEliminationRoundRules',
         ]);
 
+        /*
+         * Ver nota equivalente en RoundRobinLabEngine::prepare(): si
+         * loadMissing() ya trajo la fila, se usa tal cual; ensure() solo
+         * entra en juego cuando realmente no existe (fase nunca visitada en
+         * su pestaña "Reglas", ej. colocada directamente como Node del
+         * Tournament Graph).
+         */
         $settings =
-            $phase->singleEliminationSetting;
-
-        if (! $settings) {
-            $this->fail(
-                'La fase no tiene una configuración Single Elimination.'
-            );
-        }
+            $phase->singleEliminationSetting
+            ?? $this->settingsService->ensure($phase);
 
         $participantIds =
             array_values(

@@ -6,6 +6,7 @@ use App\Models\PhaseSwissSetting;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\CompetitionLab\Runtime\CutoffPolicyResolver;
 use App\Services\Tournaments\Swiss\SwissPairingCalculator;
+use App\Services\Tournaments\Swiss\SwissSettingsService;
 use App\Services\Tournaments\Swiss\SwissValidator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -21,7 +22,10 @@ implements LabPhaseEngine, SupportsManualDecision
         SwissPairingCalculator $pairingCalculator,
 
         private readonly
-        CutoffPolicyResolver $cutoffResolver
+        CutoffPolicyResolver $cutoffResolver,
+
+        private readonly
+        SwissSettingsService $settingsService
     ) {}
 
     public function supports(
@@ -45,14 +49,16 @@ implements LabPhaseEngine, SupportsManualDecision
             'swissAdvancementRules.phaseExit',
         ]);
 
+        /*
+         * Ver nota equivalente en RoundRobinLabEngine::prepare(): si
+         * loadMissing() ya trajo la fila, se usa tal cual; ensure() solo
+         * entra en juego cuando realmente no existe (fase nunca visitada en
+         * su pestaña "Reglas", ej. colocada directamente como Node del
+         * Tournament Graph).
+         */
         $settings =
-            $phase->swissSetting;
-
-        if (! $settings) {
-            $this->fail(
-                'La fase no tiene configuración Swiss.'
-            );
-        }
+            $phase->swissSetting
+            ?? $this->settingsService->ensure($phase);
 
         $participantIds =
             array_values(

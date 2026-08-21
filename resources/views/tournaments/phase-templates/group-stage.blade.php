@@ -67,6 +67,47 @@
     </section>
 
 
+    {{-- ENTRADA DE LA FASE --}}
+
+    <section class="mt-5 rounded-3xl border border-slate-200 bg-white p-6">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0">
+                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    ⇢ Entrada de la fase
+                </p>
+                <h3 class="mt-2 font-black text-slate-900">
+                    Cómo llegan los participantes
+                </h3>
+                <p class="mt-2 max-w-2xl text-xs leading-6 text-slate-500">
+                    Group Stage recibe un único conjunto de participantes y los distribuye
+                    internamente en grupos según el modo de distribución configurado abajo
+                    (Snake Seeded, Pots, manual, etc.) — no existen puertas de entrada por
+                    grupo. Ese conjunto respeta el contrato de participantes de esta Fase:
+                    <strong class="text-slate-800">
+                        {{ $phaseTemplate->participant_contract_label }}
+                    </strong>.
+                </p>
+                <p class="mt-3 max-w-2xl text-xs leading-6 text-slate-500">
+                    Cuando coloques esta Fase como Node dentro de un Tournament Graph, se
+                    genera automáticamente una puerta de entrada única ("Entrada
+                    principal") que acumula a todos los participantes que le lleguen desde
+                    cualquier Start o Phase Exit conectado. Puedes editar su política de
+                    unión o su contrato de capacidad desde el editor del grafo (pestaña
+                    "Camino" de la plantilla de torneo, panel del Node).
+                </p>
+            </div>
+
+            <div class="shrink-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center">
+                <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    Contrato
+                </p>
+                <p class="mt-1 text-sm font-black text-slate-800">
+                    {{ $phaseTemplate->participant_contract_label }}
+                </p>
+            </div>
+        </div>
+    </section>
+
     {{-- CONFIG + PREVIEW --}}
 
     <section class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_500px]">

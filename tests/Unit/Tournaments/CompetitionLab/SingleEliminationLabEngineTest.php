@@ -10,6 +10,7 @@ use App\Services\Tournaments\SingleElimination\SingleEliminationAdvancedCalculat
 use App\Services\Tournaments\SingleElimination\SingleEliminationBracketCalculator;
 use App\Services\Tournaments\SingleElimination\SingleEliminationConfigurationInspector;
 use App\Services\Tournaments\SingleElimination\SingleEliminationRoundAvailabilityService;
+use App\Services\Tournaments\SingleElimination\SingleEliminationSettingsService;
 use App\Services\Tournaments\SingleElimination\SingleEliminationValidator;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Validation\ValidationException;
@@ -369,7 +370,8 @@ class SingleEliminationLabEngineTest extends TestCase
         return new SingleEliminationLabEngine(
             $validator,
             $inspector,
-            $this->createMock(SingleEliminationGraphRuntime::class)
+            $this->createMock(SingleEliminationGraphRuntime::class),
+            new SingleEliminationSettingsService()
         );
     }
 
