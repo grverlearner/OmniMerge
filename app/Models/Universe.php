@@ -95,6 +95,28 @@ class Universe extends Model
     }
 
     /*
+     * Competiciones reales jugadas o en curso dentro de este Universo.
+     */
+    public function tournamentInstances(): HasMany
+    {
+        return $this->hasMany(
+            TournamentInstance::class
+        );
+    }
+
+    /*
+     * Mismo conjunto, con el nombre que usa la interfaz ("Competiciones").
+     *
+     * Además es el nombre que necesita scopeBindings() para resolver
+     * /universes/{universe}/competitions/{competition}: sin esta relación
+     * una competición de otro Universo no daría 404.
+     */
+    public function competitions(): HasMany
+    {
+        return $this->tournamentInstances();
+    }
+
+    /*
     |--------------------------------------------------------------------------
     | Temporada actual
     |--------------------------------------------------------------------------

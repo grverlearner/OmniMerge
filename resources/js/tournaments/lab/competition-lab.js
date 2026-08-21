@@ -16,6 +16,25 @@ export default function competitionLab(config) {
         storageKey:
             config.storageKey,
 
+        /*
+         * Modo persistente (Tournament Runtime, Fase 6).
+         *
+         * En el Competition Lab el estado vive en un token cifrado dentro
+         * de sessionStorage. En una competición real vive en la base de
+         * datos: no hay token, no se toca sessionStorage, y cada acción
+         * viaja con la revisión que tenemos para que dos pestañas no se
+         * pisen los resultados.
+         */
+        persistent:
+            config.persistent
+            ??
+            false,
+
+        revision:
+            config.revision
+            ??
+            null,
+
         loading:
             false,
 
@@ -50,6 +69,18 @@ export default function competitionLab(config) {
         },
 
         init() {
+            /*
+             * Competición persistente: el servidor manda. No hay nada que
+             * restaurar ni que guardar en el navegador.
+             */
+            if (this.persistent) {
+                if (this.state) {
+                    this.afterStateChange();
+                }
+
+                return;
+            }
+
             if (
                 this.state
                 &&
@@ -101,6 +132,15 @@ export default function competitionLab(config) {
         },
 
         persist() {
+            /*
+             * En modo persistente el estado ya está guardado en base de
+             * datos por el servidor: duplicarlo en sessionStorage solo
+             * podría desincronizarlo.
+             */
+            if (this.persistent) {
+                return;
+            }
+
             if (
                 !this.state
                 ||
@@ -129,7 +169,11 @@ export default function competitionLab(config) {
             data = {}
         ) {
             if (
-                !this.stateToken
+                (
+                    !this.stateToken
+                    &&
+                    !this.persistent
+                )
                 ||
                 this.loading
             ) {
@@ -168,14 +212,25 @@ export default function competitionLab(config) {
                             },
 
                             body:
-                                JSON.stringify({
-                                    action,
+                                JSON.stringify(
+                                    this.persistent
+                                        ? {
+                                            action,
 
-                                    state_token:
-                                        this.stateToken,
+                                            revision:
+                                                this.revision,
 
-                                    ...data,
-                                }),
+                                            ...data,
+                                        }
+                                        : {
+                                            action,
+
+                                            state_token:
+                                                this.stateToken,
+
+                                            ...data,
+                                        }
+                                ),
                         }
                     );
 
@@ -206,8 +261,19 @@ export default function competitionLab(config) {
                 this.state =
                     payload.state;
 
-                this.stateToken =
-                    payload.state_token;
+                if (this.persistent) {
+                    /*
+                     * El servidor devuelve la revisión ya incrementada:
+                     * la siguiente acción viajará con ella.
+                     */
+                    this.revision =
+                        payload.revision
+                        ??
+                        this.revision;
+                } else {
+                    this.stateToken =
+                        payload.state_token;
+                }
 
                 this.resultForms =
                     {};
@@ -363,6 +429,14 @@ export default function competitionLab(config) {
         },
 
         removeLocalState() {
+            /*
+             * Una competición real no se descarta desde el navegador:
+             * se cancela o se elimina desde el servidor.
+             */
+            if (this.persistent) {
+                return;
+            }
+
             sessionStorage.removeItem(
                 this.storageKey
             );

@@ -322,6 +322,20 @@
                                 gap-2
                             ">
 
+                            <a href="{{ route('universes.tournaments.show', [$universe, $universeTournament]) }}"
+                                class="
+                                    rounded-xl
+                                    bg-violet-600
+                                    px-3
+                                    py-2
+                                    text-[11px]
+                                    font-black
+                                    text-white
+                                ">
+                                ⚔ Competiciones
+                            </a>
+
+
                             @if ($universeTournament->tournamentTemplate)
                                 <a href="{{ route('tournaments.templates.show', $universeTournament->tournamentTemplate) }}"
                                     class="

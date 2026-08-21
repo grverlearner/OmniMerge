@@ -11,6 +11,7 @@
             'competitors',
             'seasons',
             'universeTournaments',
+            'tournamentInstances',
         ]);
 
         $currentSeason = $currentUniverse->activeSeason();
@@ -195,6 +196,24 @@
                         <span
                             class="{{ request()->routeIs('universes.tournaments.*') ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400' }} rounded-full px-2 py-0.5 text-[10px] font-black">
                             {{ $currentUniverse->universe_tournaments_count }}
+                        </span>
+                    </a>
+
+
+                    {{-- Competiciones reales, no plantillas --}}
+
+                    <a href="{{ route('universes.competitions.index', $currentUniverse) }}"
+                        class="{{ request()->routeIs('universes.competitions.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
+
+                        <span class="text-lg">⚔</span>
+
+                        <span class="flex-1">
+                            Competiciones
+                        </span>
+
+                        <span
+                            class="{{ request()->routeIs('universes.competitions.*') ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400' }} rounded-full px-2 py-0.5 text-[10px] font-black">
+                            {{ $currentUniverse->tournament_instances_count }}
                         </span>
                     </a>
 

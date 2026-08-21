@@ -36,6 +36,7 @@ use App\Http\Controllers\Universes\UniverseDashboardController;
 use App\Http\Controllers\Universes\UniverseCompetitorController;
 use App\Http\Controllers\Universes\UniverseSeasonController;
 use App\Http\Controllers\Universes\UniverseTournamentController;
+use App\Http\Controllers\Universes\TournamentInstanceController;
 
 use App\Http\Controllers\Tournaments\PhaseTemplateController;
 use App\Http\Controllers\Tournaments\PhaseExitController;
@@ -365,6 +366,109 @@ Route::middleware('auth')->group(function () {
                                             '/{universeTournament}',
                                             [
                                                 UniverseTournamentController::class,
+                                                'destroy',
+                                            ]
+                                        )->name('destroy');
+
+                                        /*
+                                         * Va al final: si estuviera antes
+                                         * capturaría /create como si fuera
+                                         * un {universeTournament}.
+                                         */
+                                        Route::get(
+                                            '/{universeTournament}',
+                                            [
+                                                UniverseTournamentController::class,
+                                                'show',
+                                            ]
+                                        )->name('show');
+                                    }
+                                );
+
+
+                            /*
+                            | Competiciones reales (Tournament Runtime persistente)
+                            |
+                            | Ver docs/md/24-Fase-6-Tournament-Runtime-Persistente.md
+                            */
+
+                            Route::prefix('competitions')
+                                ->name('competitions.')
+                                ->group(
+                                    function () {
+
+                                        Route::get(
+                                            '/',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'index',
+                                            ]
+                                        )->name('index');
+
+                                        Route::get(
+                                            '/create',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'create',
+                                            ]
+                                        )->name('create');
+
+                                        Route::post(
+                                            '/',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'store',
+                                            ]
+                                        )->name('store');
+
+                                        Route::get(
+                                            '/{competition}',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'show',
+                                            ]
+                                        )->name('show');
+
+                                        /*
+                                         * Motor: cada acción persiste el
+                                         * estado en base de datos.
+                                         */
+                                        Route::post(
+                                            '/{competition}/action',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'action',
+                                            ]
+                                        )->name('action');
+
+                                        Route::patch(
+                                            '/{competition}/pause',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'pause',
+                                            ]
+                                        )->name('pause');
+
+                                        Route::patch(
+                                            '/{competition}/resume',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'resume',
+                                            ]
+                                        )->name('resume');
+
+                                        Route::patch(
+                                            '/{competition}/cancel',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'cancel',
+                                            ]
+                                        )->name('cancel');
+
+                                        Route::delete(
+                                            '/{competition}',
+                                            [
+                                                TournamentInstanceController::class,
                                                 'destroy',
                                             ]
                                         )->name('destroy');

@@ -230,7 +230,7 @@ Requests y su controlador.
 ## 7. Qué NO se construye en esta fase
 
 - Filtros de elegibilidad por atributos (Sprint U5, doc §49-50).
-- `TournamentInstance` / runtime persistente (Sprint U6 = Fase 6).
+- ~~`TournamentInstance` / runtime persistente (Sprint U6 = Fase 6).~~ **Ya implementado**: ver `24-Fase-6-Tournament-Runtime-Persistente.md`. La frontera que anticipaba esta fase se cumplió tal cual: `universe_tournaments` sigue sin `season_id`, y es la instancia la que pertenece a una temporada.
 - Recurrencia entre temporadas (Sprint U7, doc §58-59).
 - Recompensas e historial (Sprint U8, doc §63-64).
 - Rankings de Universo (Sprint U9, doc §65).

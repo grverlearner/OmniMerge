@@ -91,9 +91,15 @@ implements LabPhaseEngine
             ===
             'ADVANCED'
             &&
-            $phase->singleEliminationRounds()
+            /*
+             * Se lee la relación cargada, no una consulta nueva: cuando
+             * la fase viene de un snapshot inmutable (Tournament Runtime
+             * persistente) una consulta traería la estructura VIVA y
+             * alteraría una competición ya iniciada.
+             */
+            $phase->singleEliminationRounds
                 ->where('status', 'ACTIVE')
-                ->exists()
+                ->isNotEmpty()
         ) {
             return $this->graphRuntime
                 ->prepare(

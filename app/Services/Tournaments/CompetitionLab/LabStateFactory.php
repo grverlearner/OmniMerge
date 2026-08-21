@@ -142,6 +142,40 @@ class LabStateFactory
             ];
         }
 
+        return $this->assemble(
+            $template,
+            (int) $user->id,
+            $configuration,
+            $participants,
+            $starts
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ensamblado del estado
+    |--------------------------------------------------------------------------
+    |
+    | Construye el estado del motor a partir del grafo y de una lista de
+    | participantes YA resuelta.
+    |
+    | Está separado del reparto de participantes a propósito: el
+    | Competition Lab genera participantes sintéticos, mientras que el
+    | Tournament Runtime persistente (Fase 6) usa competidores reales del
+    | Universo. Todo lo demás — nodos, puertos, conexiones, terminales,
+    | resumen — es idéntico y se comparte aquí en vez de duplicarse.
+    |
+    */
+
+    public function assemble(
+        TournamentTemplate $template,
+        int $userId,
+        array $configuration,
+        array $participants,
+        array $starts
+    ): array {
+
         $nodes =
             $template
             ->graphNodes
@@ -379,7 +413,7 @@ class LabStateFactory
             $labId,
 
             'user_id' =>
-            (int) $user->id,
+            $userId,
 
             'tournament_template_id' =>
             (int) $template->id,

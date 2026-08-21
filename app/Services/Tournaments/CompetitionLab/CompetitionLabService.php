@@ -2,6 +2,7 @@
 
 namespace App\Services\Tournaments\CompetitionLab;
 
+use App\Models\TournamentPhaseNode;
 use App\Models\TournamentTemplate;
 use App\Models\User;
 use App\Services\Tournaments\CompetitionLab\Engines\LabPhaseEngineManager;
@@ -117,6 +118,43 @@ class CompetitionLabService
             $user
         );
 
+        $state =
+            $this->applyAction(
+                $state,
+                $template,
+                $action,
+                $payload
+            );
+
+        return $this->response(
+            $state
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Despachador de acciones
+    |--------------------------------------------------------------------------
+    |
+    | Este es el motor. Lo usan dos capas distintas:
+    |
+    |   - Competition Lab: estado efímero en un token cifrado.
+    |   - Tournament Runtime persistente (Fase 6): estado en base de datos.
+    |
+    | Ambas comparten exactamente esta lógica; no existe un segundo motor.
+    | Por eso recibe y devuelve el estado como array y no sabe nada de
+    | dónde se guarda.
+    |
+    */
+
+    public function applyAction(
+        array $state,
+        TournamentTemplate $template,
+        string $action,
+        array $payload = []
+    ): array {
+
         if (
             in_array(
                 $action,
@@ -135,8 +173,7 @@ class CompetitionLabService
             );
         }
 
-        $state =
-            match ($action) {
+        return match ($action) {
                 'START' =>
                 $this->start(
                     $state
@@ -225,15 +262,78 @@ class CompetitionLabService
                         )
                     ),
 
-                default =>
-                $this->fail(
-                    'La acción solicitada no está disponible.'
-                ),
-            };
+            default =>
+            $this->fail(
+                'La acción solicitada no está disponible.'
+            ),
+        };
+    }
 
-        return $this->response(
-            $state
-        );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Localizar un nodo del grafo
+    |--------------------------------------------------------------------------
+    |
+    | Prefiere SIEMPRE la relación ya cargada.
+    |
+    | Es lo que hace que el Tournament Runtime persistente sea correcto:
+    | cuando la plantilla viene de un snapshot inmutable, sus nodos ya
+    | están en memoria y consultarlos con graphNodes()->find() traería la
+    | configuración VIVA, alterando retroactivamente una competición ya
+    | iniciada.
+    |
+    | Para el Competition Lab el comportamiento es equivalente: si la
+    | relación no está cargada se consulta como siempre.
+    |
+    */
+
+    private function findGraphNode(
+        TournamentTemplate $template,
+        int $nodeId
+    ): ?TournamentPhaseNode {
+
+        if (
+            $template->relationLoaded(
+                'graphNodes'
+            )
+        ) {
+            return $template
+                ->graphNodes
+                ->firstWhere(
+                    'id',
+                    $nodeId
+                );
+        }
+
+        return $template
+            ->graphNodes()
+            ->with([
+                'phaseTemplate.singleEliminationSetting',
+                'phaseTemplate.singleEliminationRoundRules',
+                'phaseTemplate.inputGates.outgoingConnections',
+                'phaseTemplate.singleEliminationRounds.encounters.slots',
+                'phaseTemplate.singleEliminationRounds.encounters.results.outgoingConnections',
+                'phaseTemplate.singleEliminationConnections',
+                'phaseTemplate.exits',
+
+                'phaseTemplate.roundRobinSetting',
+                'phaseTemplate.roundRobinTiebreakers',
+
+                'phaseTemplate.groupStageSetting',
+                'phaseTemplate.groupStageGroups',
+                'phaseTemplate.groupStageTiebreakers',
+                'phaseTemplate.groupStageAdvancementRules.phaseExit',
+                'phaseTemplate.groupStageAdvancementRules.group',
+
+                'phaseTemplate.swissSetting',
+                'phaseTemplate.swissRoundRules',
+                'phaseTemplate.swissTiebreakers',
+                'phaseTemplate.swissAdvancementRules.phaseExit',
+            ])
+            ->find(
+                $nodeId
+            );
     }
 
 
@@ -546,32 +646,8 @@ class CompetitionLabService
         }
 
         $node =
-            $template
-            ->graphNodes()
-            ->with([
-                'phaseTemplate.singleEliminationSetting',
-                'phaseTemplate.singleEliminationRoundRules',
-                'phaseTemplate.inputGates.outgoingConnections',
-                'phaseTemplate.singleEliminationRounds.encounters.slots',
-                'phaseTemplate.singleEliminationRounds.encounters.results.outgoingConnections',
-                'phaseTemplate.singleEliminationConnections',
-                'phaseTemplate.exits',
-
-                'phaseTemplate.roundRobinSetting',
-                'phaseTemplate.roundRobinTiebreakers',
-
-                'phaseTemplate.groupStageSetting',
-                'phaseTemplate.groupStageGroups',
-                'phaseTemplate.groupStageTiebreakers',
-                'phaseTemplate.groupStageAdvancementRules.phaseExit',
-                'phaseTemplate.groupStageAdvancementRules.group',
-
-                'phaseTemplate.swissSetting',
-                'phaseTemplate.swissRoundRules',
-                'phaseTemplate.swissTiebreakers',
-                'phaseTemplate.swissAdvancementRules.phaseExit',
-            ])
-            ->find(
+            $this->findGraphNode(
+                $template,
                 $nodeId
             );
 
@@ -691,9 +767,11 @@ class CompetitionLabService
             $this->fail('La fase seleccionada no está esperando una decisión manual.');
         }
 
-        $node = $template->graphNodes()
-            ->with('phaseTemplate')
-            ->find($nodeId);
+        $node =
+            $this->findGraphNode(
+                $template,
+                $nodeId
+            );
 
         if (! $node?->phaseTemplate) {
             $this->fail('El nodo no tiene una PhaseTemplate disponible.');

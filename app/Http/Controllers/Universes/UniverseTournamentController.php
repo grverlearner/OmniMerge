@@ -82,6 +82,48 @@ class UniverseTournamentController extends Controller
 
     /*
     |--------------------------------------------------------------------------
+    | Show
+    |--------------------------------------------------------------------------
+    |
+    | El puente entre configuración y ejecución: desde aquí se lanza una
+    | competición real y se ven las que ya se jugaron.
+    |
+    */
+
+    public function show(
+        Universe $universe,
+        UniverseTournament $universeTournament
+    ): View {
+
+        $this->authorize(
+            'view',
+            $universe
+        );
+
+        $universeTournament->load(
+            'tournamentTemplate'
+        );
+
+        $competitions =
+            $universeTournament
+            ->instances()
+            ->with('season')
+            ->orderByDesc('created_at')
+            ->paginate(10);
+
+        return view(
+            'universes.tournaments.show',
+            compact(
+                'universe',
+                'universeTournament',
+                'competitions'
+            )
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
     | Create
     |--------------------------------------------------------------------------
     |
