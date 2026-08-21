@@ -413,14 +413,14 @@ class PhaseSimulatorService
     }
 
     /**
-     * Algunos motores (hoy: Round Robin) ya resuelven sus propias Phase
-     * Exits internamente -con su propia lógica de desempate/corte- y dejan
-     * el resultado en $runtime['outcomes']. Volver a invocar
-     * RuntimeOutcomeResolver sobre ese mismo runtime produciría una segunda
-     * resolución redundante y potencialmente distinta a la que el motor ya
-     * decidió. Por eso: si el motor ya resolvió, se normaliza y reutiliza
-     * ese resultado; solo se invoca el resolver genérico para motores que
-     * no resuelven internamente (hoy, Single Elimination).
+     * Algunos motores (hoy: Round Robin y Group Stage) ya resuelven sus
+     * propias Phase Exits internamente -con su propia lógica de
+     * desempate/corte- y dejan el resultado en $runtime['outcomes']. Volver
+     * a invocar RuntimeOutcomeResolver sobre ese mismo runtime produciría
+     * una segunda resolución redundante y potencialmente distinta a la que
+     * el motor ya decidió. Por eso: si el motor ya resolvió, se normaliza y
+     * reutiliza ese resultado; solo se invoca el resolver genérico para
+     * motores que no resuelven internamente (hoy, Single Elimination).
      */
     private function resolveExitsSummary(
         PhaseTemplate $phaseTemplate,
@@ -461,7 +461,7 @@ class PhaseSimulatorService
 
     private function engineResolvesOwnOutcomes(string $phaseType): bool
     {
-        return in_array($phaseType, ['ROUND_ROBIN'], true);
+        return in_array($phaseType, ['ROUND_ROBIN', 'GROUP_STAGE'], true);
     }
 
     /**
@@ -486,6 +486,15 @@ class PhaseSimulatorService
             'ROUND_ROBIN' => [
                 'roundRobinSetting',
                 'roundRobinTiebreakers',
+                'exits',
+            ],
+
+            'GROUP_STAGE' => [
+                'groupStageSetting',
+                'groupStageGroups',
+                'groupStageTiebreakers',
+                'groupStageAdvancementRules.phaseExit',
+                'groupStageAdvancementRules.group',
                 'exits',
             ],
 

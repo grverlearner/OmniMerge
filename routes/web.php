@@ -40,6 +40,7 @@ use App\Http\Controllers\Tournaments\RoundRobinController;
 use App\Http\Controllers\Tournaments\RoundRobinSimulatorController;
 use App\Http\Controllers\Tournaments\RoundRobinTiebreakerController;
 use App\Http\Controllers\Tournaments\GroupStageController;
+use App\Http\Controllers\Tournaments\GroupStageSimulatorController;
 use App\Http\Controllers\Tournaments\GroupStageGroupController;
 use App\Http\Controllers\Tournaments\GroupStageAdvancementRuleController;
 use App\Http\Controllers\Tournaments\GroupStageTiebreakerController;
@@ -884,6 +885,36 @@ Route::middleware('auth')->group(function () {
                     ]
                 )->name(
                     'group-stage.tiebreakers.move-down'
+                );
+
+                Route::get(
+                    '/phases/{phaseTemplate}/group-stage/simulator',
+                    [
+                        GroupStageSimulatorController::class,
+                        'show',
+                    ]
+                )->name(
+                    'group-stage.simulator.show'
+                );
+
+                Route::post(
+                    '/phases/{phaseTemplate}/group-stage/simulator/initialize',
+                    [
+                        GroupStageSimulatorController::class,
+                        'initialize',
+                    ]
+                )->name(
+                    'group-stage.simulator.initialize'
+                );
+
+                Route::post(
+                    '/phases/{phaseTemplate}/group-stage/simulator/action',
+                    [
+                        GroupStageSimulatorController::class,
+                        'action',
+                    ]
+                )->name(
+                    'group-stage.simulator.action'
                 );
 
                 /*

@@ -166,6 +166,22 @@
             ],
         ],
 
+        /*
+         * Group Stage no tiene una pestaña "Entrada y salida" separada: sus
+         * Phase Exits ya se gestionan junto a las Reglas de clasificación en
+         * la pestaña "Reglas" (ver docs/md/19-Fase-3-Group-Stage.md), porque
+         * cada regla ya muestra a qué puerta apunta.
+         */
+        'GROUP_STAGE' => [
+            [
+                'key' => 'simulator',
+                'label' => 'Simulador',
+                'description' => 'Probar con participantes ficticios',
+                'icon' => '▶',
+                'url' => route('tournaments.group-stage.simulator.show', $phaseTemplate),
+            ],
+        ],
+
         default => [],
     };
 

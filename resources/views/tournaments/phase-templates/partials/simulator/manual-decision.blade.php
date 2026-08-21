@@ -57,12 +57,48 @@
         </div>
     </div>
 
+    {{-- ASIGNACIÓN MANUAL DE GRUPOS (Group Stage) --}}
+
+    <div x-show="typeof isGroupAssignmentDecision === 'function' && isGroupAssignmentDecision()" class="mt-5">
+
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+            <template x-for="group in decisionGroups()" :key="group.key">
+                <span class="rounded-full border px-3 py-1.5 text-[9px] font-black"
+                    :class="groupAssignmentCount(group.key) === group.size
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-white text-slate-500'">
+                    <span x-text="group.name"></span>:
+                    <span x-text="groupAssignmentCount(group.key)"></span>/<span x-text="group.size"></span>
+                </span>
+            </template>
+        </div>
+
+        <div class="grid gap-2 md:grid-cols-2">
+            <template x-for="participantId in pendingDecision()?.eligible_participant_ids ?? []" :key="participantId">
+                <div class="flex items-center gap-2 rounded-2xl border border-violet-200 bg-white p-3">
+                    <span class="min-w-0 flex-1 truncate text-xs font-black text-slate-800"
+                        x-text="participantName(participantId)"></span>
+
+                    <select class="rounded-lg border-slate-200 bg-white text-[10px] font-bold"
+                        :value="participantGroupAssignment(participantId)"
+                        @change="assignToGroup(participantId, $event.target.value)">
+                        <option value="">Sin grupo</option>
+                        <template x-for="group in decisionGroups()" :key="group.key">
+                            <option :value="group.key" x-text="group.name"></option>
+                        </template>
+                    </select>
+                </div>
+            </template>
+        </div>
+    </div>
+
     <div class="mt-5 flex flex-col gap-3 border-t border-amber-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
         <p class="text-[10px] leading-5 text-slate-500">
             Esta decisión solo pertenece a esta simulación temporal. No modifica la
             configuración real de la fase.
         </p>
-        <button type="button" @click="resolveManualDecision()" :disabled="loading"
+        <button type="button" @click="resolveManualDecision()"
+            :disabled="loading || (typeof canResolveManualDecision === 'function' && !canResolveManualDecision())"
             class="shrink-0 rounded-xl bg-amber-500 px-5 py-3 text-xs font-black text-white shadow-lg shadow-amber-500/20 disabled:opacity-40">
             Confirmar y continuar
         </button>
