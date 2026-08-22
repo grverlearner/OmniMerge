@@ -75,6 +75,9 @@ extends FormRequest
                     'START_TOURNAMENT',
                     'STEP_RUNTIME',
                     'RUN_TOURNAMENT',
+
+                    /* Resolver una sola fase y parar */
+                    'RUN_NODE',
                     'RESOLVE_MANUAL_DECISION',
                 ]),
             ],

@@ -74,7 +74,7 @@ export default function singleEliminationSimulator(config) {
                 const existing = this.builderParticipants[position - 1];
 
                 participants.push({
-                    name: existing?.name ?? `Participante ${String(position).padStart(2, '0')}`,
+                    name: existing?.name ?? '',
                     seed: existing?.seed ?? position,
                 });
             }
@@ -90,7 +90,7 @@ export default function singleEliminationSimulator(config) {
             const position = this.builderParticipants.length + 1;
 
             this.builderParticipants.push({
-                name: `Participante ${String(position).padStart(2, '0')}`,
+                name: '',
                 seed: position,
             });
         },
@@ -274,6 +274,35 @@ export default function singleEliminationSimulator(config) {
 
         isAwaitingDecision() {
             return this.runtime()?.status === 'AWAITING_DECISION';
+        },
+
+        /*
+         * Retrato prestado del participante simulado. Es decorado: no hay
+         * ninguna entidad inscrita detras, solo una cara para que el cuadro
+         * se lea de un vistazo.
+         */
+        participantImage(id) {
+            if (!id) {
+                return null;
+            }
+
+            return this.state?.participants?.[id]?.image_url ?? null;
+        },
+
+        participantInitials(id) {
+            const name = this.participantName(id);
+
+            if (!name || name === 'BYE') {
+                return '-';
+            }
+
+            return name
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((word) => word[0])
+                .join('')
+                .toUpperCase();
         },
 
         participantName(id) {

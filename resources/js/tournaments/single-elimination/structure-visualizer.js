@@ -5,6 +5,50 @@ export default function singleEliminationStructureVisualizer(
     return {
         payload: initialPayload,
 
+        /*
+         * Caras prestadas, indexadas por posicion de entrada.
+         *
+         * Un slot no es un participante, es el hueco donde caera uno. Pero
+         * un cuadro de "Slot 1 / Slot 2 / Slot 3" es ilegible, asi que a
+         * cada posicion de entrada se le presta una cara. No hay nadie
+         * inscrito detras.
+         */
+        castByPosition: configuration.castByPosition || {},
+
+        /* Posicion que el gate asigna a este slot, si viene de una entrada */
+        slotEntryPosition(slot) {
+            const route = (slot.routes || [])
+                .find((candidate) => candidate.source_type === 'INPUT_GATE');
+
+            return route ? Number(route.allocation_value) : null;
+        },
+
+        slotFace(slot) {
+            const position = this.slotEntryPosition(slot);
+
+            if (!position) {
+                return null;
+            }
+
+            return this.castByPosition[position] || null;
+        },
+
+        slotFaceInitials(slot) {
+            const face = this.slotFace(slot);
+
+            if (!face?.name) {
+                return null;
+            }
+
+            return face.name
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((word) => word[0])
+                .join('')
+                .toUpperCase();
+        },
+
         view:
             initialPayload.options?.default_view
             || "blocks",

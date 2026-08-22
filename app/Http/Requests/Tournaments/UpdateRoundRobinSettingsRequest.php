@@ -123,6 +123,25 @@ class UpdateRoundRobinSettingsRequest extends FormRequest
                 'between:-9999.99,9999.99',
             ],
 
+            /*
+             * BEST_OF y FIXED_GAMES no son lo mismo: un BO3 puede acabar
+             * en dos juegos, y unos "2 fijos" se juegan siempre los dos.
+             */
+            'series_format' => [
+                'required',
+                Rule::in(['BEST_OF', 'FIXED_GAMES']),
+            ],
+
+            'fixed_games' => [
+                Rule::requiredIf(
+                    fn() => $this->input('series_format') === 'FIXED_GAMES'
+                ),
+                'nullable',
+                'integer',
+                'min:1',
+                'max:20',
+            ],
+
             'default_best_of' => [
                 'required',
 
@@ -160,6 +179,12 @@ class UpdateRoundRobinSettingsRequest extends FormRequest
 
             'default_best_of.in' =>
             'El Best of debe ser 1, 3, 5, 7 o 9.',
+
+            'series_format.in' =>
+            'El formato de serie debe ser Best of o cantidad fija.',
+
+            'fixed_games.required' =>
+            'Indica cuantos enfrentamientos fijos se juegan.',
         ];
     }
 }

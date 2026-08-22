@@ -75,7 +75,10 @@
         @js($visualizer), {
             updateUrlTemplate: @js($elementUpdateUrl),
             initialSelection: @js($initialSelection),
-            initialView: @js($initialView)
+            initialView: @js($initialView),
+
+            {{-- Caras prestadas por posicion de entrada. Decorado. --}}
+            castByPosition: @js($castByPosition ?? [])
         }
     )" class="pb-16">
         @include('tournaments.phase-templates.partials.workspace-navigation', [

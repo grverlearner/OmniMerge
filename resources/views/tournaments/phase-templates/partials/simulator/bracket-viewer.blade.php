@@ -60,7 +60,22 @@
                             <div x-show="!usesQualifierSelection(match) && match.status !== 'BYE'"
                                 class="mt-3 grid grid-cols-[minmax(0,1fr)_50px_14px_50px_minmax(0,1fr)] items-center gap-2">
 
-                                <p class="truncate text-right text-[10px] font-black" x-text="participantName(match.participant_a_id)"></p>
+                                {{-- Contendiente A, con su cara --}}
+                                <div class="flex min-w-0 items-center justify-end gap-1.5">
+                                    <p class="min-w-0 truncate text-right text-[10px] font-black"
+                                        x-text="participantName(match.participant_a_id)"></p>
+
+                                    <div class="h-7 w-7 shrink-0 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
+                                        <template x-if="participantImage(match.participant_a_id)">
+                                            <img :src="participantImage(match.participant_a_id)" alt=""
+                                                class="h-full w-full object-cover">
+                                        </template>
+                                        <template x-if="!participantImage(match.participant_a_id)">
+                                            <span class="flex h-full w-full items-center justify-center text-[8px] font-black text-slate-400"
+                                                x-text="participantInitials(match.participant_a_id)"></span>
+                                        </template>
+                                    </div>
+                                </div>
 
                                 <template x-if="match.status === 'PENDING'">
                                     <input type="number" min="0" x-model.number="resultForm(match).score_a"
@@ -82,13 +97,38 @@
                                         x-text="match.score_b ?? '—'"></span>
                                 </template>
 
-                                <p class="truncate text-[10px] font-black" x-text="participantName(match.participant_b_id)"></p>
+                                {{-- Contendiente B, con su cara --}}
+                                <div class="flex min-w-0 items-center gap-1.5">
+                                    <div class="h-7 w-7 shrink-0 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
+                                        <template x-if="participantImage(match.participant_b_id)">
+                                            <img :src="participantImage(match.participant_b_id)" alt=""
+                                                class="h-full w-full object-cover">
+                                        </template>
+                                        <template x-if="!participantImage(match.participant_b_id)">
+                                            <span class="flex h-full w-full items-center justify-center text-[8px] font-black text-slate-400"
+                                                x-text="participantInitials(match.participant_b_id)"></span>
+                                        </template>
+                                    </div>
+
+                                    <p class="min-w-0 truncate text-[10px] font-black"
+                                        x-text="participantName(match.participant_b_id)"></p>
+                                </div>
                             </div>
 
                             {{-- BYE --}}
-                            <div x-show="match.status === 'BYE'" class="mt-3 rounded-lg bg-violet-100 p-2 text-center text-xs font-black text-violet-800">
-                                <span x-text="participantName(match.participant_a_id ?? match.participant_b_id)"></span>
-                                avanza por BYE
+                            <div x-show="match.status === 'BYE'"
+                                class="mt-3 flex items-center justify-center gap-2 rounded-lg bg-violet-100 p-2 text-xs font-black text-violet-800">
+
+                                <div class="h-6 w-6 shrink-0 overflow-hidden rounded-md bg-violet-200">
+                                    <template x-if="participantImage(match.participant_a_id ?? match.participant_b_id)">
+                                        <img :src="participantImage(match.participant_a_id ?? match.participant_b_id)"
+                                            alt="" class="h-full w-full object-cover">
+                                    </template>
+                                </div>
+
+                                <span class="truncate"
+                                    x-text="participantName(match.participant_a_id ?? match.participant_b_id)"></span>
+                                <span class="opacity-70">avanza por BYE</span>
                             </div>
 
                             {{-- K → Q: selección de clasificados --}}
@@ -112,7 +152,21 @@
                                             :class="qualifierIsSelected(match, participantId)
                                                 ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
                                                 : 'border-slate-200 bg-white text-slate-600'">
-                                            <span class="truncate" x-text="participantName(participantId)"></span>
+                                            <span class="flex min-w-0 items-center gap-1.5">
+                                                <span class="h-6 w-6 shrink-0 overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200">
+                                                    <template x-if="participantImage(participantId)">
+                                                        <img :src="participantImage(participantId)" alt=""
+                                                            class="h-full w-full object-cover">
+                                                    </template>
+                                                    <template x-if="!participantImage(participantId)">
+                                                        <span class="flex h-full w-full items-center justify-center text-[8px] text-slate-400"
+                                                            x-text="participantInitials(participantId)"></span>
+                                                    </template>
+                                                </span>
+
+                                                <span class="min-w-0 truncate" x-text="participantName(participantId)"></span>
+                                            </span>
+
                                             <span x-show="qualifierIsSelected(match, participantId)" class="text-emerald-600">✓</span>
                                         </button>
                                     </template>
@@ -167,7 +221,23 @@
                         <td class="p-3 font-black">
                             <span x-text="row.position_from === row.position_to ? row.position_from : `${row.position_from}-${row.position_to}`"></span>
                         </td>
-                        <td class="p-3 font-black" x-text="participantName(row.participant_id)"></td>
+                        <td class="p-3">
+                            <div class="flex items-center gap-2">
+                                <div class="h-6 w-6 shrink-0 overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200">
+                                    <template x-if="participantImage(row.participant_id)">
+                                        <img :src="participantImage(row.participant_id)" alt=""
+                                            class="h-full w-full object-cover">
+                                    </template>
+                                    <template x-if="!participantImage(row.participant_id)">
+                                        <span class="flex h-full w-full items-center justify-center text-[8px] font-black text-slate-400"
+                                            x-text="participantInitials(row.participant_id)"></span>
+                                    </template>
+                                </div>
+
+                                <span class="min-w-0 truncate font-black"
+                                    x-text="participantName(row.participant_id)"></span>
+                            </div>
+                        </td>
                         <td class="p-3">
                             <span class="rounded-full px-2 py-1 text-[8px] font-black" :class="statusClass(row.status)"
                                 x-text="statusLabel(row.status)"></span>

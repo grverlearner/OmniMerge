@@ -220,157 +220,51 @@
 
 
     {{-- ADVANCEMENT RULES --}}
+    {{--
+        Las reglas de clasificacion se movieron a "Entradas y salidas".
+        Vivian aqui, separadas de las puertas que alimentan, y eso obligaba
+        a saltar de pestana para entender una sola decision: por donde sale
+        cada participante y quien pasa por ahi.
+    --}}
 
     <section class="mt-10">
 
-        <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-            <div>
-                <p class="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Advancement Engine</p>
-                <h2 class="mt-2 text-2xl font-black text-slate-900">Reglas de clasificación</h2>
+        <a href="{{ route('tournaments.group-stage.io', $phaseTemplate) }}"
+            class="flex flex-wrap items-center gap-4 rounded-3xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white p-6 transition hover:border-amber-300 hover:shadow-lg hover:shadow-amber-100">
 
-                <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                    Se evalúan en orden. Una vez que un participante es seleccionado,
-                    las reglas posteriores no vuelven a seleccionarlo.
-                </p>
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-2xl text-white shadow-lg shadow-amber-600/20">
+                ⇅
             </div>
 
-            <div class="rounded-xl bg-amber-50 px-4 py-2.5 text-xs font-black text-amber-700">
-                {{ $advancementRules->count() }} reglas
-            </div>
-        </div>
+            <div class="min-w-0 flex-1">
 
-        @if ($phaseExits->isEmpty())
-
-            <div class="mt-6 rounded-3xl border border-dashed border-amber-300 bg-amber-50 p-7 text-center">
-                <p class="font-black text-amber-900">Primero necesitas puertas de salida</p>
-
-                <p class="mt-2 text-sm text-amber-700">
-                    Crea puertas como Clasificados, Repechaje o Eliminados y utiliza
-                    el selector “Reglas del Engine”.
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-amber-600">
+                    Ahora en Entradas y salidas
                 </p>
 
-                <a href="{{ route('tournaments.phase-templates.show', $phaseTemplate) }}#exits"
-                    class="mt-4 inline-flex rounded-xl bg-amber-500 px-4 py-3 text-xs font-black text-white">
-                    Crear puertas →
-                </a>
-            </div>
-        @else
-            <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_410px]">
+                <h2 class="mt-1.5 text-xl font-black text-slate-900">
+                    Reglas de clasificacion
+                </h2>
 
-                <div class="space-y-4">
-
-                    @forelse ($advancementRules as $rule)
-                        <article x-data="{ editing: false }" class="rounded-3xl border border-slate-200 bg-white p-5">
-
-                            <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
-
-                                <div
-                                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 font-black text-amber-700">
-                                    {{ $loop->iteration }}
-                                </div>
-
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <h3 class="font-black text-slate-900">{{ $rule->rule_type_label }}</h3>
-
-                                        <span
-                                            class="rounded-full bg-indigo-50 px-2.5 py-1 text-[9px] font-black text-indigo-700">
-                                            → {{ $rule->phaseExit?->name ?? 'Sin puerta' }}
-                                        </span>
-
-                                        @if ($rule->status !== 'ACTIVE')
-                                            <span
-                                                class="rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-black text-slate-500">
-                                                INACTIVA
-                                            </span>
-                                        @endif
-                                    </div>
-
-                                    <p class="mt-2 text-xs leading-5 text-slate-500">{{ $rule->rule_summary }}</p>
-                                </div>
-
-                                <div class="flex shrink-0 gap-1">
-
-                                    @if (!$loop->first)
-                                        <form method="POST"
-                                            action="{{ route('tournaments.group-stage.advancement-rules.move-up', [$phaseTemplate, $rule]) }}">
-                                            @csrf
-                                            @method('PATCH')
-
-                                            <button type="submit"
-                                                class="rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-black text-slate-500">↑</button>
-                                        </form>
-                                    @endif
-
-                                    @if (!$loop->last)
-                                        <form method="POST"
-                                            action="{{ route('tournaments.group-stage.advancement-rules.move-down', [$phaseTemplate, $rule]) }}">
-                                            @csrf
-                                            @method('PATCH')
-
-                                            <button type="submit"
-                                                class="rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-black text-slate-500">↓</button>
-                                        </form>
-                                    @endif
-
-                                    <button type="button" @click="editing = !editing"
-                                        class="rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-black text-slate-500">
-                                        ✎
-                                    </button>
-
-                                    <form method="POST"
-                                        action="{{ route('tournaments.group-stage.advancement-rules.destroy', [$phaseTemplate, $rule]) }}"
-                                        data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
-                                        data-confirm-title="Eliminar regla"
-                                        data-confirm-message="Esta regla dejará de utilizarse."
-                                        data-confirm-subject="{{ $rule->rule_type_label }}"
-                                        data-confirm-action="Eliminar regla">
-
-                                        @csrf
-                                        @method('DELETE')
-
-                                        <button type="submit"
-                                            class="rounded-lg bg-red-50 px-2.5 py-2 text-xs font-black text-red-600">×</button>
-                                    </form>
-
-                                </div>
-                            </div>
-
-                            <div x-show="editing" x-transition style="display: none;"
-                                class="mt-5 border-t border-slate-100 pt-5">
-                                @include(
-                                    'tournaments.phase-templates.partials.group-stage-advancement-rule-form',
-                                    ['advancementRule' => $rule]
-                                )
-                            </div>
-
-                        </article>
-
-                    @empty
-
-                        <div class="rounded-3xl border border-dashed border-amber-300 bg-white p-8 text-center">
-                            <p class="font-black text-slate-800">No existen reglas de clasificación</p>
-                            <p class="mt-2 text-sm text-slate-500">Por ahora ningún participante sabe por qué puerta
-                                abandonará Group Stage.</p>
-                        </div>
-                    @endforelse
-
-                </div>
-
-                <aside class="h-fit rounded-3xl border border-amber-200 bg-amber-50/60 p-5 xl:sticky xl:top-28">
-                    <p class="text-[10px] font-black uppercase tracking-wider text-amber-700">Nueva regla</p>
-                    <h3 class="mt-2 font-black text-slate-900">Definir quién clasifica</h3>
-
-                    <div class="mt-5">
-                        @include('tournaments.phase-templates.partials.group-stage-advancement-rule-form', [
-                            'advancementRule' => null,
-                        ])
-                    </div>
-                </aside>
+                <p class="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-500">
+                    Quien clasifica y por que puerta sale se configuran juntos, porque son
+                    la misma decision.
+                    @if ($advancementRules->isNotEmpty())
+                        Ahora mismo hay
+                        <strong class="font-black text-slate-700">{{ $advancementRules->count() }}</strong>
+                        {{ $advancementRules->count() === 1 ? 'regla' : 'reglas' }}.
+                    @else
+                        Todavia no hay ninguna.
+                    @endif
+                </p>
 
             </div>
 
-        @endif
+            <span class="shrink-0 rounded-xl bg-slate-950 px-5 py-3 text-xs font-black text-white">
+                Configurar →
+            </span>
+
+        </a>
 
     </section>
 

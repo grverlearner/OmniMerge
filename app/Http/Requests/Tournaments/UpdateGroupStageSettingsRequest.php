@@ -242,6 +242,21 @@ class UpdateGroupStageSettingsRequest extends FormRequest
                 'between:-9999.99,9999.99',
             ],
 
+            'internal_series_format' => [
+                'required',
+                Rule::in(['BEST_OF', 'FIXED_GAMES']),
+            ],
+
+            'internal_fixed_games' => [
+                Rule::requiredIf(
+                    fn() => $this->input('internal_series_format') === 'FIXED_GAMES'
+                ),
+                'nullable',
+                'integer',
+                'min:1',
+                'max:20',
+            ],
+
             'internal_best_of' => [
                 'required',
 

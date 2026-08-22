@@ -255,11 +255,37 @@
                                                 'ring-2 ring-fuchsia-400': selectedKey === slot.key,
                                                 'opacity-25': isDimmed(slot)
                                             }]">
-                                            <div class="flex items-center justify-between gap-2">
-                                                <span class="text-[10px] font-black text-slate-800"
-                                                    x-text="slot.name"></span>
+                                            <div class="flex items-center gap-2">
 
-                                                <span class="text-[8px] font-black text-slate-400"
+                                                {{--
+                                                    Cara prestada de la posicion de entrada. Un slot
+                                                    no es un participante, pero un cuadro de "Slot 1
+                                                    / Slot 2 / Slot 3" es ilegible.
+                                                --}}
+                                                <template x-if="slotFace(slot)">
+                                                    <span class="relative h-7 w-7 shrink-0 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
+                                                        <template x-if="slotFace(slot).image_url">
+                                                            <img :src="slotFace(slot).image_url" alt=""
+                                                                class="h-full w-full object-cover">
+                                                        </template>
+                                                        <template x-if="!slotFace(slot).image_url">
+                                                            <span class="flex h-full w-full items-center justify-center text-[8px] font-black text-slate-400"
+                                                                x-text="slotFaceInitials(slot)"></span>
+                                                        </template>
+                                                    </span>
+                                                </template>
+
+                                                <span class="min-w-0 flex-1">
+                                                    <span class="block truncate text-[10px] font-black text-slate-800"
+                                                        x-text="slot.name"></span>
+
+                                                    <template x-if="slotFace(slot)">
+                                                        <span class="block truncate text-[9px] font-bold text-amber-600"
+                                                            x-text="slotFace(slot).name"></span>
+                                                    </template>
+                                                </span>
+
+                                                <span class="shrink-0 text-[8px] font-black text-slate-400"
                                                     x-text="slot.type_label"></span>
                                             </div>
 

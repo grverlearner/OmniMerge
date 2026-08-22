@@ -49,10 +49,12 @@ use App\Http\Controllers\Tournaments\PhaseExitController;
 use App\Http\Controllers\Tournaments\SingleEliminationController;
 use App\Http\Controllers\Tournaments\SingleEliminationRoundRuleController;
 use App\Http\Controllers\Tournaments\RoundRobinController;
+use App\Http\Controllers\Tournaments\RoundRobinStructureController;
 use App\Http\Controllers\Tournaments\RoundRobinSimulatorController;
 use App\Http\Controllers\Tournaments\RoundRobinTiebreakerController;
 use App\Http\Controllers\Tournaments\GroupStageController;
 use App\Http\Controllers\Tournaments\GroupStageSimulatorController;
+use App\Http\Controllers\Tournaments\GroupStageStructureController;
 use App\Http\Controllers\Tournaments\GroupStageGroupController;
 use App\Http\Controllers\Tournaments\GroupStageAdvancementRuleController;
 use App\Http\Controllers\Tournaments\GroupStageTiebreakerController;
@@ -1271,6 +1273,21 @@ Route::middleware('auth')->group(function () {
                     'round-robin.update'
                 );
 
+                /*
+                | Estructura de Round Robin: el calendario completo, con
+                | caras prestadas. No se guarda nada.
+                */
+
+                Route::get(
+                    '/phases/{phaseTemplate}/round-robin/structure',
+                    [
+                        RoundRobinStructureController::class,
+                        'structure',
+                    ]
+                )->name(
+                    'round-robin.structure'
+                );
+
                 Route::get(
                     '/phases/{phaseTemplate}/round-robin/io',
                     [
@@ -1546,6 +1563,80 @@ Route::middleware('auth')->group(function () {
                 )->name(
                     'group-stage.tiebreakers.move-down'
                 );
+
+                /*
+                | Estructura y contrato de la fase de grupos (Fase 14).
+                |
+                | Group Stage no tenia estas dos pantallas: la estructura no
+                | se veia en ninguna parte y las salidas vivian escondidas
+                | dentro de "Reglas".
+                */
+
+                Route::get(
+                    '/phases/{phaseTemplate}/group-stage/structure',
+                    [
+                        GroupStageStructureController::class,
+                        'structure',
+                    ]
+                )->name(
+                    'group-stage.structure'
+                );
+
+                Route::get(
+                    '/phases/{phaseTemplate}/group-stage/io',
+                    [
+                        GroupStageStructureController::class,
+                        'io',
+                    ]
+                )->name(
+                    'group-stage.io'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/group-stage/gates/{gate}/target',
+                    [
+                        GroupStageStructureController::class,
+                        'updateGateTarget',
+                    ]
+                )->name(
+                    'group-stage.gates.target'
+                );
+
+                /*
+                | Alta, edicion y baja de puertas de entrada, dentro de la
+                | propia seccion de entradas y salidas.
+                */
+
+                Route::post(
+                    '/phases/{phaseTemplate}/group-stage/gates',
+                    [
+                        GroupStageStructureController::class,
+                        'storeGate',
+                    ]
+                )->name(
+                    'group-stage.gates.store'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/group-stage/gates/{gate}',
+                    [
+                        GroupStageStructureController::class,
+                        'updateGate',
+                    ]
+                )->name(
+                    'group-stage.gates.update'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/group-stage/gates/{gate}',
+                    [
+                        GroupStageStructureController::class,
+                        'destroyGate',
+                    ]
+                )->name(
+                    'group-stage.gates.destroy'
+                );
+
 
                 Route::get(
                     '/phases/{phaseTemplate}/group-stage/simulator',

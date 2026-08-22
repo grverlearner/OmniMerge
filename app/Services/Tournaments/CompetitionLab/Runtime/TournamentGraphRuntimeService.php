@@ -1548,6 +1548,81 @@ class TournamentGraphRuntimeService
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Simular UNA fase y parar
+    |--------------------------------------------------------------------------
+    |
+    | El laboratorio solo sabia hacer dos cosas: un paso, o el torneo
+    | entero. Con un grafo de varias fases eso deja al usuario sin el punto
+    | intermedio mas util —"resuelveme los grupos y dejame ver el cuadro
+    | antes de seguir"—, que es justo como se disena un torneo.
+    |
+    | Se detiene en cuanto el nodo pedido deja de estar en juego. Lo que el
+    | grafo arrastre despues (repartos hacia la fase siguiente) queda para
+    | la accion siguiente.
+    |
+    */
+
+    public function runNode(
+        array $state,
+        TournamentTemplate $template,
+        int $nodeId,
+        int $maximumSteps = 400
+    ): array {
+
+        $this->requireRuntime($state);
+
+        if (! isset($state['nodes'][$nodeId])) {
+            $this->fail('Esa fase no existe en el recorrido.');
+        }
+
+        $this->loadGraph($template);
+
+        for ($index = 0; $index < $maximumSteps; $index++) {
+
+            $status = $state['nodes'][$nodeId]['status'] ?? null;
+
+            /* La fase ya no esta en juego: nada mas que hacer aqui */
+            if (
+                ! in_array(
+                    $status,
+                    ['RUNNING', 'WAITING_INPUTS', 'READY'],
+                    true
+                )
+            ) {
+                break;
+            }
+
+            if (
+                in_array(
+                    $state['graph_runtime']['status'] ?? null,
+                    ['COMPLETED', 'BLOCKED', 'AWAITING_DECISION'],
+                    true
+                )
+            ) {
+                break;
+            }
+
+            $before = $this->progressFingerprint($state);
+
+            $state = $this->step($state, $template);
+
+            /*
+             * Sin avance y sin cola no queda nada que drenar: seguir seria
+             * girar en vacio hasta agotar el limite.
+             */
+            if (
+                $before === $this->progressFingerprint($state)
+                && ($state['graph_runtime']['operation_queue'] ?? []) === []
+            ) {
+                break;
+            }
+        }
+
+        return $state;
+    }
+
     public function advanceToPlayable(
         array $state,
         TournamentTemplate $template,

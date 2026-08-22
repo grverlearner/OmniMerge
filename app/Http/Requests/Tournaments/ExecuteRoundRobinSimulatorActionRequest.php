@@ -37,6 +37,11 @@ class ExecuteRoundRobinSimulatorActionRequest extends FormRequest
                     'SUBMIT_MATCH_RESULT',
                     'SIMULATE_MATCH',
                     'SIMULATE_ROUND',
+
+                    /* Simulacion en bloque */
+                    'SIMULATE_GROUP',
+                    'SIMULATE_ALL',
+
                     'RESOLVE_MANUAL_DECISION',
                     'RESET',
                 ]),
@@ -49,6 +54,20 @@ class ExecuteRoundRobinSimulatorActionRequest extends FormRequest
             ],
 
             'match_id' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
+            /* Jornada y grupo concretos, para simular en bloque */
+            'round_number' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:512',
+            ],
+
+            'group_id' => [
                 'nullable',
                 'string',
                 'max:100',

@@ -150,6 +150,26 @@ class PhaseExitController extends Controller
             );
         }
 
+        /*
+         * La fase de grupos configura sus salidas en su propia seccion de
+         * entradas y salidas: devolver al usuario al resumen le haria
+         * perder el sitio.
+         */
+        if (
+            $request->input('return_to')
+            ===
+            'group_stage_io'
+            &&
+            $phaseTemplate->phase_type
+            ===
+            'GROUP_STAGE'
+        ) {
+            return redirect()->route(
+                'tournaments.group-stage.io',
+                $phaseTemplate
+            );
+        }
+
         if (
             $request->input('return_to')
             ===

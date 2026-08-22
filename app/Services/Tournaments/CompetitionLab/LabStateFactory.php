@@ -59,7 +59,8 @@ class LabStateFactory
                     (int) $startConfiguration['count'],
                     $startConfiguration['prefix']
                         ??
-                        null
+                        null,
+                    $user
                 );
 
             $generated =

@@ -166,6 +166,7 @@ class CompetitionLabService
                     'RESOLVE_MANUAL_DECISION',
 
                     /* Simulacion interactiva (Fase 11) */
+                    'RUN_NODE',
                     'ADVANCE_TO_PLAYABLE',
                     'PREPARE_ENCOUNTER',
                     'ROLL_ENCOUNTER',
@@ -251,6 +252,18 @@ class CompetitionLabService
                  * detiene. Sin esto, START_TOURNAMENT deja el nodo en
                  * WAITING_INPUTS y la estructura sale vacia.
                  */
+                /*
+                 * Resolver una sola fase y parar ahi. El punto intermedio
+                 * entre "un paso" y "todo el torneo".
+                 */
+                'RUN_NODE' =>
+                $this->graphRuntime
+                    ->runNode(
+                        $state,
+                        $template,
+                        (int) ($payload['node_id'] ?? 0)
+                    ),
+
                 'ADVANCE_TO_PLAYABLE' =>
                 $this->graphRuntime
                     ->advanceToPlayable(

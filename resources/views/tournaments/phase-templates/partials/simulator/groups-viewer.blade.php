@@ -27,6 +27,24 @@
         </button>
     </div>
 
+    {{-- SIMULAR LA FASE ENTERA --}}
+
+    <div x-show="pendingCount() > 0" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+
+        <p class="text-[11px] font-bold text-amber-800">
+            Quedan <strong class="font-black"><span x-text="pendingCount()"></span></strong>
+            encuentros por jugar en toda la fase.
+        </p>
+
+        <button type="button" @click="simulateEverything()" :disabled="loading"
+            class="rounded-xl bg-amber-600 px-4 py-2 text-[10px] font-black text-white transition hover:bg-amber-700 disabled:opacity-40">
+            <span x-show="!loading">⚡⚡⚡ Simular toda la fase</span>
+            <span x-show="loading" x-cloak>Simulando…</span>
+        </button>
+
+    </div>
+
+
     <div class="grid gap-5 xl:grid-cols-2">
 
         <template x-for="group in groupsList()" :key="group.id">
@@ -42,12 +60,26 @@
                         x-text="statusLabel(group.status)"></span>
                 </div>
 
-                <button type="button" @click="simulateGroupRound(group)"
-                    :disabled="loading || !groupHasPendingRound(group)"
-                    class="mt-3 w-full rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-[10px] font-black text-indigo-700 transition disabled:cursor-not-allowed disabled:opacity-40">
-                    <span x-show="!loading">⚡ Simular jornada de este grupo</span>
-                    <span x-show="loading" x-cloak>Simulando…</span>
-                </button>
+                {{-- ACCIONES DEL GRUPO --}}
+
+                <div class="mt-3 grid grid-cols-2 gap-2">
+
+                    <button type="button" @click="simulateGroupRound(group)"
+                        :disabled="loading || !groupHasPendingRound(group)"
+                        class="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-[10px] font-black text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-40">
+                        ⚡ Siguiente jornada
+                    </button>
+
+                    <button type="button" @click="simulateWholeGroup(group)"
+                        :disabled="loading || groupPendingCount(group) === 0"
+                        class="rounded-xl bg-indigo-600 px-3 py-2 text-[10px] font-black text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40">
+                        ⚡⚡ Todo el grupo
+                        <span class="opacity-70" x-show="groupPendingCount(group) > 0">
+                            (<span x-text="groupPendingCount(group)"></span>)
+                        </span>
+                    </button>
+
+                </div>
 
                 {{-- STANDINGS DEL GRUPO --}}
 
@@ -69,8 +101,28 @@
                             <template x-for="row in group.standings" :key="row.participant_id">
                                 <tr class="border-t border-slate-100">
                                     <td class="py-2 pr-2 font-black text-slate-400" x-text="row.position"></td>
-                                    <td class="max-w-[110px] truncate py-2 pr-2 font-black text-slate-800"
-                                        x-text="participantName(row.participant_id)"></td>
+
+                                    {{-- Cara prestada: la tabla se lee mucho mejor con retrato --}}
+                                    <td class="max-w-[130px] py-2 pr-2">
+                                        <div class="flex items-center gap-2">
+
+                                            <div class="h-6 w-6 shrink-0 overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200">
+                                                <template x-if="participantImage(row.participant_id)">
+                                                    <img :src="participantImage(row.participant_id)" alt=""
+                                                        class="h-full w-full object-cover">
+                                                </template>
+
+                                                <template x-if="!participantImage(row.participant_id)">
+                                                    <span class="flex h-full w-full items-center justify-center text-[8px] font-black text-slate-400"
+                                                        x-text="participantInitials(row.participant_id)"></span>
+                                                </template>
+                                            </div>
+
+                                            <span class="min-w-0 truncate font-black text-slate-800"
+                                                x-text="participantName(row.participant_id)"></span>
+
+                                        </div>
+                                    </td>
                                     <td class="py-2 pr-2 text-center" x-text="row.played"></td>
                                     <td class="py-2 pr-2 text-center text-emerald-600" x-text="row.wins"></td>
                                     <td class="py-2 pr-2 text-center text-slate-500" x-text="row.draws"></td>
@@ -85,25 +137,57 @@
 
                 {{-- CALENDARIO DEL GRUPO --}}
 
-                <div class="mt-4 space-y-2">
+                <div class="mt-4 flex items-center justify-between gap-2">
+
+                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                        Jornadas
+                    </p>
+
+                    <button type="button" @click="setGroupRounds(group, !groupIsExpanded(group))"
+                        class="text-[9px] font-black text-slate-400 transition hover:text-indigo-600">
+                        <span x-show="groupIsExpanded(group)">▴ Plegar todas</span>
+                        <span x-show="!groupIsExpanded(group)" x-cloak>▾ Desplegar todas</span>
+                    </button>
+
+                </div>
+
+                <div class="mt-2 space-y-1.5">
                     <template x-for="round in groupRounds(group)" :key="roundKey(round)">
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                        <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
 
-                            <button type="button" @click="toggleRound(round)"
-                                class="flex w-full items-center justify-between text-left">
-                                <div>
-                                    <p class="text-xs font-black text-slate-900" x-text="round.label"></p>
-                                    <p class="mt-0.5 text-[9px] text-slate-500">
-                                        <span x-text="round.matches.filter(match => match.status === 'COMPLETED').length"></span>
-                                        / <span x-text="round.matches.length"></span> resueltos
-                                    </p>
-                                </div>
+                            {{-- Cabecera compacta: una sola linea --}}
+                            <div class="flex items-center gap-2 px-2.5 py-1.5">
 
-                                <span class="rounded-full px-2 py-1 text-[8px] font-black" :class="statusClass(round.status)"
-                                    x-text="statusLabel(round.status)"></span>
-                            </button>
+                                <button type="button" @click="toggleRound(round)"
+                                    class="flex min-w-0 flex-1 items-center gap-2 text-left">
 
-                            <div x-show="roundIsExpanded(round)" class="mt-3 space-y-2">
+                                    <span class="text-[9px] text-slate-400"
+                                        x-text="roundIsExpanded(round) ? '▾' : '▸'"></span>
+
+                                    <span class="truncate text-[11px] font-black text-slate-900"
+                                        x-text="round.label"></span>
+
+                                    <span class="shrink-0 font-mono text-[9px] text-slate-400">
+                                        <span x-text="round.matches.filter(m => m.status === 'COMPLETED').length"></span>/<span
+                                            x-text="round.matches.length"></span>
+                                    </span>
+
+                                    <span class="h-1.5 w-1.5 shrink-0 rounded-full"
+                                        :class="round.status === 'COMPLETED' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+
+                                </button>
+
+                                {{-- Simular ESTA jornada, no la primera pendiente --}}
+                                <button type="button" @click="simulateThisRound(round)"
+                                    x-show="roundHasPending(round)"
+                                    :disabled="loading"
+                                    class="shrink-0 rounded-lg bg-amber-100 px-2 py-1 text-[9px] font-black text-amber-700 transition hover:bg-amber-200 disabled:opacity-40">
+                                    ⚡
+                                </button>
+
+                            </div>
+
+                            <div x-show="roundIsExpanded(round)" x-cloak class="space-y-2 border-t border-slate-200 bg-white p-2.5">
 
                                 <div x-show="restingParticipantId(round, group)"
                                     class="rounded-xl border border-dashed border-violet-300 bg-violet-50 p-2 text-center">
@@ -126,8 +210,22 @@
 
                                         <div class="mt-3 grid grid-cols-[minmax(0,1fr)_50px_14px_50px_minmax(0,1fr)] items-center gap-2">
 
-                                            <p class="truncate text-right text-[10px] font-black"
-                                                x-text="participantName(match.participant_a_id)"></p>
+                                            {{-- Contendiente A, con su cara --}}
+                                            <div class="flex min-w-0 items-center justify-end gap-1.5">
+                                                <p class="min-w-0 truncate text-right text-[10px] font-black"
+                                                    x-text="participantName(match.participant_a_id)"></p>
+
+                                                <div class="h-7 w-7 shrink-0 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
+                                                    <template x-if="participantImage(match.participant_a_id)">
+                                                        <img :src="participantImage(match.participant_a_id)" alt=""
+                                                            class="h-full w-full object-cover">
+                                                    </template>
+                                                    <template x-if="!participantImage(match.participant_a_id)">
+                                                        <span class="flex h-full w-full items-center justify-center text-[8px] font-black text-slate-400"
+                                                            x-text="participantInitials(match.participant_a_id)"></span>
+                                                    </template>
+                                                </div>
+                                            </div>
 
                                             <template x-if="match.status === 'PENDING'">
                                                 <input type="number" min="0" x-model.number="resultForm(match).score_a"
@@ -151,8 +249,22 @@
                                                     x-text="match.score_b ?? '—'"></span>
                                             </template>
 
-                                            <p class="truncate text-[10px] font-black"
-                                                x-text="participantName(match.participant_b_id)"></p>
+                                            {{-- Contendiente B, con su cara --}}
+                                            <div class="flex min-w-0 items-center gap-1.5">
+                                                <div class="h-7 w-7 shrink-0 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
+                                                    <template x-if="participantImage(match.participant_b_id)">
+                                                        <img :src="participantImage(match.participant_b_id)" alt=""
+                                                            class="h-full w-full object-cover">
+                                                    </template>
+                                                    <template x-if="!participantImage(match.participant_b_id)">
+                                                        <span class="flex h-full w-full items-center justify-center text-[8px] font-black text-slate-400"
+                                                            x-text="participantInitials(match.participant_b_id)"></span>
+                                                    </template>
+                                                </div>
+
+                                                <p class="min-w-0 truncate text-[10px] font-black"
+                                                    x-text="participantName(match.participant_b_id)"></p>
+                                            </div>
                                         </div>
 
                                         <div x-show="match.status === 'PENDING'" class="mt-3 flex justify-end gap-2">

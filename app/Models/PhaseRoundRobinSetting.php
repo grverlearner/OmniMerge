@@ -25,6 +25,8 @@ class PhaseRoundRobinSetting extends Model
         'loss_points',
 
         'default_best_of',
+        'series_format',
+        'fixed_games',
 
         'cutoff_tie_policy',
 
@@ -43,6 +45,7 @@ class PhaseRoundRobinSetting extends Model
             'loss_points' => 'float',
 
             'default_best_of' => 'integer',
+            'fixed_games' => 'integer',
 
             'settings' => 'array',
         ];

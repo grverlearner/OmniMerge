@@ -182,22 +182,74 @@
                 </select>
             </div>
 
-            <div>
-                <label class="text-xs font-black uppercase text-slate-500">Best Of</label>
+            <div x-data="{ formato: '{{ old('internal_series_format', $settings->internal_series_format ?: 'BEST_OF') }}' }">
 
-                <select name="internal_best_of"
-                    class="mt-2 w-full rounded-xl border-slate-300 focus:border-cyan-400 focus:ring-cyan-400">
-                    @foreach ([1, 3, 5, 7, 9] as $bestOf)
-                        <option value="{{ $bestOf }}"
-                            @selected((int) old('internal_best_of', $settings->internal_best_of) === $bestOf)>
-                            BO{{ $bestOf }}
-                        </option>
-                    @endforeach
-                </select>
+                <label class="text-xs font-black uppercase text-slate-500">
+                    Enfrentamientos por batalla
+                </label>
 
-                <p class="mt-2 text-[11px] leading-5 text-emerald-700">
-                    Competition Lab registra cada juego y cierra la serie cuando alcanza su condición de victoria.
-                </p>
+                <div class="mt-2 grid grid-cols-2 gap-2">
+
+                    <button type="button" @click="formato = 'BEST_OF'"
+                        :class="formato === 'BEST_OF'
+                            ? 'border-cyan-400 bg-cyan-50 text-cyan-800'
+                            : 'border-slate-200 bg-white text-slate-500'"
+                        class="rounded-xl border-2 p-2.5 text-left transition">
+                        <span class="block text-[11px] font-black">Al mejor de (BO)</span>
+                        <span class="mt-0.5 block text-[9px] leading-tight opacity-70">
+                            Acaba al sacar ventaja
+                        </span>
+                    </button>
+
+                    <button type="button" @click="formato = 'FIXED_GAMES'"
+                        :class="formato === 'FIXED_GAMES'
+                            ? 'border-sky-400 bg-sky-50 text-sky-800'
+                            : 'border-slate-200 bg-white text-slate-500'"
+                        class="rounded-xl border-2 p-2.5 text-left transition">
+                        <span class="block text-[11px] font-black">Cantidad fija</span>
+                        <span class="mt-0.5 block text-[9px] leading-tight opacity-70">
+                            Se juegan todos
+                        </span>
+                    </button>
+
+                </div>
+
+                <input type="hidden" name="internal_series_format" :value="formato">
+
+
+                <div x-show="formato === 'BEST_OF'" class="mt-3">
+
+                    <select name="internal_best_of"
+                        class="w-full rounded-xl border-slate-300 focus:border-cyan-400 focus:ring-cyan-400">
+                        @foreach ([1, 3, 5, 7, 9] as $bestOf)
+                            <option value="{{ $bestOf }}"
+                                @selected((int) old('internal_best_of', $settings->internal_best_of) === $bestOf)>
+                                BO{{ $bestOf }} · gana quien llegue a {{ intdiv($bestOf, 2) + 1 }}
+                            </option>
+                        @endforeach
+                    </select>
+
+                    <p class="mt-2 text-[11px] leading-5 text-emerald-700">
+                        La serie se cierra en cuanto alguien alcanza la mayoría, así que puede
+                        acabar antes de jugarlos todos.
+                    </p>
+
+                </div>
+
+
+                <div x-show="formato === 'FIXED_GAMES'" x-cloak class="mt-3">
+
+                    <input type="number" name="internal_fixed_games" min="1" max="20"
+                        value="{{ old('internal_fixed_games', $settings->internal_fixed_games ?: 2) }}"
+                        class="w-full rounded-xl border-slate-300 focus:border-sky-400 focus:ring-sky-400">
+
+                    <p class="mt-2 text-[11px] leading-5 text-sky-700">
+                        Se juegan SIEMPRE todos y gana quien sume más. Dos fijos pueden acabar
+                        empatados; entonces se juega un desempate solo si la fase necesita ganador.
+                    </p>
+
+                </div>
+
             </div>
         </div>
 

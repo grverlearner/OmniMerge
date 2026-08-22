@@ -34,6 +34,8 @@ class PhaseGroupStageSetting extends Model
         'internal_loss_points',
 
         'internal_best_of',
+        'internal_series_format',
+        'internal_fixed_games',
 
         'cross_group_normalization',
         'cutoff_tie_policy',
@@ -61,6 +63,7 @@ class PhaseGroupStageSetting extends Model
             'internal_loss_points' => 'float',
 
             'internal_best_of' => 'integer',
+            'internal_fixed_games' => 'integer',
 
             'settings' => 'array',
         ];

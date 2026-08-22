@@ -82,7 +82,30 @@ class PhaseSimulatorService
                 (string) ($payload['match_id'] ?? '')
             ),
 
-            'SIMULATE_ROUND' => $this->simulateRound($state, $phaseTemplate),
+            /*
+             * Sin payload simula la primera jornada pendiente, que es como
+             * se comportaba. Con round_number/group_id simula la que el
+             * usuario haya elegido.
+             */
+            'SIMULATE_ROUND' => $this->simulateRound(
+                $state,
+                $phaseTemplate,
+                $payload
+            ),
+
+            'SIMULATE_GROUP' => $this->simulateScope(
+                $state,
+                $phaseTemplate,
+                ['group_id' => $payload['group_id'] ?? null],
+                'El grupo fue simulado completamente.'
+            ),
+
+            'SIMULATE_ALL' => $this->simulateScope(
+                $state,
+                $phaseTemplate,
+                [],
+                'La fase fue simulada completamente.'
+            ),
 
             'RESOLVE_MANUAL_DECISION' => $this->resolveManualDecision($state, $phaseTemplate, $payload),
 
@@ -301,7 +324,8 @@ class PhaseSimulatorService
 
     private function simulateRound(
         array $state,
-        PhaseTemplate $phaseTemplate
+        PhaseTemplate $phaseTemplate,
+        array $payload = []
     ): array {
         $runtime = $this->requireRuntime($state);
 
@@ -309,21 +333,35 @@ class PhaseSimulatorService
             $this->fail('La simulación ya está completada.');
         }
 
-        $isStructureGraph = ($runtime['mode'] ?? null) === 'STRUCTURE_GRAPH';
+        $isExecutableMatch = $this->executableMatchFilter($runtime);
 
-        $isExecutableMatch = fn(array $match): bool =>
-            ($match['status'] ?? null) === 'PENDING'
-            && (
-                $isStructureGraph
-                    ? count($match['participant_ids'] ?? []) >= (int) ($match['qualifiers_count'] ?? 1)
-                    : ! empty($match['participant_a_id']) && ! empty($match['participant_b_id'])
-            );
+        $wanted = $payload['round_number'] ?? null;
+        $wantedGroup = $payload['group_id'] ?? null;
 
         $round = collect($runtime['rounds'] ?? [])
-            ->first(fn($round) => collect($round['matches'] ?? [])->contains($isExecutableMatch));
+            ->first(
+                function ($round) use ($isExecutableMatch, $wanted, $wantedGroup) {
+
+                    if (
+                        $wanted !== null
+                        && (int) ($round['number'] ?? 0) !== (int) $wanted
+                    ) {
+                        return false;
+                    }
+
+                    if (
+                        $wantedGroup !== null
+                        && (string) ($round['group_id'] ?? '') !== (string) $wantedGroup
+                    ) {
+                        return false;
+                    }
+
+                    return collect($round['matches'] ?? [])->contains($isExecutableMatch);
+                }
+            );
 
         if (! $round) {
-            $this->fail('La simulación no tiene una ronda con encuentros pendientes.');
+            $this->fail('Esa jornada no tiene encuentros pendientes.');
         }
 
         $pendingMatchIds = collect($round['matches'])
@@ -345,6 +383,89 @@ class PhaseSimulatorService
             'ROUND_SIMULATED',
             'SUCCESS',
             'La ronda ' . ($round['label'] ?? '') . ' fue simulada completamente.'
+        );
+
+        return $state;
+    }
+
+    /**
+     * Qué encuentros puede resolver el motor ahora mismo. Se comparte
+     * entre simular una jornada, un grupo y la fase entera para que las
+     * tres usen exactamente el mismo criterio.
+     */
+    private function executableMatchFilter(array $runtime): callable
+    {
+        $isStructureGraph = ($runtime['mode'] ?? null) === 'STRUCTURE_GRAPH';
+
+        return fn(array $match): bool =>
+            ($match['status'] ?? null) === 'PENDING'
+            && (
+                $isStructureGraph
+                    ? count($match['participant_ids'] ?? []) >= (int) ($match['qualifiers_count'] ?? 1)
+                    : ! empty($match['participant_a_id']) && ! empty($match['participant_b_id'])
+            );
+    }
+
+    /**
+     * Simula en bloque todo lo pendiente dentro de un ámbito: un grupo, o
+     * la fase entera si no se acota.
+     *
+     * Va por pasadas porque resolver una jornada puede abrir la siguiente:
+     * una sola barrida dejaría a medias las fases que generan calendario
+     * sobre la marcha.
+     */
+    private function simulateScope(
+        array $state,
+        PhaseTemplate $phaseTemplate,
+        array $scope,
+        string $message
+    ): array {
+
+        $group = $scope['group_id'] ?? null;
+
+        $simulated = 0;
+
+        for ($pass = 0; $pass < 60; $pass++) {
+
+            $runtime = $this->requireRuntime($state);
+
+            if (($runtime['status'] ?? null) !== 'RUNNING') {
+                break;
+            }
+
+            $isExecutableMatch = $this->executableMatchFilter($runtime);
+
+            $pending = collect($runtime['rounds'] ?? [])
+                ->filter(
+                    fn($round) =>
+                    $group === null
+                        || (string) ($round['group_id'] ?? '') === (string) $group
+                )
+                ->flatMap(fn($round) => $round['matches'] ?? [])
+                ->filter($isExecutableMatch)
+                ->pluck('id')
+                ->values()
+                ->all();
+
+            if ($pending === []) {
+                break;
+            }
+
+            foreach ($pending as $matchId) {
+                $state = $this->simulateMatch($state, $phaseTemplate, $matchId, false);
+                $simulated++;
+            }
+        }
+
+        if ($simulated === 0) {
+            $this->fail('No quedaban encuentros pendientes que simular.');
+        }
+
+        $this->addEvent(
+            $state,
+            'BULK_SIMULATED',
+            'SUCCESS',
+            $message . ' (' . $simulated . ' encuentros)'
         );
 
         return $state;

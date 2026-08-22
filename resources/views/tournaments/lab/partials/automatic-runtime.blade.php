@@ -200,39 +200,114 @@
 
                             <template x-for="node in nodes()" :key="node.id">
 
-                                <button type="button" @click="selectNode(node.id)"
-                                    class="rounded-2xl border p-3 text-left transition"
-                                    :class="String(selectedNodeId) === String(node.id) ?
-                                        'border-violet-500 bg-violet-50 ring-2 ring-violet-100' :
-                                        'border-slate-200 bg-slate-50 hover:border-violet-300'">
+                                <div class="overflow-hidden rounded-2xl border transition"
+                                    :class="String(selectedNodeId) === String(node.id)
+                                        ? nodeAccent(node).ring + ' bg-white ring-2 ring-offset-1'
+                                        : 'border-slate-200 bg-white hover:' + nodeAccent(node).ring">
 
-                                    <div class="flex items-start justify-between gap-2">
+                                    {{-- Franja de color por motor: cada fase se
+                                         distingue de un vistazo --}}
+                                    <div class="h-1 w-full bg-gradient-to-r"
+                                        :class="nodeAccent(node).bar"></div>
 
-                                        <div class="min-w-0">
+                                    <button type="button" @click="selectNode(node.id)"
+                                        class="w-full p-3 text-left">
 
-                                            <p class="text-[8px] font-black text-violet-600" x-text="node.code">
-                                            </p>
+                                        <div class="flex items-start justify-between gap-2">
 
-                                            <p class="mt-1 truncate text-xs font-black text-slate-900"
-                                                x-text="node.name">
-                                            </p>
+                                            <div class="flex min-w-0 items-start gap-2">
+
+                                                <span class="text-base leading-none"
+                                                    x-text="nodeAccent(node).icon"></span>
+
+                                                <div class="min-w-0">
+                                                    <p class="font-mono text-[8px] font-black text-slate-400"
+                                                        x-text="node.code"></p>
+
+                                                    <p class="mt-0.5 truncate text-xs font-black text-slate-900"
+                                                        x-text="node.name"></p>
+                                                </div>
+
+                                            </div>
+
+                                            <span class="shrink-0 rounded-full px-2 py-1 text-[8px] font-black"
+                                                :class="statusClass(node.status)"
+                                                x-text="statusLabel(node.status)"></span>
                                         </div>
 
-                                        <span class="rounded-full px-2 py-1 text-[8px] font-black"
-                                            :class="statusClass(node.status)" x-text="statusLabel(node.status)">
-                                        </span>
+                                        <span class="mt-2 inline-block rounded-full px-2 py-0.5 text-[8px] font-black"
+                                            :class="nodeAccent(node).chip"
+                                            x-text="node.phase_type_label"></span>
+
+
+                                        {{-- QUIEN ESTA DENTRO --}}
+
+                                        <div class="mt-2.5">
+
+                                            <template x-if="nodeParticipants(node).length">
+                                                <div class="flex flex-wrap items-center gap-1">
+
+                                                    <template x-for="participant in nodeParticipants(node).slice(0, 8)"
+                                                        :key="participant.lab_id ?? participant.preview_id">
+
+                                                        <span class="h-6 w-6 overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200"
+                                                            :title="participant.borrowed_name || participant.name">
+
+                                                            <template x-if="participantImageOf(participant)">
+                                                                <img :src="participantImageOf(participant)" alt=""
+                                                                    class="h-full w-full object-cover">
+                                                            </template>
+
+                                                            <template x-if="!participantImageOf(participant)">
+                                                                <span class="flex h-full w-full items-center justify-center text-[7px] font-black text-slate-400"
+                                                                    x-text="participantInitialsOf(participant)"></span>
+                                                            </template>
+                                                        </span>
+                                                    </template>
+
+                                                    <span x-show="nodeParticipants(node).length > 8"
+                                                        class="text-[9px] font-black text-slate-400"
+                                                        x-text="'+' + (nodeParticipants(node).length - 8)"></span>
+
+                                                </div>
+                                            </template>
+
+                                            <template x-if="!nodeParticipants(node).length">
+                                                <p class="text-[9px] italic text-slate-400">
+                                                    Todavía sin participantes
+                                                </p>
+                                            </template>
+
+                                        </div>
+
+
+                                        <p class="mt-2 text-[9px] font-bold text-slate-500">
+                                            <span x-text="node.participant_ids?.length ?? 0"></span>
+                                            participantes
+                                        </p>
+
+                                    </button>
+
+
+                                    {{--
+                                        Resolver SOLO esta fase. Es el punto
+                                        intermedio que faltaba entre "un paso"
+                                        y "todo el torneo".
+                                    --}}
+                                    <div x-show="nodeIsRunnable(node)" x-cloak
+                                        class="border-t border-slate-100 p-2">
+
+                                        <button type="button" @click.stop="runNode(node)"
+                                            :disabled="loading"
+                                            class="w-full rounded-xl bg-gradient-to-r px-3 py-2 text-[10px] font-black text-white transition hover:opacity-90 disabled:opacity-40"
+                                            :class="nodeAccent(node).bar">
+                                            <span x-show="!loading">⚡ Simular solo esta fase</span>
+                                            <span x-show="loading" x-cloak>Simulando…</span>
+                                        </button>
+
                                     </div>
 
-                                    <p class="mt-2 text-[9px] text-slate-500" x-text="node.phase_type_label">
-                                    </p>
-
-                                    <p class="mt-1 text-[9px] font-bold text-slate-600">
-
-                                        <span x-text="node.participant_ids?.length ?? 0">
-                                        </span>
-                                        participantes
-                                    </p>
-                                </button>
+                                </div>
                             </template>
                         </div>
                     </div>

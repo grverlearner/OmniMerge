@@ -173,7 +173,9 @@ implements LabPhaseEngine, SupportsManualDecision
                     (int)
                     $settings->internal_best_of,
                     $groupKey,
-                    $blueprint['name']
+                    $blueprint['name'],
+                    (string) ($settings->internal_series_format ?: 'BEST_OF'),
+                    (int) ($settings->internal_fixed_games ?: 1)
                 );
 
             $standings =
@@ -1343,7 +1345,9 @@ implements LabPhaseEngine, SupportsManualDecision
         int $cycles,
         int $bestOf,
         string $groupKey,
-        string $groupName
+        string $groupName,
+        string $seriesFormat = 'BEST_OF',
+        int $fixedGames = 1
     ): array {
         $rotation =
             $participantIds;
@@ -1459,14 +1463,15 @@ implements LabPhaseEngine, SupportsManualDecision
                         'winner_id' =>
                         null,
 
+                        /* Formato decidido por la configuracion del grupo */
                         'series_format' =>
-                        'BEST_OF',
+                        $seriesFormat,
 
                         'best_of' =>
                         $bestOf,
 
                         'fixed_games' =>
-                        1,
+                        $fixedGames,
 
                         'status' =>
                         'PENDING',

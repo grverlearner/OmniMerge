@@ -165,7 +165,9 @@ implements LabPhaseEngine, SupportsManualDecision
                 (int)
                 $settings->cycles,
                 (int)
-                $settings->default_best_of
+                $settings->default_best_of,
+                (string) ($settings->series_format ?: 'BEST_OF'),
+                (int) ($settings->fixed_games ?: 1)
             );
 
         return [
@@ -433,7 +435,9 @@ implements LabPhaseEngine, SupportsManualDecision
     private function schedule(
         array $participantIds,
         int $cycles,
-        int $bestOf
+        int $bestOf,
+        string $seriesFormat = 'BEST_OF',
+        int $fixedGames = 1
     ): array {
         if (
             count($participantIds)
@@ -546,14 +550,20 @@ implements LabPhaseEngine, SupportsManualDecision
                         'winner_id' =>
                         null,
 
+                        /*
+                         * El formato lo decide la configuracion de la fase.
+                         * Antes iba fijo a BEST_OF y ninguna liga podia
+                         * jugar enfrentamientos fijos, aunque el motor de
+                         * series supiera hacerlo desde el principio.
+                         */
                         'series_format' =>
-                        'BEST_OF',
+                        $seriesFormat,
 
                         'best_of' =>
                         $bestOf,
 
                         'fixed_games' =>
-                        1,
+                        $fixedGames,
 
                         'status' =>
                         'PENDING',

@@ -46,7 +46,8 @@
                     x-text="index + 1"></span>
 
                 <input type="text" x-model="participant.name" maxlength="60"
-                    class="rounded-lg border-slate-200 bg-white text-xs font-bold">
+                    :placeholder="'Se prestara una entidad tuya'"
+                    class="rounded-lg border-slate-200 bg-white text-xs font-bold placeholder:font-normal placeholder:text-slate-400">
 
                 <input type="number" x-model.number="participant.seed" min="1"
                     class="rounded-lg border-slate-200 bg-white text-center text-xs font-bold" title="Seed">

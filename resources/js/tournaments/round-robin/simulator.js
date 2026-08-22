@@ -74,7 +74,7 @@ export default function roundRobinSimulator(config) {
                 const existing = this.builderParticipants[position - 1];
 
                 participants.push({
-                    name: existing?.name ?? `Participante ${String(position).padStart(2, '0')}`,
+                    name: existing?.name ?? '',
                     seed: existing?.seed ?? position,
                 });
             }
@@ -90,7 +90,7 @@ export default function roundRobinSimulator(config) {
             const position = this.builderParticipants.length + 1;
 
             this.builderParticipants.push({
-                name: `Participante ${String(position).padStart(2, '0')}`,
+                name: '',
                 seed: position,
             });
         },
@@ -278,6 +278,110 @@ export default function roundRobinSimulator(config) {
             return this.runtime()?.status === 'AWAITING_DECISION';
         },
 
+        /*
+         * Retrato prestado del participante simulado. Es decorado: no hay
+         * ninguna entidad inscrita detras, solo una cara para que la
+         * simulacion se entienda de un vistazo.
+         */
+        participantImage(id) {
+            if (!id) {
+                return null;
+            }
+
+            return this.state?.participants?.[id]?.image_url ?? null;
+        },
+
+        participantInitials(id) {
+            const name = this.participantName(id);
+
+            if (!name || name === 'BYE') {
+                return '-';
+            }
+
+            return name
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((word) => word[0])
+                .join('')
+                .toUpperCase();
+        },
+
+        /*
+        |--------------------------------------------------------------------------
+        | Plegado y simulacion en bloque
+        |--------------------------------------------------------------------------
+        */
+
+        collapsedRounds: [],
+
+        roundHasPending(round) {
+            return round.matches.some((match) => match.status === 'PENDING');
+        },
+
+        pendingCount() {
+            return this.rounds()
+                .flatMap((round) => round.matches)
+                .filter((match) => match.status === 'PENDING').length;
+        },
+
+        /* Cuantos encuentros quedan en un ciclo concreto */
+        cyclePendingCount(cycle) {
+            return this.rounds()
+                .filter((round) => round.cycle === cycle)
+                .flatMap((round) => round.matches)
+                .filter((match) => match.status === 'PENDING').length;
+        },
+
+        cycles() {
+            return [...new Set(this.rounds().map((round) => round.cycle))].sort();
+        },
+
+        allExpanded() {
+            return this.rounds().some((round) => this.roundIsExpanded(round));
+        },
+
+        setAllRounds(open) {
+            const keys = this.rounds().map((round) => this.roundKey(round));
+
+            this.expandedRounds = open ? [...keys] : [];
+            this.collapsedRounds = open ? [] : [...keys];
+        },
+
+        /* Una jornada concreta, no "la primera pendiente" */
+        async simulateThisRound(round) {
+            await this.execute('SIMULATE_ROUND', { round_number: round.number });
+        },
+
+        async simulateCycle(cycle) {
+            const rounds = this.rounds()
+                .filter((round) => round.cycle === cycle && this.roundHasPending(round));
+
+            if (!rounds.length) {
+                return;
+            }
+
+            if (!confirm('Se simulara el ciclo ' + cycle + ' completo.')) {
+                return;
+            }
+
+            /*
+             * Jornada a jornada: el ciclo no es un ambito que el servidor
+             * conozca, asi que se recorre aqui en el orden correcto.
+             */
+            for (const round of rounds) {
+                await this.execute('SIMULATE_ROUND', { round_number: round.number });
+            }
+        },
+
+        async simulateEverything() {
+            if (!confirm('Se simulara la fase entera. Podras reiniciarla despues.')) {
+                return;
+            }
+
+            await this.execute('SIMULATE_ALL');
+        },
+
         participantName(id) {
             if (!id) {
                 return 'BYE';
@@ -290,16 +394,37 @@ export default function roundRobinSimulator(config) {
             return `R${round.number}`;
         },
 
+        /*
+         * Plegado EXPLICITO: antes toda jornada no terminada quedaba
+         * abierta y no habia forma de cerrarla. Por defecto solo se abre
+         * la que se esta jugando.
+         */
         roundIsExpanded(round) {
-            return round.status !== 'COMPLETED' || this.expandedRounds.includes(this.roundKey(round));
+            const key = this.roundKey(round);
+
+            if (this.collapsedRounds.includes(key)) {
+                return false;
+            }
+
+            if (this.expandedRounds.includes(key)) {
+                return true;
+            }
+
+            return round.status !== 'COMPLETED' && this.roundHasPending(round);
         },
 
         toggleRound(round) {
             const key = this.roundKey(round);
+            const open = this.roundIsExpanded(round);
 
-            this.expandedRounds = this.expandedRounds.includes(key)
-                ? this.expandedRounds.filter((item) => item !== key)
-                : [...this.expandedRounds, key];
+            this.expandedRounds = this.expandedRounds.filter((item) => item !== key);
+            this.collapsedRounds = this.collapsedRounds.filter((item) => item !== key);
+
+            if (open) {
+                this.collapsedRounds.push(key);
+            } else {
+                this.expandedRounds.push(key);
+            }
         },
 
         pendingRound() {

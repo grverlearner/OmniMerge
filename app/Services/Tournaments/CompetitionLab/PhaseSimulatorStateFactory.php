@@ -17,7 +17,12 @@ class PhaseSimulatorStateFactory
         User $user,
         array $participants
     ): array {
-        $generated = $this->participantFactory->generate($participants);
+        /*
+         * Se pasa el usuario para que la factoria pueda prestar caras
+         * de sus entidades a los participantes sin nombre. Decorado:
+         * no se guarda nada ni se inscribe a nadie.
+         */
+        $generated = $this->participantFactory->generate($participants, $user);
 
         $participants = [];
 

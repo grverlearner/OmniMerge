@@ -150,6 +150,17 @@
         ],
 
         'ROUND_ROBIN' => [
+            /*
+             * Round Robin no tiene estructura EDITABLE -su calendario es
+             * deterministico-, pero si merece verse antes de jugar.
+             */
+            [
+                'key' => 'structure',
+                'label' => 'Estructura',
+                'description' => 'Calendario completo',
+                'icon' => '◇',
+                'url' => route('tournaments.round-robin.structure', $phaseTemplate),
+            ],
             [
                 'key' => 'io',
                 'label' => 'Entrada y salida',
@@ -167,12 +178,26 @@
         ],
 
         /*
-         * Group Stage no tiene una pestaña "Entrada y salida" separada: sus
-         * Phase Exits ya se gestionan junto a las Reglas de clasificación en
-         * la pestaña "Reglas" (ver docs/md/19-Fase-3-Group-Stage.md), porque
-         * cada regla ya muestra a qué puerta apunta.
+         * Group Stage llegó a tener solo "Simulador": su estructura no se
+         * veía en ninguna parte y sus salidas vivían escondidas dentro de
+         * "Reglas". Ahora comparte las tres pestañas con los demás motores
+         * (ver docs/md/31-Fase-14-Group-Stage.md).
          */
         'GROUP_STAGE' => [
+            [
+                'key' => 'structure',
+                'label' => 'Estructura',
+                'description' => 'Cómo quedan los grupos',
+                'icon' => '◇',
+                'url' => route('tournaments.group-stage.structure', $phaseTemplate),
+            ],
+            [
+                'key' => 'io',
+                'label' => 'Entradas y salidas',
+                'description' => 'Puertas y grupos destino',
+                'icon' => '⇄',
+                'url' => route('tournaments.group-stage.io', $phaseTemplate),
+            ],
             [
                 'key' => 'simulator',
                 'label' => 'Simulador',

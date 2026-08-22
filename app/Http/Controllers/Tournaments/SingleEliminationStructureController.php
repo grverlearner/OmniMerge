@@ -65,8 +65,72 @@ class SingleEliminationStructureController extends Controller
 
                 'visualizer' =>
                 $payload['visualizer'],
+
+                /*
+                 * Caras prestadas para las posiciones de entrada.
+                 *
+                 * Un slot NO es un participante: es el hueco donde caera
+                 * uno. Pero un cuadro lleno de "Slot 1", "Slot 2" es muy
+                 * dificil de leer, asi que a cada posicion de entrada se le
+                 * presta una cara del usuario. No se inscribe a nadie.
+                 */
+                'castByPosition' =>
+                $this->borrowedEntryCast(
+                    request()->user(),
+                    $payload['visualizer']
+                ),
             ]
         );
+    }
+
+    /**
+     * Una cara por posicion de entrada, indexada por la posicion que la
+     * conexion del gate asigna.
+     *
+     * @return array<int, array>
+     */
+    private function borrowedEntryCast(
+        $user,
+        array $visualizer
+    ): array {
+
+        $positions = [];
+
+        foreach ($visualizer['rounds'] ?? [] as $round) {
+            foreach ($round['encounters'] ?? [] as $encounter) {
+                foreach ($encounter['slots'] ?? [] as $slot) {
+
+                    foreach ($slot['routes'] ?? [] as $route) {
+
+                        if (($route['source_type'] ?? null) !== 'INPUT_GATE') {
+                            continue;
+                        }
+
+                        $position = (int) ($route['allocation_value'] ?? 0);
+
+                        if ($position > 0) {
+                            $positions[$position] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($positions === []) {
+            return [];
+        }
+
+        $cast = app(\App\Services\Tournaments\Preview\PreviewCastService::class)
+            ->borrow($user, max(array_keys($positions)))
+            ->values();
+
+        $byPosition = [];
+
+        foreach (array_keys($positions) as $position) {
+            $byPosition[$position] = $cast->get($position - 1);
+        }
+
+        return array_filter($byPosition);
     }
 
     public function io(

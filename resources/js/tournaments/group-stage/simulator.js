@@ -74,8 +74,14 @@ export default function groupStageSimulator(config) {
             for (let position = 1; position <= count; position++) {
                 const existing = this.builderParticipants[position - 1];
 
+                /*
+                 * El nombre se deja VACIO a proposito: asi el servidor
+                 * presta la cara de una entidad tuya. Rellenarlo aqui con
+                 * "Participante 01" hacia que el backend lo tomara por un
+                 * nombre elegido y no prestara nada.
+                 */
                 participants.push({
-                    name: existing?.name ?? `Participante ${String(position).padStart(2, '0')}`,
+                    name: existing?.name ?? '',
                     seed: existing?.seed ?? position,
                 });
             }
@@ -91,7 +97,7 @@ export default function groupStageSimulator(config) {
             const position = this.builderParticipants.length + 1;
 
             this.builderParticipants.push({
-                name: `Participante ${String(position).padStart(2, '0')}`,
+                name: '',
                 seed: position,
             });
         },
@@ -168,6 +174,7 @@ export default function groupStageSimulator(config) {
             this.error = '';
             this.resultForms = {};
             this.expandedRounds = [];
+            this.collapsedRounds = [];
 
             sessionStorage.removeItem(this.storageKey);
         },
@@ -297,20 +304,143 @@ export default function groupStageSimulator(config) {
             return this.state?.participants?.[id]?.name ?? id;
         },
 
+        /*
+         * Retrato prestado del participante simulado. Es decorado: no hay
+         * ninguna entidad inscrita detras, solo una cara para que la
+         * simulacion se entienda de un vistazo.
+         */
+        participantImage(id) {
+            if (!id) {
+                return null;
+            }
+
+            return this.state?.participants?.[id]?.image_url ?? null;
+        },
+
+        /* Iniciales para cuando el participante no tiene imagen */
+        participantInitials(id) {
+            const name = this.participantName(id);
+
+            if (!name || name === 'BYE') {
+                return '—';
+            }
+
+            return name
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((word) => word[0])
+                .join('')
+                .toUpperCase();
+        },
+
         roundKey(round) {
             return `${round.group_id}-R${round.number}`;
         },
 
+        /*
+         * Plegado EXPLICITO.
+         *
+         * Antes se derivaba del estado -toda jornada no terminada quedaba
+         * abierta-, asi que en un grupo de 8 el calendario ocupaba media
+         * pantalla y no habia forma de cerrarlo. Ahora manda el usuario:
+         * por defecto solo se abre la jornada en juego.
+         */
+        collapsedRounds: [],
+
         roundIsExpanded(round) {
-            return round.status !== 'COMPLETED' || this.expandedRounds.includes(this.roundKey(round));
+            const key = this.roundKey(round);
+
+            if (this.collapsedRounds.includes(key)) {
+                return false;
+            }
+
+            if (this.expandedRounds.includes(key)) {
+                return true;
+            }
+
+            /* Por defecto: solo la que se esta jugando */
+            return round.status !== 'COMPLETED'
+                && round.matches.some((match) => match.status === 'PENDING');
         },
 
         toggleRound(round) {
             const key = this.roundKey(round);
+            const open = this.roundIsExpanded(round);
 
-            this.expandedRounds = this.expandedRounds.includes(key)
-                ? this.expandedRounds.filter((item) => item !== key)
-                : [...this.expandedRounds, key];
+            this.expandedRounds = this.expandedRounds.filter((item) => item !== key);
+            this.collapsedRounds = this.collapsedRounds.filter((item) => item !== key);
+
+            if (open) {
+                this.collapsedRounds.push(key);
+            } else {
+                this.expandedRounds.push(key);
+            }
+        },
+
+        /* Abrir o cerrar de golpe el calendario de un grupo */
+        setGroupRounds(group, open) {
+            const keys = this.groupRounds(group).map((round) => this.roundKey(round));
+
+            this.expandedRounds = this.expandedRounds.filter((k) => !keys.includes(k));
+            this.collapsedRounds = this.collapsedRounds.filter((k) => !keys.includes(k));
+
+            if (open) {
+                this.expandedRounds.push(...keys);
+            } else {
+                this.collapsedRounds.push(...keys);
+            }
+        },
+
+        groupIsExpanded(group) {
+            return this.groupRounds(group).some((round) => this.roundIsExpanded(round));
+        },
+
+        /* Cuantos encuentros quedan por jugar en un grupo */
+        groupPendingCount(group) {
+            return this.groupRounds(group)
+                .flatMap((round) => round.matches)
+                .filter((match) => match.status === 'PENDING').length;
+        },
+
+        pendingCount() {
+            return this.rounds()
+                .flatMap((round) => round.matches)
+                .filter((match) => match.status === 'PENDING').length;
+        },
+
+        roundHasPending(round) {
+            return round.matches.some((match) => match.status === 'PENDING');
+        },
+
+        /*
+        |--------------------------------------------------------------------------
+        | Simulacion en bloque
+        |--------------------------------------------------------------------------
+        */
+
+        /* Una jornada concreta, no "la primera pendiente" */
+        async simulateThisRound(round) {
+            await this.execute('SIMULATE_ROUND', {
+                round_number: round.number,
+                group_id: round.group_id,
+            });
+        },
+
+        async simulateWholeGroup(group) {
+            if (!confirm('Se simularan todos los encuentros pendientes de ' + group.name + '.')) {
+                return;
+            }
+
+            await this.execute('SIMULATE_GROUP', { group_id: group.id });
+        },
+
+        async simulateEverything() {
+            if (!confirm('Se simulara la fase entera. Podras reiniciarla despues.')) {
+                return;
+            }
+
+            await this.execute('SIMULATE_ALL');
         },
 
         pendingRound() {

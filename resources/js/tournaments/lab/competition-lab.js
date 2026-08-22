@@ -569,6 +569,91 @@ export default function competitionLab(config) {
                 null;
         },
 
+        /*
+        |--------------------------------------------------------------------------
+        | Caras y simulacion por fase
+        |--------------------------------------------------------------------------
+        */
+
+        /* Los participantes que hay ahora mismo dentro de una fase */
+        nodeParticipants(node) {
+            const ids = node.participant_ids || [];
+
+            return ids
+                .map((id) => this.state?.participants?.[id])
+                .filter(Boolean);
+        },
+
+        participantImageOf(participant) {
+            return participant?.image_url ?? null;
+        },
+
+        participantInitialsOf(participant) {
+            const name = participant?.borrowed_name || participant?.name || '';
+
+            return name
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((word) => word[0])
+                .join('')
+                .toUpperCase() || '-';
+        },
+
+        /* Color por motor, para distinguir las fases de un vistazo */
+        nodeAccent(node) {
+            switch (node.phase_type) {
+                case 'SINGLE_ELIMINATION':
+                    return {
+                        chip: 'bg-violet-100 text-violet-700',
+                        bar: 'from-violet-500 to-fuchsia-500',
+                        ring: 'border-violet-300',
+                        icon: '🏆',
+                    };
+                case 'ROUND_ROBIN':
+                    return {
+                        chip: 'bg-cyan-100 text-cyan-700',
+                        bar: 'from-cyan-500 to-sky-500',
+                        ring: 'border-cyan-300',
+                        icon: '🔄',
+                    };
+                case 'GROUP_STAGE':
+                    return {
+                        chip: 'bg-indigo-100 text-indigo-700',
+                        bar: 'from-indigo-500 to-blue-500',
+                        ring: 'border-indigo-300',
+                        icon: '▦',
+                    };
+                case 'SWISS':
+                    return {
+                        chip: 'bg-emerald-100 text-emerald-700',
+                        bar: 'from-emerald-500 to-teal-500',
+                        ring: 'border-emerald-300',
+                        icon: '⇄',
+                    };
+                default:
+                    return {
+                        chip: 'bg-slate-100 text-slate-700',
+                        bar: 'from-slate-500 to-slate-600',
+                        ring: 'border-slate-300',
+                        icon: '◆',
+                    };
+            }
+        },
+
+        /* Una fase esta en juego y se puede resolver de golpe */
+        nodeIsRunnable(node) {
+            return ['RUNNING', 'WAITING_INPUTS', 'READY'].includes(node.status);
+        },
+
+        async runNode(node) {
+            if (!this.nodeIsRunnable(node)) {
+                return;
+            }
+
+            await this.execute('RUN_NODE', { node_id: node.id });
+        },
+
         selectNode(id) {
             this.selectedNodeId =
                 String(id);
