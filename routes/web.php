@@ -40,6 +40,9 @@ use App\Http\Controllers\Universes\TournamentInstanceController;
 use App\Http\Controllers\Universes\UniverseHistoryController;
 use App\Http\Controllers\Universes\UniverseRankingController;
 use App\Http\Controllers\Universes\UniverseExplorerController;
+use App\Http\Controllers\Universes\UniverseGameController;
+use App\Http\Controllers\Universes\UniverseRewardController;
+use App\Http\Controllers\Universes\UniverseTrophyController;
 
 use App\Http\Controllers\Tournaments\PhaseTemplateController;
 use App\Http\Controllers\Tournaments\PhaseExitController;
@@ -406,6 +409,63 @@ Route::middleware('auth')->group(function () {
                                         )->name('destroy');
 
                                         /*
+                                         | Consecuencias del torneo (Fase 12)
+                                         |
+                                         | Recompensas permanentes y bonus
+                                         | temporales viven juntos en pantalla
+                                         | pero son cosas distintas.
+                                         */
+
+                                        Route::get(
+                                            '/{universeTournament}/rewards',
+                                            [
+                                                UniverseRewardController::class,
+                                                'index',
+                                            ]
+                                        )->name('rewards');
+
+                                        Route::post(
+                                            '/{universeTournament}/rewards',
+                                            [
+                                                UniverseRewardController::class,
+                                                'storeReward',
+                                            ]
+                                        )->name('rewards.store');
+
+                                        Route::delete(
+                                            '/{universeTournament}/rewards/{reward}',
+                                            [
+                                                UniverseRewardController::class,
+                                                'destroyReward',
+                                            ]
+                                        )->name('rewards.destroy');
+
+                                        Route::post(
+                                            '/{universeTournament}/modifiers',
+                                            [
+                                                UniverseRewardController::class,
+                                                'storeModifier',
+                                            ]
+                                        )->name('modifiers.store');
+
+                                        Route::delete(
+                                            '/{universeTournament}/modifiers/{modifier}',
+                                            [
+                                                UniverseRewardController::class,
+                                                'destroyModifier',
+                                            ]
+                                        )->name('modifiers.destroy');
+
+                                        Route::put(
+                                            '/{universeTournament}/editions/{competition}/reprocess',
+                                            [
+                                                UniverseRewardController::class,
+                                                'reprocess',
+                                            ]
+                                        )->name('rewards.reprocess');
+
+
+                                        /*
                                          * Va al final: si estuviera antes
                                          * capturaría /create como si fuera
                                          * un {universeTournament}.
@@ -551,6 +611,77 @@ Route::middleware('auth')->group(function () {
                                     'index',
                                 ]
                             )->name('explorer');
+
+
+                            /*
+                            | Juegos del Universo (Fase 11)
+                            |
+                            | El catalogo vive en codigo (GameRegistry);
+                            | aqui solo se consulta y se configura.
+                            |
+                            | Ver docs/md/29-Fase-11-Motor-De-Juegos.md
+                            */
+
+                            Route::get(
+                                '/games',
+                                [
+                                    UniverseGameController::class,
+                                    'index',
+                                ]
+                            )->name('games.index');
+
+                            Route::put(
+                                '/games/default',
+                                [
+                                    UniverseGameController::class,
+                                    'setDefault',
+                                ]
+                            )->name('games.default');
+
+                            Route::get(
+                                '/games/{game}',
+                                [
+                                    UniverseGameController::class,
+                                    'show',
+                                ]
+                            )->name('games.show');
+
+                            Route::put(
+                                '/entities/{entity}/games/{game}/stats',
+                                [
+                                    UniverseGameController::class,
+                                    'updateStats',
+                                ]
+                            )->name('entities.games.stats');
+
+
+                            /*
+                            | Trofeos del Universo (Fase 12)
+                            */
+
+                            Route::get(
+                                '/trophies',
+                                [
+                                    UniverseTrophyController::class,
+                                    'index',
+                                ]
+                            )->name('trophies.index');
+
+                            Route::post(
+                                '/trophies',
+                                [
+                                    UniverseTrophyController::class,
+                                    'store',
+                                ]
+                            )->name('trophies.store');
+
+                            Route::delete(
+                                '/trophies/{trophy}',
+                                [
+                                    UniverseTrophyController::class,
+                                    'destroy',
+                                ]
+                            )->name('trophies.destroy');
 
 
                             /*

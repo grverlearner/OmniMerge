@@ -164,6 +164,11 @@ class CompetitionLabService
                     'STEP_RUNTIME',
                     'RUN_TOURNAMENT',
                     'RESOLVE_MANUAL_DECISION',
+
+                    /* Simulacion interactiva (Fase 11) */
+                    'PREPARE_ENCOUNTER',
+                    'ROLL_ENCOUNTER',
+                    'ADVANCE_ENCOUNTER',
                 ],
                 true
             )
@@ -234,6 +239,33 @@ class CompetitionLabService
                     $template,
                     $payload
                 ),
+
+                /*
+                 * Enfrentamiento a mano: el usuario genera el resultado de
+                 * un participante cada vez y decide cuando avanzar.
+                 * Ver docs/md/29-Fase-11-Motor-De-Juegos.md
+                 */
+                'PREPARE_ENCOUNTER' =>
+                $this->graphRuntime
+                    ->prepareEncounter(
+                        $state,
+                        $template
+                    ),
+
+                'ROLL_ENCOUNTER' =>
+                $this->graphRuntime
+                    ->rollEncounter(
+                        $state,
+                        $template,
+                        $payload
+                    ),
+
+                'ADVANCE_ENCOUNTER' =>
+                $this->graphRuntime
+                    ->advanceEncounter(
+                        $state,
+                        $template
+                    ),
 
                 'START_TOURNAMENT' =>
                 $this->graphRuntime

@@ -104,6 +104,19 @@ class UpdateUniverseTournamentRequest extends FormRequest
                 'max:5000',
             ],
 
+            /*
+             * Juego con el que se resolveran sus batallas (Fase 11).
+             * Nulo = el que el Universo tenga por defecto.
+             */
+            'game_key' => [
+                'nullable',
+                'string',
+
+                Rule::in(
+                    app(\App\Services\Games\GameRegistry::class)->keys()
+                ),
+            ],
+
             'image' => [
                 'nullable',
 

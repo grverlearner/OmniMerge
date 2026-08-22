@@ -40,9 +40,13 @@ class UniverseRankingService
     |
     */
 
+    /**
+     * @param  array{game_key?: ?string, universe_tournament_id?: ?int} $filters
+     */
     public function ranking(
         Universe $universe,
-        ?int $seasonId = null
+        ?int $seasonId = null,
+        array $filters = []
     ): Collection {
 
         $settings = new UniverseSettings($universe);
@@ -66,6 +70,32 @@ class UniverseRankingService
                 $query->where(
                     'tournament_instances.universe_season_id',
                     $seasonId
+                )
+            )
+            /*
+             * Ranking por juego (Fase 12): la misma entidad puede ser
+             * dominante en un juego y mediocre en otro, y mezclarlos
+             * ocultaria justo eso.
+             */
+            ->when(
+                $filters['game_key'] ?? null,
+
+                fn($query, $gameKey) =>
+                $query->where(
+                    'tournament_instances.game_key',
+                    $gameKey
+                )
+            )
+            /*
+             * Ranking de un torneo concreto a lo largo de sus ediciones.
+             */
+            ->when(
+                $filters['universe_tournament_id'] ?? null,
+
+                fn($query, $tournamentId) =>
+                $query->where(
+                    'tournament_instances.universe_tournament_id',
+                    $tournamentId
                 )
             )
             ->whereNotNull(

@@ -36,6 +36,7 @@ class UniverseTournament extends Model
         'universe_id',
 
         'tournament_template_id',
+        'game_key',
 
         'name',
 
@@ -84,6 +85,26 @@ class UniverseTournament extends Model
     {
         return $this->hasMany(
             TournamentInstance::class
+        );
+    }
+
+    /*
+     * Consecuencias permanentes de terminar este torneo (Fase 12).
+     */
+    public function rewards(): HasMany
+    {
+        return $this->hasMany(
+            UniverseTournamentReward::class
+        );
+    }
+
+    /*
+     * Bonus que solo existen mientras se juega. No tocan nada guardado.
+     */
+    public function modifiers(): HasMany
+    {
+        return $this->hasMany(
+            UniverseTournamentModifier::class
         );
     }
 

@@ -161,6 +161,15 @@
                     </a>
 
 
+                    <a href="{{ route('universes.games.index', $currentUniverse) }}"
+                        class="{{ request()->routeIs('universes.games.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
+
+                        <span class="text-lg">⚄</span>
+
+                        Juegos
+                    </a>
+
+
                     <a href="{{ route('universes.entities.index', $currentUniverse) }}"
                         class="{{ request()->routeIs('universes.entities.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
 
@@ -248,17 +257,13 @@
                     </a>
 
 
-                    <div class="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-600">
-                        <span class="text-lg">◇</span>
+                    <a href="{{ route('universes.trophies.index', $currentUniverse) }}"
+                        class="{{ request()->routeIs('universes.trophies.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
 
-                        <span class="flex-1">
-                            Recompensas
-                        </span>
+                        <span class="text-lg">🏆</span>
 
-                        <span class="rounded-full bg-violet-500/10 px-2 py-1 text-[8px] font-black uppercase text-violet-500">
-                            Próximo
-                        </span>
-                    </div>
+                        Trofeos
+                    </a>
 
 
                     <a href="{{ route('universes.ranking', $currentUniverse) }}"

@@ -8,6 +8,8 @@ use App\Http\Requests\Universes\UpdateUniverseTournamentRequest;
 use App\Models\TournamentTemplate;
 use App\Models\Universe;
 use App\Models\UniverseTournament;
+use App\Services\Games\GameRegistry;
+use App\Services\Games\UniverseGameService;
 use App\Services\Universes\UniverseTournamentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -151,11 +153,23 @@ class UniverseTournamentController extends Controller
             ->orderBy('name')
             ->get();
 
+        /*
+         * Juegos disponibles (Fase 11). El torneo elige con cual se
+         * resolveran sus batallas; si no elige, hereda el del Universo.
+         */
+        $games =
+            app(GameRegistry::class)->definitions();
+
+        $defaultGameKey =
+            app(UniverseGameService::class)->defaultKey($universe);
+
         return view(
             'universes.tournaments.create',
             compact(
                 'universe',
-                'templates'
+                'templates',
+                'games',
+                'defaultGameKey'
             )
         );
     }
@@ -211,11 +225,19 @@ class UniverseTournamentController extends Controller
             'tournamentTemplate'
         );
 
+        $games =
+            app(GameRegistry::class)->definitions();
+
+        $defaultGameKey =
+            app(UniverseGameService::class)->defaultKey($universe);
+
         return view(
             'universes.tournaments.edit',
             compact(
                 'universe',
-                'universeTournament'
+                'universeTournament',
+                'games',
+                'defaultGameKey'
             )
         );
     }

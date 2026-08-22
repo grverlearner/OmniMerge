@@ -32,6 +32,7 @@ class TournamentInstance extends Model
         'universe_id',
 
         'universe_tournament_id',
+        'game_key',
 
         'universe_season_id',
 
@@ -52,6 +53,9 @@ class TournamentInstance extends Model
         'started_at',
 
         'completed_at',
+
+        /* Fase 12 */
+        'rewards_processed_at',
     ];
 
     protected function casts(): array
@@ -68,6 +72,9 @@ class TournamentInstance extends Model
             'datetime',
 
             'completed_at' =>
+            'datetime',
+
+            'rewards_processed_at' =>
             'datetime',
         ];
     }

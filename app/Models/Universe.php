@@ -115,6 +115,49 @@ class Universe extends Model
     }
 
     /*
+     * Juegos del Universo (Fase 11).
+     *
+     * Solo la decision del usuario: el juego en si vive en GameRegistry.
+     */
+    public function games(): HasMany
+    {
+        return $this->hasMany(
+            UniverseGame::class
+        );
+    }
+
+    public function gameEncounters(): HasMany
+    {
+        return $this->hasMany(
+            GameEncounter::class
+        );
+    }
+
+    /*
+     * Consecuencias permanentes (Fase 12).
+     */
+    public function trophies(): HasMany
+    {
+        return $this->hasMany(
+            UniverseTrophy::class
+        );
+    }
+
+    public function statChanges(): HasMany
+    {
+        return $this->hasMany(
+            UniverseStatChange::class
+        );
+    }
+
+    public function trophyAwards(): HasMany
+    {
+        return $this->hasMany(
+            UniverseTrophyAward::class
+        );
+    }
+
+    /*
      * Mismo conjunto que tournamentInstances, con el nombre que usa la
      * interfaz ("Competiciones").
      *

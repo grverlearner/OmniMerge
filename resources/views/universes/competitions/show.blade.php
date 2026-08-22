@@ -354,6 +354,12 @@
         {{-- ============================================ --}}
 
         @if (!$competition->isDraft())
+
+            {{-- Simulador del juego (Fase 11): antes que el recorrido
+                 automatico, porque es la forma de jugar, no de saltarse. --}}
+
+            @include('universes.competitions.partials.simulator')
+
             <div class="mt-6">
                 @include('tournaments.lab.partials.automatic-runtime')
             </div>

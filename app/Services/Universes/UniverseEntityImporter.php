@@ -42,7 +42,11 @@ class UniverseEntityImporter
         UniverseProgressionService $progression,
 
         private readonly
-        UniverseActivityRecorder $activity
+        UniverseActivityRecorder $activity,
+
+        /* Fase 11: el competidor llega listo para jugar */
+        private readonly
+        \App\Services\Games\GameStatsService $gameStats
     ) {}
 
     /*
@@ -136,6 +140,14 @@ class UniverseEntityImporter
                         'progression' =>
                         $this->progression->initialize($created),
                     ]);
+
+                    /*
+                     * Estadisticas de juego iniciales. Sin esto el
+                     * competidor existiria pero no podria competir, y el
+                     * usuario tendria que ir a rellenarlas a mano antes
+                     * de su primer torneo.
+                     */
+                    $this->gameStats->ensureAll($created);
 
                     $sequence++;
                     $imported++;

@@ -87,6 +87,45 @@ class UniverseEntity extends Model
     }
 
     /*
+     * Game Stats (Fase 11). Viven aqui, en el competidor del Universo, y
+     * jamas en la Entity canonica de la Biblioteca.
+     */
+    public function gameStats(): HasMany
+    {
+        return $this->hasMany(
+            UniverseEntityGameStat::class
+        );
+    }
+
+    /*
+     * Lo que hizo en cada enfrentamiento. De aqui se derivan victorias,
+     * derrotas y win rate: no se guardan contadores.
+     */
+    public function encounterResults(): HasMany
+    {
+        return $this->hasMany(
+            GameEncounterParticipant::class
+        );
+    }
+
+    /*
+     * Por que cambiaron sus stats y que ha ganado (Fase 12).
+     */
+    public function statChanges(): HasMany
+    {
+        return $this->hasMany(
+            UniverseStatChange::class
+        )->latest('id');
+    }
+
+    public function trophyAwards(): HasMany
+    {
+        return $this->hasMany(
+            UniverseTrophyAward::class
+        )->latest('awarded_at');
+    }
+
+    /*
      * Solo procedencia. Puede ser nula si la Entidad se borró de la
      * Biblioteca: esta copia sigue existiendo igualmente.
      */

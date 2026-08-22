@@ -212,6 +212,16 @@
             </section>
 
 
+            {{-- JUEGOS (Fase 11) --}}
+
+            @include('universes.entities.partials.game-stats')
+
+
+            {{-- PALMARES Y PROGRESION (Fase 12) --}}
+
+            @include('universes.entities.partials.palmares')
+
+
             {{-- VERSIONES --}}
 
             @php

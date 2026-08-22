@@ -46,7 +46,15 @@ class UniverseEntityController extends Controller
         EntityCompetitionStatsService $stats,
 
         private readonly
-        UniverseRankingService $ranking
+        UniverseRankingService $ranking,
+
+        /* Fase 11 */
+        private readonly
+        \App\Services\Games\GameStatsService $gameStats,
+
+        /* Fase 12 */
+        private readonly
+        \App\Services\Rewards\PalmaresService $palmares
     ) {}
 
     /*
@@ -261,6 +269,21 @@ class UniverseEntityController extends Controller
         $rank = $this->ranking->positionOf($universe, $entity);
 
         /*
+         * Juegos (Fase 11): sus capacidades configuradas y su record
+         * derivado, uno por juego.
+         */
+        $gameProfile = $this->gameStats->profile($entity);
+
+        /*
+         * Palmares y progresion (Fase 12). Todo derivado: los titulos
+         * salen de las posiciones resueltas y los trofeos de lo concedido.
+         */
+        $palmares = $this->palmares->summary($entity);
+        $podiums = $this->palmares->podiums($entity);
+        $trophyAwards = $this->palmares->trophies($entity);
+        $statHistory = $this->palmares->statHistory($entity);
+
+        /*
          * Historial agrupado por temporada: convierte una lista plana en
          * la cronica del participante dentro del mundo.
          */
@@ -280,7 +303,12 @@ class UniverseEntityController extends Controller
                 'historyBySeason',
                 'rivals',
                 'streaks',
-                'rank'
+                'rank',
+                'gameProfile',
+                'palmares',
+                'podiums',
+                'trophyAwards',
+                'statHistory'
             )
         );
     }

@@ -3,6 +3,7 @@
 namespace App\Services\Tournaments\CompetitionLab\Runtime;
 
 use App\Models\TournamentTemplate;
+use App\Services\Games\Runtime\EncounterRuntime;
 use App\Services\Tournaments\CompetitionLab\Engines\LabPhaseEngineManager;
 use Illuminate\Validation\ValidationException;
 
@@ -18,7 +19,16 @@ class TournamentGraphRuntimeService
         RuntimeOutcomeResolver $outcomeResolver,
 
         private readonly
-        LabPhaseEngineManager $engineManager
+        LabPhaseEngineManager $engineManager,
+
+        /*
+         * Motor de juegos (Fase 11). Decide el resultado de cada
+         * enfrentamiento cuando la competición tiene un juego asignado.
+         * Sin juego —el Lab de diseño, con participantes sintéticos— el
+         * motor sigue resolviendo al azar como siempre.
+         */
+        private readonly
+        EncounterRuntime $encounterRuntime
     ) {}
 
     public function initialize(
@@ -1507,6 +1517,363 @@ class TournamentGraphRuntimeService
         }
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Simulación interactiva (Fase 11)
+    |--------------------------------------------------------------------------
+    |
+    | El modo automático resuelve el enfrentamiento entero de golpe. Estos
+    | tres métodos permiten hacerlo a mano: preparar el enfrentamiento,
+    | generar el resultado de un participante cada vez, y avanzar al
+    | siguiente cuando ya hay ganador.
+    |
+    | El motor solo orquesta: quién genera qué número lo decide el Game
+    | Engine, y cuándo termina la batalla lo decide la serie.
+    |
+    */
+
+    public function prepareEncounter(
+        array $state,
+        TournamentTemplate $template
+    ): array {
+
+        $this->requireRuntime($state);
+
+        $status =
+            $state['encounter']['status'] ?? null;
+
+        /* Ya hay uno en curso o resuelto pendiente de avanzar */
+        if ($status !== null) {
+            return $state;
+        }
+
+        $this->loadGraph($template);
+
+        /*
+         * Justo después de iniciar, el grafo todavía tiene operaciones
+         * pendientes: repartir los Starts, abrir la primera fase. Sin
+         * consumirlas no existe ningún encuentro que jugar.
+         *
+         * Se avanzan SOLO esas operaciones. En cuanto la cola se vacía se
+         * para, porque el siguiente paso ya sería simular el encuentro
+         * automáticamente, que es justo lo contrario de lo que ha pedido
+         * el usuario.
+         */
+        $state =
+            $this->openNextEncounter(
+                $state,
+                $template
+            );
+
+        $target =
+            $this->pendingEncounterTarget($state);
+
+        if (! $target) {
+            $this->fail(
+                'No hay ningún enfrentamiento listo para jugarse. '
+                    . 'Puede que la fase actual espere una decisión manual '
+                    . 'o que la competición ya haya terminado.'
+            );
+        }
+
+        [$nodeId, $match] = $target;
+
+        if (
+            ! $this->encounterRuntime
+                ->isPlayable($state, $match)
+        ) {
+            $this->fail(
+                'Esta competición no tiene un juego asignado, así que sus '
+                    . 'enfrentamientos solo pueden resolverse automáticamente.'
+            );
+        }
+
+        return $this->encounterRuntime
+            ->prepare(
+                $state,
+                $nodeId,
+                $match,
+                $state['nodes'][$nodeId]['name'] ?? null
+            );
+    }
+
+    public function rollEncounter(
+        array $state,
+        TournamentTemplate $template,
+        array $payload = []
+    ): array {
+
+        $state =
+            $this->prepareEncounter(
+                $state,
+                $template
+            );
+
+        $state =
+            $this->encounterRuntime
+            ->roll(
+                $state,
+                isset($payload['participant_id'])
+                    ? (string) $payload['participant_id']
+                    : null,
+                (bool) ($payload['all'] ?? false)
+            );
+
+        /*
+         * En cuanto el enfrentamiento tiene ganador se entrega a la serie.
+         * No se espera a que el usuario avance: así el resultado queda
+         * guardado aunque cierre la ventana justo después de verlo.
+         */
+        if (
+            ($state['encounter']['status'] ?? null)
+            === 'RESOLVED'
+        ) {
+            $state =
+                $this->commitEncounter(
+                    $state,
+                    $template
+                );
+        }
+
+        return $state;
+    }
+
+    public function advanceEncounter(
+        array $state,
+        TournamentTemplate $template
+    ): array {
+
+        $this->requireRuntime($state);
+
+        if (
+            ($state['encounter']['status'] ?? null)
+            === 'ROLLING'
+        ) {
+            $this->fail(
+                'Este enfrentamiento todavía no ha terminado.'
+            );
+        }
+
+        unset($state['encounter']);
+
+        /*
+         * Se intenta abrir el siguiente. Que no haya ninguno no es un
+         * error: puede que la fase haya terminado.
+         */
+        $this->loadGraph($template);
+
+        $state =
+            $this->openNextEncounter(
+                $state,
+                $template
+            );
+
+        $target =
+            $this->pendingEncounterTarget($state);
+
+        if (! $target) {
+            return $state;
+        }
+
+        [$nodeId, $match] = $target;
+
+        if (
+            ! $this->encounterRuntime
+                ->isPlayable($state, $match)
+        ) {
+            return $state;
+        }
+
+        return $this->encounterRuntime
+            ->prepare(
+                $state,
+                $nodeId,
+                $match,
+                $state['nodes'][$nodeId]['name'] ?? null
+            );
+    }
+
+    /**
+     * Entrega el enfrentamiento resuelto a la serie y deja que el grafo
+     * siga su curso. Es exactamente lo que hace el modo automático después
+     * de resolver, sin volver a generar nada.
+     */
+    private function commitEncounter(
+        array $state,
+        TournamentTemplate $template
+    ): array {
+
+        $encounter =
+            $state['encounter'];
+
+        $nodeId =
+            (int) $encounter['node_id'];
+
+        $runtime =
+            $state['nodes'][$nodeId]['runtime'];
+
+        $match =
+            collect($runtime['rounds'] ?? [])
+            ->flatMap(
+                fn($round) =>
+                $round['matches'] ?? []
+            )
+            ->firstWhere('id', $encounter['battle_key']);
+
+        if (! $match) {
+            $this->fail(
+                'El enfrentamiento ya no existe en el Runtime.'
+            );
+        }
+
+        [$scoreA, $scoreB] =
+            $this->encounterRuntime
+            ->seriesScores(
+                $encounter,
+                $match
+            );
+
+        $runtime =
+            $this->engineManager
+            ->submit(
+                $state['nodes'][$nodeId]['phase_type'],
+                $runtime,
+                $match['id'],
+                $scoreA,
+                $scoreB
+            );
+
+        $state['nodes'][$nodeId]['runtime'] =
+            $runtime;
+
+        $state['nodes'][$nodeId]['status'] =
+            $runtime['status'];
+
+        $this->syncStatistics(
+            $state,
+            $runtime
+        );
+
+        /* Marcador de la batalla ya actualizado, para pintarlo al momento */
+        $series =
+            $runtime['series'][$match['id']] ?? null;
+
+        $state['encounter']['series']['score_a'] =
+            (int) ($series['game_wins_a'] ?? 0);
+
+        $state['encounter']['series']['score_b'] =
+            (int) ($series['game_wins_b'] ?? 0);
+
+        $state['encounter']['series']['games_played'] =
+            (int) ($series['games_played'] ?? 0);
+
+        $state['encounter']['battle_completed'] =
+            ($series['status'] ?? null) === 'COMPLETED'
+            || $series === null;
+
+        $this->event(
+            $state,
+            'ENCOUNTER_PLAYED',
+            'INFO',
+            $match['id']
+                . ' — '
+                . ($encounter['summary'] ?? 'enfrentamiento resuelto')
+        );
+
+        return $this->afterNodeResult(
+            $state,
+            $template,
+            $nodeId
+        );
+    }
+
+    /**
+     * Consume las operaciones pendientes del grafo hasta que aparezca un
+     * encuentro jugable.
+     *
+     * Nunca simula: en cuanto la cola de operaciones se vacía, se detiene.
+     */
+    private function openNextEncounter(
+        array $state,
+        TournamentTemplate $template
+    ): array {
+
+        $guard = 0;
+
+        while (
+            $this->pendingEncounterTarget($state) === null
+            && $guard < self::MAX_OPERATIONS
+        ) {
+            if (
+                ($state['graph_runtime']['operation_queue'] ?? [])
+                === []
+            ) {
+                break;
+            }
+
+            $guard++;
+
+            $state =
+                $this->step(
+                    $state,
+                    $template
+                );
+        }
+
+        return $state;
+    }
+
+    /**
+     * Primer enfrentamiento jugable del recorrido.
+     *
+     * @return array{0: int, 1: array}|null
+     */
+    private function pendingEncounterTarget(array $state): ?array
+    {
+        $node =
+            collect($state['nodes'] ?? [])
+            ->first(
+                fn($node) =>
+                isset($node['runtime'])
+                    && $node['status'] === 'RUNNING'
+                    && $node['runtime']['status'] === 'RUNNING'
+            );
+
+        if (! $node) {
+            return null;
+        }
+
+        $runtime =
+            $node['runtime'];
+
+        /*
+         * Solo encuentros de dos participantes.
+         *
+         * Los encuentros de selección —N entran, K clasifican— los resuelve
+         * el motor de la fase con su propia lógica, no una serie, así que
+         * no hay marcador que entregarle. El Game Engine ya sabe ordenar a
+         * N participantes, pero conectarlo a esa ruta es trabajo de la
+         * fase, no del simulador: ofrecerlo aquí dejaría el encuentro
+         * resuelto sin poder registrarlo.
+         */
+        $match =
+            collect($runtime['rounds'] ?? [])
+            ->flatMap(
+                fn($round) =>
+                $round['matches'] ?? []
+            )
+            ->first(
+                fn($match) =>
+                $match['status'] === 'PENDING'
+                    && ($match['participant_a_id'] ?? null)
+                    && ($match['participant_b_id'] ?? null)
+            );
+
+        return $match
+            ? [(int) $node['id'], $match]
+            : null;
+    }
+
     private function simulateOneMatch(
         array $state,
         TournamentTemplate $template,
@@ -1572,7 +1939,30 @@ class TournamentGraphRuntimeService
                 && (int) ($match['qualifiers_count'] ?? 1) === 1;
 
             if ($scoreBased) {
-                [$scoreA, $scoreB] = $this->randomScore($runtime);
+
+                if (
+                    $this->encounterRuntime
+                        ->isPlayable($state, $match)
+                ) {
+                    $state =
+                        $this->encounterRuntime
+                        ->resolveNow(
+                            $state,
+                            $nodeId,
+                            $match,
+                            $state['nodes'][$nodeId]['name'] ?? null
+                        );
+
+                    [$scoreA, $scoreB] =
+                        $this->encounterRuntime
+                        ->seriesScores(
+                            $state['encounter'],
+                            $match
+                        );
+                } else {
+                    [$scoreA, $scoreB] = $this->randomScore($runtime);
+                }
+
                 $runtime = $this->engineManager->submit(
                     $state['nodes'][$nodeId]['phase_type'],
                     $runtime,
@@ -1624,12 +2014,46 @@ class TournamentGraphRuntimeService
             );
         }
 
-        [
-            $scoreA,
-            $scoreB,
-        ] = $this->randomScore(
-            $runtime
-        );
+        /*
+         * Aquí es donde entra el juego (Fase 11). Antes, el resultado lo
+         * decidía un random_int incrustado en el motor; ahora lo decide el
+         * Game Engine de la competición, y el motor solo se encarga de
+         * llevar ese resultado a la serie.
+         */
+        $narration = null;
+
+        if (
+            $this->encounterRuntime
+                ->isPlayable($state, $match)
+        ) {
+            $state =
+                $this->encounterRuntime
+                ->resolveNow(
+                    $state,
+                    $nodeId,
+                    $match,
+                    $state['nodes'][$nodeId]['name'] ?? null
+                );
+
+            [
+                $scoreA,
+                $scoreB,
+            ] = $this->encounterRuntime
+                ->seriesScores(
+                    $state['encounter'],
+                    $match
+                );
+
+            $narration =
+                $state['encounter']['summary'] ?? null;
+        } else {
+            [
+                $scoreA,
+                $scoreB,
+            ] = $this->randomScore(
+                $runtime
+            );
+        }
 
         $runtime =
             $this->engineManager
@@ -1656,9 +2080,9 @@ class TournamentGraphRuntimeService
             $state,
             'MATCH_SIMULATED',
             'INFO',
-            $match['id']
-                .
-                " terminó {$scoreA}-{$scoreB}."
+            $narration
+                ? $match['id'] . ' — ' . $narration
+                : $match['id'] . " terminó {$scoreA}-{$scoreB}."
         );
 
         return $this->afterNodeResult(

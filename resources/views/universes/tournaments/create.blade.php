@@ -406,6 +406,64 @@
 
 
 
+                        {{-- Juego (Fase 11) --}}
+
+                        <div>
+                            <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+                                ¿Con qué juego se resuelven sus batallas?
+                            </label>
+
+                            <div class="mt-2 grid gap-3 sm:grid-cols-2">
+
+                                @foreach ($games as $game)
+                                    <label
+                                        class="cursor-pointer rounded-2xl border-2 border-slate-200 p-4 transition has-[:checked]:border-violet-500 has-[:checked]:bg-violet-50">
+
+                                        <div class="flex items-start gap-3">
+
+                                            <span class="text-2xl">{{ $game['icon'] ?? '🎲' }}</span>
+
+                                            <div class="min-w-0 flex-1">
+
+                                                <div class="flex items-center gap-2">
+                                                    <p class="truncate text-sm font-black text-slate-900">
+                                                        {{ $game['name'] }}
+                                                    </p>
+
+                                                    @if ($game['key'] === $defaultGameKey)
+                                                        <span
+                                                            class="rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-black uppercase tracking-wide text-slate-500">
+                                                            Del Universo
+                                                        </span>
+                                                    @endif
+                                                </div>
+
+                                                <p class="mt-1 text-[11px] leading-snug text-slate-500">
+                                                    {{ $game['tagline'] }}
+                                                </p>
+
+                                            </div>
+
+                                            <input type="radio" name="game_key" value="{{ $game['key'] }}"
+                                                @checked(old('game_key', $defaultGameKey) === $game['key'])
+                                                class="mt-0.5 shrink-0 text-violet-600 focus:ring-violet-500">
+
+                                        </div>
+
+                                    </label>
+                                @endforeach
+
+                            </div>
+
+                            <p class="mt-2 text-xs text-slate-400">
+                                Se congela al empezar cada competición: cambiarlo aquí no
+                                altera las que ya estén en curso.
+                            </p>
+
+                            <x-input-error :messages="$errors->get('game_key')" class="mt-2" />
+                        </div>
+
+
                         {{-- Ambientación y recurrencia (Fase 10) --}}
 
                         <div>

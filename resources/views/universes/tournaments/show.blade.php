@@ -17,6 +17,25 @@
             ← Torneos
         </a>
 
+
+        {{-- Consecuencias del torneo (Fase 12) --}}
+
+        <a href="{{ route('universes.tournaments.rewards', [$universe, $universeTournament]) }}"
+            class="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 transition hover:border-amber-300 hover:bg-amber-100">
+
+            <span class="text-xl">🏆</span>
+
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-black text-amber-900">Recompensas y bonus</p>
+                <p class="text-xs text-amber-700">
+                    Qué se llevan los competidores al terminar, y qué ventajas hay durante el juego.
+                </p>
+            </div>
+
+            <span class="text-sm font-black text-amber-700">→</span>
+
+        </a>
+
     </div>
 
 

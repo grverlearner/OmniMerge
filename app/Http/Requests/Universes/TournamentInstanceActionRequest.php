@@ -38,6 +38,11 @@ class TournamentInstanceActionRequest extends FormRequest
         'SUBMIT_ENCOUNTER_RESULT',
         'SIMULATE_MATCH',
         'SIMULATE_ROUND',
+
+        /* Simulación interactiva del juego (Fase 11) */
+        'PREPARE_ENCOUNTER',
+        'ROLL_ENCOUNTER',
+        'ADVANCE_ENCOUNTER',
     ];
 
     public function authorize(): bool

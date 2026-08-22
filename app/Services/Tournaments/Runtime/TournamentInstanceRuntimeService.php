@@ -50,7 +50,15 @@ class TournamentInstanceRuntimeService
         TournamentInstanceProjector $projector,
 
         private readonly
-        UniverseActivityRecorder $activity
+        UniverseActivityRecorder $activity,
+
+        /* Fase 11 */
+        private readonly
+        \App\Services\Games\GameEncounterRecorder $encounterRecorder,
+
+        /* Fase 12 */
+        private readonly
+        \App\Services\Rewards\RewardProcessor $rewards
     ) {}
 
     /*
@@ -183,6 +191,19 @@ class TournamentInstanceRuntimeService
                         $payload
                     );
 
+                /*
+                 * Enfrentamientos resueltos por el Game Engine (Fase 11).
+                 * El motor es puro y solo los acumulo en el estado; aqui,
+                 * que si hay base de datos, se guardan y se sacan del
+                 * estado para no arrastrarlos indefinidamente.
+                 */
+                $state =
+                    $this->encounterRecorder
+                    ->drain(
+                        $instance,
+                        $state
+                    );
+
                 $state['updated_at'] =
                     now()->toIso8601String();
 
@@ -205,6 +226,19 @@ class TournamentInstanceRuntimeService
                     ->project(
                         $instance,
                         $state
+                    );
+
+                /*
+                 * Consecuencias permanentes (Fase 12).
+                 *
+                 * Va DESPUES de proyectar porque las recompensas por
+                 * posicion necesitan los desenlaces ya escritos, y es
+                 * idempotente: se puede llamar en cada accion sin que
+                 * aplique nada dos veces.
+                 */
+                $this->rewards
+                    ->process(
+                        $instance->refresh()
                     );
 
                 return [

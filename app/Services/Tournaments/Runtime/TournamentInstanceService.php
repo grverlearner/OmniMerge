@@ -37,7 +37,14 @@ class TournamentInstanceService
         TournamentInstanceStateFactory $stateFactory,
 
         private readonly
-        TournamentInstanceProjector $projector
+        TournamentInstanceProjector $projector,
+
+        /* Fase 11 */
+        private readonly
+        \App\Services\Games\GameRegistry $gameRegistry,
+
+        private readonly
+        \App\Services\Games\UniverseGameService $universeGames
     ) {}
 
     /*
@@ -139,10 +146,46 @@ class TournamentInstanceService
             $this->hydrator
             ->hydrate($snapshot);
 
+        /*
+         * Juego de la competicion: el del torneo, y si no eligio ninguno
+         * el que el Universo tenga por defecto.
+         */
+        $gameKey =
+            $this->gameRegistry->has($universeTournament->game_key)
+            ? strtoupper((string) $universeTournament->game_key)
+            : $this->universeGames->defaultKey($universe);
+
+        /*
+         * Modificadores temporales del torneo (Fase 12). Se congelan
+         * ahora: cambiarlos despues no altera una competicion en curso,
+         * exactamente igual que con la plantilla y las stats.
+         */
+        $modifiers =
+            $universeTournament
+            ->modifiers()
+            ->where('is_active', true)
+            ->get()
+            ->map(
+                fn($modifier) => [
+                    'scope' => $modifier->scope,
+                    'scope_value' => $modifier->scope_value,
+                    'target' => $modifier->target,
+                    'universe_entity_id' => $modifier->universe_entity_id,
+                    'game_key' => $modifier->game_key,
+                    'stat_key' => $modifier->stat_key,
+                    'operation' => $modifier->operation,
+                    'amount' => (float) $modifier->amount,
+                    'label' => $modifier->label,
+                ]
+            )
+            ->all();
+
         return DB::transaction(
             function () use (
                 $universe,
                 $universeTournament,
+                $gameKey,
+                $modifiers,
                 $data,
                 $assignments,
                 $universeEntities,
@@ -189,6 +232,15 @@ class TournamentInstanceService
 
                         'runtime_status' =>
                         'READY',
+
+                        /*
+                         * Juego congelado (Fase 11). Se copia del torneo
+                         * del Universo al arrancar, igual que el snapshot
+                         * de la plantilla: cambiarlo despues no debe
+                         * alterar una competicion ya en curso.
+                         */
+                        'game_key' =>
+                        $gameKey,
                     ]);
 
                 TournamentInstanceSnapshot::query()
@@ -214,7 +266,9 @@ class TournamentInstanceService
                         $frozenTemplate,
                         (int) $universe->user_id,
                         $assignments,
-                        $universeEntities
+                        $universeEntities,
+                        $gameKey,
+                        $modifiers
                     );
 
                 TournamentInstanceState::query()

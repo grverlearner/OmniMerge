@@ -29,7 +29,10 @@ class TournamentInstanceStateFactory
         LabStateFactory $labStateFactory,
 
         private readonly
-        TournamentParticipantResolver $participantResolver
+        TournamentParticipantResolver $participantResolver,
+
+        private readonly
+        \App\Services\Games\GameRegistry $gameRegistry
     ) {}
 
     /*
@@ -39,7 +42,9 @@ class TournamentInstanceStateFactory
         TournamentTemplate $template,
         int $userId,
         array $assignments,
-        Collection $universeEntities
+        Collection $universeEntities,
+        ?string $gameKey = null,
+        array $modifiers = []
     ): array {
 
         $participants = [];
@@ -146,6 +151,43 @@ class TournamentInstanceStateFactory
          */
         $state['origin'] =
             'TOURNAMENT_INSTANCE';
+
+        /*
+         * Juego de la competicion (Fase 11), congelado igual que todo lo
+         * demas. Su presencia es lo que distingue una competicion real
+         * —que se resuelve con un Game Engine— del Lab de diseno, que
+         * sigue resolviendo al azar con participantes sinteticos.
+         */
+        if ($gameKey !== null) {
+
+            $definition =
+                $this->gameRegistry->definition($gameKey);
+
+            /*
+             * Modificadores temporales (Fase 12), congelados igual que
+             * todo lo demas. Solo alteran las stats mientras se juega:
+             * nada de esto se guarda en el competidor.
+             */
+            $state['modifiers'] = $modifiers;
+
+            $state['game'] = [
+
+                'key' =>
+                $definition['key'],
+
+                'name' =>
+                $definition['name'],
+
+                'icon' =>
+                $definition['icon'] ?? null,
+
+                'accent' =>
+                $definition['accent'] ?? 'violet',
+
+                'configuration' =>
+                [],
+            ];
+        }
 
         $state['timeline'] = [
             [
@@ -274,6 +316,10 @@ class TournamentInstanceStateFactory
 
             'attributes' =>
             $context['attributes'],
+
+            /* Estadisticas de juego congeladas (Fase 11) */
+            'game_stats' =>
+            $context['game_stats'] ?? [],
 
             'image_url' =>
             $context['image_url'],

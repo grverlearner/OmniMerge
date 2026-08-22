@@ -25,6 +25,11 @@ use App\Models\UniverseEntity;
 
 class TournamentParticipantResolver
 {
+    public function __construct(
+        private readonly
+        \App\Services\Games\GameStatsService $gameStats
+    ) {}
+
     public function resolve(
         UniverseEntity $universeEntity
     ): array {
@@ -62,6 +67,18 @@ class TournamentParticipantResolver
 
             'attributes' =>
             $universeEntity->attribute_snapshot ?? [],
+
+            /*
+             * Game Stats congeladas (Fase 11). Se copian igual que los
+             * atributos: si el usuario sube el rango de un competidor a
+             * mitad de un torneo, el torneo en curso no cambia.
+             *
+             * Van indexadas por juego porque un Universo puede tener
+             * varios y cada uno define sus propias estadisticas.
+             */
+            'game_stats' =>
+            $this->gameStats
+                ->frozenStats($universeEntity),
         ];
     }
 

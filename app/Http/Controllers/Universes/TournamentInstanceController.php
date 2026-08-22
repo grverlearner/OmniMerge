@@ -248,7 +248,7 @@ class TournamentInstanceController extends Controller
                 'universeTournament',
                 'template',
                 'starts',
-                'entities',
+                'universeEntities',
                 'seasons',
                 'activeSeason',
                 'graphErrors'
