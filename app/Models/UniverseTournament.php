@@ -42,7 +42,20 @@ class UniverseTournament extends Model
         'description',
 
         'status',
+        'image',
+        'context',
+        'recurrence_mode',
+        'recurrence_interval',
+        'first_season_number',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'recurrence_interval' => 'integer',
+            'first_season_number' => 'integer',
+        ];
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -95,6 +108,119 @@ class UniverseTournament extends Model
     | Etiquetas
     |--------------------------------------------------------------------------
     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Recurrencia
+    |--------------------------------------------------------------------------
+    |
+    | Calculada, no agendada: no hay scheduler ni tabla de ocurrencias.
+    | La definición dice cada cuánto ocurre y este método responde si
+    | toca en una temporada concreta. Suficiente para lo que se pide y
+    | sin estado que mantener sincronizado.
+    |
+    */
+
+    public function occursInSeason(
+        int $seasonNumber
+    ): bool {
+
+        $first = $this->first_season_number ?? 1;
+
+        if ($seasonNumber < $first) {
+            return false;
+        }
+
+        return match ($this->recurrence_mode) {
+
+            'EVERY_SEASON' =>
+            true,
+
+            'EVERY_N_SEASONS' =>
+            ($seasonNumber - $first)
+                % max(1, (int) $this->recurrence_interval) === 0,
+
+            'ONCE' =>
+            $seasonNumber === $first,
+
+            /*
+             * MANUAL: lo decide el usuario creando la competición
+             * cuando quiere. Nunca se anuncia como programado.
+             */
+            default =>
+            false,
+        };
+    }
+
+    /*
+     * Próxima temporada en la que toca, a partir de la actual.
+     * Null cuando no vuelve a ocurrir o cuando es manual.
+     */
+    public function nextSeasonNumber(
+        int $currentSeasonNumber
+    ): ?int {
+
+        if ($this->recurrence_mode === 'MANUAL') {
+            return null;
+        }
+
+        for (
+            $season = $currentSeasonNumber;
+            $season <= $currentSeasonNumber + 64;
+            $season++
+        ) {
+
+            if ($this->occursInSeason($season)) {
+                return $season;
+            }
+        }
+
+        return null;
+    }
+
+    public function getRecurrenceLabelAttribute(): string
+    {
+        $first = $this->first_season_number ?? 1;
+
+        return match ($this->recurrence_mode) {
+
+            'EVERY_SEASON' =>
+            "Cada temporada (desde la {$first})",
+
+            'EVERY_N_SEASONS' =>
+            'Cada ' . max(1, (int) $this->recurrence_interval)
+                . " temporadas (desde la {$first})",
+
+            'ONCE' =>
+            "Una sola vez (temporada {$first})",
+
+            default =>
+            'Cuando yo lo decida',
+        };
+    }
+
+    public static function recurrenceModes(): array
+    {
+        return [
+            'ONCE' => 'Una sola vez',
+            'EVERY_SEASON' => 'Cada temporada',
+            'EVERY_N_SEASONS' => 'Cada N temporadas',
+            'MANUAL' => 'Manual',
+        ];
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image) {
+            return null;
+        }
+
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+
+        return $disk->exists($this->image)
+            ? $disk->url($this->image)
+            : null;
+    }
 
     public function getStatusLabelAttribute(): string
     {

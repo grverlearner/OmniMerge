@@ -115,7 +115,7 @@
             </div>
         @else
 
-            <form method="POST" action="{{ route('universes.tournaments.store', $universe) }}"
+            <form method="POST" enctype="multipart/form-data" action="{{ route('universes.tournaments.store', $universe) }}"
                 x-data="{
                     templateId: @js(old('tournament_template_id')),
                     name: @js(old('name', '')),
@@ -404,6 +404,74 @@
 
                         </div>
 
+
+
+                        {{-- Ambientación y recurrencia (Fase 10) --}}
+
+                        <div>
+                            <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+                                Contexto / reglas del Universo
+                            </label>
+
+                            <textarea name="context" rows="3"
+                                placeholder="Qué representa este torneo dentro del mundo, sus reglas propias..."
+                                class="mt-2 w-full rounded-xl border-slate-300 text-slate-900 focus:border-violet-400 focus:ring-violet-400">{{ old('context', '') }}</textarea>
+
+                            <x-input-error :messages="$errors->get('context')" class="mt-2" />
+                        </div>
+
+
+                        <div>
+                            <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+                                Portada
+                            </label>
+
+                            <input type="file" name="image" accept="image/png,image/jpeg,image/webp"
+                                class="mt-2 w-full rounded-xl border border-slate-300 p-2 text-xs text-slate-600">
+
+                            <x-input-error :messages="$errors->get('image')" class="mt-2" />
+                        </div>
+
+
+                        <div x-data="{ mode: @js(old('recurrence_mode', 'ONCE')) }">
+
+                            <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+                                ¿Cada cuánto se juega?
+                            </label>
+
+                            <div class="mt-2 grid gap-3 sm:grid-cols-3">
+
+                                <select name="recurrence_mode" x-model="mode"
+                                    class="rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
+
+                                    @foreach (\App\Models\UniverseTournament::recurrenceModes() as $value => $label)
+                                        <option value="{{ $value }}">{{ $label }}</option>
+                                    @endforeach
+
+                                </select>
+
+                                <div x-show="mode === 'EVERY_N_SEASONS'" x-cloak>
+                                    <input type="number" name="recurrence_interval" min="1" max="50"
+                                        value="{{ old('recurrence_interval', '') }}"
+                                        placeholder="Cada N temporadas"
+                                        class="w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
+                                </div>
+
+                                <div x-show="mode !== 'MANUAL'" x-cloak>
+                                    <input type="number" name="first_season_number" min="1" max="9999"
+                                        value="{{ old('first_season_number', 1) }}"
+                                        placeholder="Desde la temporada..."
+                                        class="w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
+                                </div>
+
+                            </div>
+
+                            <p class="mt-2 text-xs text-slate-400">
+                                «Manual» significa que lo lanzas tú cuando quieras: no se anuncia como programado.
+                            </p>
+
+                            <x-input-error :messages="$errors->get('recurrence_interval')" class="mt-2" />
+                        </div>
 
                         <div class="max-w-sm">
 

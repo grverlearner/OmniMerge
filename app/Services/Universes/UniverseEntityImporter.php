@@ -36,7 +36,13 @@ class UniverseEntityImporter
 
     public function __construct(
         private readonly
-        VersionResolverService $versionResolver
+        VersionResolverService $versionResolver,
+
+        private readonly
+        UniverseProgressionService $progression,
+
+        private readonly
+        UniverseActivityRecorder $activity
     ) {}
 
     /*
@@ -111,7 +117,8 @@ class UniverseEntityImporter
 
                 foreach ($pending as $entity) {
 
-                    $universe
+                    $created =
+                        $universe
                         ->entities()
                         ->create(
                             $this->copyOf(
@@ -120,9 +127,24 @@ class UniverseEntityImporter
                             )
                         );
 
+                    /*
+                     * Línea base de progresión sobre los atributos
+                     * numéricos ya copiados. Preparación: ningún motor
+                     * la modifica todavía.
+                     */
+                    $created->update([
+                        'progression' =>
+                        $this->progression->initialize($created),
+                    ]);
+
                     $sequence++;
                     $imported++;
                 }
+
+                $this->activity->entitiesImported(
+                    $universe,
+                    $imported
+                );
 
                 return $imported;
             }

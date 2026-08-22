@@ -105,11 +105,21 @@ class Universe extends Model
     }
 
     /*
-     * Mismo conjunto, con el nombre que usa la interfaz ("Competiciones").
+     * Cronica del Universo (Fase 10).
+     */
+    public function activities(): HasMany
+    {
+        return $this->hasMany(
+            UniverseActivity::class
+        );
+    }
+
+    /*
+     * Mismo conjunto que tournamentInstances, con el nombre que usa la
+     * interfaz ("Competiciones").
      *
-     * Además es el nombre que necesita scopeBindings() para resolver
-     * /universes/{universe}/competitions/{competition}: sin esta relación
-     * una competición de otro Universo no daría 404.
+     * Ademas es el nombre que necesita scopeBindings() para resolver
+     * /universes/{universe}/competitions/{competition}.
      */
     public function competitions(): HasMany
     {

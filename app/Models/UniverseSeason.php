@@ -62,6 +62,17 @@ class UniverseSeason extends Model
     |--------------------------------------------------------------------------
     */
 
+    /*
+     * Competiciones jugadas dentro de esta temporada.
+     */
+    public function competitions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(
+            TournamentInstance::class,
+            'universe_season_id'
+        );
+    }
+
     public function universe(): BelongsTo
     {
         return $this->belongsTo(

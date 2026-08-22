@@ -8,6 +8,11 @@ use Illuminate\Support\Facades\DB;
 
 class UniverseSeasonService
 {
+    public function __construct(
+        private readonly
+        UniverseActivityRecorder $activity
+    ) {}
+
     /*
     |--------------------------------------------------------------------------
     | Numeración correlativa
@@ -134,6 +139,8 @@ class UniverseSeasonService
                     'status' =>
                     'ACTIVE',
                 ]);
+
+                $this->activity->seasonStarted($season);
             }
         );
     }

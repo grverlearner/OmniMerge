@@ -5,6 +5,7 @@ namespace App\Services\Tournaments\Runtime;
 use App\Models\TournamentInstance;
 use App\Models\TournamentInstanceState;
 use App\Services\Tournaments\CompetitionLab\CompetitionLabService;
+use App\Services\Universes\UniverseActivityRecorder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -46,7 +47,10 @@ class TournamentInstanceRuntimeService
         TournamentSnapshotHydrator $hydrator,
 
         private readonly
-        TournamentInstanceProjector $projector
+        TournamentInstanceProjector $projector,
+
+        private readonly
+        UniverseActivityRecorder $activity
     ) {}
 
     /*
@@ -269,9 +273,15 @@ class TournamentInstanceRuntimeService
 
             $changes['started_at'] =
                 now();
+
+            $justStarted = true;
         }
 
-        if ($graphStatus === 'COMPLETED') {
+        if (
+            $graphStatus === 'COMPLETED'
+            &&
+            $instance->status !== 'COMPLETED'
+        ) {
 
             $changes['status'] =
                 'COMPLETED';
@@ -279,11 +289,35 @@ class TournamentInstanceRuntimeService
             $changes['completed_at'] =
                 $instance->completed_at
                 ?? now();
+
+            $justCompleted = true;
         }
 
         $instance->update(
             $changes
         );
+
+        /*
+         * Cronica del Universo (Fase 10). Se registra DESPUES de
+         * guardar y solo en la transicion, para que reanudar o
+         * reproyectar no duplique entradas.
+         */
+        if (isset($justStarted)) {
+            $this->activity->competitionStarted($instance);
+        }
+
+        if (isset($justCompleted)) {
+
+            $this->activity->competitionCompleted(
+                $instance,
+
+                $instance
+                    ->participants()
+                    ->where('outcome', 'CHAMPION')
+                    ->orderByDesc('points')
+                    ->first()
+            );
+        }
     }
 
     private function fail(

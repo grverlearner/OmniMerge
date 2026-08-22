@@ -38,6 +38,8 @@ use App\Http\Controllers\Universes\UniverseSeasonController;
 use App\Http\Controllers\Universes\UniverseTournamentController;
 use App\Http\Controllers\Universes\TournamentInstanceController;
 use App\Http\Controllers\Universes\UniverseHistoryController;
+use App\Http\Controllers\Universes\UniverseRankingController;
+use App\Http\Controllers\Universes\UniverseExplorerController;
 
 use App\Http\Controllers\Tournaments\PhaseTemplateController;
 use App\Http\Controllers\Tournaments\PhaseExitController;
@@ -330,6 +332,18 @@ Route::middleware('auth')->group(function () {
                                                 'destroy',
                                             ]
                                         )->name('destroy');
+
+                                        /*
+                                         * Al final: antes capturaria
+                                         * /create como si fuera {season}.
+                                         */
+                                        Route::get(
+                                            '/{season}',
+                                            [
+                                                UniverseSeasonController::class,
+                                                'show',
+                                            ]
+                                        )->name('show');
                                     }
                                 );
 
@@ -508,6 +522,35 @@ Route::middleware('auth')->group(function () {
                                     'index',
                                 ]
                             )->name('history');
+
+
+                            /*
+                            | Clasificacion y exploracion (Fase 10)
+                            */
+
+                            Route::get(
+                                '/ranking',
+                                [
+                                    UniverseRankingController::class,
+                                    'index',
+                                ]
+                            )->name('ranking');
+
+                            Route::put(
+                                '/ranking/points',
+                                [
+                                    UniverseRankingController::class,
+                                    'updatePoints',
+                                ]
+                            )->name('ranking.points');
+
+                            Route::get(
+                                '/explorer',
+                                [
+                                    UniverseExplorerController::class,
+                                    'index',
+                                ]
+                            )->name('explorer');
 
 
                             /*

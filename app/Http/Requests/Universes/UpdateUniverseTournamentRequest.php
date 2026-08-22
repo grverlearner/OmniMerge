@@ -57,6 +57,15 @@ class UpdateUniverseTournamentRequest extends FormRequest
                     'DRAFT'
                 )
             ),
+
+            'recurrence_mode' =>
+            strtoupper(
+                (string)
+                $this->input(
+                    'recurrence_mode',
+                    'ONCE'
+                )
+            ),
         ]);
     }
 
@@ -85,6 +94,52 @@ class UpdateUniverseTournamentRequest extends FormRequest
                     'ARCHIVED',
                 ]),
             ],
+
+            /*
+             * Ambientacion propia del Universo.
+             */
+            'context' => [
+                'nullable',
+                'string',
+                'max:5000',
+            ],
+
+            'image' => [
+                'nullable',
+
+                \Illuminate\Validation\Rules\File::image()
+                    ->types(['jpg', 'jpeg', 'png', 'webp'])
+                    ->max('4mb'),
+            ],
+
+            /*
+             * Recurrencia: cada cuanto vuelve a jugarse este torneo.
+             */
+            'recurrence_mode' => [
+                'required',
+
+                Rule::in([
+                    'ONCE',
+                    'EVERY_SEASON',
+                    'EVERY_N_SEASONS',
+                    'MANUAL',
+                ]),
+            ],
+
+            'recurrence_interval' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:50',
+                'required_if:recurrence_mode,EVERY_N_SEASONS',
+            ],
+
+            'first_season_number' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:9999',
+            ],
         ];
     }
 
@@ -97,6 +152,9 @@ class UpdateUniverseTournamentRequest extends FormRequest
 
             'status.in' =>
             'El estado seleccionado no es válido.',
+
+            'recurrence_interval.required_if' =>
+            'Indica cada cuántas temporadas se repite.',
         ];
     }
 }

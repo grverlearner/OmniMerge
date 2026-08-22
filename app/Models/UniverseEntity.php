@@ -50,6 +50,7 @@ class UniverseEntity extends Model
         'entity_type_name',
         'attribute_snapshot',
         'version_snapshot',
+        'progression',
 
         /* Procedencia */
         'source_entity_id',
@@ -67,6 +68,7 @@ class UniverseEntity extends Model
             'sequence_number' => 'integer',
             'attribute_snapshot' => 'array',
             'version_snapshot' => 'array',
+            'progression' => 'array',
             'imported_at' => 'datetime',
         ];
     }

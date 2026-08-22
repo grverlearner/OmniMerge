@@ -12,6 +12,7 @@ use App\Models\Universe;
 use App\Models\UniverseEntity;
 use App\Services\Tournaments\History\EntityCompetitionStatsService;
 use App\Services\Universes\UniverseEntityImporter;
+use App\Services\Universes\UniverseRankingService;
 use App\Services\Universes\UniverseEntityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,7 +43,10 @@ class UniverseEntityController extends Controller
         UniverseEntityImporter $importer,
 
         private readonly
-        EntityCompetitionStatsService $stats
+        EntityCompetitionStatsService $stats,
+
+        private readonly
+        UniverseRankingService $ranking
     ) {}
 
     /*
@@ -251,6 +255,20 @@ class UniverseEntityController extends Controller
         $rivals = $this->stats->rivals($entity);
         $streaks = $this->stats->streaks($entity);
 
+        /*
+         * Posicion en la clasificacion del Universo.
+         */
+        $rank = $this->ranking->positionOf($universe, $entity);
+
+        /*
+         * Historial agrupado por temporada: convierte una lista plana en
+         * la cronica del participante dentro del mundo.
+         */
+        $historyBySeason = $history->groupBy(
+            fn($participation) =>
+            $participation->tournamentInstance?->season?->number ?? 0
+        )->sortKeysDesc();
+
         return view(
             'universes.entities.show',
             compact(
@@ -259,8 +277,10 @@ class UniverseEntityController extends Controller
                 'summary',
                 'byEngine',
                 'history',
+                'historyBySeason',
                 'rivals',
-                'streaks'
+                'streaks',
+                'rank'
             )
         );
     }

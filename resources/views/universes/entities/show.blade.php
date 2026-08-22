@@ -49,6 +49,13 @@
                         Entidad de este Universo
                     </span>
 
+                    @if ($rank)
+                        <a href="{{ route('universes.ranking', $universe) }}"
+                            class="rounded-full bg-white px-3 py-1 text-[9px] font-black uppercase text-slate-900">
+                            📊 #{{ $rank->position }} · {{ $rank->points }} pts
+                        </a>
+                    @endif
+
                 </div>
 
 
@@ -348,9 +355,15 @@
                         Todavía no ha competido en este Universo.
                     </p>
                 @else
-                    <div class="mt-5 space-y-2">
+                    @foreach ($historyBySeason as $seasonNumber => $participations)
 
-                        @foreach ($history as $participation)
+                        <p class="mt-5 text-[10px] font-black uppercase tracking-wider text-violet-600">
+                            {{ $seasonNumber > 0 ? 'Temporada ' . $seasonNumber : 'Sin temporada' }}
+                        </p>
+
+                        <div class="mt-2 space-y-2">
+
+                            @foreach ($participations as $participation)
                             @php
                                 $instance = $participation->tournamentInstance;
 
@@ -384,9 +397,10 @@
                                 </span>
 
                             </a>
-                        @endforeach
+                            @endforeach
 
-                    </div>
+                        </div>
+                    @endforeach
                 @endif
 
             </section>

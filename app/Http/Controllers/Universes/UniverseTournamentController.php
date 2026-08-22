@@ -175,7 +175,9 @@ class UniverseTournamentController extends Controller
             ->create(
                 $universe,
 
-                $request->validated()
+                $request->validated(),
+
+                $request->file('image')
             );
 
         return redirect()
@@ -234,7 +236,9 @@ class UniverseTournamentController extends Controller
             ->update(
                 $universeTournament,
 
-                $request->validated()
+                $request->validated(),
+
+                $request->file('image')
             );
 
         return redirect()

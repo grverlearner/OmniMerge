@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Universes\StoreUniverseRequest;
 use App\Http\Requests\Universes\UpdateUniverseRequest;
 use App\Models\Universe;
+use App\Services\Universes\UniverseRankingService;
 use App\Services\Universes\UniverseService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,10 @@ class UniverseController extends Controller
 {
     public function __construct(
         private readonly
-        UniverseService $service
+        UniverseService $service,
+
+        private readonly
+        UniverseRankingService $ranking
     ) {}
 
 
@@ -265,53 +269,86 @@ class UniverseController extends Controller
         );
 
         /*
-         * Resumen del Universo: cifras de sus tres contenidos
-         * y los últimos elementos de cada uno.
+         * Panel de control del Universo (Fase 10): en una sola pantalla,
+         * que temporada corre, quien manda, que se juega y que paso.
          */
         $statistics = [
 
             'entities' =>
-            $universe
-                ->entities()
-                ->count(),
+            $universe->entities()->count(),
 
             'active_competitors' =>
-            $universe
-                ->entities()
-                ->where(
-                    'status',
-                    'ACTIVE'
-                )
-                ->count(),
+            $universe->entities()->where('status', 'ACTIVE')->count(),
 
             'seasons' =>
-            $universe
-                ->seasons()
-                ->count(),
+            $universe->seasons()->count(),
 
             'tournaments' =>
-            $universe
-                ->universeTournaments()
+            $universe->universeTournaments()->count(),
+
+            'competitions' =>
+            $universe->tournamentInstances()->count(),
+
+            'competitions_running' =>
+            $universe->tournamentInstances()
+                ->whereIn('status', ['RUNNING', 'PAUSED'])
                 ->count(),
         ];
 
         $activeSeason =
             $universe->activeSeason();
 
-        $recentCompetitors =
+        $ranking =
+            $this->ranking
+            ->ranking($universe)
+            ->take(5);
+
+        $recentChampions =
+            $this->ranking
+            ->recentChampions($universe, 4);
+
+        $activity =
             $universe
-            ->entities()
-            ->latest()
-            ->limit(6)
+            ->activities()
+            ->with('universeEntity')
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('id')
+            ->limit(8)
             ->get();
 
-        $recentTournaments =
+        $liveCompetitions =
             $universe
-            ->universeTournaments()
-            ->with('tournamentTemplate')
-            ->latest()
+            ->tournamentInstances()
+            ->whereIn('status', ['RUNNING', 'PAUSED'])
+            ->with('universeTournament')
+            ->orderByDesc('started_at')
             ->limit(4)
             ->get();
+
+        /*
+         * Que toca jugar en la temporada actual segun la recurrencia
+         * configurada, descontando lo que ya se creo.
+         */
+        $alreadyPlayed =
+            $activeSeason
+            ? $universe->tournamentInstances()
+                ->where('universe_season_id', $activeSeason->id)
+                ->pluck('universe_tournament_id')
+                ->all()
+            : [];
+
+        $upcoming =
+            $activeSeason
+            ? $universe->universeTournaments()
+                ->where('status', 'ACTIVE')
+                ->get()
+                ->filter(
+                    fn($tournament) =>
+                    $tournament->occursInSeason($activeSeason->number)
+                    && ! in_array($tournament->id, $alreadyPlayed, true)
+                )
+                ->values()
+            : collect();
 
         return view(
             'universes.show',
@@ -319,8 +356,11 @@ class UniverseController extends Controller
                 'universe',
                 'statistics',
                 'activeSeason',
-                'recentCompetitors',
-                'recentTournaments'
+                'ranking',
+                'recentChampions',
+                'activity',
+                'liveCompetitions',
+                'upcoming'
             )
         );
     }

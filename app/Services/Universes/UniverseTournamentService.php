@@ -4,6 +4,8 @@ namespace App\Services\Universes;
 
 use App\Models\Universe;
 use App\Models\UniverseTournament;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 class UniverseTournamentService
 {
@@ -20,8 +22,13 @@ class UniverseTournamentService
 
     public function create(
         Universe $universe,
-        array $data
+        array $data,
+        ?UploadedFile $image = null
     ): UniverseTournament {
+
+        if ($image) {
+            $data['image'] = $image->store('universe-tournaments', 'public');
+        }
 
         return $universe
             ->universeTournaments()
@@ -36,12 +43,24 @@ class UniverseTournamentService
 
     public function update(
         UniverseTournament $universeTournament,
-        array $data
+        array $data,
+        ?UploadedFile $image = null
     ): UniverseTournament {
 
-        $universeTournament->update(
-            $data
-        );
+        $old = $universeTournament->image;
+
+        if ($image) {
+            $data['image'] = $image->store('universe-tournaments', 'public');
+        }
+
+        $universeTournament->update($data);
+
+        /*
+         * La portada anterior se borra solo despues de guardar bien.
+         */
+        if ($image && $old) {
+            Storage::disk('public')->delete($old);
+        }
 
         return $universeTournament->fresh();
     }

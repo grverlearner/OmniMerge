@@ -152,6 +152,15 @@
 
                 <div class="space-y-1">
 
+                    <a href="{{ route('universes.explorer', $currentUniverse) }}"
+                        class="{{ request()->routeIs('universes.explorer') ? $itemActive : $itemIdle }} {{ $itemBase }}">
+
+                        <span class="text-lg">🧭</span>
+
+                        Explorar
+                    </a>
+
+
                     <a href="{{ route('universes.entities.index', $currentUniverse) }}"
                         class="{{ request()->routeIs('universes.entities.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
 
@@ -252,17 +261,13 @@
                     </div>
 
 
-                    <div class="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-600">
+                    <a href="{{ route('universes.ranking', $currentUniverse) }}"
+                        class="{{ request()->routeIs('universes.ranking*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
+
                         <span class="text-lg">📊</span>
 
-                        <span class="flex-1">
-                            Rankings
-                        </span>
-
-                        <span class="rounded-full bg-violet-500/10 px-2 py-1 text-[8px] font-black uppercase text-violet-500">
-                            Próximo
-                        </span>
-                    </div>
+                        Clasificación
+                    </a>
 
                 </div>
             </div>

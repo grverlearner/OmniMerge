@@ -80,6 +80,81 @@ class UniverseSeasonController extends Controller
 
     /*
     |--------------------------------------------------------------------------
+    | Show
+    |--------------------------------------------------------------------------
+    |
+    | Que paso en esta temporada: sus competiciones, sus campeones y sus
+    | cifras. Es lo que convierte una temporada en una etapa del mundo y
+    | no en una fila de una tabla.
+    |
+    */
+
+    public function show(
+        Universe $universe,
+        UniverseSeason $season
+    ): View {
+
+        $this->authorize('view', $universe);
+
+        $competitions =
+            $season
+            ->competitions()
+            ->with('universeTournament')
+            ->orderByDesc('started_at')
+            ->get();
+
+        $champions =
+            \App\Models\TournamentInstanceParticipant::query()
+            ->whereIn(
+                'tournament_instance_id',
+                $competitions->pluck('id')
+            )
+            ->where('outcome', 'CHAMPION')
+            ->with('universeEntity')
+            ->get()
+            ->keyBy('tournament_instance_id');
+
+        $statistics = [
+
+            'competitions' =>
+            $competitions->count(),
+
+            'completed' =>
+            $competitions->where('status', 'COMPLETED')->count(),
+
+            'participants' =>
+            (int) $competitions->sum('participant_count'),
+        ];
+
+        /*
+         * Torneos del Universo que, por su recurrencia, tocan en esta
+         * temporada. Ayuda a ver que falta por jugar.
+         */
+        $scheduled =
+            $universe
+            ->universeTournaments()
+            ->get()
+            ->filter(
+                fn($tournament) =>
+                $tournament->occursInSeason($season->number)
+            );
+
+        return view(
+            'universes.seasons.show',
+            compact(
+                'universe',
+                'season',
+                'competitions',
+                'champions',
+                'statistics',
+                'scheduled'
+            )
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
     | Create
     |--------------------------------------------------------------------------
     */
