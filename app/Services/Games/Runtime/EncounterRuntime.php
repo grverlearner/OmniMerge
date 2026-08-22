@@ -176,6 +176,16 @@ class EncounterRuntime
 
             'number' => $number,
 
+            /*
+             * En FIXED_GAMES, pasada la cuenta pactada, cualquier juego
+             * extra es un DESEMPATE: el motor lo añade porque eliminación
+             * directa exige un ganador. Sin decirlo, unos "2 fijos" que
+             * acaban en tres parecen un BO3 mal configurado.
+             */
+            'is_tiebreak' =>
+            strtoupper((string) ($match['series_format'] ?? '')) === 'FIXED_GAMES'
+                && $number > (int) ($match['fixed_games'] ?? 1),
+
             'series' =>
             $this->seriesSummary($series, $match),
 
@@ -394,12 +404,15 @@ class EncounterRuntime
                 $participant['id'] === ($outcome['winner_id'] ?? null);
         }
 
-        /* Orden final: se muestra por posición, no por seed */
-        usort(
-            $encounter['participants'],
-            fn(array $a, array $b) =>
-            ($a['position'] ?: 99) <=> ($b['position'] ?: 99)
-        );
+        /*
+         * NO se reordenan los participantes.
+         *
+         * Ordenarlos por posición hacía que, al resolverse, el ganador
+         * saltara al primer hueco y el perdedor al segundo: las tarjetas
+         * se intercambiaban de sitio en pantalla justo cuando el usuario
+         * estaba mirando el resultado. Cada uno se queda donde estaba y
+         * `position` basta para saber quién quedó por delante.
+         */
 
         $encounter['winner_id'] = $outcome['winner_id'] ?? null;
         $encounter['is_draw'] = (bool) ($outcome['is_draw'] ?? false);

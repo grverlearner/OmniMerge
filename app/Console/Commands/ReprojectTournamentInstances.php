@@ -94,6 +94,19 @@ class ReprojectTournamentInstances extends Command
                             $state
                         );
 
+                        /*
+                         * Reproyectar borra las posiciones finales, porque
+                         * el proyector solo afirma la del campeon. En una
+                         * competicion terminada hay que volver a
+                         * resolverlas o el podio se queda sin 2.o ni 3.o.
+                         */
+                        if ($instance->status === 'COMPLETED') {
+
+                            app(
+                                \App\Services\Rewards\TournamentPlacementResolver::class
+                            )->resolve($instance);
+                        }
+
                         $this->line(
                             "  {$instance->code} · {$instance->name}"
                         );

@@ -166,6 +166,7 @@ class CompetitionLabService
                     'RESOLVE_MANUAL_DECISION',
 
                     /* Simulacion interactiva (Fase 11) */
+                    'ADVANCE_TO_PLAYABLE',
                     'PREPARE_ENCOUNTER',
                     'ROLL_ENCOUNTER',
                     'ADVANCE_ENCOUNTER',
@@ -245,11 +246,26 @@ class CompetitionLabService
                  * un participante cada vez y decide cuando avanzar.
                  * Ver docs/md/29-Fase-11-Motor-De-Juegos.md
                  */
+                /*
+                 * Abre la fase hasta la primera batalla jugable y se
+                 * detiene. Sin esto, START_TOURNAMENT deja el nodo en
+                 * WAITING_INPUTS y la estructura sale vacia.
+                 */
+                'ADVANCE_TO_PLAYABLE' =>
+                $this->graphRuntime
+                    ->advanceToPlayable(
+                        $state,
+                        $template
+                    ),
+
                 'PREPARE_ENCOUNTER' =>
                 $this->graphRuntime
                     ->prepareEncounter(
                         $state,
-                        $template
+                        $template,
+                        isset($payload['match_id'])
+                            ? (string) $payload['match_id']
+                            : null
                     ),
 
                 'ROLL_ENCOUNTER' =>

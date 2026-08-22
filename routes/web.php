@@ -525,6 +525,19 @@ Route::middleware('auth')->group(function () {
                                         )->name('show');
 
                                         /*
+                                         * Experiencia de ejecucion (Fase 13).
+                                         * Misma fuente de verdad que show(),
+                                         * otra puesta en escena.
+                                         */
+                                        Route::get(
+                                            '/{competition}/play',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'play',
+                                            ]
+                                        )->name('play');
+
+                                        /*
                                          * Motor: cada acción persiste el
                                          * estado en base de datos.
                                          */

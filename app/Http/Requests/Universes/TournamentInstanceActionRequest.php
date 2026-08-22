@@ -40,6 +40,7 @@ class TournamentInstanceActionRequest extends FormRequest
         'SIMULATE_ROUND',
 
         /* Simulación interactiva del juego (Fase 11) */
+        'ADVANCE_TO_PLAYABLE',
         'PREPARE_ENCOUNTER',
         'ROLL_ENCOUNTER',
         'ADVANCE_ENCOUNTER',

@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "omnimerge-dev",
+      "name": "omnimerge",
       "runtimeExecutable": "php",
-      "runtimeArgs": ["artisan", "serve"],
+      "runtimeArgs": ["artisan", "serve", "--port=8000"],
       "port": 8000
     }
   ]

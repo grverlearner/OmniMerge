@@ -87,6 +87,21 @@ class TournamentInstanceProjector
         array $state
     ): void {
 
+        /*
+         * Batallas jugadas, ganadas, empatadas y perdidas, contadas desde
+         * los propios encuentros del Runtime.
+         *
+         * No se toman de $participant['statistics'] porque ese contador
+         * solo lo rellenan los motores de liga: Round Robin y Group Stage
+         * llevan tabla, pero Single Elimination no, y ahi todo quedaba a
+         * cero aunque se hubieran jugado siete batallas.
+         *
+         * Contarlo desde los encuentros funciona para los tres motores y,
+         * en un torneo multifase, suma lo jugado en todas las fases.
+         */
+        $record =
+            $this->recordFromMatches($state);
+
         foreach (
             ($state['participants'] ?? [])
             as
@@ -96,6 +111,10 @@ class TournamentInstanceProjector
             $statistics =
                 $participant['statistics']
                 ?? [];
+
+            $counted =
+                $record[(string) $key]
+                ?? ['matches' => 0, 'wins' => 0, 'draws' => 0, 'losses' => 0];
 
             $location =
                 $participant['current_location']
@@ -117,17 +136,21 @@ class TournamentInstanceProjector
                         ?? 'WAITING',
 
                     'matches' =>
-                    (int) ($statistics['matches'] ?? 0),
+                    $counted['matches'],
 
                     'wins' =>
-                    (int) ($statistics['wins'] ?? 0),
+                    $counted['wins'],
 
                     'draws' =>
-                    (int) ($statistics['draws'] ?? 0),
+                    $counted['draws'],
 
                     'losses' =>
-                    (int) ($statistics['losses'] ?? 0),
+                    $counted['losses'],
 
+                    /*
+                     * Los puntos SI son del motor: cada liga tiene su
+                     * propio sistema y no se pueden deducir del marcador.
+                     */
                     'points' =>
                     (int) ($statistics['points'] ?? 0),
 
@@ -239,10 +262,105 @@ class TournamentInstanceProjector
                     $nodeId,
                     $match,
                     $names,
-                    $entities
+                    $entities,
+
+                    /*
+                     * La serie NO vive dentro del encuentro: MatchSeriesRuntime
+                     * la guarda aparte, indexada por id de encuentro, para
+                     * sobrevivir a los motores que reconstruyen sus matches.
+                     * Buscarla dentro del match dejaba la columna a null y
+                     * hacia invisible todo BO3/BO5/FIXED_GAMES.
+                     */
+                    $runtime['series'] ?? []
                 );
             }
         }
+    }
+
+    /**
+     * Balance de cada participante a partir de los encuentros ya
+     * resueltos en el Runtime.
+     *
+     * Los BYE no cuentan: avanzar sin rival no es haber jugado.
+     *
+     * @return array<string, array{matches:int, wins:int, draws:int, losses:int}>
+     */
+    private function recordFromMatches(array $state): array
+    {
+        $record = [];
+
+        $touch = function (string $key) use (&$record) {
+
+            $record[$key] ??= [
+                'matches' => 0,
+                'wins' => 0,
+                'draws' => 0,
+                'losses' => 0,
+            ];
+        };
+
+        foreach (($state['nodes'] ?? []) as $node) {
+
+            $runtime = $node['runtime'] ?? null;
+
+            if (! is_array($runtime)) {
+                continue;
+            }
+
+            foreach ($this->collectMatches($runtime) as $match) {
+
+                if (($match['status'] ?? null) !== 'COMPLETED') {
+                    continue;
+                }
+
+                $keyA = $match['participant_a_id'] ?? null;
+                $keyB = $match['participant_b_id'] ?? null;
+
+                /* Sin dos contendientes no hubo batalla: es un BYE */
+                if (! $keyA || ! $keyB) {
+                    continue;
+                }
+
+                $touch((string) $keyA);
+                $touch((string) $keyB);
+
+                $record[(string) $keyA]['matches']++;
+                $record[(string) $keyB]['matches']++;
+
+                $winner = $match['winner_id'] ?? null;
+
+                if ($winner === null) {
+                    $record[(string) $keyA]['draws']++;
+                    $record[(string) $keyB]['draws']++;
+
+                    continue;
+                }
+
+                $winner = (string) $winner;
+
+                /*
+                 * En algunos encuentros de seleccion el ganador registrado
+                 * no es ninguno de los dos huecos. Sin esta comprobacion,
+                 * PHP creaba una entrada a medias —solo con 'wins'— y
+                 * todo lo que venia despues leia claves inexistentes.
+                 */
+                if (
+                    $winner !== (string) $keyA
+                    && $winner !== (string) $keyB
+                ) {
+                    continue;
+                }
+
+                $loser = $winner === (string) $keyA
+                    ? (string) $keyB
+                    : (string) $keyA;
+
+                $record[$winner]['wins']++;
+                $record[$loser]['losses']++;
+            }
+        }
+
+        return $record;
     }
 
     /*
@@ -337,7 +455,8 @@ class TournamentInstanceProjector
         int $nodeId,
         array $match,
         array $names,
-        array $entities = []
+        array $entities = [],
+        array $seriesByMatch = []
     ): void {
 
         $keyA =
@@ -429,7 +548,8 @@ class TournamentInstanceProjector
                         && (int) $scoreA === (int) $scoreB,
 
                     'series' =>
-                    $match['games']
+                    $seriesByMatch[(string) ($match['id'] ?? '')]
+                        ?? $match['games']
                         ?? $match['series']
                         ?? null,
 

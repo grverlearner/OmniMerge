@@ -1,0 +1,151 @@
+@php
+    /*
+     * Una batalla. La imagen manda; el nombre va dentro, abajo.
+     *
+     * Es pequeña a propósito: en un cuadro de 16 tienen que caber muchas
+     * en pantalla sin hacer scroll vertical.
+     *
+     * $match  TournamentInstanceMatch
+     */
+
+    /* A donde pasa el ganador. Solo lo envia el bracket. */
+    $destination = $destination ?? null;
+
+    $isDone = $match->status === 'COMPLETED';
+    $isReady = $match->status === 'PENDING' && $match->participant_a_key && $match->participant_b_key;
+
+    $sides = [
+        [
+            'key' => $match->participant_a_key,
+            'name' => $match->participant_a_name,
+            'entity' => $match->participantAEntity,
+            'score' => $match->series ? $match->series_score[0] : $match->score_a,
+        ],
+        [
+            'key' => $match->participant_b_key,
+            'name' => $match->participant_b_name,
+            'entity' => $match->participantBEntity,
+            'score' => $match->series ? $match->series_score[1] : $match->score_b,
+        ],
+    ];
+@endphp
+
+<button type="button"
+    @click="openBattle('{{ $match->runtime_match_id }}')"
+    @class([
+        'group relative block w-full overflow-hidden rounded-xl border text-left transition',
+        'border-emerald-500/40 bg-emerald-950/30 hover:border-emerald-400' => $isDone,
+        'border-violet-500/50 bg-violet-950/40 hover:border-violet-400 hover:shadow-lg hover:shadow-violet-900/40' => $isReady,
+        'border-slate-800 bg-slate-900/40 hover:border-slate-700' => !$isDone && !$isReady,
+    ])>
+
+    {{-- LOS DOS LADOS, UNO SOBRE OTRO --}}
+
+    <div class="flex">
+
+        @foreach ($sides as $index => $side)
+
+            @php
+                $isWinner = $isDone && $match->winner_key === $side['key'];
+            @endphp
+
+            <div class="relative w-1/2 {{ $index === 0 ? 'border-r border-slate-950/60' : '' }}">
+
+                {{-- Retrato --}}
+                <div class="relative aspect-square overflow-hidden bg-slate-800">
+
+                    @if ($side['entity']?->image_url)
+                        <img src="{{ $side['entity']->image_url }}" alt="{{ $side['name'] }}"
+                            @class([
+                                'h-full w-full object-cover transition duration-300 group-hover:scale-105',
+                                'opacity-40 grayscale' => $isDone && !$isWinner,
+                            ])>
+                    @else
+                        <div class="flex h-full w-full items-center justify-center text-lg opacity-25">✦</div>
+                    @endif
+
+                    {{-- Nombre DENTRO de la imagen, abajo --}}
+                    <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950 via-slate-950/85 to-transparent px-1.5 pb-1 pt-3">
+                        <p @class([
+                            'truncate text-[10px] leading-tight',
+                            'font-black text-white' => $isWinner || !$isDone,
+                            'font-semibold text-slate-500' => $isDone && !$isWinner,
+                        ])>
+                            {{ $side['name'] ?: '—' }}
+                        </p>
+                    </div>
+
+                    {{-- Marcador --}}
+                    @if ($match->series || $isDone)
+                        <span @class([
+                            'absolute right-1 top-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-black shadow',
+                            'bg-emerald-400 text-slate-950' => $isWinner,
+                            'bg-slate-950/85 text-slate-400' => !$isWinner,
+                        ])>
+                            {{ $side['score'] ?? 0 }}
+                        </span>
+                    @endif
+
+                    {{-- Corona del ganador --}}
+                    @if ($isWinner)
+                        <span class="absolute left-1 top-1 text-xs drop-shadow">👑</span>
+                    @endif
+
+                </div>
+
+            </div>
+        @endforeach
+
+    </div>
+
+
+    {{-- PIE: formato de serie y estado --}}
+
+    <div @class([
+        'flex items-center justify-between gap-1 px-2 py-1',
+        'bg-violet-500/25' => $isReady && !$readonly,
+        'bg-slate-950/60' => !($isReady && !$readonly),
+    ])>
+
+        <span class="truncate text-[9px] font-black uppercase tracking-wider text-slate-500">
+            {{ $match->label ?: $match->runtime_match_id }}
+        </span>
+
+        @if ($match->series_label)
+            <span @class([
+                'shrink-0 rounded px-1 text-[9px] font-black',
+                'bg-sky-500/25 text-sky-300' => $match->is_fixed_series,
+                'text-slate-500' => !$match->is_fixed_series,
+            ])>
+                {{ $match->is_fixed_series ? 'FIJO ' : '' }}{{ $match->series_label }}
+            </span>
+        @endif
+
+    </div>
+
+
+    {{-- A donde avanza el ganador --}}
+
+    @if ($destination)
+        <div class="flex items-center gap-1 bg-slate-950/70 px-2 py-1">
+            <span class="text-[9px] text-slate-700">→</span>
+            <span class="truncate text-[9px] font-bold text-slate-600">{{ $destination }}</span>
+        </div>
+    @endif
+
+
+    @if ($isReady && !$readonly)
+        <div class="bg-violet-500 px-2 py-1 text-center text-[9px] font-black uppercase tracking-wider text-white">
+            ▶ Jugar
+        </div>
+    @elseif ($isDone)
+        <div class="bg-emerald-500/15 px-2 py-1 text-center text-[9px] font-black uppercase tracking-wider text-emerald-400">
+            Ver batalla
+        </div>
+    @elseif ($match->status === 'PENDING')
+        <div class="px-2 py-1 text-center text-[9px] font-black uppercase tracking-wider text-slate-600">
+            Esperando rival
+        </div>
+    @endif
+
+</button>

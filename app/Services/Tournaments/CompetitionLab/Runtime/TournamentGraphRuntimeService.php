@@ -1532,19 +1532,106 @@ class TournamentGraphRuntimeService
     |
     */
 
-    public function prepareEncounter(
+    /*
+    |--------------------------------------------------------------------------
+    | Avanzar hasta que haya algo que jugar
+    |--------------------------------------------------------------------------
+    |
+    | START_TOURNAMENT solo inicia el grafo: deja las operaciones de reparto
+    | en cola y el nodo en WAITING_INPUTS. Hasta que esas operaciones no se
+    | drenan no existe ni un solo encuentro, asi que la pantalla de
+    | estructura no tiene nada que pintar.
+    |
+    | Esto avanza el recorrido lo justo para que aparezca la primera batalla
+    | jugable y se DETIENE ahi. No es RUN_TOURNAMENT: no resuelve nada, solo
+    | abre la fase para que el usuario juegue.
+    |
+    */
+
+    public function advanceToPlayable(
         array $state,
-        TournamentTemplate $template
+        TournamentTemplate $template,
+        int $maximumSteps = 60
     ): array {
 
         $this->requireRuntime($state);
 
-        $status =
-            $state['encounter']['status'] ?? null;
+        for ($index = 0; $index < $maximumSteps; $index++) {
 
-        /* Ya hay uno en curso o resuelto pendiente de avanzar */
-        if ($status !== null) {
-            return $state;
+            /* Ya hay una batalla esperando: no se toca nada mas */
+            if ($this->pendingEncounterTarget($state) !== null) {
+                return $state;
+            }
+
+            if (
+                in_array(
+                    $state['graph_runtime']['status'] ?? null,
+                    [
+                        'COMPLETED',
+                        'BLOCKED',
+                        'AWAITING_DECISION',
+                    ],
+                    true
+                )
+            ) {
+                return $state;
+            }
+
+            $before =
+                $this->progressFingerprint($state);
+
+            $state =
+                $this->step($state, $template);
+
+            /*
+             * Sin avance y sin cola no hay nada mas que drenar. Seguir
+             * seria girar en vacio.
+             */
+            if (
+                $before === $this->progressFingerprint($state)
+                && ($state['graph_runtime']['operation_queue'] ?? []) === []
+            ) {
+                return $state;
+            }
+        }
+
+        return $state;
+    }
+
+    public function prepareEncounter(
+        array $state,
+        TournamentTemplate $template,
+        ?string $matchId = null
+    ): array {
+
+        $this->requireRuntime($state);
+
+        $current =
+            $state['encounter'] ?? null;
+
+        /*
+         * Solo se conserva el borrador si es de ESTA misma batalla y aun
+         * se esta tirando. Cualquier otro caso se descarta.
+         *
+         * Antes bastaba con que existiera un borrador para no preparar
+         * nada, asi que el enfrentamiento RESUELTO de la batalla anterior
+         * se quedaba pegado en el estado y bloqueaba todas las demas: al
+         * abrir otra batalla no aparecian los controles para tirar.
+         */
+        if ($current !== null) {
+
+            $sameBattle =
+                $matchId === null
+                || (string) ($current['battle_key'] ?? '') === $matchId;
+
+            if (
+                $sameBattle
+                && ($current['status'] ?? null) === 'ROLLING'
+            ) {
+                return $state;
+            }
+
+            unset($state['encounter']);
         }
 
         $this->loadGraph($template);
@@ -1565,8 +1652,13 @@ class TournamentGraphRuntimeService
                 $template
             );
 
+        /*
+         * El usuario puede elegir que batalla jugar desde el bracket o la
+         * jornada. Sin eleccion se abre la primera pendiente, que es el
+         * comportamiento que ya habia.
+         */
         $target =
-            $this->pendingEncounterTarget($state);
+            $this->pendingEncounterTarget($state, $matchId);
 
         if (! $target) {
             $this->fail(
@@ -1606,7 +1698,10 @@ class TournamentGraphRuntimeService
         $state =
             $this->prepareEncounter(
                 $state,
-                $template
+                $template,
+                isset($payload['match_id'])
+                    ? (string) $payload['match_id']
+                    : null
             );
 
         $state =
@@ -1828,16 +1923,50 @@ class TournamentGraphRuntimeService
      *
      * @return array{0: int, 1: array}|null
      */
-    private function pendingEncounterTarget(array $state): ?array
-    {
-        $node =
+    private function pendingEncounterTarget(
+        array $state,
+        ?string $matchId = null
+    ): ?array {
+
+        $nodes =
             collect($state['nodes'] ?? [])
-            ->first(
+            ->filter(
                 fn($node) =>
                 isset($node['runtime'])
                     && $node['status'] === 'RUNNING'
                     && $node['runtime']['status'] === 'RUNNING'
             );
+
+        /*
+         * Con un encuentro elegido se busca en TODOS los nodos activos: en
+         * un grafo con varias fases en paralelo, el que el usuario pulso
+         * puede no estar en la primera.
+         */
+        if ($matchId !== null && $matchId !== '') {
+
+            foreach ($nodes as $candidate) {
+
+                $chosen =
+                    collect($candidate['runtime']['rounds'] ?? [])
+                    ->flatMap(
+                        fn($round) =>
+                        $round['matches'] ?? []
+                    )
+                    ->first(
+                        fn($match) =>
+                        (string) ($match['id'] ?? '') === $matchId
+                            && ($match['status'] ?? null) === 'PENDING'
+                    );
+
+                if ($chosen) {
+                    return [(int) $candidate['id'], $chosen];
+                }
+            }
+
+            return null;
+        }
+
+        $node = $nodes->first();
 
         if (! $node) {
             return null;

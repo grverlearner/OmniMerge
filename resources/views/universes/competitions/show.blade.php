@@ -36,6 +36,31 @@
     @endif
 
 
+    {{-- Acceso a la experiencia de ejecucion (Fase 13) --}}
+
+    <div class="mb-6">
+        <a href="{{ route('universes.competitions.play', [$universe, $competition]) }}"
+            class="flex items-center gap-4 rounded-3xl border border-violet-500/30 bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 text-white shadow-lg shadow-violet-900/30 transition hover:from-violet-500 hover:to-indigo-500">
+
+            <span class="text-2xl">{{ $competition->isClosed() ? '🎬' : '⚔' }}</span>
+
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-black">
+                    {{ $competition->isClosed() ? 'Ver el torneo' : 'Jugar la competición' }}
+                </p>
+                <p class="text-xs text-violet-100">
+                    {{ $competition->isClosed()
+                        ? 'Recorre participantes, fases, batallas y campeon en modo lectura.'
+                        : 'Participantes, estructura, batallas y simulador a pantalla completa.' }}
+                </p>
+            </div>
+
+            <span class="text-lg font-black">→</span>
+
+        </a>
+    </div>
+
+
     <div x-data="competitionLab({
         initialState: @js($payload['state']),
         initialToken: null,

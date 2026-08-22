@@ -276,13 +276,23 @@ class EntityCompetitionStatsService
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * @param  ?int $excludeMatchId  encuentro a excluir. Lo usa la pantalla
+     *                              de batalla: contar la batalla en curso
+     *                              como precedente de si misma seria falso.
+     */
     public function headToHead(
         UniverseEntity $left,
-        UniverseEntity $right
+        UniverseEntity $right,
+        ?int $excludeMatchId = null
     ): array {
 
         $matches =
             TournamentInstanceMatch::query()
+            ->when(
+                $excludeMatchId,
+                fn($query, $id) => $query->whereKeyNot($id)
+            )
             ->where(
                 function ($query) use ($left, $right) {
 
