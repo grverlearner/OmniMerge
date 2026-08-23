@@ -201,7 +201,12 @@ class EncounterRuntime
              * directa alguien tiene que pasar de ronda.
              */
             'requires_winner' =>
-            $this->phaseRequiresWinner($state, $nodeId),
+            $this->encounterRequiresWinner(
+                $state,
+                $nodeId,
+                $match,
+                $number
+            ),
 
             'series' =>
             $this->seriesSummary($series, $match),
@@ -675,6 +680,27 @@ class EncounterRuntime
 
             'games_played' =>
             (int) ($series['games_played'] ?? 0),
+
+            /*
+             * Cuantos enfrentamientos tiene la batalla de largo.
+             *
+             * En BEST_OF es el maximo que se pueden llegar a jugar; en
+             * FIXED_GAMES es la cuenta pactada, que se juega entera. Sirve
+             * para PINTAR como va la batalla: sin saber el total, un "2
+             * ganados" no dice si falta uno o si ya esta decidido.
+             */
+            'total_games' =>
+            $format === 'FIXED_GAMES'
+                ? max(1, $fixed)
+                : max(1, $bestOf),
+
+            /*
+             * Los empates no son de nadie, pero se jugaron: sin contarlos
+             * aparte, un 1-1 con un empate parece una batalla de dos
+             * enfrentamientos cuando fueron tres.
+             */
+            'draws' =>
+            (int) ($series['game_draws'] ?? 0),
         ];
     }
 
@@ -858,6 +884,45 @@ class EncounterRuntime
      * se sabe nada de la fase se asume que sí, que es lo prudente: dejar
      * un empate donde hacía falta un ganador bloquearía el torneo.
      */
+    /**
+     * Si ESTE enfrentamiento tiene que acabar con un ganador.
+     *
+     * No es lo mismo que la batalla. En una serie de cantidad fija -"se
+     * juegan 4"- lo que decide es lo que pase en esos cuatro: un empate
+     * dentro de uno de ellos es un resultado legitimo, no algo que haya
+     * que repetir hasta romperlo. Solo cuando los cuatro terminan y la
+     * batalla sigue igualada se juega un desempate, y ESE si necesita
+     * ganador porque es el que decide quien pasa.
+     *
+     * Antes la exigencia de la fase se aplicaba a cada enfrentamiento: en
+     * eliminacion directa, cada uno de los cuatro repetia la tirada hasta
+     * deshacer el empate, asi que el acumulado nunca reflejaba lo que
+     * habia pasado de verdad.
+     *
+     * Al mejor de N no entra aqui: ahi un empate no suma para nadie y la
+     * serie se quedaria sin avanzar, asi que se sigue repitiendo.
+     */
+    private function encounterRequiresWinner(
+        array $state,
+        int $nodeId,
+        array $match,
+        int $number
+    ): bool {
+
+        if (! $this->phaseRequiresWinner($state, $nodeId)) {
+            return false;
+        }
+
+        if (
+            strtoupper((string) ($match['series_format'] ?? ''))
+            === 'FIXED_GAMES'
+        ) {
+            return $number > (int) ($match['fixed_games'] ?? 1);
+        }
+
+        return true;
+    }
+
     private function phaseRequiresWinner(array $state, int $nodeId): bool
     {
         $runtime = $state['nodes'][$nodeId]['runtime'] ?? null;

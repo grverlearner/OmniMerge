@@ -1961,6 +1961,15 @@ class TournamentGraphRuntimeService
         $state['encounter']['series']['games_played'] =
             (int) ($series['games_played'] ?? 0);
 
+        /*
+         * Los empates tambien. Sin esto el marcador en vivo los contaba
+         * como enfrentamientos perdidos —jugados, no ganados por nadie—
+         * hasta que el siguiente enfrentamiento rehacia el resumen: un
+         * empate se pintaba como derrota PARA LOS DOS.
+         */
+        $state['encounter']['series']['draws'] =
+            (int) ($series['game_draws'] ?? 0);
+
         $state['encounter']['battle_completed'] =
             ($series['status'] ?? null) === 'COMPLETED'
             || $series === null;

@@ -29,7 +29,26 @@ export default function competitionArena(config) {
 
         readonly: config.readonly ?? false,
 
+        /*
+         * Indice ligero: nombre, ronda, grupo y estado de cada batalla.
+         * Lo justo para pintar la cabecera en cuanto se pulsa.
+         */
         battles: config.battles ?? {},
+
+        /*
+         * El detalle de las que se han abierto, cacheado por clave.
+         *
+         * Antes venia todo dentro de la pagina —las 238 batallas con sus
+         * trofeos, atributos, historial de duelos y valores de cada
+         * juego—, unos 5 segundos de servidor y 4 MB de HTML para mirar
+         * una. Ahora se pide al abrir y se guarda: volver a una batalla
+         * ya vista no cuesta nada.
+         */
+        battleDetails: {},
+
+        battleUrl: config.battleUrl ?? null,
+
+        battleLoading: false,
 
         selectedBattle: null,
 
@@ -57,8 +76,17 @@ export default function competitionArena(config) {
          */
         sessionEncounters: {},
 
-        /* Batalla abierta, con lo ya jugado que vino del servidor */
+        /* Batalla abierta, con su detalle ya cargado */
         get battle() {
+            if (!this.selectedBattle) {
+                return null;
+            }
+
+            return this.battleDetails[this.selectedBattle] ?? null;
+        },
+
+        /* Lo poco que se sabe de una batalla sin haberla abierto */
+        get battleSummary() {
             if (!this.selectedBattle) {
                 return null;
             }
@@ -84,6 +112,87 @@ export default function competitionArena(config) {
 
         get hasLiveEncounter() {
             return this.liveEncounter !== null;
+        },
+
+        /*
+         * Como va la BATALLA para un competidor, ahora mismo.
+         *
+         * El enfrentamiento en curso ya se ve —el numero grande, quien
+         * gana este—, pero la batalla es la serie entera: en un BO5 ganar
+         * este juego puede significar cerrarla o solo empatarla, y eso no
+         * se veia por ninguna parte hasta bajar al historial y contar a
+         * mano.
+         *
+         * Sale del Runtime, que actualiza el marcador de la serie en
+         * cuanto un enfrentamiento se resuelve, asi que cambia solo.
+         *
+         * Devuelve null cuando no hay serie a dos —los encuentros de
+         * seleccion, donde compiten N a la vez, no tienen batalla que
+         * marcar—, y la vista simplemente no pinta nada.
+         */
+        seriesStandingOf(participantId) {
+            const series = this.liveEncounter?.series;
+
+            const sides = this.battle?.participants ?? [];
+
+            if (!series || sides.length < 2) {
+                return null;
+            }
+
+            const isA = sides[0]?.key === participantId;
+            const isB = sides[1]?.key === participantId;
+
+            if (!isA && !isB) {
+                return null;
+            }
+
+            const wins = isA ? (series.score_a ?? 0) : (series.score_b ?? 0);
+            const rivalWins = isA ? (series.score_b ?? 0) : (series.score_a ?? 0);
+
+            const isFixed = series.format === 'FIXED_GAMES';
+            const played = series.games_played ?? 0;
+            const draws = series.draws ?? 0;
+
+            /*
+             * Un enfrentamiento anterior a este campo no trae el total.
+             * Se deduce de lo jugado en vez de mentir con un cero.
+             */
+            const total = series.total_games ?? Math.max(played, wins + rivalWins + draws);
+
+            const losses = Math.max(0, played - wins - draws);
+
+            /*
+             * Un punto por enfrentamiento: ganados, empatados, perdidos y
+             * los que faltan. Es un recuento, no un orden cronologico
+             * —para eso esta el historial de abajo.
+             */
+            const pips = [];
+
+            for (let i = 0; i < wins; i++) { pips.push('win'); }
+            for (let i = 0; i < draws; i++) { pips.push('draw'); }
+            for (let i = 0; i < losses; i++) { pips.push('loss'); }
+
+            while (pips.length < total) { pips.push('pending'); }
+
+            const target = isFixed ? null : (series.wins_required ?? null);
+
+            return {
+                wins,
+                rivalWins,
+                isFixed,
+                target,
+                total,
+                played,
+                pips,
+                leading: wins > rivalWins,
+                tied: wins === rivalWins,
+
+                /* Le falta ganar uno para llevarse la batalla */
+                matchPoint: target !== null && wins === target - 1,
+
+                /* Ya la tiene ganada */
+                won: target !== null && wins >= target,
+            };
         },
 
         /*
@@ -159,6 +268,9 @@ export default function competitionArena(config) {
 
             if (battle && this.battles[battle]) {
                 this.selectedBattle = battle;
+
+                /* Se llega por URL: el detalle tambien hay que traerlo */
+                this.loadBattle(battle);
             }
         },
 
@@ -174,11 +286,59 @@ export default function competitionArena(config) {
             this.selectedBattle = key;
             this.stage = 3;
 
-            const battle = this.battles[key];
+            return this.loadBattle(key).then((battle) => {
 
-            if (battle.is_playable && !this.readonly) {
-                this.execute('PREPARE_ENCOUNTER', { match_id: key });
+                /*
+                 * Si se puede jugar lo decide el servidor, en el mismo
+                 * sitio que lo decide para todo lo demas. Duplicar aqui
+                 * la regla —pendiente, ni cerrada, ni pausada— seria
+                 * tener dos verdades que se pueden separar.
+                 */
+                if (battle?.is_playable && !this.readonly) {
+                    return this.execute('PREPARE_ENCOUNTER', { match_id: key });
+                }
+            });
+        },
+
+        /*
+         * El detalle de una batalla. Ya visto, del cache; nuevo, del
+         * servidor. Si falla no se deja la pantalla en blanco: se avisa
+         * y se vuelve a la estructura.
+         */
+        loadBattle(key) {
+            if (this.battleDetails[key]) {
+                return Promise.resolve(this.battleDetails[key]);
             }
+
+            if (!this.battleUrl) {
+                return Promise.resolve(null);
+            }
+
+            this.battleLoading = true;
+
+            return fetch(this.battleUrl.replace('__BATTLE__', encodeURIComponent(key)), {
+                headers: { Accept: 'application/json' },
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error('respuesta ' + response.status);
+                    }
+
+                    return response.json();
+                })
+                .then((battle) => {
+                    this.battleDetails[key] = battle;
+
+                    return battle;
+                })
+                .catch(() => {
+                    this.error = 'No fue posible cargar esta batalla.';
+
+                    return null;
+                })
+                .finally(() => {
+                    this.battleLoading = false;
+                });
         },
 
         /*
@@ -222,12 +382,15 @@ export default function competitionArena(config) {
             /* Se guarda ANTES de avanzar: despues ya no existe */
             this.rememberEncounter(encounter);
 
-            if (encounter?.battle_completed) {
-                this.backToStructure();
-
-                return Promise.resolve();
-            }
-
+            /*
+             * Incluso con la batalla terminada se avisa al motor.
+             *
+             * Antes se volvia directo a la estructura, y el motor se
+             * quedaba con su ultima operacion sin ejecutar: al acabar la
+             * FINAL, nadie enrutaba al ganador, la competicion nunca
+             * pasaba a COMPLETED y ni el resultado ni los premios llegaban
+             * a existir. La partida se ganaba y no se cerraba.
+             */
             return this.execute('ADVANCE_ENCOUNTER', {
                 match_id: this.selectedBattle,
             }).then(() => {

@@ -548,6 +548,20 @@ Route::middleware('auth')->group(function () {
                                         )->name('play');
 
                                         /*
+                                         * El detalle de una batalla, al
+                                         * abrirla. Antes viajaba entero
+                                         * dentro de /play, multiplicado
+                                         * por todas las batallas.
+                                         */
+                                        Route::get(
+                                            '/{competition}/battles/{battle}',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'battle',
+                                            ]
+                                        )->name('battles.show');
+
+                                        /*
                                          * Ajuste manual de una stat. Cambia
                                          * al competidor de verdad, asi que
                                          * exige confirmacion explicita.

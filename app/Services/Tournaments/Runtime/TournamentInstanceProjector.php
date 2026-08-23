@@ -225,6 +225,25 @@ class TournamentInstanceProjector
         array $state
     ): void {
 
+        /*
+         * Las filas ya guardadas, de una vez.
+         *
+         * Antes storeMatch preguntaba por la suya a la base de datos —y
+         * otra vez por su completed_at—, asi que una competicion de 238
+         * encuentros hacia mas de 400 consultas de LECTURA en cada accion
+         * del motor, solo para volver a escribir lo mismo. Con el mapa
+         * delante, la comparacion se hace en memoria y solo viaja a la
+         * base de datos lo que de verdad cambio.
+         */
+        $existing =
+            TournamentInstanceMatch::query()
+            ->where(
+                'tournament_instance_id',
+                $instance->id
+            )
+            ->get()
+            ->keyBy('runtime_match_id');
+
         $names =
             $this->participantNames(
                 $state
@@ -271,7 +290,9 @@ class TournamentInstanceProjector
                      * Buscarla dentro del match dejaba la columna a null y
                      * hacia invisible todo BO3/BO5/FIXED_GAMES.
                      */
-                    $runtime['series'] ?? []
+                    $runtime['series'] ?? [],
+
+                    $existing
                 );
             }
         }
@@ -523,8 +544,24 @@ class TournamentInstanceProjector
         array $match,
         array $names,
         array $entities = [],
-        array $seriesByMatch = []
+        array $seriesByMatch = [],
+        ?\Illuminate\Support\Collection $existing = null
     ): void {
+
+        $key =
+            (string) $match['id'];
+
+        /*
+         * La fila que ya existe, del mapa que trajo projectMatches. Sin
+         * mapa se busca a la antigua: storeMatch tiene que seguir siendo
+         * correcto por si alguien lo llama suelto.
+         */
+        $row =
+            $existing?->get($key)
+            ?? TournamentInstanceMatch::query()
+            ->where('tournament_instance_id', $instance->id)
+            ->where('runtime_match_id', $key)
+            ->first();
 
         $keyA =
             $match['participant_a_id']
@@ -554,126 +591,168 @@ class TournamentInstanceProjector
         $scoreB =
             $match['score_b'] ?? null;
 
-        TournamentInstanceMatch::query()
-            ->updateOrCreate(
-                [
-                    'tournament_instance_id' =>
-                    $instance->id,
+        $attributes = [
+            'node_id' =>
+            $nodeId,
 
-                    'runtime_match_id' =>
-                    (string) $match['id'],
-                ],
-                [
-                    'node_id' =>
-                    $nodeId,
+            'round_number' =>
+            $match['__round_number'] ?? null,
 
-                    'round_number' =>
-                    $match['__round_number'] ?? null,
+            'label' =>
+            $match['__round_label'] ?? null,
 
-                    'label' =>
-                    $match['__round_label'] ?? null,
+            'status' =>
+            $match['status'] ?? 'PENDING',
 
-                    'status' =>
-                    $match['status'] ?? 'PENDING',
+            'participant_a_key' =>
+            $keyA,
 
-                    'participant_a_key' =>
-                    $keyA,
+            'participant_b_key' =>
+            $keyB,
 
-                    'participant_b_key' =>
-                    $keyB,
+            'participant_a_name' =>
+            $keyA !== null
+                ? ($names[$keyA] ?? null)
+                : null,
 
-                    'participant_a_name' =>
-                    $keyA !== null
-                        ? ($names[$keyA] ?? null)
-                        : null,
+            'participant_b_name' =>
+            $keyB !== null
+                ? ($names[$keyB] ?? null)
+                : null,
 
-                    'participant_b_name' =>
-                    $keyB !== null
-                        ? ($names[$keyB] ?? null)
-                        : null,
+            'score_a' =>
+            is_numeric($scoreA)
+                ? (int) $scoreA
+                : null,
 
-                    'score_a' =>
-                    is_numeric($scoreA)
-                        ? (int) $scoreA
-                        : null,
+            'score_b' =>
+            is_numeric($scoreB)
+                ? (int) $scoreB
+                : null,
 
-                    'score_b' =>
-                    is_numeric($scoreB)
-                        ? (int) $scoreB
-                        : null,
+            'winner_key' =>
+            $winner,
 
-                    'winner_key' =>
-                    $winner,
+            'loser_key' =>
+            $loser,
 
-                    'loser_key' =>
-                    $loser,
+            'is_draw' =>
+            $winner === null
+                && is_numeric($scoreA)
+                && is_numeric($scoreB)
+                && (int) $scoreA === (int) $scoreB,
 
-                    'is_draw' =>
-                    $winner === null
-                        && is_numeric($scoreA)
-                        && is_numeric($scoreB)
-                        && (int) $scoreA === (int) $scoreB,
+            /*
+             * La serie jugada si existe; si todavia no se ha
+             * disputado, al menos su FORMATO.
+             *
+             * Sin esto, una batalla pendiente no sabia decir si
+             * era "BO3" o "2 enfrentamientos fijos" hasta despues
+             * de jugarla, que es justo cuando ya no sirve saberlo.
+             */
+            'series' =>
+            $seriesByMatch[(string) ($match['id'] ?? '')]
+                ?? $match['games']
+                ?? $match['series']
+                ?? $this->seriesBlueprint($match),
 
-                    /*
-                     * La serie jugada si existe; si todavia no se ha
-                     * disputado, al menos su FORMATO.
-                     *
-                     * Sin esto, una batalla pendiente no sabia decir si
-                     * era "BO3" o "2 enfrentamientos fijos" hasta despues
-                     * de jugarla, que es justo cuando ya no sirve saberlo.
-                     */
-                    'series' =>
-                    $seriesByMatch[(string) ($match['id'] ?? '')]
-                        ?? $match['games']
-                        ?? $match['series']
-                        ?? $this->seriesBlueprint($match),
+            /*
+             * Desnormalización para el historial por Entidad y
+             * el head-to-head: sin esto cada consulta necesitaría
+             * un join a participantes.
+             */
+            'participant_a_universe_entity_id' =>
+            $keyA !== null
+                ? ($entities[(string) $keyA] ?? null)
+                : null,
 
-                    /*
-                     * Desnormalización para el historial por Entidad y
-                     * el head-to-head: sin esto cada consulta necesitaría
-                     * un join a participantes.
-                     */
-                    'participant_a_universe_entity_id' =>
-                    $keyA !== null
-                        ? ($entities[(string) $keyA] ?? null)
-                        : null,
+            'participant_b_universe_entity_id' =>
+            $keyB !== null
+                ? ($entities[(string) $keyB] ?? null)
+                : null,
 
-                    'participant_b_universe_entity_id' =>
-                    $keyB !== null
-                        ? ($entities[(string) $keyB] ?? null)
-                        : null,
+            'winner_universe_entity_id' =>
+            $winner !== null
+                ? ($entities[(string) $winner] ?? null)
+                : null,
 
-                    'winner_universe_entity_id' =>
-                    $winner !== null
-                        ? ($entities[(string) $winner] ?? null)
-                        : null,
+            'group_label' =>
+            $match['__group_label'] ?? null,
 
-                    'group_label' =>
-                    $match['__group_label'] ?? null,
+            /*
+             * Se sella la primera vez que el encuentro aparece
+             * terminado; a partir de ahí no se toca, para que el
+             * orden cronológico sea estable.
+             */
+            'completed_at' =>
+            ($match['status'] ?? null) === 'COMPLETED'
+                ? ($row?->completed_at ?? now())
+                : null,
+        ];
 
-                    /*
-                     * Se sella la primera vez que el encuentro aparece
-                     * terminado; a partir de ahí no se toca, para que el
-                     * orden cronológico sea estable.
-                     */
-                    'completed_at' =>
-                    ($match['status'] ?? null) === 'COMPLETED'
-                        ? (
-                            TournamentInstanceMatch::query()
-                            ->where(
-                                'tournament_instance_id',
-                                $instance->id
-                            )
-                            ->where(
-                                'runtime_match_id',
-                                (string) $match['id']
-                            )
-                            ->value('completed_at')
-                            ?? now()
-                        )
-                        : null,
-                ]
-            );
+        if (! $row) {
+
+            $row =
+                TournamentInstanceMatch::query()
+                ->create(
+                    $attributes
+                    + [
+                        'tournament_instance_id' => $instance->id,
+                        'runtime_match_id' => $key,
+                    ]
+                );
+
+            $existing?->put($key, $row);
+
+            return;
+        }
+
+        $row->fill($attributes);
+
+        /*
+         * MySQL reordena las claves de una columna JSON al guardarla, y
+         * Eloquent decide si un campo cambio comparando los dos JSON como
+         * TEXTO. Con las mismas claves en distinto orden el texto no
+         * coincide, asi que la serie salia "sucia" siempre: cada accion
+         * del motor reescribia las 200 filas ya jugadas para dejarlas
+         * exactamente como estaban. Se compara el contenido, no el texto.
+         */
+        if (
+            $row->isDirty('series')
+            && $this->sameContent(
+                $row->getOriginal('series'),
+                $row->series
+            )
+        ) {
+            $row->syncOriginalAttribute('series');
+        }
+
+        if ($row->isDirty()) {
+            $row->save();
+        }
+    }
+
+    /**
+     * Si dos estructuras dicen lo mismo, aunque no lo digan en el mismo
+     * orden. Solo se usa para DECIDIR si hace falta escribir; lo que se
+     * guarda es siempre el valor tal cual lo entrego el motor.
+     */
+    private function sameContent(mixed $left, mixed $right): bool
+    {
+        $normalize = function (mixed $value) use (&$normalize): mixed {
+
+            if (! is_array($value)) {
+                return $value;
+            }
+
+            $value = array_map($normalize, $value);
+
+            ksort($value);
+
+            return $value;
+        };
+
+        return $normalize($left) === $normalize($right);
     }
 
     /*

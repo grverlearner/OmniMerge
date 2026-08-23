@@ -33,6 +33,9 @@
             initialStage: {{ $initialStage }},
             readonly: {{ $readonly ? 'true' : 'false' }},
             battles: @js($battles),
+
+            {{-- __BATTLE__ se sustituye por la clave al abrir --}}
+            battleUrl: @js(route('universes.competitions.battles.show', [$universe, $competition, '__BATTLE__'])),
         })"
         class="flex h-screen flex-col overflow-hidden bg-slate-950">
 

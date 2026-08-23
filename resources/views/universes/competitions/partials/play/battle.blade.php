@@ -10,9 +10,31 @@
 
 <div class="px-5 py-6">
 
+    {{-- CARGANDO EL DETALLE --}}
+    {{--
+        El detalle de la batalla se pide al abrirla, asi que hay un
+        instante sin datos. Sin esto, ese instante mostraba "ninguna
+        batalla seleccionada", que es justo lo contrario de lo que
+        acaba de pasar.
+    --}}
+
+    <template x-if="battleLoading && !battle">
+        <div class="flex min-h-[70vh] items-center justify-center">
+            <div class="text-center">
+
+                <div class="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-800 border-t-violet-500"></div>
+
+                <p class="mt-5 text-xs font-black uppercase tracking-[0.2em] text-slate-500"
+                    x-text="battleSummary?.label || 'Abriendo la batalla'"></p>
+
+            </div>
+        </div>
+    </template>
+
+
     {{-- SIN BATALLA SELECCIONADA --}}
 
-    <template x-if="!battle">
+    <template x-if="!battle && !battleLoading">
         <div class="flex min-h-[70vh] items-center justify-center">
             <div class="max-w-md text-center">
                 <div class="text-6xl opacity-25">⚔</div>
@@ -234,6 +256,80 @@
                                         : (participant.rolled
                                             ? 'border-slate-700 bg-slate-900'
                                             : 'border-slate-800 bg-slate-900/50'))">
+
+                                {{--
+                                    COMO VA LA BATALLA para este competidor.
+
+                                    El numero grande de abajo es ESTE
+                                    enfrentamiento; esto es la serie entera.
+                                    En un BO5, ganar el juego que se esta
+                                    viendo puede cerrar la batalla o solo
+                                    empatarla, y hasta ahora eso habia que
+                                    ir a contarlo al historial.
+
+                                    Se pinta en la esquina, pegado a la
+                                    imagen, porque acompaña al competidor:
+                                    no es informacion del enfrentamiento,
+                                    es informacion suya.
+                                --}}
+                                <div x-data="{ get standing() { return seriesStandingOf(participant.id); } }">
+
+                                    <template x-if="standing">
+                                        <div class="absolute left-2.5 top-2.5 flex flex-col items-center gap-1 rounded-xl border px-2 py-1.5"
+                                            :class="standing.won
+                                                ? 'border-emerald-400/60 bg-emerald-500/20'
+                                                : (standing.leading
+                                                    ? 'border-emerald-500/30 bg-emerald-500/10'
+                                                    : (standing.tied
+                                                        ? 'border-slate-700 bg-slate-900/80'
+                                                        : 'border-slate-800 bg-slate-950/60'))">
+
+                                            <p class="flex items-baseline gap-0.5 font-mono leading-none">
+
+                                                <span class="text-base font-black"
+                                                    :class="standing.leading || standing.won ? 'text-emerald-300' : 'text-slate-300'"
+                                                    x-text="standing.wins"></span>
+
+                                                <span class="text-[9px] font-black text-slate-500"
+                                                    x-text="'/' + (standing.target ?? standing.total)"></span>
+
+                                            </p>
+
+                                            {{-- Un punto por enfrentamiento de la batalla --}}
+                                            <div class="flex items-center gap-0.5">
+                                                <template x-for="(pip, i) in standing.pips" :key="i">
+                                                    <span class="block h-1.5 w-1.5 rounded-full"
+                                                        :class="{
+                                                            'bg-emerald-400': pip === 'win',
+                                                            'bg-amber-400': pip === 'draw',
+                                                            'bg-rose-500/70': pip === 'loss',
+                                                            'bg-slate-700': pip === 'pending',
+                                                        }"></span>
+                                                </template>
+                                            </div>
+
+                                        </div>
+                                    </template>
+
+                                    {{--
+                                        Solo cuando dice algo que el marcador
+                                        no dice ya: que el siguiente cierra
+                                        la batalla, o que la cuenta pactada
+                                        se juega entera.
+                                    --}}
+                                    <template x-if="standing && standing.matchPoint && !standing.won">
+                                        <p class="absolute right-2.5 top-2.5 rounded-lg bg-amber-400 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-slate-950">
+                                            Punto de batalla
+                                        </p>
+                                    </template>
+
+                                    <template x-if="standing && standing.won">
+                                        <p class="absolute right-2.5 top-2.5 rounded-lg bg-emerald-400 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-slate-950">
+                                            Batalla ganada
+                                        </p>
+                                    </template>
+
+                                </div>
 
                                 <div class="mx-auto h-16 w-16 overflow-hidden rounded-2xl bg-slate-800">
                                     <template x-if="participant.image_url">

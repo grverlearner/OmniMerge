@@ -10,9 +10,14 @@
      * nada de verdad. Por eso la naturaleza va primero, en la etiqueta más
      * visible de cada línea, y no escondida en la letra pequeña.
      */
+
+    /* Lo repartido en esta competición, de un vistazo */
+    $totalTrofeos = $awards->sum(fn($a) => count($a['trophies'] ?? []));
+    $totalPermanentes = $awards->sum(fn($a) => count($a['permanent']));
+    $totalTemporales = $awards->sum(fn($a) => count($a['temporary']));
 @endphp
 
-<div class="p-5">
+<div class="mx-auto max-w-6xl p-5">
 
     @if ($awards->isEmpty())
 
@@ -24,14 +29,66 @@
                     Todavía no se ha repartido nada
                 </h3>
 
-                <p class="mt-3 text-sm leading-relaxed text-slate-400">
-                    Los bonus temporales aparecen cuando termina la fase que los
-                    concede. Las recompensas permanentes, cuando acaba la competición.
-                </p>
+                @if ($competition->isClosed())
+                    <p class="mt-3 text-sm leading-relaxed text-slate-400">
+                        La competición terminó sin recompensas configuradas. Los premios
+                        se definen antes, en el torneo: trofeos y cambios de estadística
+                        por posición, y bonus temporales por fase.
+                    </p>
+                @else
+                    <p class="mt-3 text-sm leading-relaxed text-slate-400">
+                        Los bonus temporales aparecen cuando termina la fase que los
+                        concede. Las recompensas permanentes, cuando acaba la competición.
+                    </p>
+                @endif
             </div>
         </div>
 
     @else
+
+        {{-- ============================================ --}}
+        {{-- LO REPARTIDO --}}
+        {{-- ============================================ --}}
+
+        <div class="mb-4 flex flex-wrap items-end justify-between gap-4">
+
+            <div>
+                <h2 class="text-2xl font-black tracking-tight text-white">
+                    {{ $competition->isClosed() ? 'Lo que se llevaron' : 'Lo repartido hasta ahora' }}
+                </h2>
+
+                <p class="mt-1 text-xs text-slate-500">
+                    {{ $awards->count() }}
+                    {{ $awards->count() === 1 ? 'competidor premiado' : 'competidores premiados' }}
+                    de {{ $competition->participants()->count() }}
+                </p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+
+                @if ($totalTrofeos)
+                    <div class="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center">
+                        <p class="font-mono text-xl font-black text-amber-300">{{ $totalTrofeos }}</p>
+                        <p class="text-[9px] font-black uppercase tracking-wider text-amber-500/80">
+                            {{ $totalTrofeos === 1 ? 'Trofeo' : 'Trofeos' }}
+                        </p>
+                    </div>
+                @endif
+
+                <div class="rounded-2xl border border-amber-500/20 bg-slate-900/60 px-4 py-2 text-center">
+                    <p class="font-mono text-xl font-black text-amber-300">{{ $totalPermanentes }}</p>
+                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">Permanentes</p>
+                </div>
+
+                <div class="rounded-2xl border border-sky-500/20 bg-slate-900/60 px-4 py-2 text-center">
+                    <p class="font-mono text-xl font-black text-sky-300">{{ $totalTemporales }}</p>
+                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">Temporales</p>
+                </div>
+
+            </div>
+
+        </div>
+
 
         {{-- ============================================ --}}
         {{-- QUÉ SIGNIFICA CADA COSA --}}
@@ -54,6 +111,13 @@
                 </span>
                 <span class="text-[11px] text-slate-500">
                     Cambió la stat guardada. Se queda.
+                </span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <span class="text-sm">🏆</span>
+                <span class="text-[11px] text-slate-500">
+                    Trofeo: no cambia nada, es lo que queda de haber ganado.
                 </span>
             </div>
 
@@ -89,6 +153,36 @@
                         @endunless
 
                     </div>
+
+
+                    {{-- TROFEOS --}}
+                    {{--
+                        Van arriba y con su propio fondo porque no son una
+                        línea más del recuento: son el título.
+                    --}}
+                    @if (! empty($award['trophies']))
+                        <div class="flex flex-wrap gap-2 border-b border-slate-800 bg-amber-500/[0.07] px-3 py-2.5">
+                            @foreach ($award['trophies'] as $trophy)
+                                <div class="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-slate-950/50 px-2.5 py-1.5">
+
+                                    <span class="text-base leading-none">{{ $trophy['icon'] }}</span>
+
+                                    <div class="min-w-0">
+                                        <p class="truncate text-[11px] font-black text-amber-200">
+                                            {{ $trophy['name'] }}
+                                        </p>
+
+                                        @if ($trophy['position'])
+                                            <p class="text-[9px] font-black uppercase tracking-wider text-amber-500/70">
+                                                {{ $trophy['position'] }}.º puesto
+                                            </p>
+                                        @endif
+                                    </div>
+
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
 
 
                     <div class="space-y-2 p-3">
@@ -168,6 +262,12 @@
 
                             </div>
                         @endforeach
+
+                        @if (empty($award['permanent']) && empty($award['temporary']))
+                            <p class="px-1 py-2 text-[11px] italic text-slate-600">
+                                Solo el título: ninguna estadística cambió.
+                            </p>
+                        @endif
 
                     </div>
 

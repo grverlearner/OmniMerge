@@ -289,20 +289,29 @@ class GroupStageDefinitionService
         ];
     }
 
+    /**
+     * El orden de desempate con el que nace una fase de grupos.
+     *
+     * Puntos, diferencia, anotados. Es el orden de una liga de verdad y
+     * el que ya usa Round Robin, asi que las dos clasificaciones del
+     * mismo torneo se leen igual.
+     *
+     * Las VICTORIAS iban antes en segundo lugar, por delante de la
+     * diferencia. No es lo que espera nadie que mire una tabla: con los
+     * mismos puntos, dos empates y una victoria adelantaban a quien habia
+     * ganado por mucho. Ademas la tabla se pintaba por diferencia, asi
+     * que el orden que se veia podia contradecir a quien pasaba de fase.
+     * Siguen contando, detras.
+     *
+     * Quien quiera otro orden lo cambia en su plantilla: esto es solo el
+     * punto de partida.
+     */
     public function defaultCrossGroupCriteria(): array
     {
         return [
             [
                 'criterion' =>
                 'POINTS',
-
-                'normalization' =>
-                'DEFAULT',
-            ],
-
-            [
-                'criterion' =>
-                'WINS',
 
                 'normalization' =>
                 'DEFAULT',
@@ -319,6 +328,14 @@ class GroupStageDefinitionService
             [
                 'criterion' =>
                 'SCORE_FOR',
+
+                'normalization' =>
+                'DEFAULT',
+            ],
+
+            [
+                'criterion' =>
+                'WINS',
 
                 'normalization' =>
                 'DEFAULT',

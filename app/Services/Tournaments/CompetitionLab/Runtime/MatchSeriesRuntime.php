@@ -127,13 +127,34 @@ final class MatchSeriesRuntime
             );
         }
 
+        /*
+         * Un empate dentro de la serie.
+         *
+         * En cantidad fija se acepta: se juegan los N pactados y lo que
+         * decide es el conjunto, no cada uno por separado. Si al terminar
+         * los N sigue todo igualado -mismos enfrentamientos y mismo
+         * acumulado- entonces si se pide un desempate, y ese ya no puede
+         * quedar en tablas.
+         *
+         * Al mejor de N no: ahi un empate no suma para ningun lado y la
+         * serie no avanzaria nunca hacia los ganados que hacen falta.
+         */
+        $drawAllowedHere =
+            $format === 'FIXED_GAMES'
+            &&
+            (int) ($series['games_played'] ?? 0) < $fixedGames;
+
         if (
             $requiresWinner
             &&
             $scoreA === $scoreB
+            &&
+            ! $drawAllowedHere
         ) {
             $this->fail(
-                'Esta serie eliminatoria necesita un ganador en cada juego.'
+                'Esta serie eliminatoria necesita un ganador: '
+                    . 'los enfrentamientos pactados ya se jugaron y '
+                    . 'siguen igualados.'
             );
         }
 
@@ -354,6 +375,45 @@ final class MatchSeriesRuntime
             ? $scoreB
             : (int)
             $series['game_wins_b'];
+
+        /*
+         * Igualados en enfrentamientos, decidida por el acumulado.
+         *
+         * El motor de fase decide mirando el marcador, y en cantidad fija
+         * ese marcador son los enfrentamientos ganados: una serie de 4 que
+         * acaba 2-2 le llegaba como un EMPATE aunque el acumulado ya
+         * hubiera dado un ganador, y Single Elimination la rechazaba con
+         * "no permite empates". La batalla se quedaba sin poder cerrarse.
+         *
+         * Se le entrega lo que de verdad decidio: el acumulado. Los
+         * enfrentamientos ganados se siguen viendo aparte, en el marcador
+         * de la serie.
+         */
+        if (
+            ($series['decided_on_points'] ?? false)
+            &&
+            $engineScoreA === $engineScoreB
+        ) {
+            $pointsForA = (float) ($series['points_for_a'] ?? 0);
+            $pointsForB = (float) ($series['points_for_b'] ?? 0);
+
+            $engineScoreA = (int) round($pointsForA);
+            $engineScoreB = (int) round($pointsForB);
+
+            /*
+             * Si el redondeo vuelve a igualarlos -acumulados con decimales
+             * muy cerca- se separan por uno, del lado que gano. Nunca se
+             * devuelve un empate cuando ya hay ganador.
+             */
+            if ($engineScoreA === $engineScoreB) {
+
+                if ($pointsForA > $pointsForB) {
+                    $engineScoreA++;
+                } else {
+                    $engineScoreB++;
+                }
+            }
+        }
 
         return [
             'runtime' =>

@@ -4,6 +4,7 @@ namespace App\Services\Rewards;
 
 use App\Models\TournamentInstance;
 use App\Models\UniverseStatChange;
+use App\Models\UniverseTrophyAward;
 use App\Services\Games\GameRegistry;
 use Illuminate\Support\Collection;
 
@@ -55,6 +56,8 @@ class CompetitionAwardsService
 
         $permanent = $this->permanent($instance);
 
+        $trophies = $this->trophies($instance);
+
         $names =
             $instance->participants()
             ->get()
@@ -63,17 +66,23 @@ class CompetitionAwardsService
         return $temporary
             ->keys()
             ->merge($permanent->keys())
+            ->merge($trophies->keys())
             ->unique()
             ->map(
-                function ($entityId) use ($temporary, $permanent, $names) {
+                function ($entityId) use ($temporary, $permanent, $trophies, $names) {
 
                     $participant = $names->get($entityId);
 
                     return [
                         'universe_entity_id' => $entityId,
 
+                        /*
+                         * La columna es `name`. Con participant_name -que
+                         * no existe en esta tabla- todo el mundo salia
+                         * como "Competidor".
+                         */
                         'name' =>
-                        $participant?->participant_name
+                        $participant?->name
                             ?? $participant?->universeEntity?->display_label
                             ?? 'Competidor',
 
@@ -82,13 +91,16 @@ class CompetitionAwardsService
 
                         'temporary' => $temporary->get($entityId, collect())->values(),
                         'permanent' => $permanent->get($entityId, collect())->values(),
+                        'trophies' => $trophies->get($entityId, collect())->values(),
                     ];
                 }
             )
             /* Primero quien más se llevó */
             ->sortByDesc(
                 fn(array $row) =>
-                count($row['permanent']) * 100 + count($row['temporary'])
+                count($row['trophies']) * 10000
+                    + count($row['permanent']) * 100
+                    + count($row['temporary'])
             )
             ->values();
     }
@@ -202,6 +214,45 @@ class CompetitionAwardsService
 
                     'trophy' =>
                     $change->reward?->trophy?->name,
+                ]
+            )
+            ->groupBy('universe_entity_id');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Trofeos: lo que se enseña
+    |--------------------------------------------------------------------------
+    |
+    | Van aparte de las stats a proposito. Un trofeo no cambia como compite
+    | nadie -no sube un numero, no da ventaja-, pero es lo que queda de
+    | haber ganado, y hasta ahora solo se veia si la misma recompensa
+    | ademas tocaba una estadistica. Una recompensa que solo entrega copa
+    | no aparecia por ningun lado.
+    |
+    */
+
+    private function trophies(TournamentInstance $instance): Collection
+    {
+        return UniverseTrophyAward::query()
+            ->where('tournament_instance_id', $instance->id)
+            ->with('trophy')
+            ->orderBy('position')
+            ->get()
+            ->map(
+                fn(UniverseTrophyAward $award) => [
+
+                    'universe_entity_id' =>
+                    (int) $award->universe_entity_id,
+
+                    'name' =>
+                    $award->trophy?->name ?? 'Trofeo',
+
+                    'icon' =>
+                    $award->trophy?->display_icon ?? '🏆',
+
+                    'position' =>
+                    $award->position,
                 ]
             )
             ->groupBy('universe_entity_id');

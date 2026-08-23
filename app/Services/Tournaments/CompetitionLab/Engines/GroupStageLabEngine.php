@@ -554,17 +554,35 @@ implements LabPhaseEngine, SupportsManualDecision
                     $left['played']++;
                     $right['played']++;
 
-                    $left['score_for'] +=
-                        $match['score_a'];
+                    /*
+                     * A favor y en contra son los PUNTOS ANOTADOS, no los
+                     * enfrentamientos ganados.
+                     *
+                     * Aqui se sumaba score_a, que en una serie es cuantos
+                     * enfrentamientos gano ese lado: ganar 2-0 anotando
+                     * 5-1 y 4-3 contaba igual que ganar 2-0 anotando 9-0
+                     * y 8-1. La tabla ensenaba los puntos de verdad y el
+                     * corte se decidia con otra cosa, asi que el orden
+                     * que se veia podia contradecir a quien pasaba.
+                     *
+                     * Es el mismo arreglo que ya lleva Round Robin. Los
+                     * enfrentamientos ganados siguen contando aparte, en
+                     * game_wins / game_difference, que son sus propios
+                     * criterios de desempate.
+                     */
+                    [$scoredA, $scoredB] =
+                        $this->scoredPoints(
+                            $runtime,
+                            $match
+                        );
 
-                    $left['score_against'] +=
-                        $match['score_b'];
+                    $left['score_for'] += $scoredA;
 
-                    $right['score_for'] +=
-                        $match['score_b'];
+                    $left['score_against'] += $scoredB;
 
-                    $right['score_against'] +=
-                        $match['score_a'];
+                    $right['score_for'] += $scoredB;
+
+                    $right['score_against'] += $scoredA;
 
                     if (
                         $match['score_a']
@@ -1654,6 +1672,38 @@ implements LabPhaseEngine, SupportsManualDecision
         }
 
         return true;
+    }
+
+    /**
+     * Los puntos que anoto cada lado en la serie de este encuentro.
+     *
+     * MatchSeriesRuntime los acumula al cerrar cada enfrentamiento. Si no
+     * los hay -un juego que no lleva puntuacion, o una partida anterior a
+     * que se guardaran- se cae al marcador de la serie, para que siga
+     * ordenandose con algo en vez de con ceros.
+     *
+     * @return array{0: float, 1: float}
+     */
+    private function scoredPoints(array $runtime, array $match): array
+    {
+        $series = $runtime['series'][$match['id']] ?? null;
+
+        if (
+            is_array($series)
+            &&
+            array_key_exists('points_for_a', $series)
+        ) {
+
+            return [
+                (float) $series['points_for_a'],
+                (float) ($series['points_for_b'] ?? 0),
+            ];
+        }
+
+        return [
+            (float) $match['score_a'],
+            (float) $match['score_b'],
+        ];
     }
 
     private function gameMetrics(array $runtime, string $participantId): array

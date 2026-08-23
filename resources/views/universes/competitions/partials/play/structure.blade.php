@@ -353,9 +353,41 @@
 
                         @elseif ($tab['state'] === 'DONE')
 
-                            <p class="text-xs font-black text-amber-300">
-                                🏆 Fase final terminada · mira el resultado en la etapa 4
-                            </p>
+                            {{--
+                                La fase final terminó pero la competición
+                                todavía no está cerrada.
+
+                                Pasa cuando se juega la última batalla y se
+                                vuelve aquí sin dejar que el motor termine su
+                                recorrido: falta enrutar al campeón, así que
+                                no hay ni resultado ni premios. Antes esto
+                                solo decía "mira la etapa 4" y allí no había
+                                nada; ahora se puede cerrar desde aquí.
+                            --}}
+                            @if (! $competition->isClosed() && ! $readonly)
+
+                                <div class="flex flex-wrap items-center gap-3">
+
+                                    <p class="min-w-0 flex-1 text-[11px] text-slate-400">
+                                        Se jugó todo. Falta cerrar la competición para
+                                        proclamar al campeón y repartir los premios.
+                                    </p>
+
+                                    <button type="button" @click="openArena()" :disabled="loading"
+                                        class="shrink-0 rounded-xl bg-amber-500 px-5 py-2 text-[11px] font-black text-slate-950 transition hover:bg-amber-400 disabled:opacity-40">
+                                        🏆 Cerrar y repartir premios
+                                    </button>
+
+                                </div>
+
+                            @else
+
+                                <p class="text-xs font-black text-amber-300">
+                                    🏆 Competición terminada · el resultado está en la etapa 4
+                                    y los premios en la 5
+                                </p>
+
+                            @endif
 
                         @elseif ($tab['total'] > 0)
 

@@ -439,162 +439,37 @@ class TournamentInstanceController extends Controller
             ->keyBy('universe_entity_id');
 
         /*
-         * Mapa de batallas para que la interfaz pueda abrir cualquiera sin
-         * ir al servidor. Solo lectura: la batalla EN CURSO se pinta desde
-         * state.encounter, que es el Runtime en vivo.
-         */
-        $battleView =
-            app(\App\Services\Tournaments\Runtime\BattleViewService::class);
-
-        /*
-         * Miniaturas del catalogo.
+         * Indice ligero de batallas.
          *
-         * El snapshot congelado guarda los valores de atributo como texto
-         * ("boruto", "hoja") porque eso es lo que importa para competir.
-         * Para PINTARLOS se recupera el icono de la opcion del catalogo
-         * del usuario, que es material de presentacion, no competitivo.
+         * Aqui se construia el detalle COMPLETO de las 238 batallas
+         * -trofeos, atributos con icono, historial de duelos, valores de
+         * cada juego- para que la interfaz pudiera abrir cualquiera sin
+         * ir al servidor. Costaba ~5 s, ~1.900 consultas y 4 MB de HTML,
+         * y 237 de esas batallas no se abren nunca.
          *
-         * Si una opcion se renombro o se borro, el atributo se muestra
-         * como texto. Nunca se inventa una imagen.
+         * Ahora viaja solo lo justo para PINTAR la cabecera al pulsar; el
+         * detalle se pide a universes.competitions.battles.show. El coste
+         * pasa de "todas las batallas siempre" a "la que estas mirando".
          */
-        $optionThumbs =
-            \App\Models\AttributeOption::query()
-            ->whereHas(
-                'attribute',
-                fn($query) => $query->where('user_id', $universe->user_id)
-            )
-            ->get()
-            ->mapWithKeys(
-                fn($option) => [
-                    mb_strtolower(trim($option->name)) => [
-                        'image' => $option->image_url,
-                        'icon' => $option->icon,
-                        'color' => $option->color,
-                    ],
-                ]
-            );
-
         $battles =
             $competition->matches()
-            ->with([
-                'participantAEntity',
-                'participantBEntity',
+            ->get([
+                'runtime_match_id',
+                'label',
+                'round_number',
+                'group_label',
+                'status',
             ])
-            ->get()
             ->mapWithKeys(
-                function ($match) use ($competition, $battleView, $optionThumbs) {
+                fn($match) => [
 
-                    $data = $battleView->battle($competition, $match);
-
-                    return [
-                        $match->runtime_match_id => [
-
-                            'label' => $match->label,
-                            'round' => $match->round_number,
-                            'group' => $match->group_label,
-                            'status' => $match->status,
-
-                            'series' => $data['series'],
-
-                            'participants' =>
-                            $data['participants']
-                                ->map(
-                                    fn(array $participant) => [
-                                        'key' => $participant['key'],
-                                        'name' => $participant['name'],
-                                        'image' => $participant['image_url'],
-                                        'is_winner' => $participant['is_winner'],
-                                        'stats' => $participant['stats'],
-                                        'trophies' => $participant['trophies'],
-
-                                        /*
-                                         * Atributos congelados + su icono
-                                         * de catalogo cuando lo hay.
-                                         */
-                                        'attributes' =>
-                                        collect(
-                                            $participant['participant']?->attribute_snapshot ?? []
-                                        )
-                                            ->map(
-                                                function (array $attribute) use ($optionThumbs) {
-
-                                                    $key = mb_strtolower(
-                                                        trim((string) ($attribute['display'] ?? ''))
-                                                    );
-
-                                                    $thumb = $optionThumbs->get($key);
-
-                                                    return [
-                                                        'name' => $attribute['name'] ?? '',
-                                                        'display' => $attribute['display'] ?? '',
-                                                        'numeric' => $attribute['numeric'] ?? null,
-                                                        'image' => $thumb['image'] ?? null,
-                                                        'icon' => $thumb['icon'] ?? null,
-                                                    ];
-                                                }
-                                            )
-                                            ->values(),
-                                    ]
-                                )
-                                ->values(),
-
-                            'encounters' =>
-                            $data['encounters']
-                                ->map(
-                                    fn(array $encounter) => [
-                                        'number' => $encounter['number'],
-                                        'values' => $encounter['values'],
-                                        'summary' => $encounter['summary'],
-                                        'is_draw' => $encounter['is_draw'],
-                                        'is_tiebreak' => $encounter['is_tiebreak'] ?? false,
-                                    ]
-                                )
-                                ->values(),
-
-                            'head_to_head' =>
-                            $data['head_to_head']
-                                ? [
-                                    'total' => $data['head_to_head']['total'],
-                                    'left_wins' => $data['head_to_head']['left_wins'],
-                                    'right_wins' => $data['head_to_head']['right_wins'],
-
-                                    /*
-                                     * Los ultimos duelos, no solo el
-                                     * agregado: "gano Naruto, gano Sasuke,
-                                     * gano Naruto" cuenta una historia que
-                                     * un 2-1 no cuenta.
-                                     */
-                                    'recent' =>
-                                    collect($data['head_to_head']['matches'] ?? [])
-                                        ->take(5)
-                                        ->map(
-                                            fn($previous) => [
-                                                'competition' =>
-                                                $previous->tournamentInstance?->name,
-
-                                                'winner' =>
-                                                $previous->winner_key === $previous->participant_a_key
-                                                    ? $previous->participant_a_name
-                                                    : ($previous->winner_key === $previous->participant_b_key
-                                                        ? $previous->participant_b_name
-                                                        : null),
-
-                                                'score' =>
-                                                $previous->series
-                                                    ? implode('–', $previous->series_score)
-                                                    : null,
-
-                                                'is_draw' => (bool) $previous->is_draw,
-                                            ]
-                                        )
-                                        ->values(),
-                                ]
-                                : null,
-
-                            'is_playable' => $data['is_playable'],
-                        ],
-                    ];
-                }
+                    $match->runtime_match_id => [
+                        'label' => $match->label,
+                        'round' => $match->round_number,
+                        'group' => $match->group_label,
+                        'status' => $match->status,
+                    ],
+                ]
             );
 
         /*
@@ -832,6 +707,198 @@ class TournamentInstanceController extends Controller
     | Acción del motor
     |--------------------------------------------------------------------------
     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | El detalle de UNA batalla
+    |--------------------------------------------------------------------------
+    |
+    | Antes esto viajaba dentro de la pagina, multiplicado por todas las
+    | batallas de la competicion. Es material caro -trofeos, atributos con
+    | su icono de catalogo, historial de duelos, los valores de cada juego-
+    | y solo se mira de una cada vez, asi que se sirve cuando se pide.
+    |
+    */
+
+    public function battle(
+        Universe $universe,
+        TournamentInstance $competition,
+        string $battle
+    ): JsonResponse {
+
+        $this->authorize('view', $competition);
+
+        $match =
+            $competition->matches()
+            ->where('runtime_match_id', $battle)
+            ->with([
+                'participantAEntity',
+                'participantBEntity',
+            ])
+            ->firstOrFail();
+
+        return response()->json(
+            $this->battlePayload(
+                $competition,
+                $match,
+                $this->optionThumbs($universe)
+            )
+        );
+    }
+
+    /**
+     * Miniaturas del catalogo.
+     *
+     * El snapshot congelado guarda los valores de atributo como texto
+     * ("boruto", "hoja") porque eso es lo que importa para competir. Para
+     * PINTARLOS se recupera el icono de la opcion del catalogo del
+     * usuario, que es material de presentacion, no competitivo.
+     *
+     * Si una opcion se renombro o se borro, el atributo se muestra como
+     * texto. Nunca se inventa una imagen.
+     */
+    private function optionThumbs(
+        Universe $universe
+    ): \Illuminate\Support\Collection {
+
+        return \App\Models\AttributeOption::query()
+            ->whereHas(
+                'attribute',
+                fn($query) => $query->where('user_id', $universe->user_id)
+            )
+            ->get()
+            ->mapWithKeys(
+                fn($option) => [
+                    mb_strtolower(trim($option->name)) => [
+                        'image' => $option->image_url,
+                        'icon' => $option->icon,
+                        'color' => $option->color,
+                    ],
+                ]
+            );
+    }
+
+    /**
+     * Todo lo que la ventana de batalla necesita pintar.
+     */
+    private function battlePayload(
+        TournamentInstance $competition,
+        \App\Models\TournamentInstanceMatch $match,
+        \Illuminate\Support\Collection $optionThumbs
+    ): array {
+
+        $battleView =
+            app(\App\Services\Tournaments\Runtime\BattleViewService::class);
+
+        $data = $battleView->battle($competition, $match);
+
+        return [
+
+            'label' => $match->label,
+            'round' => $match->round_number,
+            'group' => $match->group_label,
+            'status' => $match->status,
+
+            'series' => $data['series'],
+
+            'participants' =>
+            $data['participants']
+                ->map(
+                    fn(array $participant) => [
+                        'key' => $participant['key'],
+                        'name' => $participant['name'],
+                        'image' => $participant['image_url'],
+                        'is_winner' => $participant['is_winner'],
+                        'stats' => $participant['stats'],
+                        'trophies' => $participant['trophies'],
+
+                        /*
+                         * Atributos congelados + su icono
+                         * de catalogo cuando lo hay.
+                         */
+                        'attributes' =>
+                        collect(
+                            $participant['participant']?->attribute_snapshot ?? []
+                        )
+                            ->map(
+                                function (array $attribute) use ($optionThumbs) {
+
+                                    $key = mb_strtolower(
+                                        trim((string) ($attribute['display'] ?? ''))
+                                    );
+
+                                    $thumb = $optionThumbs->get($key);
+
+                                    return [
+                                        'name' => $attribute['name'] ?? '',
+                                        'display' => $attribute['display'] ?? '',
+                                        'numeric' => $attribute['numeric'] ?? null,
+                                        'image' => $thumb['image'] ?? null,
+                                        'icon' => $thumb['icon'] ?? null,
+                                    ];
+                                }
+                            )
+                            ->values(),
+                    ]
+                )
+                ->values(),
+
+            'encounters' =>
+            $data['encounters']
+                ->map(
+                    fn(array $encounter) => [
+                        'number' => $encounter['number'],
+                        'values' => $encounter['values'],
+                        'summary' => $encounter['summary'],
+                        'is_draw' => $encounter['is_draw'],
+                        'is_tiebreak' => $encounter['is_tiebreak'] ?? false,
+                    ]
+                )
+                ->values(),
+
+            'head_to_head' =>
+            $data['head_to_head']
+                ? [
+                    'total' => $data['head_to_head']['total'],
+                    'left_wins' => $data['head_to_head']['left_wins'],
+                    'right_wins' => $data['head_to_head']['right_wins'],
+
+                    /*
+                     * Los ultimos duelos, no solo el
+                     * agregado: "gano Naruto, gano Sasuke,
+                     * gano Naruto" cuenta una historia que
+                     * un 2-1 no cuenta.
+                     */
+                    'recent' =>
+                    collect($data['head_to_head']['matches'] ?? [])
+                        ->take(5)
+                        ->map(
+                            fn($previous) => [
+                                'competition' =>
+                                $previous->tournamentInstance?->name,
+
+                                'winner' =>
+                                $previous->winner_key === $previous->participant_a_key
+                                    ? $previous->participant_a_name
+                                    : ($previous->winner_key === $previous->participant_b_key
+                                        ? $previous->participant_b_name
+                                        : null),
+
+                                'score' =>
+                                $previous->series
+                                    ? implode('–', $previous->series_score)
+                                    : null,
+
+                                'is_draw' => (bool) $previous->is_draw,
+                            ]
+                        )
+                        ->values(),
+                ]
+                : null,
+
+            'is_playable' => $data['is_playable'],
+        ];
+    }
 
     public function action(
         TournamentInstanceActionRequest $request,
