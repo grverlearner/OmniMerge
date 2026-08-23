@@ -14,6 +14,7 @@
         2 => ['n' => '02', 'label' => 'Estructura'],
         3 => ['n' => '03', 'label' => 'Batalla'],
         4 => ['n' => '04', 'label' => 'Resultado'],
+        5 => ['n' => '05', 'label' => 'Premios'],
     ];
 
     $initialStage = $competition->isDraft() ? 1 : 2;
@@ -124,6 +125,10 @@
 
             <div x-show="stage === 3" x-cloak class="h-full">
                 @include('universes.competitions.partials.play.battle')
+            </div>
+
+            <div x-show="stage === 5" x-cloak class="h-full">
+                @include('universes.competitions.partials.play.awards')
             </div>
 
             <div x-show="stage === 4" x-cloak class="h-full">

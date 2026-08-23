@@ -21,18 +21,65 @@
         {{-- Consecuencias del torneo (Fase 12) --}}
 
         <a href="{{ route('universes.tournaments.rewards', [$universe, $universeTournament]) }}"
-            class="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 transition hover:border-amber-300 hover:bg-amber-100">
+            class="group relative mt-4 block overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 p-[1.5px] shadow-lg shadow-amber-500/20 transition hover:shadow-xl hover:shadow-amber-500/30">
 
-            <span class="text-xl">🏆</span>
+            <span class="relative flex items-center gap-4 rounded-[22px] bg-white px-5 py-4 transition group-hover:bg-amber-50/40">
 
-            <div class="min-w-0 flex-1">
-                <p class="text-sm font-black text-amber-900">Recompensas y bonus</p>
-                <p class="text-xs text-amber-700">
-                    Qué se llevan los competidores al terminar, y qué ventajas hay durante el juego.
-                </p>
-            </div>
+                {{-- Halo decorativo --}}
+                <span class="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-amber-400/10 blur-2xl"></span>
 
-            <span class="text-sm font-black text-amber-700">→</span>
+                <span
+                    class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-2xl shadow-lg shadow-amber-600/30 transition group-hover:scale-105">
+                    🏆
+                </span>
+
+                <span class="relative min-w-0 flex-1">
+
+                    <span class="block text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">
+                        Consecuencias
+                    </span>
+
+                    <span class="mt-0.5 block text-base font-black text-slate-900">
+                        Recompensas y bonus
+                    </span>
+
+                    <span class="mt-1 block text-xs leading-relaxed text-slate-500">
+                        Qué se llevan los competidores al terminar, qué ventajas hay durante el juego,
+                        y sobre qué juego actúa cada una.
+                    </span>
+
+                    {{-- Lo que hay configurado, de un vistazo --}}
+                    <span class="mt-2.5 flex flex-wrap items-center gap-1.5">
+
+                        @php
+                            $totalRewards = $universeTournament->rewards()->count();
+                            $totalModifiers = $universeTournament->modifiers()->count();
+                        @endphp
+
+                        <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black text-amber-700">
+                            {{ $totalRewards }} {{ $totalRewards === 1 ? 'recompensa' : 'recompensas' }}
+                        </span>
+
+                        <span class="rounded-full bg-sky-100 px-2.5 py-0.5 text-[10px] font-black text-sky-700">
+                            {{ $totalModifiers }} {{ $totalModifiers === 1 ? 'bonus' : 'bonus' }}
+                        </span>
+
+                        @if ($totalRewards === 0 && $totalModifiers === 0)
+                            <span class="text-[10px] font-bold text-slate-400">
+                                · sin configurar todavía
+                            </span>
+                        @endif
+
+                    </span>
+
+                </span>
+
+                <span
+                    class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-sm font-black text-white transition group-hover:translate-x-0.5">
+                    →
+                </span>
+
+            </span>
 
         </a>
 

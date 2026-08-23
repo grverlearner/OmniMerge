@@ -16,6 +16,7 @@ use App\Services\Tournaments\Runtime\TournamentInstanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /*
@@ -679,6 +680,49 @@ class TournamentInstanceController extends Controller
                 );
         }
 
+        /*
+         * Puntos reales por fase (Fase 13).
+         *
+         * La clasificacion del motor solo sabe de victorias y derrotas.
+         * Esto anade lo que cada uno hizo y encajo de verdad, cuando el
+         * juego declara que sus tiradas cuentan como puntos.
+         */
+        $points = app(\App\Services\Tournaments\Runtime\PhasePointsService::class);
+
+        $tracksPoints = $points->tracksPoints($competition->game_key);
+
+        $pointsLabel = $points->label($competition->game_key);
+
+        $pointsByPhase = $tracksPoints
+            ? $phaseBlocks->mapWithKeys(
+                fn($block) => [
+                    (string) $block['phase']->node_id =>
+                    $points->forPhase($competition, (string) $block['phase']->node_id),
+                ]
+            )
+            : collect();
+
+        /*
+         * Donde esta el corte de clasificacion de cada fase (Fase 13).
+         * Mientras la fase se juega nadie es ADVANCED todavia, asi que sin
+         * esto no se distingue quien esta pasando de quien esta quedando
+         * fuera.
+         */
+        $qualification =
+            app(\App\Services\Tournaments\Runtime\PhaseQualificationService::class)
+            ->forInstance($competition);
+
+        /*
+         * Qué se ha llevado cada competidor (Fase 12).
+         *
+         * Los premios existían pero eran invisibles: un bonus solo se
+         * notaba como un número raro dentro de una batalla. Aquí se ven,
+         * y sobre todo se distingue lo que dura de lo que no.
+         */
+        $awards =
+            app(\App\Services\Rewards\CompetitionAwardsService::class)
+            ->forInstance($competition);
+
         $readonly =
             $competition->isClosed()
             || $competition->status === 'PAUSED';
@@ -697,8 +741,89 @@ class TournamentInstanceController extends Controller
                 'battles',
                 'bands',
                 'championRoute',
+                'tracksPoints',
+                'pointsLabel',
+                'pointsByPhase',
+                'qualification',
+                'awards',
                 'readonly'
             )
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ajustar a mano la stat de un competidor
+    |--------------------------------------------------------------------------
+    |
+    | Salta por encima de todo lo que normalmente explica un cambio: el
+    | torneo, la recompensa, la regla que lo justificaba. Por eso exige una
+    | confirmación explícita y se registra como MANUAL, para que dentro de
+    | seis meses se distinga de lo que alguien ganó jugando.
+    |
+    | Escribe donde escribe todo lo demás —universe_stat_changes y la stat
+    | del competidor— porque un ajuste manual que no dejara rastro sería
+    | precisamente lo que no se quiere.
+    |
+    */
+
+    public function adjust(
+        Request $request,
+        Universe $universe,
+        TournamentInstance $competition
+    ): RedirectResponse {
+
+        $this->authorize('update', $universe);
+
+        abort_unless(
+            $competition->universe_id === $universe->id,
+            404
+        );
+
+        $data = $request->validate([
+
+            'universe_entity_id' => [
+                'required',
+                Rule::exists('universe_entities', 'id')
+                    ->where('universe_id', $universe->id),
+            ],
+
+            'stat_key' => ['required', 'string', 'max:60'],
+
+            'operation' => [
+                'required',
+                Rule::in(array_keys(\App\Models\UniverseTournamentReward::OPERATIONS)),
+            ],
+
+            'amount' => ['required', 'numeric', 'between:-9999,9999'],
+
+            'reason' => ['nullable', 'string', 'max:150'],
+
+            'confirm' => ['accepted'],
+        ]);
+
+        $change =
+            app(\App\Services\Rewards\ManualStatAdjuster::class)
+            ->apply(
+                $competition,
+                (int) $data['universe_entity_id'],
+                $data['stat_key'],
+                $data['operation'],
+                (float) $data['amount'],
+                $data['reason'] ?? null
+            );
+
+        if ($change === null) {
+
+            return back()->withErrors([
+                'adjust' => 'Ese competidor no tiene esa estadística en el juego de la competición.',
+            ]);
+        }
+
+        return back()->with(
+            'success',
+            'Ajuste aplicado: ' . $change['stat_key'] . ' pasa de '
+                . $change['before'] . ' a ' . $change['after'] . '.'
         );
     }
 

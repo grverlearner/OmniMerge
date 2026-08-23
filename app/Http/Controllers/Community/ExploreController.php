@@ -1164,6 +1164,88 @@ class ExploreController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Copiar varias entidades de una vez
+    |--------------------------------------------------------------------------
+    |
+    | Copiar de una en una obliga a entrar en cada ficha y volver: para
+    | traerse un reparto entero eso son decenas de vueltas.
+    |
+    | Cada entidad pasa por las MISMAS comprobaciones que la copia
+    | individual —publica, activa, publicada, no tuya, clonacion
+    | permitida—. Lo que no cumple se salta y se cuenta, en vez de
+    | abortar el lote entero: que una entidad se haya despublicado no
+    | deberia impedirte copiar las otras diecinueve.
+    |
+    */
+
+    public function cloneEntities(
+        Request $request,
+        CommunityCloneService $service
+    ): RedirectResponse {
+
+        $data = $request->validate([
+            'entity_ids' => ['required', 'array', 'min:1', 'max:50'],
+            'entity_ids.*' => ['integer'],
+        ], [], [
+            'entity_ids' => 'entidades',
+        ]);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        $entities = Entity::query()
+            ->whereIn('id', $data['entity_ids'])
+            ->get();
+
+        $copiadas = 0;
+        $omitidas = [];
+
+        foreach ($entities as $entity) {
+
+            if (
+                $entity->visibility !== 'PUBLIC'
+                || $entity->status !== 'ACTIVE'
+                || ! $entity->published_at
+            ) {
+                $omitidas[] = $entity->name . ' (ya no es publica)';
+                continue;
+            }
+
+            if ($entity->user_id === $user->id) {
+                $omitidas[] = $entity->name . ' (ya es tuya)';
+                continue;
+            }
+
+            try {
+                $service->cloneEntity($entity, $user);
+                $copiadas++;
+            } catch (\Throwable $e) {
+                $omitidas[] = $entity->name . ' (su autor no permite copiarla)';
+            }
+        }
+
+        if ($copiadas === 0) {
+            return back()->withErrors([
+                'entity_ids' =>
+                'No se pudo copiar ninguna. ' . implode(' · ', $omitidas),
+            ]);
+        }
+
+        $mensaje = $copiadas === 1
+            ? 'Se copio 1 entidad a tu Biblioteca.'
+            : "Se copiaron {$copiadas} entidades a tu Biblioteca.";
+
+        if ($omitidas !== []) {
+            $mensaje .= ' Se omitieron ' . count($omitidas) . ': '
+                . implode(' · ', array_slice($omitidas, 0, 5))
+                . (count($omitidas) > 5 ? '…' : '');
+        }
+
+        return back()->with('success', $mensaje);
+    }
+
     public function cloneEntity(
         Request $request,
         Entity $entity,

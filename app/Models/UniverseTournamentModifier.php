@@ -28,6 +28,10 @@ class UniverseTournamentModifier extends Model
         'universe_tournament_id',
         'scope',
         'scope_value',
+        'award_phase',
+        'selector_type',
+        'selector_from',
+        'selector_to',
         'target',
         'universe_entity_id',
         'game_key',
@@ -42,6 +46,8 @@ class UniverseTournamentModifier extends Model
     {
         return [
             'amount' => 'float',
+            'selector_from' => 'integer',
+            'selector_to' => 'integer',
             'is_active' => 'boolean',
         ];
     }
@@ -55,7 +61,59 @@ class UniverseTournamentModifier extends Model
     public const TARGETS = [
         'ALL' => 'Todos los participantes',
         'ENTITY' => 'Un competidor concreto',
+
+        /*
+         * El unico que no se sabe de antemano: se resuelve cuando la fase
+         * termina y se concede a quien haya quedado arriba.
+         */
+        'PHASE_PODIUM' => 'El podio de una fase',
     ];
+
+    /*
+     * Que parte de la clasificacion se lo lleva. Mismo vocabulario que
+     * las puertas de salida: es el mismo corte sobre la misma tabla.
+     */
+    public const SELECTORS = [
+        'TOP_N' => 'Los N primeros',
+        'RANK_POSITION' => 'Un puesto exacto',
+        'RANK_RANGE' => 'Un rango de puestos',
+        'BOTTOM_N' => 'Los N últimos',
+    ];
+
+    /* Un bonus que hay que ganarselo jugando */
+    public function isEarned(): bool
+    {
+        return $this->target === 'PHASE_PODIUM';
+    }
+
+    /*
+     * Como se lee el corte. "del 3º al 4º" en vez de
+     * "RANK_RANGE 3 4".
+     */
+    public function getSelectorLabelAttribute(): string
+    {
+        $from = (int) $this->selector_from;
+        $to = (int) $this->selector_to;
+
+        return match ($this->selector_type) {
+
+            'RANK_POSITION' =>
+            'el ' . $from . 'º',
+
+            'RANK_RANGE' =>
+            'del ' . $from . 'º al ' . $to . 'º',
+
+            'BOTTOM_N' =>
+            $from === 1
+                ? 'el último'
+                : 'los ' . $from . ' últimos',
+
+            default =>
+            $from === 1
+                ? 'el 1º'
+                : 'los ' . $from . ' primeros',
+        };
+    }
 
     public function universeTournament(): BelongsTo
     {

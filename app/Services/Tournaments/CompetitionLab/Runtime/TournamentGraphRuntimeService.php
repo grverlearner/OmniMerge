@@ -1808,9 +1808,19 @@ class TournamentGraphRuntimeService
         return $state;
     }
 
+    /**
+     * Pasar al siguiente enfrentamiento de la batalla que se esta jugando.
+     *
+     * El match_id importa. Sin el, se preparaba "el primer encuentro
+     * pendiente de la fase", que en una liga o una fase de grupos casi
+     * nunca es la batalla que el usuario tiene abierta: el Runtime dejaba
+     * listo un enfrentamiento de OTRO partido, la ventana abierta se
+     * quedaba sin controles para generar, y solo recargando aparecia algo.
+     */
     public function advanceEncounter(
         array $state,
-        TournamentTemplate $template
+        TournamentTemplate $template,
+        ?string $matchId = null
     ): array {
 
         $this->requireRuntime($state);
@@ -1839,8 +1849,13 @@ class TournamentGraphRuntimeService
             );
 
         $target =
-            $this->pendingEncounterTarget($state);
+            $this->pendingEncounterTarget($state, $matchId);
 
+        /*
+         * Sin batalla que continuar no se abre otra por su cuenta: la
+         * serie pedida termino, y quien decide a donde ir es el usuario
+         * desde la estructura, no el motor eligiendo por el.
+         */
         if (! $target) {
             return $state;
         }
@@ -1903,6 +1918,13 @@ class TournamentGraphRuntimeService
                 $match
             );
 
+        [$pointsA, $pointsB] =
+            $this->encounterRuntime
+            ->encounterPoints(
+                $encounter,
+                $match
+            );
+
         $runtime =
             $this->engineManager
             ->submit(
@@ -1910,7 +1932,9 @@ class TournamentGraphRuntimeService
                 $runtime,
                 $match['id'],
                 $scoreA,
-                $scoreB
+                $scoreB,
+                $pointsA,
+                $pointsB
             );
 
         $state['nodes'][$nodeId]['runtime'] =
@@ -2172,7 +2196,13 @@ class TournamentGraphRuntimeService
                     $runtime,
                     $match['id'],
                     $scoreA,
-                    $scoreB
+                    $scoreB,
+                    ...(
+                        isset($state['encounter'])
+                        && ($state['encounter']['battle_key'] ?? null) === (string) $match['id']
+                            ? $this->encounterRuntime->encounterPoints($state['encounter'], $match)
+                            : [0.0, 0.0]
+                    )
                 );
             } else {
                 $runtime =
@@ -2226,6 +2256,10 @@ class TournamentGraphRuntimeService
          */
         $narration = null;
 
+        /* Puntos reales del enfrentamiento, si el juego los registra */
+        $pointsA = 0.0;
+        $pointsB = 0.0;
+
         if (
             $this->encounterRuntime
                 ->isPlayable($state, $match)
@@ -2248,6 +2282,15 @@ class TournamentGraphRuntimeService
                     $match
                 );
 
+            [
+                $pointsA,
+                $pointsB,
+            ] = $this->encounterRuntime
+                ->encounterPoints(
+                    $state['encounter'],
+                    $match
+                );
+
             $narration =
                 $state['encounter']['summary'] ?? null;
         } else {
@@ -2266,7 +2309,9 @@ class TournamentGraphRuntimeService
                 $runtime,
                 $match['id'],
                 $scoreA,
-                $scoreB
+                $scoreB,
+                $pointsA,
+                $pointsB
             );
 
         $state['nodes'][$nodeId]['runtime'] =

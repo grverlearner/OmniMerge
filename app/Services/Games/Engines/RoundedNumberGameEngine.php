@@ -6,24 +6,32 @@ use App\Services\Games\Contracts\GameEngine;
 
 /*
 |--------------------------------------------------------------------------
-| Highest Number
+| Rounded Number
 |--------------------------------------------------------------------------
 |
-| Primer juego de OmniMerge y referencia de cómo se escribe un engine.
+| La variante entera de Highest Number.
 |
-| Cada competidor tiene un rango propio. En cada enfrentamiento genera un
-| número dentro de ese rango y gana el número más alto.
+| Cada competidor genera un número dentro de su rango, igual que allí,
+| pero antes de comparar nada el resultado se REDONDEA: 3.2 vale 3, y 3.5
+| vale 4. Se compite con enteros.
 |
-| Es deliberadamente simple: su valor está en demostrar que el motor
-| funciona de punta a punta, no en la profundidad del juego.
+| Por qué es un juego distinto y no una opción de Highest Number
+| --------------------------------------------------------------
+| Porque cambia lo que significa competir. Con decimales el empate es casi
+| imposible y el rango premia la precisión; con enteros los empates son
+| frecuentes y buscados, y un rango de 0–3 solo tiene cuatro resultados
+| posibles. Son dos juegos con estrategias distintas, y cada competidor
+| lleva sus propias estadísticas en cada uno.
+|
+| Añadir este engine al registro es todo lo que hace falta: aparece solo
+| en el catálogo, en la ficha del competidor, en el simulador y en la
+| elección de juego de cada torneo.
 |
 */
 
-class HighestNumberGameEngine implements GameEngine
+class RoundedNumberGameEngine implements GameEngine
 {
-    public const KEY = 'HIGHEST_NUMBER';
-
-    private const DECIMALS = 2;
+    public const KEY = 'ROUNDED_NUMBER';
 
     public function definition(): array
     {
@@ -33,34 +41,32 @@ class HighestNumberGameEngine implements GameEngine
             self::KEY,
 
             'name' =>
-            'Highest Number',
+            'Rounded Number',
 
             'tagline' =>
-            'Cada participante genera un número dentro de su rango. Gana el más alto.',
+            'Como Highest Number, pero el resultado se redondea a entero antes de comparar.',
 
             'description' =>
-            'El juego más directo de OmniMerge. Cada competidor tiene un rango '
-                . 'propio que define de qué es capaz: un rango alto y estrecho es '
-                . 'un competidor fiable, uno amplio es impredecible. En cada '
-                . 'enfrentamiento cada participante saca un número dentro de su '
-                . 'rango y el más alto gana.',
+            'Cada competidor genera un número dentro de su rango y ese número '
+                . 'se redondea al entero más cercano: 3.2 vale 3, 3.5 vale 4. '
+                . 'Se compite con enteros, así que los empates son frecuentes y '
+                . 'un rango estrecho pesa mucho más que en Highest Number.',
 
             'icon' =>
-            '🔢',
+            '🎯',
 
             'accent' =>
-            'emerald',
+            'amber',
 
             'type' =>
             'NUMERIC',
 
             'type_label' =>
-            'Numérico',
+            'Numérico entero',
 
             'minimum_participants' =>
             2,
 
-            /* Sin techo: soporta A vs B vs C vs D y más. */
             'maximum_participants' =>
             null,
 
@@ -71,16 +77,17 @@ class HighestNumberGameEngine implements GameEngine
             'Todos en el mismo enfrentamiento',
 
             'win_condition' =>
-            'Gana quien saque el número más alto del enfrentamiento.',
+            'Gana quien saque el entero más alto del enfrentamiento.',
 
             'tiebreak' =>
-            'Si dos competidores empatan en el número más alto, se repite la '
-                . 'tirada solo entre ellos.',
+            'Los empates son habituales al competir con enteros. Si el primer '
+                . 'puesto queda empatado, los implicados repiten la tirada.',
 
             /*
-             * Con decimales el empate es rarisimo, pero posible. Si se
-             * queda en empate o se repite la tirada lo decide la FASE: una
-             * liga admite empates y una eliminacion directa no.
+             * Compitiendo con enteros el empate es frecuente y legitimo:
+             * es parte del juego, no un accidente. Si se queda en empate o
+             * se repite la tirada lo decide la FASE, no el juego: una liga
+             * admite empates y una eliminacion directa no.
              */
             'allows_draws' =>
             true,
@@ -107,50 +114,42 @@ class HighestNumberGameEngine implements GameEngine
 
                 'Cada competidor tiene un rango propio: un valor mínimo y uno máximo.',
 
-                'En cada enfrentamiento genera un número al azar dentro de ese rango.',
+                'Genera un número al azar dentro de ese rango.',
 
-                'El número más alto gana el enfrentamiento.',
+                'Ese número se redondea al entero más cercano antes de comparar.',
+
+                'Gana el entero más alto.',
 
                 'Si hay empate en el primer puesto, los empatados repiten la tirada.',
 
-                'El formato de la batalla (BO1, BO3, BO5…) decide cuántos '
-                    . 'enfrentamientos hacen falta para ganarla.',
+                'El formato de la batalla decide cuántos enfrentamientos hacen falta.',
             ],
 
-            /*
-             * Esquema de estadísticas. La ficha del competidor y sus
-             * formularios se dibujan desde aquí: otro juego declarará
-             * fuerza, velocidad o lo que necesite, sin tocar las vistas.
-             */
             'stats' => [
 
                 [
                     'key' => 'min_value',
                     'label' => 'Rango mínimo',
-                    'help' => 'Lo peor que puede sacar este competidor.',
+                    'help' => 'Lo peor que puede sacar antes de redondear.',
                     'type' => 'decimal',
                     'min' => 0,
                     'max' => 9999,
                     'step' => 0.1,
-                    'default' => 1.0,
+                    'default' => 0.0,
                 ],
 
                 [
                     'key' => 'max_value',
                     'label' => 'Rango máximo',
-                    'help' => 'Su techo. Debe ser mayor que el mínimo.',
+                    'help' => 'Su techo antes de redondear. Debe ser mayor que el mínimo.',
                     'type' => 'decimal',
                     'min' => 0,
                     'max' => 9999,
                     'step' => 0.1,
-                    'default' => 10.0,
+                    'default' => 3.0,
                 ],
             ],
 
-            /*
-             * Controles que el simulador debe ofrecer. La pantalla no sabe
-             * qué es Highest Number: solo lee esto.
-             */
             'controls' => [
 
                 'per_participant' => true,
@@ -158,7 +157,7 @@ class HighestNumberGameEngine implements GameEngine
 
                 'roll_label' => 'Generar',
                 'all_label' => 'Generar todos',
-                'value_label' => 'Número',
+                'value_label' => 'Entero',
                 'pending_label' => '?',
             ],
         ];
@@ -167,40 +166,29 @@ class HighestNumberGameEngine implements GameEngine
     public function defaultStats(array $context = []): array
     {
         return [
-            'min_value' => 1.0,
-            'max_value' => 10.0,
+            'min_value' => 0.0,
+            'max_value' => 3.0,
         ];
     }
 
     public function normalizeStats(array $stats): array
     {
-        $minimum =
-            $this->decimal(
-                $stats['min_value'] ?? 1.0
-            );
-
-        $maximum =
-            $this->decimal(
-                $stats['max_value'] ?? 10.0
-            );
+        $minimum = round((float) ($stats['min_value'] ?? 0.0), 2);
+        $maximum = round((float) ($stats['max_value'] ?? 3.0), 2);
 
         $minimum = max(0.0, min(9999.0, $minimum));
         $maximum = max(0.0, min(9999.0, $maximum));
 
-        /*
-         * Un rango invertido es un error de captura, no un competidor
-         * inválido: se endereza en vez de rechazarlo.
-         */
         if ($maximum < $minimum) {
             [$minimum, $maximum] = [$maximum, $minimum];
         }
 
         /*
-         * Un rango de amplitud cero convertiría cada enfrentamiento en un
-         * empate perpetuo. Se le da el mínimo margen jugable.
+         * Un rango de amplitud cero convertiria cada enfrentamiento en el
+         * mismo entero siempre. Se le da el minimo margen jugable.
          */
         if ($maximum === $minimum) {
-            $maximum = min(9999.0, $minimum + 0.1);
+            $maximum = min(9999.0, $minimum + 0.5);
         }
 
         return [
@@ -216,28 +204,27 @@ class HighestNumberGameEngine implements GameEngine
                 $participant['stats'] ?? []
             );
 
-        $factor =
-            10 ** self::DECIMALS;
-
-        $value =
+        /*
+         * Se genera con dos decimales y DESPUES se redondea, que es lo que
+         * distingue a este juego: el valor con el que se compite es el
+         * entero, pero de donde sale importa.
+         */
+        $raw =
             random_int(
-                (int) round($stats['min_value'] * $factor),
-                (int) round($stats['max_value'] * $factor)
+                (int) round($stats['min_value'] * 100),
+                (int) round($stats['max_value'] * 100)
             )
-            / $factor;
+            / 100;
+
+        $rounded = (int) round($raw);
 
         return [
 
             'value' =>
-            (float) $value,
+            (float) $rounded,
 
             'display' =>
-            number_format(
-                $value,
-                self::DECIMALS,
-                '.',
-                ''
-            ),
+            (string) $rounded,
 
             'detail' => [
 
@@ -245,6 +232,10 @@ class HighestNumberGameEngine implements GameEngine
                 number_format($stats['min_value'], 1, '.', '')
                     . ' – '
                     . number_format($stats['max_value'], 1, '.', ''),
+
+                /* De donde salio el entero: util para entender el resultado */
+                'raw' =>
+                number_format($raw, 2, '.', ''),
             ],
 
             'stats_used' =>
@@ -258,9 +249,7 @@ class HighestNumberGameEngine implements GameEngine
             collect($rolls)
             ->map(
                 fn(array $roll) =>
-                $roll + [
-                    'value' => (float) ($roll['value'] ?? 0),
-                ]
+                $roll + ['value' => (float) ($roll['value'] ?? 0)]
             )
             ->sortByDesc('value')
             ->values();
@@ -276,25 +265,17 @@ class HighestNumberGameEngine implements GameEngine
             ];
         }
 
-        $best =
-            (float) $ranking->first()['value'];
+        $best = (float) $ranking->first()['value'];
 
         $tied =
             $ranking
-            ->filter(
-                fn(array $roll) =>
-                (float) $roll['value'] === $best
-            )
+            ->filter(fn(array $roll) => (float) $roll['value'] === $best)
             ->pluck('id')
             ->all();
 
-        $isDraw =
-            count($tied) > 1;
+        $isDraw = count($tied) > 1;
 
-        /*
-         * La posición empatada se comparte: dos primeros hacen que el
-         * siguiente sea tercero, no segundo.
-         */
+        /* Posiciones compartidas: dos primeros hacen tercero al siguiente */
         $position = 0;
         $seen = 0;
         $previous = null;
@@ -311,46 +292,28 @@ class HighestNumberGameEngine implements GameEngine
                         $previous = (float) $roll['value'];
                     }
 
-                    return $roll + [
-                        'position' => $position,
-                    ];
+                    return $roll + ['position' => $position];
                 }
             )
             ->all();
 
         return [
 
-            'ranking' =>
-            $ranked,
+            'ranking' => $ranked,
 
             'winner_id' =>
-            $isDraw
-                ? null
-                : ($ranking->first()['id'] ?? null),
+            $isDraw ? null : ($ranking->first()['id'] ?? null),
 
             'tied_ids' =>
-            $isDraw
-                ? $tied
-                : [],
+            $isDraw ? $tied : [],
 
-            'is_draw' =>
-            $isDraw,
+            'is_draw' => $isDraw,
 
             'summary' =>
             $isDraw
-                ? 'Empate en ' . number_format($best, self::DECIMALS, '.', '') . '.'
+                ? 'Empate a ' . (int) $best . '.'
                 : ($ranking->first()['name'] ?? 'El líder')
-                    . ' saca '
-                    . number_format($best, self::DECIMALS, '.', '')
-                    . '.',
+                    . ' saca ' . (int) $best . '.',
         ];
-    }
-
-    private function decimal(mixed $value): float
-    {
-        return round(
-            (float) $value,
-            self::DECIMALS
-        );
     }
 }

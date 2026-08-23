@@ -243,38 +243,127 @@
 
         <div class="space-y-6">
 
-            {{-- ESTADÍSTICAS QUE USA --}}
+            {{-- ============================================ --}}
+            {{-- CÓMO ENTRA UN COMPETIDOR EN ESTE UNIVERSO --}}
+            {{-- ============================================ --}}
+            {{--
+                El motor declara QUÉ estadísticas existen y en qué rango
+                absoluto tienen sentido. El Universo decide, dentro de eso,
+                con qué valores entra alguien nuevo y hasta dónde puede
+                llegar en este mundo.
+            --}}
 
-            <div class="rounded-3xl border border-slate-200 bg-white p-6">
+            <form method="POST"
+                action="{{ route('universes.games.configuration', [$universe, $definition['key']]) }}"
+                class="rounded-3xl border border-slate-200 bg-white p-6">
 
-                <h3 class="text-base font-black text-slate-900">Estadísticas que usa</h3>
+                @csrf
+                @method('PUT')
+
+                <h3 class="text-base font-black text-slate-900">
+                    Estadísticas y valores de partida
+                </h3>
 
                 <p class="mt-1.5 text-xs leading-relaxed text-slate-500">
-                    Cada competidor del Universo tiene las suyas. No son atributos de
-                    la Biblioteca: viven aquí.
+                    Con qué entra un competidor nuevo en <strong class="font-black text-slate-700">{{ $universe->name }}</strong>,
+                    y hasta dónde puede llegar aquí. No son atributos de la Biblioteca: viven en el Universo.
                 </p>
 
-                <div class="mt-4 space-y-2.5">
+                <div class="mt-5 space-y-4">
 
-                    @foreach ($definition['stats'] as $stat)
+                    @foreach ($configuration->stats() as $stat)
 
-                        <div class="rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
 
                             <div class="flex items-center gap-2">
                                 <span class="h-1.5 w-1.5 rounded-full {{ $skin['dot'] }}"></span>
                                 <p class="text-sm font-black text-slate-900">{{ $stat['label'] }}</p>
+
+                                @if ($stat['is_customised'])
+                                    <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black text-amber-700">
+                                        Ajustado
+                                    </span>
+                                @endif
                             </div>
 
-                            @if (!empty($stat['help']))
+                            @if ($stat['help'])
                                 <p class="mt-1 pl-3.5 text-xs text-slate-500">{{ $stat['help'] }}</p>
                             @endif
+
+                            <div class="mt-3 grid grid-cols-3 gap-2">
+
+                                <div>
+                                    <label class="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                                        Al entrar
+                                    </label>
+                                    <input type="number" step="{{ $stat['step'] }}"
+                                        name="stats[{{ $stat['key'] }}][default]"
+                                        value="{{ rtrim(rtrim(number_format($stat['default'], 2, '.', ''), '0'), '.') }}"
+                                        class="mt-1 w-full rounded-lg border-slate-300 text-xs focus:border-emerald-400 focus:ring-emerald-400">
+                                </div>
+
+                                <div>
+                                    <label class="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                                        Mínimo
+                                    </label>
+                                    <input type="number" step="{{ $stat['step'] }}"
+                                        name="stats[{{ $stat['key'] }}][min]"
+                                        value="{{ rtrim(rtrim(number_format($stat['min'], 2, '.', ''), '0'), '.') }}"
+                                        class="mt-1 w-full rounded-lg border-slate-300 text-xs focus:border-emerald-400 focus:ring-emerald-400">
+                                </div>
+
+                                <div>
+                                    <label class="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                                        Máximo
+                                    </label>
+                                    <input type="number" step="{{ $stat['step'] }}"
+                                        name="stats[{{ $stat['key'] }}][max]"
+                                        value="{{ rtrim(rtrim(number_format($stat['max'], 2, '.', ''), '0'), '.') }}"
+                                        class="mt-1 w-full rounded-lg border-slate-300 text-xs focus:border-emerald-400 focus:ring-emerald-400">
+                                </div>
+
+                            </div>
+
+                            <p class="mt-2 text-[10px] text-slate-400">
+                                El juego admite de {{ rtrim(rtrim(number_format($stat['engine_min'], 2, '.', ''), '0'), '.') }}
+                                a {{ rtrim(rtrim(number_format($stat['engine_max'], 2, '.', ''), '0'), '.') }}.
+                                Fuera de ese rango se recorta solo.
+                            </p>
 
                         </div>
                     @endforeach
 
                 </div>
 
-            </div>
+
+                {{-- APLICAR A LOS QUE YA ESTABAN --}}
+
+                @if ($sinTocar > 0)
+                    <label class="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+
+                        <input type="checkbox" name="apply_to_existing" value="1"
+                            class="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500">
+
+                        <span>
+                            <span class="block text-xs font-black text-amber-900">
+                                Reajustar a los {{ $sinTocar }} competidores que ya están
+                            </span>
+                            <span class="mt-1 block text-[11px] leading-relaxed text-amber-800">
+                                Sin marcar, esto solo afecta a quien entre a partir de ahora.
+                                Marcado, <strong class="font-black">se les reescriben las estadísticas</strong>
+                                y se pierde lo que hayan ganado con recompensas.
+                            </span>
+                        </span>
+
+                    </label>
+                @endif
+
+
+                <button class="mt-4 w-full rounded-xl bg-slate-950 px-5 py-3 text-xs font-black text-white transition hover:bg-slate-800">
+                    Guardar configuración
+                </button>
+
+            </form>
 
 
             {{-- QUIÉN DESTACA --}}

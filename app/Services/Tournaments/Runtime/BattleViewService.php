@@ -245,6 +245,16 @@ class BattleViewService
                                     'key' => $participant->participant_key,
                                     'name' => $participant->name,
                                     'display' => $participant->display_value,
+
+                                    /*
+                                     * El decimal del que salio el entero
+                                     * en Rounded Number. Vacio en los
+                                     * juegos donde el valor se explica
+                                     * solo, y en enfrentamientos
+                                     * anteriores a que se guardara.
+                                     */
+                                    'raw' => $participant->detail['raw'] ?? null,
+
                                     'position' => $participant->position,
                                     'is_winner' => $participant->is_winner,
                                 ]

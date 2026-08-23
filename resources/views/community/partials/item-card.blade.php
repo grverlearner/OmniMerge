@@ -115,12 +115,25 @@
     }
 
     $isOwner = !$isCreator && $item->user_id === auth()->id();
+
+    /*
+     * Solo las entidades ajenas entran en la seleccion multiple: copiar
+     * las tuyas no tiene sentido y el backend las rechazaria igualmente.
+     */
+    $selectable = $itemType === 'entity' && ! $isOwner;
 @endphp
 
 
 <article
+    @if ($selectable) data-selectable-entity="{{ $item->id }}" @endif
+    @if ($selectable)
+        :class="selecting && isSelected({{ $item->id }})
+            ? 'ring-2 ring-indigo-500 ring-offset-2'
+            : ''"
+    @endif
     class="
         group
+        relative
         min-w-0
         overflow-hidden
         rounded-3xl
@@ -134,8 +147,26 @@
         hover:shadow-xl
     ">
 
+    {{-- CASILLA DE SELECCION --}}
+
+    @if ($selectable)
+        <button type="button" x-show="selecting" x-cloak
+            @click.prevent.stop="toggleSelected({{ $item->id }})"
+            class="absolute left-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-lg border-2 shadow-lg transition"
+            :class="isSelected({{ $item->id }})
+                ? 'border-indigo-600 bg-indigo-600 text-white'
+                : 'border-white bg-white/95 text-transparent hover:border-indigo-400'">
+            <span class="text-sm font-black">✓</span>
+        </button>
+    @endif
+
+
     {{-- VISUAL --}}
-    <a href="{{ $detailUrl }}" class="block">
+    <a href="{{ $detailUrl }}"
+        @if ($selectable)
+            @click="selecting ? ($event.preventDefault(), toggleSelected({{ $item->id }})) : null"
+        @endif
+        class="block">
 
         <div class="
                 relative

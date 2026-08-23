@@ -34,6 +34,20 @@ export default function competitionArena(config) {
         selectedBattle: null,
 
         /*
+         * Dialogo de ajuste manual de stats.
+         *
+         * Vive aqui y no en la vista porque tocar una stat guardada es un
+         * cambio permanente: el estado arranca sin confirmar y se
+         * reinicia en cada apertura, para que la casilla marcada de la
+         * vez anterior nunca herede a la siguiente.
+         */
+        adjust: { open: false, entityId: null, name: '', confirmed: false },
+
+        openAdjust(entityId, name) {
+            this.adjust = { open: true, entityId, name, confirmed: false };
+        },
+
+        /*
          * Enfrentamientos resueltos durante ESTA sesion, por batalla.
          *
          * Hace falta porque al avanzar al siguiente el Runtime limpia
@@ -216,6 +230,17 @@ export default function competitionArena(config) {
 
             return this.execute('ADVANCE_ENCOUNTER', {
                 match_id: this.selectedBattle,
+            }).then(() => {
+                /*
+                 * Si el motor no dejo listo el siguiente enfrentamiento de
+                 * ESTA batalla, quedarse aqui seria dejar la pantalla sin
+                 * controles y sin explicacion —que es justo el sintoma que
+                 * se arreglo en el servidor—. Se vuelve a la estructura,
+                 * que si sabe representar lo que ha pasado.
+                 */
+                if (!this.error && !this.hasLiveEncounter) {
+                    this.backToStructure();
+                }
             });
         },
     };

@@ -137,6 +137,14 @@ class GameEncounterRecorder
 
                 'stats_used' =>
                 $participant['stats_used'] ?? null,
+
+                /*
+                 * Lo que el engine quiso contar de esta tirada. En Rounded
+                 * Number es el decimal del que salio el entero, y sin el
+                 * un empate a 3 no se distingue de otro.
+                 */
+                'detail' =>
+                ($participant['detail'] ?? null) ?: null,
             ]);
         }
     }

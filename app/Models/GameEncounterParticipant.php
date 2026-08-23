@@ -33,6 +33,7 @@ class GameEncounterParticipant extends Model
         'position',
         'is_winner',
         'stats_used',
+        'detail',
     ];
 
     protected function casts(): array
@@ -42,6 +43,7 @@ class GameEncounterParticipant extends Model
             'position' => 'integer',
             'is_winner' => 'boolean',
             'stats_used' => 'array',
+            'detail' => 'array',
         ];
     }
 

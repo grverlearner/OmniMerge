@@ -58,7 +58,10 @@ class TournamentInstanceRuntimeService
 
         /* Fase 12 */
         private readonly
-        \App\Services\Rewards\RewardProcessor $rewards
+        \App\Services\Rewards\RewardProcessor $rewards,
+
+        private readonly
+        \App\Services\Rewards\PhaseBonusGranter $phaseBonuses
     ) {}
 
     /*
@@ -203,6 +206,20 @@ class TournamentInstanceRuntimeService
                         $instance,
                         $state
                     );
+
+                /*
+                 * Bonos que se ganan jugando (Fase 12).
+                 *
+                 * Va aqui, entre el motor y el guardado, porque una fase
+                 * puede haber terminado en ESTA misma accion: el podio se
+                 * concede en el mismo movimiento que lo decide, y cuando
+                 * el jugador abre la fase siguiente el bonus ya esta
+                 * puesto. Es idempotente, asi que llamarlo en cada accion
+                 * no concede nada dos veces.
+                 */
+                $state =
+                    $this->phaseBonuses
+                    ->grant($state);
 
                 $state['updated_at'] =
                     now()->toIso8601String();

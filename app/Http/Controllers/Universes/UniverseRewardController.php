@@ -10,6 +10,7 @@ use App\Models\UniverseTournamentModifier;
 use App\Models\UniverseTournamentReward;
 use App\Services\Games\GameRegistry;
 use App\Services\Games\UniverseGameService;
+use App\Services\Rewards\PhaseBonusGranter;
 use App\Services\Rewards\RewardProcessor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,7 +42,8 @@ class UniverseRewardController extends Controller
     public function __construct(
         private readonly GameRegistry $registry,
         private readonly UniverseGameService $games,
-        private readonly RewardProcessor $processor
+        private readonly RewardProcessor $processor,
+        private readonly PhaseBonusGranter $phaseBonuses
     ) {}
 
     public function index(
@@ -58,6 +60,39 @@ class UniverseRewardController extends Controller
         $definition =
             $this->registry->definition($gameKey);
 
+        /*
+         * Todos los juegos habilitados en el Universo, no solo el del
+         * torneo.
+         *
+         * Cada juego tiene sus propias estadisticas, asi que una
+         * recompensa de "+0.5 max_value" solo significa algo dentro del
+         * juego que declara esa stat. Poder elegir el juego permite, por
+         * ejemplo, que un mismo torneo premie en Highest Number aunque se
+         * juegue a Rounded Number.
+         */
+        $availableGames =
+            $this->games->enabled($universe)
+            ->map(
+                fn($game) => $this->registry->definition($game->game_key)
+            )
+            ->values();
+
+        /* Esquema de stats por juego, para que el formulario cambie solo */
+        $statsByGame =
+            $availableGames
+            ->mapWithKeys(
+                fn(array $game) => [
+                    $game['key'] => collect($game['stats'] ?? [])
+                        ->map(
+                            fn(array $stat) => [
+                                'key' => $stat['key'],
+                                'label' => $stat['label'] ?? $stat['key'],
+                            ]
+                        )
+                        ->values(),
+                ]
+            );
+
         $rewards =
             $universeTournament->rewards()
             ->with('trophy')
@@ -71,6 +106,57 @@ class UniverseRewardController extends Controller
             ->orderBy('scope')
             ->get();
 
+        /*
+         * Las fases del recorrido, para elegirlas de una lista en vez de
+         * escribir el nombre a mano y fallar por una tilde.
+         *
+         * El nombre es la clave real: es con lo que compara el runtime,
+         * porque el estado congelado no conoce ids de plantilla.
+         */
+        $phases =
+            $universeTournament
+            ->tournamentTemplate
+            ?->graphNodes()
+            ->with('phaseTemplate')
+            ->get()
+            ->map(
+                fn($node) => [
+                    'name' => $node->name ?: ($node->phaseTemplate?->name ?? $node->code),
+                    'type' => $node->phaseTemplate?->type_label ?? '',
+                ]
+            )
+            ->filter(fn($phase) => (string) $phase['name'] !== '')
+            ->values()
+            ?? collect();
+
+        /*
+         * Las rondas que EXISTEN de verdad.
+         *
+         * No se calculan de la plantilla —cuántas jornadas tiene una liga
+         * depende de cuántos entren— sino que se leen de la última edición
+         * jugada. Si el torneo no se ha jugado nunca no hay lista que
+         * ofrecer, y el formulario lo dice en vez de inventar números.
+         */
+        $lastEdition =
+            $universeTournament->instances()
+            ->whereHas('matches')
+            ->latest('id')
+            ->first();
+
+        $rounds =
+            $lastEdition
+            ? $lastEdition->matches()
+                ->whereNotNull('round_number')
+                ->get(['round_number', 'node_id'])
+                ->groupBy('round_number')
+                ->map(fn($group, $number) => [
+                    'number' => (int) $number,
+                    'phases' => $group->pluck('node_id')->unique()->count(),
+                ])
+                ->sortKeys()
+                ->values()
+            : collect();
+
         $trophies =
             $universe->trophies()
             ->orderBy('name')
@@ -80,6 +166,17 @@ class UniverseRewardController extends Controller
             $universe->entities()
             ->where('status', 'ACTIVE')
             ->orderBy('name')
+            ->get();
+
+        /*
+         * Competiciones vivas: son las únicas a las que tiene sentido
+         * llevarles una regla nueva.
+         */
+        $running =
+            $universeTournament->instances()
+            ->whereIn('status', ['DRAFT', 'RUNNING', 'PAUSED'])
+            ->with('season')
+            ->latest('id')
             ->get();
 
         /* Ediciones ya jugadas, para poder reprocesarlas */
@@ -96,8 +193,13 @@ class UniverseRewardController extends Controller
                 'universe',
                 'universeTournament',
                 'definition',
+                'availableGames',
+                'statsByGame',
                 'rewards',
                 'modifiers',
+                'phases',
+                'rounds',
+                'running',
                 'trophies',
                 'entities',
                 'editions'
@@ -125,6 +227,11 @@ class UniverseRewardController extends Controller
 
         $data = $request->validate([
 
+            'game_key' => [
+                'nullable',
+                Rule::in($this->registry->keys()),
+            ],
+
             'trigger' => [
                 'required',
                 Rule::in(array_keys(UniverseTournamentReward::TRIGGERS)),
@@ -139,7 +246,7 @@ class UniverseRewardController extends Controller
              */
             'stat_key' => [
                 'nullable',
-                Rule::in($this->statKeys($gameKey)),
+                Rule::in($this->statKeys($this->chosenGame($request, $gameKey))),
             ],
 
             'operation' => [
@@ -185,7 +292,10 @@ class UniverseRewardController extends Controller
         }
 
         $universeTournament->rewards()->create(
-            $data + ['game_key' => $gameKey, 'is_active' => true]
+            $data + [
+                'game_key' => $this->chosenGame($request, $gameKey),
+                'is_active' => true,
+            ]
         );
 
         return back()->with(
@@ -236,12 +346,28 @@ class UniverseRewardController extends Controller
 
         $data = $request->validate([
 
+            'game_key' => [
+                'nullable',
+                Rule::in($this->registry->keys()),
+            ],
+
             'scope' => [
                 'required',
                 Rule::in(array_keys(UniverseTournamentModifier::SCOPES)),
             ],
 
             'scope_value' => ['nullable', 'string', 'max:120'],
+
+            /* Solo para un bonus que hay que ganarse jugando */
+            'award_phase' => ['nullable', 'string', 'max:120'],
+
+            'selector_type' => [
+                'nullable',
+                Rule::in(array_keys(UniverseTournamentModifier::SELECTORS)),
+            ],
+
+            'selector_from' => ['nullable', 'integer', 'between:1,999'],
+            'selector_to' => ['nullable', 'integer', 'between:1,999'],
 
             'target' => [
                 'required',
@@ -256,7 +382,7 @@ class UniverseRewardController extends Controller
 
             'stat_key' => [
                 'required',
-                Rule::in($this->statKeys($gameKey)),
+                Rule::in($this->statKeys($this->chosenGame($request, $gameKey))),
             ],
 
             'operation' => [
@@ -280,6 +406,50 @@ class UniverseRewardController extends Controller
                 ]);
         }
 
+        if ($data['target'] === 'PHASE_PODIUM') {
+
+            $data['selector_type'] = $data['selector_type'] ?: 'TOP_N';
+            $data['selector_from'] = (int) ($data['selector_from'] ?? 0);
+
+            if ($data['selector_from'] < 1) {
+
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'selector_from' => 'Indica de qué puesto hablamos.',
+                    ]);
+            }
+
+            if ($data['selector_type'] === 'RANK_RANGE') {
+
+                $data['selector_to'] = (int) ($data['selector_to'] ?? 0);
+
+                if ($data['selector_to'] < $data['selector_from']) {
+
+                    return back()
+                        ->withInput()
+                        ->withErrors([
+                            'selector_to' => 'El puesto final tiene que ir después del inicial.',
+                        ]);
+                }
+            } else {
+                $data['selector_to'] = null;
+            }
+
+            /*
+             * Apunta a un competidor que todavía no se conoce, así que no
+             * puede llevar uno fijado.
+             */
+            $data['universe_entity_id'] = null;
+
+        } else {
+
+            $data['award_phase'] = null;
+            $data['selector_type'] = null;
+            $data['selector_from'] = null;
+            $data['selector_to'] = null;
+        }
+
         if (
             in_array($data['scope'], ['PHASE', 'ROUND'], true)
             && ! trim((string) ($data['scope_value'] ?? ''))
@@ -295,7 +465,10 @@ class UniverseRewardController extends Controller
         }
 
         $universeTournament->modifiers()->create(
-            $data + ['game_key' => $gameKey, 'is_active' => true]
+            $data + [
+                'game_key' => $this->chosenGame($request, $gameKey),
+                'is_active' => true,
+            ]
         );
 
         return back()->with(
@@ -363,6 +536,112 @@ class UniverseRewardController extends Controller
 
     /*
     |--------------------------------------------------------------------------
+    | Llevar los bonus a una competición que ya está en marcha
+    |--------------------------------------------------------------------------
+    |
+    | Los bonus se congelan al crear la competición, y esa regla es buena:
+    | cambiar una configuración a mitad de torneo reescribiría lo que ya
+    | pasó. Pero deja fuera un caso legítimo — acabas de crear la regla y
+    | quieres verla funcionar en el torneo que tienes abierto.
+    |
+    | Esto lo permite, con dos límites que la hacen segura:
+    |
+    |   · Lo YA CONCEDIDO no se toca. Un podio que se ganó jugando sigue
+    |     siendo suyo aunque la regla que lo dio se borre después.
+    |   · Solo entra en competiciones vivas. Una terminada es historia.
+    |
+    | Las fases que ya acabaron conceden su podio en el momento, porque es
+    | justo lo que se está pidiendo al pulsar el botón.
+    |
+    */
+
+    public function syncModifiers(
+        Universe $universe,
+        UniverseTournament $universeTournament,
+        TournamentInstance $competition
+    ): RedirectResponse {
+
+        $this->authorize('update', $universe);
+
+        abort_unless(
+            $competition->universe_tournament_id === $universeTournament->id,
+            404
+        );
+
+        if ($competition->isClosed()) {
+
+            return back()->withErrors([
+                'sync' => 'Esa competición ya terminó: su configuración es historia y no se toca.',
+            ]);
+        }
+
+        $state = $competition->state?->state;
+
+        if (! is_array($state)) {
+
+            return back()->withErrors([
+                'sync' => 'Esa competición todavía no tiene estado guardado.',
+            ]);
+        }
+
+        /* Lo ganado jugando sobrevive a cualquier cambio de reglas */
+        $earned =
+            collect($state['modifiers'] ?? [])
+            ->filter(fn($modifier) => isset($modifier['granted_key']))
+            ->values()
+            ->all();
+
+        $rules =
+            $universeTournament->modifiers()
+            ->where('is_active', true)
+            ->get()
+            ->map(
+                fn($modifier) => [
+                    'rule_id' => (string) $modifier->id,
+                    'scope' => $modifier->scope,
+                    'scope_value' => $modifier->scope_value,
+                    'award_phase' => $modifier->award_phase,
+                    'selector_type' => $modifier->selector_type,
+                    'selector_from' => $modifier->selector_from,
+                    'selector_to' => $modifier->selector_to,
+                    'target' => $modifier->target,
+                    'universe_entity_id' => $modifier->universe_entity_id,
+                    'game_key' => $modifier->game_key,
+                    'stat_key' => $modifier->stat_key,
+                    'operation' => $modifier->operation,
+                    'amount' => (float) $modifier->amount,
+                    'label' => $modifier->label,
+                ]
+            )
+            ->all();
+
+        $state['modifiers'] = array_merge($rules, $earned);
+
+        $before = count($earned);
+
+        $state = $this->phaseBonuses->grant($state);
+
+        $granted =
+            collect($state['modifiers'])
+            ->filter(fn($modifier) => isset($modifier['granted_key']))
+            ->count();
+
+        $competition->state->update(['state' => $state]);
+
+        $nuevos = $granted - $before;
+
+        return back()->with(
+            'success',
+
+            'Bonus sincronizados con ' . $competition->code . '. '
+                . ($nuevos > 0
+                    ? $nuevos . ' concedidos por fases ya terminadas.'
+                    : 'Los que se ganan jugando se concederán cuando terminen sus fases.')
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Interno
     |--------------------------------------------------------------------------
     */
@@ -370,6 +649,19 @@ class UniverseRewardController extends Controller
     /**
      * @return array<int, string>
      */
+    /**
+     * Juego elegido en el formulario, o el del torneo si no se eligio.
+     * Un juego que no existe cae al del torneo en vez de romper.
+     */
+    private function chosenGame(Request $request, string $fallback): string
+    {
+        $chosen = (string) $request->input('game_key', '');
+
+        return $this->registry->has($chosen)
+            ? $this->registry->definition($chosen)['key']
+            : $fallback;
+    }
+
     private function statKeys(string $gameKey): array
     {
         return collect(

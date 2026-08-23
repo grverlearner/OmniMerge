@@ -62,15 +62,43 @@ class GameStatsService
 
         if (! $record->exists) {
 
+            /*
+             * Los valores de partida los decide el UNIVERSO, no el motor.
+             * El motor solo dice que estadisticas existen y en que rango
+             * absoluto tienen sentido; con que numeros entra un competidor
+             * nuevo es una decision del mundo.
+             */
             $record->stats =
-                $engine->defaultStats([
-                    'entity' => $entity,
-                ]);
+                $this->configurationFor($entity, $key)
+                ->initialStats();
 
             $record->save();
         }
 
         return $record;
+    }
+
+    /**
+     * Configuracion del juego en el Universo de este competidor.
+     */
+    private function configurationFor(
+        UniverseEntity $entity,
+        string $gameKey
+    ): \App\Support\Games\GameConfiguration {
+
+        $universe = $entity->relationLoaded('universe')
+            ? $entity->universe
+            : $entity->universe()->first();
+
+        if (! $universe) {
+
+            return new \App\Support\Games\GameConfiguration(
+                $this->registry->definition($gameKey)
+            );
+        }
+
+        return app(UniverseGameService::class)
+            ->configuration($universe, $gameKey);
     }
 
     /**
@@ -93,10 +121,19 @@ class GameStatsService
         $record =
             $this->ensure($entity, $gameKey);
 
-        $record->stats =
+        /*
+         * Primero el motor, que garantiza coherencia interna (un rango no
+         * puede estar invertido); despues el Universo, que acota al rango
+         * que ese mundo permite.
+         */
+        $normalized =
             $this->registry
             ->engine($gameKey)
             ->normalizeStats($stats);
+
+        $record->stats =
+            $this->configurationFor($entity, $gameKey)
+            ->clampStats($normalized);
 
         $record->save();
 

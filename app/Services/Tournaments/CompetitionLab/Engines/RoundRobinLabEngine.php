@@ -671,17 +671,32 @@ implements LabPhaseEngine, SupportsManualDecision
                 $participantA['played']++;
                 $participantB['played']++;
 
-                $participantA['score_for'] +=
-                    $match['score_a'];
+                /*
+                 * A favor y en contra son los PUNTOS ANOTADOS, no los
+                 * enfrentamientos ganados.
+                 *
+                 * Ganar una serie 2-0 anotando 5-1 y 4-3 no es lo mismo
+                 * que ganarla 2-0 anotando 9-0 y 8-1, y en una liga esa
+                 * diferencia es justo lo que desempata. Los
+                 * enfrentamientos ganados siguen contando aparte, en
+                 * game_wins / game_difference, que son sus propios
+                 * criterios de desempate.
+                 *
+                 * Si la serie no registró puntos — un juego que no los
+                 * lleva, o una partida anterior a que se guardaran — se
+                 * cae al marcador de la serie, que es lo único que hay.
+                 */
+                [$scoredA, $scoredB] =
+                    $this->scoredPoints(
+                        $runtime,
+                        $match
+                    );
 
-                $participantA['score_against'] +=
-                    $match['score_b'];
+                $participantA['score_for'] += $scoredA;
+                $participantA['score_against'] += $scoredB;
 
-                $participantB['score_for'] +=
-                    $match['score_b'];
-
-                $participantB['score_against'] +=
-                    $match['score_a'];
+                $participantB['score_for'] += $scoredB;
+                $participantB['score_against'] += $scoredA;
 
                 if (
                     $match['score_a']
@@ -1167,6 +1182,35 @@ implements LabPhaseEngine, SupportsManualDecision
                 ->values()
                 ->all(),
             'decision' => null,
+        ];
+    }
+
+    /*
+     * Puntos que se anotaron de verdad en una serie. Devuelve el marcador
+     * de la serie cuando no hay puntos registrados, para que una liga
+     * antigua o un juego sin puntuación sigan ordenándose con algo.
+     *
+     * @return array{0: float, 1: float}
+     */
+    private function scoredPoints(array $runtime, array $match): array
+    {
+        $series = $runtime['series'][$match['id']] ?? null;
+
+        if (
+            is_array($series)
+            &&
+            array_key_exists('points_for_a', $series)
+        ) {
+
+            return [
+                (float) $series['points_for_a'],
+                (float) ($series['points_for_b'] ?? 0),
+            ];
+        }
+
+        return [
+            (float) $match['score_a'],
+            (float) $match['score_b'],
         ];
     }
 

@@ -21,14 +21,21 @@ use Illuminate\Validation\ValidationException;
 | es el TournamentInstanceRuntimeService —que sí tiene base de datos— quien
 | los vuelca después.
 |
-| Sobre el marcador que se entrega a la serie
-| -------------------------------------------
-| A la serie se le entrega 1-0, no el número generado. Dos razones:
-| MatchSeriesRuntime::submitGame() recibe enteros, así que un 7.82 se
-| truncaría a 7 y crearía empates falsos (7.1 contra 7.9 serían 7 y 7); y
-| conceptualmente el marcador de la serie cuenta enfrentamientos ganados,
-| que es exactamente lo que necesitan las clasificaciones de Round Robin y
-| Group Stage. Los números reales se conservan íntegros en el log.
+| Sobre lo que se entrega a la serie
+| ----------------------------------
+| Se entregan DOS cosas distintas:
+|
+|   MARCADOR  1-0. Dice quien gano ESE enfrentamiento. Va como entero
+|             porque submitGame() recibe enteros, y pasar 7.82 lo
+|             truncaria a 7 creando empates falsos (7.1 y 7.9 serian 7).
+|
+|   PUNTOS    los numeros reales, sin truncar. Deciden una serie de
+|             cantidad fija empatada en enfrentamientos: "dos" significa
+|             dos, y gana quien mas sumo dentro de ellos, sin anadir un
+|             tercero.
+|
+| Los numeros completos se conservan ademas en el log, que es de donde
+| salen las columnas de puntos de la clasificacion.
 |
 */
 
@@ -186,6 +193,16 @@ class EncounterRuntime
             strtoupper((string) ($match['series_format'] ?? '')) === 'FIXED_GAMES'
                 && $number > (int) ($match['fixed_games'] ?? 1),
 
+            /*
+             * Si esta fase admite un empate o necesita un ganador.
+             *
+             * Lo decide la FASE, no el juego: en una liga un empate es un
+             * resultado legitimo que da un punto a cada uno; en eliminacion
+             * directa alguien tiene que pasar de ronda.
+             */
+            'requires_winner' =>
+            $this->phaseRequiresWinner($state, $nodeId),
+
             'series' =>
             $this->seriesSummary($series, $match),
 
@@ -335,13 +352,27 @@ class EncounterRuntime
             $state['game']['configuration'] ?? [];
 
         /*
-         * Casi ningún juego admite empate en un enfrentamiento, y el
-         * motor de eliminación directa directamente no puede con él. En
-         * vez de inventar un desempate genérico, se vuelve a pedir al
-         * propio juego que genere: son los empatados quienes repiten.
+         * ¿Se repite la tirada o se acepta el empate?
+         *
+         * Manda la FASE. Una liga o unos grupos admiten empate y ahí un
+         * empate es un resultado real —un punto para cada uno—; una
+         * eliminación directa necesita que alguien pase, así que los
+         * empatados repiten.
+         *
+         * Antes lo decidía el juego, y como los juegos numéricos venían
+         * marcados como "sin empates", un Rounded Number nunca llegaba a
+         * empatar aunque empatase el 30% de las veces: el motor volvía a
+         * tirar en silencio.
+         *
+         * Un juego que de verdad no pueda empatar lo sigue diciendo con
+         * allows_draws = false, y entonces se repite siempre.
          */
+        $gameAllowsDraws =
+            (bool) ($this->registry->definition($encounter['game_key'])['allows_draws'] ?? false);
+
         $requiresWinner =
-            ! ($this->registry->definition($encounter['game_key'])['allows_draws'] ?? false);
+            ! $gameAllowsDraws
+            || ($encounter['requires_winner'] ?? true);
 
         $attempts = 0;
 
@@ -461,6 +492,44 @@ class EncounterRuntime
         return $winner === $a
             ? [1, 0]
             : ($winner === $b ? [0, 1] : [0, 0]);
+    }
+
+    /**
+     * Puntos reales que hizo cada lado en ESTE enfrentamiento.
+     *
+     * Son los que deciden una serie de cantidad fija cuando los
+     * enfrentamientos quedan igualados: dos son dos, y gana quien mas
+     * sumo dentro de ellos.
+     *
+     * @return array{0: float, 1: float}
+     */
+    public function encounterPoints(
+        array $encounter,
+        array $match
+    ): array {
+
+        if (
+            ! ($this->registry->definition($encounter['game_key'] ?? null)['tracks_points'] ?? false)
+        ) {
+            return [0.0, 0.0];
+        }
+
+        $a = $match['participant_a_id'] ?? null;
+        $b = $match['participant_b_id'] ?? null;
+
+        $valueOf = function (?string $key) use ($encounter): float {
+
+            if ($key === null) {
+                return 0.0;
+            }
+
+            $participant = collect($encounter['participants'] ?? [])
+                ->firstWhere('id', $key);
+
+            return (float) ($participant['value'] ?? 0);
+        };
+
+        return [$valueOf($a), $valueOf($b)];
     }
 
     /*
@@ -700,6 +769,18 @@ class EncounterRuntime
         ?int $roundNumber
     ): bool {
 
+        /*
+         * PHASE_PODIUM no es un bonus: es la REGLA que dice a quien se le
+         * concedera uno cuando la fase termine. Vive en la misma lista
+         * porque se congela con todo lo demas, pero no se aplica a nadie.
+         * Lo que si se aplica es lo que PhaseBonusGranter genera a partir
+         * de ella, que ya viene con target ENTITY y un competidor
+         * concreto.
+         */
+        if (($modifier['target'] ?? 'ALL') === 'PHASE_PODIUM') {
+            return false;
+        }
+
         $modifierGame = $modifier['game_key'] ?? null;
 
         if ($modifierGame && strtoupper((string) $modifierGame) !== $gameKey) {
@@ -768,6 +849,32 @@ class EncounterRuntime
         }
 
         return null;
+    }
+
+    /**
+     * ¿La fase donde se juega este enfrentamiento necesita un ganador?
+     *
+     * Eliminación directa siempre; el resto, según su configuración. Si no
+     * se sabe nada de la fase se asume que sí, que es lo prudente: dejar
+     * un empate donde hacía falta un ganador bloquearía el torneo.
+     */
+    private function phaseRequiresWinner(array $state, int $nodeId): bool
+    {
+        $runtime = $state['nodes'][$nodeId]['runtime'] ?? null;
+
+        if (! is_array($runtime)) {
+            return true;
+        }
+
+        if (($runtime['engine'] ?? null) === 'SINGLE_ELIMINATION') {
+            return true;
+        }
+
+        if (! array_key_exists('allow_draws', $runtime)) {
+            return true;
+        }
+
+        return ! (bool) $runtime['allow_draws'];
     }
 
     private function fail(string $message): never

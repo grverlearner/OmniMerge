@@ -27,12 +27,21 @@ final class MatchSeriesRuntime
      *     engine_score_b: int
      * }
      */
+    /**
+     * @param  float $pointsA  puntos REALES del juego, si los tiene.
+     * @param  float $pointsB  Sirven para decidir una serie de cantidad
+     *                         fija: dos enfrentamientos empatados a uno
+     *                         los gana quien mas puntos sumo, no un
+     *                         tercer enfrentamiento.
+     */
     public function submitGame(
         array $runtime,
         string $matchId,
         int $scoreA,
         int $scoreB,
-        bool $requiresWinner = false
+        bool $requiresWinner = false,
+        float $pointsA = 0.0,
+        float $pointsB = 0.0
     ): array {
         if ($scoreA < 0 || $scoreB < 0) {
             $this->fail(
@@ -150,6 +159,17 @@ final class MatchSeriesRuntime
             $series['game_draws']++;
         }
 
+        /*
+         * Puntos reales acumulados. Van aparte del marcador de la serie
+         * porque son cosas distintas: el marcador cuenta enfrentamientos
+         * ganados, esto cuenta lo que se hizo dentro de ellos.
+         */
+        $series['points_for_a'] =
+            round((float) ($series['points_for_a'] ?? 0) + $pointsA, 4);
+
+        $series['points_for_b'] =
+            round((float) ($series['points_for_b'] ?? 0) + $pointsB, 4);
+
         $series['score_for_a'] +=
             $scoreA;
 
@@ -199,10 +219,36 @@ final class MatchSeriesRuntime
                 $fixedGames;
 
             if ($nominalCompleted) {
-                $tied =
+
+                /*
+                 * Quien gana una serie de cantidad fija.
+                 *
+                 * Primero los enfrentamientos ganados. Si estan igualados,
+                 * decide la SUMA DE PUNTOS: "dos enfrentamientos" significa
+                 * exactamente dos, y el resultado sale de lo que se hizo en
+                 * ellos, no de anadir un tercero.
+                 *
+                 * Solo si tambien los puntos empatan, y ademas la fase
+                 * exige un ganador -eliminacion directa-, se juega el
+                 * desempate. En liga o grupos un empate se queda en empate.
+                 */
+                $tiedOnGames =
                     $series['game_wins_a']
                     ===
                     $series['game_wins_b'];
+
+                $pointsA = (float) ($series['points_for_a'] ?? 0);
+                $pointsB = (float) ($series['points_for_b'] ?? 0);
+
+                $hasPoints = $pointsA > 0 || $pointsB > 0;
+
+                $tied =
+                    $tiedOnGames
+                    && (! $hasPoints || $pointsA === $pointsB);
+
+                /* Quien gano por acumulado, cuando los juegos empataron */
+                $series['decided_on_points'] =
+                    $tiedOnGames && $hasPoints && $pointsA !== $pointsB;
 
                 if (
                     $requiresWinner
@@ -254,18 +300,25 @@ final class MatchSeriesRuntime
             $series['status'] =
                 'COMPLETED';
 
-            $series['winner_id'] =
+            if (
                 $series['game_wins_a']
-                ===
+                !==
                 $series['game_wins_b']
-                ? null
-                : (
-                    $series['game_wins_a']
-                    >
-                    $series['game_wins_b']
+            ) {
+                $series['winner_id'] =
+                    $series['game_wins_a'] > $series['game_wins_b']
                     ? $participantA
-                    : $participantB
-                );
+                    : $participantB;
+            } elseif ($series['decided_on_points'] ?? false) {
+
+                /* Empatados en enfrentamientos: decide el acumulado */
+                $series['winner_id'] =
+                    (float) $series['points_for_a'] > (float) $series['points_for_b']
+                    ? $participantA
+                    : $participantB;
+            } else {
+                $series['winner_id'] = null;
+            }
         } else {
             $series['status'] =
                 'RUNNING';
@@ -574,6 +627,16 @@ final class MatchSeriesRuntime
 
             'score_for_b' =>
             0,
+
+            /* Puntos reales del juego, si los registra */
+            'points_for_a' =>
+            0.0,
+
+            'points_for_b' =>
+            0.0,
+
+            'decided_on_points' =>
+            false,
 
             'status' =>
             'RUNNING',

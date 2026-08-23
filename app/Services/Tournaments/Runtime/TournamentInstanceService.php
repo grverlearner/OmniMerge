@@ -167,8 +167,16 @@ class TournamentInstanceService
             ->get()
             ->map(
                 fn($modifier) => [
+                    'rule_id' => (string) $modifier->id,
                     'scope' => $modifier->scope,
                     'scope_value' => $modifier->scope_value,
+
+                    /* Solo los usa un bonus que hay que ganarse jugando */
+                    'award_phase' => $modifier->award_phase,
+                    'selector_type' => $modifier->selector_type,
+                    'selector_from' => $modifier->selector_from,
+                    'selector_to' => $modifier->selector_to,
+
                     'target' => $modifier->target,
                     'universe_entity_id' => $modifier->universe_entity_id,
                     'game_key' => $modifier->game_key,

@@ -422,6 +422,27 @@ class TournamentInstanceProjector
                     ?? $childGroup;
             }
 
+            /*
+             * En fase de grupos los encuentros NO cuelgan del grupo: las
+             * jornadas viven en la raiz del runtime y cada una dice a que
+             * grupo pertenece. Sin leer eso aqui, las 48 batallas se
+             * proyectaban sin grupo y la vista, que las agrupa por
+             * etiqueta, no encontraba ninguna que ensenar.
+             */
+            if (
+                isset($value['matches'])
+                &&
+                (
+                    isset($value['group_name'])
+                    ||
+                    isset($value['group_id'])
+                )
+            ) {
+                $childGroup =
+                    $value['group_name']
+                    ?? $childGroup;
+            }
+
             $found = array_merge(
                 $found,
                 $this->collectMatches(
@@ -448,6 +469,52 @@ class TournamentInstanceProjector
                 ||
                 array_key_exists('participant_b_id', $candidate)
             );
+    }
+
+    /**
+     * Formato pactado de una batalla que aun no se ha jugado.
+     *
+     * No inventa resultados: games queda vacio y el marcador a cero. Solo
+     * dice a que se va a jugar, que es lo que la pantalla necesita antes
+     * de empezar.
+     */
+    private function seriesBlueprint(array $match): ?array
+    {
+        $format = strtoupper(
+            (string) ($match['series_format'] ?? '')
+        );
+
+        if ($format === '') {
+            return null;
+        }
+
+        return [
+            'series_format' => $format,
+            'best_of' => (int) ($match['best_of'] ?? 1),
+            'fixed_games' => (int) ($match['fixed_games'] ?? 1),
+
+            'games' => [],
+            'games_played' => 0,
+
+            'game_wins_a' => 0,
+            'game_wins_b' => 0,
+            'game_draws' => 0,
+
+            'score_for_a' => 0,
+            'score_for_b' => 0,
+
+            'points_for_a' => 0.0,
+            'points_for_b' => 0.0,
+
+            'status' => 'PENDING',
+            'winner_id' => null,
+            'tiebreak_required' => false,
+            'tiebreak_games' => 0,
+
+            'wins_required' => $format === 'BEST_OF'
+                ? intdiv(max(1, (int) ($match['best_of'] ?? 1)), 2) + 1
+                : null,
+        ];
     }
 
     private function storeMatch(
@@ -547,11 +614,19 @@ class TournamentInstanceProjector
                         && is_numeric($scoreB)
                         && (int) $scoreA === (int) $scoreB,
 
+                    /*
+                     * La serie jugada si existe; si todavia no se ha
+                     * disputado, al menos su FORMATO.
+                     *
+                     * Sin esto, una batalla pendiente no sabia decir si
+                     * era "BO3" o "2 enfrentamientos fijos" hasta despues
+                     * de jugarla, que es justo cuando ya no sirve saberlo.
+                     */
                     'series' =>
                     $seriesByMatch[(string) ($match['id'] ?? '')]
                         ?? $match['games']
                         ?? $match['series']
-                        ?? null,
+                        ?? $this->seriesBlueprint($match),
 
                     /*
                      * Desnormalización para el historial por Entidad y
@@ -639,6 +714,15 @@ class TournamentInstanceProjector
             ->get()
             ->keyBy('node_id');
 
+        /*
+         * Por donde salio cada uno de cada fase. Es lo unico que responde
+         * de verdad "paso o quedo fuera?".
+         */
+        $exitOutcomes =
+            $this->exitOutcomes(
+                $state
+            );
+
         foreach (
             ($state['nodes'] ?? [])
             as
@@ -676,6 +760,10 @@ class TournamentInstanceProjector
                     'survivor_ids',
                     $runtime
                 );
+
+            $routed =
+                $exitOutcomes[(int) ($node['id'] ?? 0)]
+                ?? [];
 
             foreach (
                 $this->standingRows($runtime)
@@ -748,18 +836,225 @@ class TournamentInstanceProjector
                             'score_difference' =>
                             (int) ($row['score_difference'] ?? 0),
 
+                            /*
+                             * Manda la puerta por la que salio. survivor_ids
+                             * solo entra si la fase no repartio: en una liga
+                             * significa "nadie fue eliminado jugando", que es
+                             * cierto y no dice nada de quien clasifico.
+                             */
                             'status' =>
-                            ! $hasSurvivors
-                                ? 'PLAYED'
-                                : (
-                                    in_array($key, $survivors, true)
-                                    ? 'ADVANCED'
-                                    : 'ELIMINATED'
+                            $routed[$key]
+                                ?? (
+                                    ! $hasSurvivors
+                                    ? 'PLAYED'
+                                    : (
+                                        in_array($key, $survivors, true)
+                                        ? 'ADVANCED'
+                                        : 'ELIMINATED'
+                                    )
                                 ),
                         ]
                     );
             }
         }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Quien paso y quien quedo fuera de cada fase
+    |--------------------------------------------------------------------------
+    |
+    | Una fase no decide esto: lo decide la PUERTA por la que sale cada uno
+    | y adonde lleva esa puerta en el grafo. Salir hacia otra fase es seguir
+    | vivo; salir hacia un terminal de eliminados es quedar fuera.
+    |
+    | Antes se deducia de survivor_ids y ahi estaba el error: cada motor le
+    | da un sentido distinto. En eliminacion directa es "quien no perdio";
+    | en fase de grupos, "los seleccionados". En Round Robin es LITERALMENTE
+    | TODOS, y con razon: en una liga nadie es eliminado mientras se juega,
+    | todos llegan vivos al final. Eso responde a la pregunta del motor, no
+    | a la del grafo, y usarlo para pintar la tabla hacia que una liga
+    | terminada mostrase a los veinte como clasificados.
+    |
+    | Se mira en dos sitios, en este orden:
+    |
+    |   1. La conexion ya repartida (participant_ids). Es un hecho.
+    |   2. Las outcomes del motor cruzadas con el destino de cada puerta.
+    |      Sirve entre que la fase acaba y el grafo reparte.
+    |
+    | Y lo que ninguna puerta reclamo cae por la puerta sobrante, que es lo
+    | que REMAINING significa. Con mas de una sobrante no se adivina: se
+    | deja sin decidir y el proyector cae a su calculo anterior.
+    |
+    | @return array<int, array<string, string>>  nodo => participante => estado
+    */
+
+    private function exitOutcomes(
+        array $state
+    ): array {
+
+        $terminalTypes = [];
+
+        foreach (
+            ($state['terminals'] ?? [])
+            as
+            $terminal
+        ) {
+
+            $terminalTypes[(int) ($terminal['id'] ?? 0)] =
+                (string) ($terminal['type'] ?? '');
+        }
+
+        /*
+         * Destino de cada puerta: nodo => puerta => ADVANCED | ELIMINATED.
+         * Es estructural, se conoce desde antes de jugar nada.
+         */
+        $destinations = [];
+
+        /* Reparto ya hecho: nodo => participante => estado */
+        $outcomes = [];
+
+        foreach (
+            ($state['connections'] ?? [])
+            as
+            $connection
+        ) {
+
+            if (($connection['source_type'] ?? null) !== 'PHASE_EXIT') {
+                continue;
+            }
+
+            $nodeId = (int) ($connection['source_node_id'] ?? 0);
+            $exitId = (int) ($connection['source_phase_exit_id'] ?? 0);
+
+            if ($nodeId === 0 || $exitId === 0) {
+                continue;
+            }
+
+            /*
+             * Solo un terminal de eliminados saca a alguien. Ir a otra
+             * fase, o a un terminal de campeon o de clasificados, es
+             * seguir dentro.
+             */
+            $status =
+                ($connection['target_type'] ?? null) === 'TERMINAL'
+                    && (
+                        $terminalTypes[(int) ($connection['target_terminal_id'] ?? 0)]
+                        ?? ''
+                    ) === 'ELIMINATED'
+                ? 'ELIMINATED'
+                : 'ADVANCED';
+
+            /*
+             * Una puerta puede repartirse entre varias conexiones (los 16
+             * clasificados hacia cuatro grupos). Si alguna elimina, la
+             * puerta no puede darse por puerta de paso.
+             */
+            if (($destinations[$nodeId][$exitId] ?? null) !== 'ELIMINATED') {
+
+                $destinations[$nodeId][$exitId] = $status;
+            }
+
+            foreach (
+                ($connection['participant_ids'] ?? [])
+                as
+                $participantId
+            ) {
+
+                $outcomes[$nodeId][(string) $participantId] = $status;
+            }
+        }
+
+        /*
+         * Fases que acabaron pero que el grafo aun no ha repartido: el
+         * motor ya publico por que puerta sale cada uno.
+         */
+        foreach (
+            ($state['nodes'] ?? [])
+            as
+            $node
+        ) {
+
+            $nodeId = (int) ($node['id'] ?? 0);
+
+            $runtime = $node['runtime'] ?? null;
+
+            if (
+                ! is_array($runtime)
+                ||
+                ! isset($destinations[$nodeId])
+            ) {
+                continue;
+            }
+
+            $claimedExits = [];
+
+            foreach (
+                ($runtime['outcomes'] ?? [])
+                as
+                $outcome
+            ) {
+
+                $exitId = (int) ($outcome['exit_id'] ?? 0);
+
+                $claimedExits[$exitId] = true;
+
+                $status = $destinations[$nodeId][$exitId] ?? null;
+
+                if ($status === null) {
+                    continue;
+                }
+
+                foreach (
+                    ($outcome['participant_ids'] ?? [])
+                    as
+                    $participantId
+                ) {
+
+                    $outcomes[$nodeId][(string) $participantId] ??= $status;
+                }
+            }
+
+            /*
+             * La puerta sobrante. Solo se aplica si hay exactamente una:
+             * con dos no hay forma de saber cual recoge a quien.
+             */
+            $unclaimed =
+                array_keys(
+                    array_diff_key(
+                        $destinations[$nodeId],
+                        $claimedExits
+                    )
+                );
+
+            if (count($unclaimed) !== 1) {
+                continue;
+            }
+
+            $status = $destinations[$nodeId][$unclaimed[0]];
+
+            foreach (
+                $this->standingRows($runtime)
+                as
+                [$row, $groupLabel]
+            ) {
+
+                $key =
+                    (string) (
+                        $row['participant_id']
+                        ?? $row['id']
+                        ?? ''
+                    );
+
+                if ($key === '') {
+                    continue;
+                }
+
+                $outcomes[$nodeId][$key] ??= $status;
+            }
+        }
+
+        return $outcomes;
     }
 
     /*

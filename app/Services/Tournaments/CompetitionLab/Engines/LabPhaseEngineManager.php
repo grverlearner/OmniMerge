@@ -110,19 +110,28 @@ class LabPhaseEngineManager
         return $engine->resolveManualDecision($runtime, $payload);
     }
 
+    /**
+     * @param  float $pointsA  puntos reales del enfrentamiento, cuando el
+     * @param  float $pointsB  juego los registra. Deciden una serie de
+     *                         cantidad fija empatada en enfrentamientos.
+     */
     public function submit(
         string $phaseType,
         array $runtime,
         string $matchId,
         int $scoreA,
-        int $scoreB
+        int $scoreB,
+        float $pointsA = 0.0,
+        float $pointsB = 0.0
     ): array {
         $series = $this->seriesRuntime->submitGame(
             $runtime,
             $matchId,
             $scoreA,
             $scoreB,
-            $phaseType === 'SINGLE_ELIMINATION'
+            $phaseType === 'SINGLE_ELIMINATION',
+            $pointsA,
+            $pointsB
         );
 
         if (! $series['completed']) {

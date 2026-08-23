@@ -459,6 +459,14 @@ Route::middleware('auth')->group(function () {
                                         )->name('modifiers.destroy');
 
                                         Route::put(
+                                            '/{universeTournament}/editions/{competition}/sync-modifiers',
+                                            [
+                                                UniverseRewardController::class,
+                                                'syncModifiers',
+                                            ]
+                                        )->name('modifiers.sync');
+
+                                        Route::put(
                                             '/{universeTournament}/editions/{competition}/reprocess',
                                             [
                                                 UniverseRewardController::class,
@@ -538,6 +546,19 @@ Route::middleware('auth')->group(function () {
                                                 'play',
                                             ]
                                         )->name('play');
+
+                                        /*
+                                         * Ajuste manual de una stat. Cambia
+                                         * al competidor de verdad, asi que
+                                         * exige confirmacion explicita.
+                                         */
+                                        Route::post(
+                                            '/{competition}/adjust',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'adjust',
+                                            ]
+                                        )->name('adjust');
 
                                         /*
                                          * Motor: cada acción persiste el
@@ -652,6 +673,14 @@ Route::middleware('auth')->group(function () {
                                     'setDefault',
                                 ]
                             )->name('games.default');
+
+                            Route::put(
+                                '/games/{game}/configuration',
+                                [
+                                    UniverseGameController::class,
+                                    'updateConfiguration',
+                                ]
+                            )->name('games.configuration');
 
                             Route::get(
                                 '/games/{game}',
@@ -2897,6 +2926,19 @@ Route::middleware('auth')->group(function () {
         | Copiar
         |--------------------------------------------------------------------------
         */
+
+            /*
+             | Copia multiple. Va ANTES de la ruta con {entity} para que
+             | "clone-many" no se interprete como un id de entidad.
+             */
+            Route::post(
+                '/entities/clone-many',
+                [
+                    ExploreController::class,
+                    'cloneEntities',
+                ]
+            )->name('entities.clone-many');
+
 
             Route::post(
                 '/entities/{entity}/clone',

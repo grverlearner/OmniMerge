@@ -293,7 +293,10 @@ class CompetitionLabService
                 $this->graphRuntime
                     ->advanceEncounter(
                         $state,
-                        $template
+                        $template,
+                        isset($payload['match_id'])
+                            ? (string) $payload['match_id']
+                            : null
                     ),
 
                 'START_TOURNAMENT' =>

@@ -4,6 +4,7 @@ namespace App\Services\Games;
 
 use App\Services\Games\Contracts\GameEngine;
 use App\Services\Games\Engines\HighestNumberGameEngine;
+use App\Services\Games\Engines\RoundedNumberGameEngine;
 use Illuminate\Support\Collection;
 
 /*
@@ -30,6 +31,7 @@ class GameRegistry
      */
     private const ENGINES = [
         HighestNumberGameEngine::class,
+        RoundedNumberGameEngine::class,
     ];
 
     public const DEFAULT_KEY = HighestNumberGameEngine::KEY;

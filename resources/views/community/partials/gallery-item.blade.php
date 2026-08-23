@@ -30,9 +30,37 @@
 @endphp
 
 
+@php
+    /* Solo las entidades se pueden copiar en lote desde aqui */
+    $selectable = $itemType === 'entity';
+@endphp
+
+<div class="relative min-w-0"
+    @if ($selectable) data-selectable-entity="{{ $item->id }}" @endif>
+
+    {{-- CASILLA DE SELECCION --}}
+
+    @if ($selectable)
+        <button type="button" x-show="selecting" x-cloak
+            @click.prevent.stop="toggleSelected({{ $item->id }})"
+            class="absolute left-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-md border-2 shadow transition"
+            :class="isSelected({{ $item->id }})
+                ? 'border-indigo-600 bg-indigo-600 text-white'
+                : 'border-white bg-white/90 text-transparent hover:border-indigo-400'">
+            <span class="text-[11px] font-black">✓</span>
+        </button>
+    @endif
+
 <a href="{{ $url }}"
+    @if ($selectable)
+        @click="selecting ? ($event.preventDefault(), toggleSelected({{ $item->id }})) : null"
+        :class="selecting && isSelected({{ $item->id }})
+            ? 'ring-2 ring-indigo-500 ring-offset-1'
+            : ''"
+    @endif
     class="
         group
+        block
         min-w-0
         overflow-hidden
         rounded-xl
@@ -71,3 +99,5 @@
     </div>
 
 </a>
+
+</div>

@@ -155,6 +155,22 @@ class UniverseGameController extends Controller
             ->limit(8)
             ->get();
 
+        /*
+         * Como entra un competidor nuevo en ESTE Universo. El motor dice
+         * que estadisticas existen; el Universo, con que valores empiezan.
+         */
+        $configuration =
+            $this->games->configuration($universe, $key);
+
+        /* Cuantos competidores siguen con los valores de partida */
+        $sinTocar =
+            $universe->entities()
+            ->whereHas(
+                'gameStats',
+                fn($query) => $query->where('game_key', $key)
+            )
+            ->count();
+
         return view(
             'universes.games.show',
             compact(
@@ -162,7 +178,9 @@ class UniverseGameController extends Controller
                 'definition',
                 'record',
                 'recentEncounters',
-                'leaders'
+                'leaders',
+                'configuration',
+                'sinTocar'
             )
         );
     }
@@ -199,6 +217,80 @@ class UniverseGameController extends Controller
                 . ' es ahora el juego por defecto del Universo. '
                 . 'Los torneos nuevos lo propondrán primero.'
         );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Configuracion del juego en este Universo
+    |--------------------------------------------------------------------------
+    |
+    | Decide con que valores entra un competidor nuevo y hasta donde puede
+    | llegar en este mundo. Un Universo de recien llegados puede repartir
+    | 0-3; uno de veteranos, 5-20. Mismo juego, mismo motor.
+    |
+    */
+
+    public function updateConfiguration(
+        Request $request,
+        Universe $universe,
+        string $game
+    ): RedirectResponse {
+
+        $this->authorize('update', $universe);
+
+        if (! $this->registry->has($game)) {
+            abort(404);
+        }
+
+        $definition = $this->registry->definition($game);
+        $key = $definition['key'];
+
+        $stats = [];
+
+        foreach ($definition['stats'] ?? [] as $schema) {
+
+            $statKey = $schema['key'];
+
+            $stats[$statKey] = [
+                'default' => (float) $request->input("stats.{$statKey}.default", 0),
+                'min' => (float) $request->input("stats.{$statKey}.min", 0),
+                'max' => (float) $request->input("stats.{$statKey}.max", 0),
+            ];
+        }
+
+        $configuration = $this->games->saveConfiguration(
+            $universe,
+            $key,
+            $stats
+        );
+
+        /*
+         * Aplicar a los que ya estaban.
+         *
+         * Es opcional a proposito: cambiar el punto de partida NO deberia
+         * borrar de golpe el progreso que un competidor ya se gano. Solo
+         * si el usuario lo pide.
+         */
+        $reajustados = 0;
+
+        if ($request->boolean('apply_to_existing')) {
+
+            $inicial = $configuration->initialStats();
+
+            foreach ($universe->entities()->get() as $entity) {
+                $this->stats->update($entity, $key, $inicial);
+                $reajustados++;
+            }
+        }
+
+        $mensaje = 'Configuracion de ' . $definition['name'] . ' guardada. '
+            . 'Los competidores nuevos entraran con estos valores.';
+
+        if ($reajustados > 0) {
+            $mensaje .= " Se reajustaron {$reajustados} competidores existentes.";
+        }
+
+        return back()->with('success', $mensaje);
     }
 
     /*

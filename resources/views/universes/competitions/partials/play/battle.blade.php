@@ -46,13 +46,31 @@
                         x-text="battle.label"></p>
                 </div>
 
-                <span class="shrink-0 rounded-full px-3 py-1.5 text-[10px] font-black"
+                {{--
+                    Tipo de batalla, visible ANTES de jugarla. Saber si son
+                    dos fijos o un BO3 cambia como se juega, y antes solo
+                    aparecia una vez disputada.
+                --}}
+                <span class="flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2"
                     :class="battle.series.is_fixed
-                        ? 'bg-sky-500/25 text-sky-300'
-                        : 'bg-violet-500/25 text-violet-300'"
-                    x-text="battle.series.label
-                        ? (battle.series.is_fixed ? 'FIJO · ' : '') + battle.series.label
-                        : 'Sin disputar'"></span>
+                        ? 'border-sky-500/40 bg-sky-950/40'
+                        : 'border-violet-500/40 bg-violet-950/40'">
+
+                    <span class="text-base"
+                        x-text="battle.series.is_fixed ? '⊟' : '⧉'"></span>
+
+                    <span class="text-left">
+                        <span class="block text-[9px] font-black uppercase tracking-wider"
+                            :class="battle.series.is_fixed ? 'text-sky-400' : 'text-violet-400'"
+                            x-text="battle.series.label
+                                ? (battle.series.is_fixed ? 'Cantidad fija' : 'Al mejor de')
+                                : 'Formato'"></span>
+
+                        <span class="block text-xs font-black text-white"
+                            x-text="battle.series.label ?? 'sin definir'"></span>
+                    </span>
+
+                </span>
 
             </div>
 
@@ -98,7 +116,7 @@
                             </span>
                         </template>
                         <template x-if="!battle.series.label">
-                            <span>Todavía no ha empezado.</span>
+                            <span>Formato sin definir.</span>
                         </template>
                     </p>
 
@@ -236,13 +254,30 @@
                                     </div>
                                 </template>
 
-                                <p class="mt-3 font-mono text-4xl font-black leading-none transition duration-300"
-                                    :class="participant.is_winner
-                                        ? 'text-emerald-300 drop-shadow-[0_0_12px_rgba(52,211,153,0.5)]'
-                                        : (participant.rolled ? 'text-white' : 'text-slate-700')"
-                                    x-text="participant.rolled
-                                        ? participant.display
-                                        : (liveEncounter.controls.pending_label || '?')"></p>
+                                {{--
+                                    El valor con el que se compite y, al lado,
+                                    de donde salio. En Rounded Number el 3 es
+                                    lo que cuenta pero el 2.68 es lo que
+                                    explica el 3: un empate entre 2.51 y 3.49
+                                    no es el mismo empate que entre 3.0 y 3.0.
+                                --}}
+                                <div class="mt-3 flex items-baseline justify-center gap-1.5">
+
+                                    <p class="font-mono text-4xl font-black leading-none transition duration-300"
+                                        :class="participant.is_winner
+                                            ? 'text-emerald-300 drop-shadow-[0_0_12px_rgba(52,211,153,0.5)]'
+                                            : (participant.rolled ? 'text-white' : 'text-slate-700')"
+                                        x-text="participant.rolled
+                                            ? participant.display
+                                            : (liveEncounter.controls.pending_label || '?')"></p>
+
+                                    <template x-if="participant.rolled && participant.detail?.raw">
+                                        <span class="font-mono text-[11px] font-bold leading-none text-slate-500"
+                                            :title="'Generó ' + participant.detail.raw + ' y se redondeó a ' + participant.display"
+                                            x-text="'(' + participant.detail.raw + ')'"></span>
+                                    </template>
+
+                                </div>
 
                                 <template x-if="participant.is_winner">
                                     <p class="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-400 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
@@ -327,6 +362,10 @@
                                             :class="value.is_winner ? 'font-black text-emerald-400' : 'text-slate-400'">
                                             <span x-text="value.name"></span>
                                             <span class="ml-1 font-mono" x-text="value.display"></span>
+                                            <template x-if="value.raw">
+                                                <span class="ml-0.5 font-mono text-[9px] font-bold text-slate-600"
+                                                    x-text="'(' + value.raw + ')'"></span>
+                                            </template>
                                         </span>
                                     </template>
                                 </div>

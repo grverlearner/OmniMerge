@@ -258,7 +258,18 @@
                         </div>
 
 
-                        <button type="button" @click="execute('ADVANCE_ENCOUNTER')" :disabled="loading"
+                        {{--
+                            El match_id solo mientras la serie sigue viva: asi
+                            el siguiente enfrentamiento es de ESTA batalla y no
+                            del primer partido pendiente de la fase. Terminada
+                            la serie se manda sin el, que es lo que "Continuar"
+                            promete: pasar a lo siguiente que haya.
+                        --}}
+                        <button type="button"
+                            @click="execute('ADVANCE_ENCOUNTER', state.encounter.battle_completed
+                                ? {}
+                                : { match_id: state.encounter.battle_key })"
+                            :disabled="loading"
                             class="rounded-xl bg-emerald-500 px-5 py-3 text-xs font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 disabled:opacity-40">
 
                             <span x-show="!state.encounter.battle_completed">Siguiente enfrentamiento →</span>

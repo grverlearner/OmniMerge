@@ -1,80 +1,388 @@
 @php
     /*
-     * Fase de grupos: cada grupo es una unidad visual independiente, con
-     * su tabla y sus batallas. Nada de mezclarlos en una sola lista.
+     * FASE DE GRUPOS
+     *
+     * Un grupo es una liga pequeña con dos lecturas que no se sustituyen:
+     * la TABLA dice cómo va, las JORNADAS dicen qué toca jugar. Antes solo
+     * se veía la tabla, así que la fase parecía un resumen de algo que
+     * ocurría en otro sitio: no había forma de disputar una batalla.
+     *
+     * Tres modos, porque son tres preguntas distintas:
+     *
+     *   Grupos        cada grupo entero — su tabla y sus batallas
+     *   Jornadas      una jornada, los cuatro grupos a la vez
+     *   Clasificación solo las tablas, para comparar de un vistazo
+     *
+     * El ancho de los recuadros se ajusta arriba, igual que en la liga.
      */
+
     $groups = $block['groups']->sortKeys();
 
     $matchesByGroup = $block['matches']->groupBy('group_label');
+
+    /* Jornadas reales, compartidas por todos los grupos */
+    $rounds = $block['matches']
+        ->pluck('round_number')
+        ->filter()
+        ->unique()
+        ->sort()
+        ->values();
+
+    $matchesByRound = $block['matches']->groupBy('round_number');
+
+    $nodeId = (string) $block['phase']->node_id;
+
+    /*
+     * Puntos reales de la fase, si el juego los registra. La clasificación
+     * del motor solo sabe de victorias; esto añade lo que cada uno hizo y
+     * encajó de verdad.
+     */
+    $points = ($pointsByPhase ?? collect())->get($nodeId) ?? collect();
+
+    $showPoints = ($tracksPoints ?? false) && $points->isNotEmpty();
+
+    /*
+     * Cuántos pasan de cada grupo. En una fase de grupos el corte es por
+     * grupo, no por fase: cada tabla lleva su propia línea.
+     *
+     * Mientras la fase se juega es una PREVISIÓN sobre la tabla actual; en
+     * cuanto resuelve mandan los estados reales que reparte el grafo.
+     */
+    $cutInfo = ($qualification ?? collect())->get($nodeId) ?? [];
+
+    $groupCut = $cutInfo['group_cut'] ?? null;
+
+    $phaseResolved = $block['standings']->contains(
+        fn($row) => $row->status === 'ADVANCED'
+    );
+
+    $rowState = function ($row, int $index, int $total) use ($groupCut, $phaseResolved) {
+
+        if ($phaseResolved) {
+            return $row->status === 'ADVANCED' ? 'in' : 'out';
+        }
+
+        if ($groupCut === null || $groupCut >= $total) {
+            return 'open';
+        }
+
+        return $index < $groupCut ? 'in' : 'out';
+    };
+
+    /* Orden de una tabla: puntos, diferencia, anotados, victorias */
+    $order = function ($rows) use ($showPoints, $points) {
+
+        if (! $showPoints) {
+            return $rows->sortBy('position')->values();
+        }
+
+        return $rows->sortBy([
+            fn($a, $b) => (int) $b->points <=> (int) $a->points,
+
+            fn($a, $b) => ($points->get((int) $b->universe_entity_id)['difference'] ?? 0)
+                <=> ($points->get((int) $a->universe_entity_id)['difference'] ?? 0),
+
+            fn($a, $b) => ($points->get((int) $b->universe_entity_id)['for'] ?? 0)
+                <=> ($points->get((int) $a->universe_entity_id)['for'] ?? 0),
+
+            fn($a, $b) => (int) $b->wins <=> (int) $a->wins,
+        ])->values();
+    };
+
+    /* La jornada por la que se entra: la primera sin terminar */
+    $firstOpen = $rounds
+        ->first(fn($number) => $matchesByRound
+            ->get($number, collect())
+            ->contains(fn($match) => $match->status !== 'COMPLETED'))
+        ?? $rounds->first()
+        ?? 1;
+
+    $key = 'omnimerge.arena.' . $competition->id . '.' . $nodeId;
 @endphp
 
-<div class="grid gap-5 p-5 lg:grid-cols-2 2xl:grid-cols-3">
+<div x-data="{
+        mode: localStorage.getItem('{{ $key }}.gsmode') ?? 'groups',
+        columns: Number(localStorage.getItem('{{ $key }}.gscols') ?? 2),
+        round: Number(localStorage.getItem('{{ $key }}.gsround') ?? {{ $firstOpen }}),
+        rounds: {{ Illuminate\Support\Js::from($rounds) }},
 
-    @foreach ($groups as $groupLabel => $rows)
+        setMode(value) {
+            this.mode = value;
+            localStorage.setItem('{{ $key }}.gsmode', value);
+        },
 
-        <div class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/50">
+        setColumns(value) {
+            this.columns = value;
+            localStorage.setItem('{{ $key }}.gscols', value);
+        },
 
-            <div class="border-b border-slate-800 px-4 py-2.5">
-                <p class="text-[11px] font-black uppercase tracking-wider text-violet-300">
-                    {{ $groupLabel ?: 'Grupo único' }}
-                </p>
-            </div>
+        setRound(value) {
+            if (! this.rounds.includes(value)) return;
+            this.round = value;
+            localStorage.setItem('{{ $key }}.gsround', value);
+        },
+
+        get roundIndex() {
+            return this.rounds.indexOf(this.round);
+        },
+
+        /*
+         * El ancho se enlaza, no se duplica: repetir el grid una vez por
+         * tamaño metía cuatro copias de las 48 batallas en el DOM para
+         * enseñar una.
+         *
+         * Las clases se escriben enteras aquí, y aquí es un sitio que
+         * Tailwind lee. Compuestas ('grid-cols-' + n) o detrás de una
+         * variable de PHP no llegarían nunca al CSS.
+         */
+        get gridClass() {
+            return {
+                1: 'grid-cols-1',
+                2: 'grid-cols-1 lg:grid-cols-2',
+                3: 'grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3',
+                4: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4',
+            }[this.columns] ?? 'grid-cols-1 lg:grid-cols-2';
+        },
+    }">
+
+    {{-- ============================================ --}}
+    {{-- CONTROLES --}}
+    {{-- ============================================ --}}
+
+    <div class="flex flex-wrap items-center gap-3 border-b border-slate-800 bg-slate-950/40 px-5 py-2.5">
+
+        {{-- Modo --}}
+        <div class="flex items-center gap-1 rounded-xl bg-slate-900 p-1">
+
+            <button type="button" @click="setMode('groups')"
+                :class="mode === 'groups' ? 'bg-violet-500 text-white' : 'text-slate-500 hover:text-slate-300'"
+                class="rounded-lg px-3 py-1.5 text-[11px] font-black transition">
+                Grupos
+            </button>
+
+            <button type="button" @click="setMode('rounds')"
+                :class="mode === 'rounds' ? 'bg-violet-500 text-white' : 'text-slate-500 hover:text-slate-300'"
+                class="rounded-lg px-3 py-1.5 text-[11px] font-black transition">
+                Jornadas
+            </button>
+
+            <button type="button" @click="setMode('table')"
+                :class="mode === 'table' ? 'bg-violet-500 text-white' : 'text-slate-500 hover:text-slate-300'"
+                class="rounded-lg px-3 py-1.5 text-[11px] font-black transition">
+                Clasificación
+            </button>
+
+        </div>
 
 
-            {{-- TABLA --}}
+        {{-- Jornada, solo cuando se está mirando una --}}
+        <div x-show="mode === 'rounds'" x-cloak class="flex items-center gap-1.5">
 
-            <div class="space-y-1 p-3">
+            <button type="button" @click="setRound(rounds[roundIndex - 1])"
+                :disabled="roundIndex <= 0"
+                class="rounded-lg border border-slate-700 px-2 py-1.5 text-[11px] font-black text-slate-400 transition hover:border-slate-500 hover:text-white disabled:opacity-25">
+                ←
+            </button>
 
-                @foreach ($rows->sortBy('position') as $row)
-                    <div class="flex items-center gap-2.5 rounded-lg px-2 py-1.5 {{ $row->status === 'ADVANCED' ? 'bg-emerald-500/10' : '' }}">
+            <span class="min-w-[92px] rounded-lg bg-slate-900 px-3 py-1.5 text-center text-[11px] font-black text-violet-300">
+                Jornada <span x-text="round"></span>
+            </span>
 
-                        <span class="w-4 shrink-0 text-center font-mono text-[11px] font-black text-slate-500">
-                            {{ $row->position ?? '—' }}
-                        </span>
+            <button type="button" @click="setRound(rounds[roundIndex + 1])"
+                :disabled="roundIndex >= rounds.length - 1"
+                class="rounded-lg border border-slate-700 px-2 py-1.5 text-[11px] font-black text-slate-400 transition hover:border-slate-500 hover:text-white disabled:opacity-25">
+                →
+            </button>
 
-                        <div class="h-6 w-6 shrink-0 overflow-hidden rounded bg-slate-800">
-                            @if ($row->universeEntity?->image_url)
-                                <img src="{{ $row->universeEntity->image_url }}" alt="" class="h-full w-full object-cover">
-                            @endif
+        </div>
+
+
+        {{-- Ancho de los recuadros --}}
+        <div class="ml-auto flex items-center gap-1.5">
+
+            <span class="text-[9px] font-black uppercase tracking-wider text-slate-600">
+                Tamaño
+            </span>
+
+            @foreach ([1, 2, 3, 4] as $option)
+                <button type="button" @click="setColumns({{ $option }})"
+                    :class="columns === {{ $option }} ? 'bg-slate-700 text-white' : 'bg-slate-900 text-slate-600 hover:text-slate-400'"
+                    class="h-6 w-6 rounded-md text-[10px] font-black transition">
+                    {{ $option }}
+                </button>
+            @endforeach
+
+        </div>
+
+    </div>
+
+
+    {{-- ============================================ --}}
+    {{-- MODO GRUPOS · cada grupo con su tabla y sus batallas --}}
+    {{-- ============================================ --}}
+
+    <div x-show="mode === 'groups'" x-cloak class="p-5">
+
+        <div class="grid gap-5" :class="gridClass">
+
+                @foreach ($groups as $groupLabel => $rows)
+
+                    @php
+                        $ordered = $order($rows);
+                        $groupMatches = $matchesByGroup->get($groupLabel, collect());
+                        $groupDone = $groupMatches->where('status', 'COMPLETED')->count();
+                    @endphp
+
+                    <div class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/50">
+
+                        <div class="flex items-center gap-3 border-b border-slate-800 px-4 py-2.5">
+
+                            <p class="text-[11px] font-black uppercase tracking-wider text-violet-300">
+                                {{ $groupLabel ?: 'Grupo único' }}
+                            </p>
+
+                            <span class="ml-auto font-mono text-[10px] font-black text-slate-500">
+                                {{ $groupDone }}/{{ $groupMatches->count() }}
+                            </span>
+
                         </div>
 
-                        <span class="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-300">
-                            {{ $row->participant_name }}
-                        </span>
+                        @include('universes.competitions.partials.play.group-table', [
+                            'ordered' => $ordered,
+                            'points' => $points,
+                            'showPoints' => $showPoints,
+                            'rowState' => $rowState,
+                            'groupCut' => $groupCut,
+                            'phaseResolved' => $phaseResolved,
+                        ])
 
-                        @if ($row->status === 'ADVANCED')
-                            <span class="shrink-0 text-[9px] font-black text-emerald-400">▲</span>
+                        {{-- BATALLAS, POR JORNADA --}}
+
+                        @if ($groupMatches->isNotEmpty())
+
+                            <div class="space-y-3 border-t border-slate-800 p-3">
+
+                                @foreach ($groupMatches->groupBy('round_number') as $number => $roundMatches)
+
+                                    <div>
+                                        <p class="mb-1.5 text-[9px] font-black uppercase tracking-wider text-slate-600">
+                                            Jornada {{ $number }}
+                                        </p>
+
+                                        <div class="grid gap-2 grid-cols-2">
+                                            @foreach ($roundMatches as $match)
+                                                @include('universes.competitions.partials.play.match-chip', ['match' => $match])
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endforeach
+
+                            </div>
                         @endif
-
-                        <span class="shrink-0 font-mono text-[10px] text-slate-500">
-                            {{ $row->wins }}-{{ $row->draws }}-{{ $row->losses }}
-                        </span>
-
-                        <span class="w-6 shrink-0 text-right font-mono text-xs font-black text-violet-300">
-                            {{ $row->points }}
-                        </span>
 
                     </div>
                 @endforeach
 
-            </div>
+        </div>
+
+    </div>
 
 
-            {{-- BATALLAS DEL GRUPO --}}
+    {{-- ============================================ --}}
+    {{-- MODO JORNADAS · una jornada, todos los grupos --}}
+    {{-- ============================================ --}}
 
-            @php
-                $groupMatches = $matchesByGroup->get($groupLabel, collect());
-            @endphp
+    <div x-show="mode === 'rounds'" x-cloak class="p-5">
 
-            @if ($groupMatches->isNotEmpty())
-                <div class="space-y-2 border-t border-slate-800 p-3">
-                    @foreach ($groupMatches as $match)
-                        @include('universes.competitions.partials.play.match-chip', ['match' => $match])
-                    @endforeach
+        @foreach ($rounds as $number)
+
+            <div x-show="round === {{ $number }}" x-cloak>
+
+                @php
+                    $roundMatches = $matchesByRound->get($number, collect());
+                    $byGroup = $roundMatches->groupBy('group_label');
+                    $roundDone = $roundMatches->where('status', 'COMPLETED')->count();
+                @endphp
+
+                <div class="mb-4 flex items-center gap-3">
+
+                    <h4 class="text-sm font-black text-white">
+                        Jornada {{ $number }}
+                    </h4>
+
+                    <span class="rounded-full bg-slate-800 px-2.5 py-0.5 font-mono text-[10px] font-black text-slate-400">
+                        {{ $roundDone }}/{{ $roundMatches->count() }}
+                    </span>
+
+                    @if ($roundDone < $roundMatches->count() && ! $readonly)
+                        <span class="text-[10px] font-bold text-violet-400/70">
+                            Pulsa una batalla para disputarla
+                        </span>
+                    @endif
+
                 </div>
-            @endif
+
+                <div class="grid gap-4" :class="gridClass">
+
+                        @foreach ($byGroup as $groupLabel => $groupMatches)
+
+                            <div class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/50">
+
+                                <div class="border-b border-slate-800 px-4 py-2">
+                                    <p class="text-[10px] font-black uppercase tracking-wider text-violet-300">
+                                        {{ $groupLabel ?: 'Grupo único' }}
+                                    </p>
+                                </div>
+
+                                <div class="grid gap-2 p-3 grid-cols-2">
+                                    @foreach ($groupMatches as $match)
+                                        @include('universes.competitions.partials.play.match-chip', ['match' => $match])
+                                    @endforeach
+                                </div>
+
+                            </div>
+                        @endforeach
+
+                </div>
+
+            </div>
+        @endforeach
+
+    </div>
+
+
+    {{-- ============================================ --}}
+    {{-- MODO CLASIFICACIÓN · solo las tablas --}}
+    {{-- ============================================ --}}
+
+    <div x-show="mode === 'table'" x-cloak class="p-5">
+
+        <div class="grid gap-4" :class="gridClass">
+
+                @foreach ($groups as $groupLabel => $rows)
+
+                    <div class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/50">
+
+                        <div class="border-b border-slate-800 px-4 py-2">
+                            <p class="text-[10px] font-black uppercase tracking-wider text-violet-300">
+                                {{ $groupLabel ?: 'Grupo único' }}
+                            </p>
+                        </div>
+
+                        @include('universes.competitions.partials.play.group-table', [
+                            'ordered' => $order($rows),
+                            'points' => $points,
+                            'showPoints' => $showPoints,
+                            'rowState' => $rowState,
+                            'groupCut' => $groupCut,
+                            'phaseResolved' => $phaseResolved,
+                        ])
+
+                    </div>
+                @endforeach
 
         </div>
-    @endforeach
+
+    </div>
 
 </div>

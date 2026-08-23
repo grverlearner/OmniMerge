@@ -341,6 +341,23 @@
                 </div>
 
 
+                {{--
+                    Modo seleccion. Solo aparece cuando se estan mirando
+                    entidades: es lo unico que esta pantalla sabe copiar
+                    en lote.
+                --}}
+                @if (($tab ?? 'entities') === 'entities')
+                    <button type="button" @click="toggleSelecting()"
+                        :class="selecting
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                        class="rounded-lg px-3 py-2 text-xs font-black transition">
+                        <span x-show="!selecting">☑ Seleccionar varias</span>
+                        <span x-show="selecting" x-cloak>✕ Salir de seleccion</span>
+                    </button>
+                @endif
+
+
                 <div x-show="
                         view === 'grid'
                     " class="flex gap-2">
@@ -702,6 +719,101 @@
     </div>
 
 
+    {{-- ===================================================== --}}
+    {{-- LANZADOR DE SELECCION --}}
+    {{-- ===================================================== --}}
+    {{--
+        Flotante y no en la barra de herramientas porque esa barra solo
+        existe fuera de la pestana "Todo", y ahi tambien se listan
+        entidades copiables.
+
+        Solo aparece si la pagina tiene alguna entidad ajena que copiar:
+        se comprueba en el init contra el DOM, no adivinando la pestana.
+    --}}
+
+    <div x-show="!selecting && hasSelectableEntities" x-cloak
+        class="fixed bottom-6 right-6 z-30">
+
+        <button type="button" @click="toggleSelecting()"
+            class="flex items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-xs font-black text-white shadow-2xl transition hover:bg-slate-800">
+            <span class="text-sm">☑</span>
+            Seleccionar varias
+        </button>
+
+    </div>
+
+
+    {{-- ===================================================== --}}
+    {{-- BARRA DE SELECCION MULTIPLE --}}
+    {{-- ===================================================== --}}
+    {{--
+        Flotante y fuera del flujo: acompaña al usuario mientras recorre
+        la lista, en vez de obligarle a subir para confirmar.
+    --}}
+
+    <div x-show="selecting" x-cloak
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="translate-y-full opacity-0"
+        x-transition:enter-end="translate-y-0 opacity-100"
+        class="fixed inset-x-0 bottom-0 z-40 px-4 pb-4">
+
+        <div class="mx-auto flex max-w-4xl flex-wrap items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-5 py-4 shadow-2xl">
+
+            <div class="min-w-0 flex-1">
+
+                <p class="text-sm font-black text-white">
+                    <span x-text="selected.length"></span>
+                    <span x-show="selected.length === 1">entidad seleccionada</span>
+                    <span x-show="selected.length !== 1">entidades seleccionadas</span>
+                </p>
+
+                <p class="text-[11px] text-slate-400">
+                    <span x-show="selected.length === 0">
+                        Pulsa las tarjetas que quieras traerte.
+                    </span>
+                    <span x-show="selected.length > 0" x-cloak>
+                        Se copiaran a tu Biblioteca como entidades propias.
+                    </span>
+                </p>
+
+            </div>
+
+            <button type="button" @click="selectAllVisible()"
+                class="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 transition hover:border-slate-500 hover:text-white">
+                Marcar toda la pagina
+            </button>
+
+            <button type="button" @click="clearSelection()" x-show="selected.length > 0" x-cloak
+                class="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-400 transition hover:text-white">
+                Limpiar
+            </button>
+
+            <form method="POST" action="{{ route('community.entities.clone-many') }}"
+                @submit="if (selected.length === 0) $event.preventDefault()">
+
+                @csrf
+
+                <template x-for="id in selected" :key="id">
+                    <input type="hidden" name="entity_ids[]" :value="id">
+                </template>
+
+                <button type="submit" :disabled="selected.length === 0"
+                    class="rounded-xl bg-indigo-500 px-6 py-2.5 text-xs font-black text-white shadow-lg shadow-indigo-900/40 transition hover:bg-indigo-400 disabled:opacity-40">
+                    Copiar a mi Biblioteca
+                </button>
+
+            </form>
+
+            <button type="button" @click="toggleSelecting()"
+                class="rounded-xl px-3 py-2 text-xs font-black text-slate-500 transition hover:text-white">
+                Salir
+            </button>
+
+        </div>
+
+    </div>
+
+
     <script>
         function communityExplorer(
             config
@@ -738,7 +850,69 @@
                 cloneSubtitle: '',
 
 
+                /*
+                |--------------------------------------------------------
+                | Seleccion multiple
+                |--------------------------------------------------------
+                |
+                | Copiar de una en una obliga a entrar en cada ficha y
+                | volver. Con seleccion se marca lo que interesa y se
+                | copia todo de golpe.
+                |
+                | Solo tiene sentido sobre ENTIDADES: son las unicas que
+                | esta pantalla sabe copiar en lote.
+                */
+
+                selecting: false,
+
+                selected: [],
+
+                /* Si esta pagina tiene algo que seleccionar siquiera */
+                hasSelectableEntities: false,
+
+                refreshSelectable() {
+                    this.hasSelectableEntities =
+                        document.querySelectorAll('[data-selectable-entity]').length > 0;
+                },
+
+                toggleSelecting() {
+                    this.selecting = !this.selecting;
+
+                    if (!this.selecting) {
+                        this.selected = [];
+                    }
+                },
+
+                isSelected(id) {
+                    return this.selected.includes(id);
+                },
+
+                toggleSelected(id) {
+                    this.selected = this.isSelected(id)
+                        ? this.selected.filter((item) => item !== id)
+                        : [...this.selected, id];
+                },
+
+                selectAllVisible() {
+                    const ids = Array.from(
+                        document.querySelectorAll('[data-selectable-entity]')
+                    ).map((node) => Number(node.dataset.selectableEntity));
+
+                    /* Si ya estan todas marcadas, el boton desmarca */
+                    const todas = ids.length > 0
+                        && ids.every((id) => this.selected.includes(id));
+
+                    this.selected = todas ? [] : ids;
+                },
+
+                clearSelection() {
+                    this.selected = [];
+                },
+
+
                 init() {
+
+                    this.refreshSelectable();
 
                     const allowedViews = [
                         'gallery',

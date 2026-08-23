@@ -90,6 +90,19 @@
                                         </span>
                                     @endif
 
+                                    {{-- De que juego son las stats que toca --}}
+                                    @if ($reward->stat_key && $reward->game_key)
+                                        @php
+                                            $rewardGame = $availableGames->firstWhere('key', $reward->game_key);
+                                        @endphp
+
+                                        @if ($rewardGame)
+                                            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600">
+                                                {{ $rewardGame['icon'] ?? '🎲' }} {{ $rewardGame['name'] }}
+                                            </span>
+                                        @endif
+                                    @endif
+
                                 </div>
 
                                 @if ($reward->label)
@@ -121,7 +134,15 @@
             <form method="POST"
                 action="{{ route('universes.tournaments.rewards.store', [$universe, $universeTournament]) }}"
                 class="space-y-4 border-t border-slate-100 bg-slate-50/60 p-6"
-                x-data="{ trigger: '{{ old('trigger', 'POSITION') }}' }">
+                x-data="{
+                    trigger: '{{ old('trigger', 'POSITION') }}',
+                    game: '{{ old('game_key', $definition['key']) }}',
+                    statsByGame: {{ Illuminate\Support\Js::from($statsByGame) }},
+
+                    get stats() {
+                        return this.statsByGame[this.game] ?? [];
+                    },
+                }">
 
                 @csrf
 
@@ -153,6 +174,47 @@
                 </div>
 
 
+                {{--
+                    A que juego afecta.
+
+                    Cada juego declara sus propias estadisticas, asi que
+                    "+0.5 max_value" solo significa algo dentro del juego
+                    que define esa stat.
+                --}}
+                @if ($availableGames->count() > 1)
+                    <div>
+                        <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                            Juego al que afecta
+                        </label>
+
+                        <div class="mt-1.5 grid gap-2 sm:grid-cols-2">
+                            @foreach ($availableGames as $game)
+                                <button type="button" @click="game = '{{ $game['key'] }}'"
+                                    :class="game === '{{ $game['key'] }}'
+                                        ? 'border-violet-500 bg-violet-50 text-violet-800'
+                                        : 'border-slate-200 bg-white text-slate-500'"
+                                    class="flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-left transition">
+                                    <span class="text-base">{{ $game['icon'] ?? '🎲' }}</span>
+                                    <span class="min-w-0">
+                                        <span class="block truncate text-[11px] font-black">{{ $game['name'] }}</span>
+                                        <span class="block text-[9px] opacity-70">{{ $game['type_label'] }}</span>
+                                    </span>
+                                </button>
+                            @endforeach
+                        </div>
+
+                        <input type="hidden" name="game_key" :value="game">
+
+                        <p class="mt-1.5 text-[10px] text-slate-500">
+                            El torneo se juega a <strong class="font-black text-slate-700">{{ $definition['name'] }}</strong>,
+                            pero la recompensa puede subir estadísticas de otro juego.
+                        </p>
+                    </div>
+                @else
+                    <input type="hidden" name="game_key" :value="game">
+                @endif
+
+
                 <div class="grid gap-3 sm:grid-cols-3">
 
                     <div>
@@ -163,11 +225,11 @@
                         <select name="stat_key"
                             class="mt-1.5 w-full rounded-xl border-slate-300 text-sm focus:border-violet-400 focus:ring-violet-400">
                             <option value="">— solo trofeo —</option>
-                            @foreach ($definition['stats'] ?? [] as $stat)
-                                <option value="{{ $stat['key'] }}" @selected(old('stat_key') === $stat['key'])>
-                                    {{ $stat['label'] }}
-                                </option>
-                            @endforeach
+
+                            {{-- Cambian con el juego: cada uno tiene las suyas --}}
+                            <template x-for="stat in stats" :key="stat.key">
+                                <option :value="stat.key" x-text="stat.label"></option>
+                            </template>
                         </select>
                     </div>
 
@@ -271,11 +333,37 @@
                 <div class="divide-y divide-slate-100">
 
                     @foreach ($modifiers as $modifier)
-                        <div class="flex items-center gap-4 px-6 py-4">
+
+                        @php
+                            $earned = $modifier->target === 'PHASE_PODIUM';
+
+                            $who = match ($modifier->target) {
+                                'PHASE_PODIUM' =>
+                                    $modifier->selector_label . ' de '
+                                        . ($modifier->award_phase ?: 'cada fase que termine'),
+
+                                'ENTITY' =>
+                                    $modifier->universeEntity?->display_label ?? 'un competidor',
+
+                                default => 'todos los participantes',
+                            };
+                        @endphp
+
+                        <div @class([
+                            'flex items-center gap-4 px-6 py-4',
+                            'bg-amber-50/50' => $earned,
+                        ])>
 
                             <div class="min-w-0 flex-1">
 
                                 <div class="flex flex-wrap items-center gap-2">
+
+                                    {{-- Lo que hay que hacer para tenerlo --}}
+                                    @if ($earned)
+                                        <span class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black text-amber-700">
+                                            🏅 Se gana jugando
+                                        </span>
+                                    @endif
 
                                     <span
                                         class="rounded-full bg-sky-100 px-2.5 py-1 text-[10px] font-black text-sky-700">
@@ -288,10 +376,20 @@
                                     </span>
 
                                     <span class="text-[10px] font-bold text-slate-400">
-                                        {{ $modifier->target === 'ENTITY'
-                                            ? ($modifier->universeEntity?->display_label ?? 'competidor')
-                                            : 'todos' }}
+                                        {{ $who }}
                                     </span>
+
+                                    @if ($modifier->game_key)
+                                        @php
+                                            $modifierGame = $availableGames->firstWhere('key', $modifier->game_key);
+                                        @endphp
+
+                                        @if ($modifierGame)
+                                            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600">
+                                                {{ $modifierGame['icon'] ?? '🎲' }} {{ $modifierGame['name'] }}
+                                            </span>
+                                        @endif
+                                    @endif
 
                                 </div>
 
@@ -321,7 +419,23 @@
             <form method="POST"
                 action="{{ route('universes.tournaments.modifiers.store', [$universe, $universeTournament]) }}"
                 class="space-y-4 border-t border-slate-100 bg-slate-50/60 p-6"
-                x-data="{ scope: 'TOURNAMENT', target: 'ALL' }">
+                x-data="{
+                    scope: 'TOURNAMENT',
+                    target: 'ALL',
+                    game: '{{ old('game_key', $definition['key']) }}',
+                    statsByGame: {{ Illuminate\Support\Js::from($statsByGame) }},
+
+                    get stats() {
+                        return this.statsByGame[this.game] ?? [];
+                    },
+
+                    selector: '{{ old('selector_type', 'TOP_N') }}',
+
+                    /* Un bonus que hay que ganarse jugando */
+                    get earned() {
+                        return this.target === 'PHASE_PODIUM';
+                    },
+                }">
 
                 @csrf
 
@@ -340,14 +454,67 @@
                         </select>
                     </div>
 
-                    <div x-show="scope !== 'TOURNAMENT'" x-cloak>
+                    {{-- La fase, elegida de las que tiene este torneo --}}
+                    <div x-show="scope === 'PHASE'" x-cloak>
                         <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                            <span x-text="scope === 'PHASE' ? 'Nombre de la fase' : 'Número de ronda'"></span>
+                            Fase
                         </label>
 
-                        <input type="text" name="scope_value" value="{{ old('scope_value') }}"
-                            placeholder="Ej. Final"
-                            class="mt-1.5 w-full rounded-xl border-slate-300 text-sm focus:border-violet-400 focus:ring-violet-400">
+                        @if ($phases->isEmpty())
+                            <input type="text" name="scope_value" value="{{ old('scope_value') }}"
+                                placeholder="Nombre exacto de la fase"
+                                class="mt-1.5 w-full rounded-xl border-slate-300 text-sm focus:border-violet-400 focus:ring-violet-400">
+
+                            <p class="mt-1 text-[10px] text-amber-600">
+                                Este torneo no tiene un recorrido asignado, así que hay que escribirlo.
+                            </p>
+                        @else
+                            <select name="scope_value"
+                                class="mt-1.5 w-full rounded-xl border-slate-300 text-sm focus:border-violet-400 focus:ring-violet-400">
+                                @foreach ($phases as $phase)
+                                    <option value="{{ $phase['name'] }}"
+                                        @selected(old('scope_value') === $phase['name'])>
+                                        {{ $phase['name'] }}@if ($phase['type']) · {{ $phase['type'] }}@endif
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endif
+                    </div>
+
+                    {{-- La ronda, sacada de lo que este torneo ha jugado --}}
+                    <div x-show="scope === 'ROUND'" x-cloak>
+                        <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                            Ronda
+                        </label>
+
+                        @if ($rounds->isEmpty())
+                            <input type="number" name="scope_value" min="1" max="99"
+                                value="{{ old('scope_value') }}"
+                                class="mt-1.5 w-full rounded-xl border-slate-300 text-sm focus:border-violet-400 focus:ring-violet-400">
+
+                            <p class="mt-1 text-[10px] text-amber-600">
+                                Este torneo no se ha jugado todavía, así que aún no se sabe
+                                cuántas rondas tendrá.
+                            </p>
+                        @else
+                            <select name="scope_value"
+                                class="mt-1.5 w-full rounded-xl border-slate-300 text-sm focus:border-violet-400 focus:ring-violet-400">
+                                @foreach ($rounds as $round)
+                                    <option value="{{ $round['number'] }}"
+                                        @selected((int) old('scope_value') === $round['number'])>
+                                        Ronda {{ $round['number'] }}
+                                        @if ($round['phases'] > 1)
+                                            · en {{ $round['phases'] }} fases
+                                        @endif
+                                    </option>
+                                @endforeach
+                            </select>
+
+                            <p class="mt-1 text-[10px] text-slate-400">
+                                Sacadas de la última edición jugada. Se aplica en esa ronda
+                                de cualquier fase que la tenga.
+                            </p>
+                        @endif
                     </div>
 
                 </div>
@@ -385,6 +552,124 @@
                 </div>
 
 
+                {{-- ============================================ --}}
+                {{-- BONUS QUE SE GANA JUGANDO --}}
+                {{-- ============================================ --}}
+
+                <div x-show="earned" x-cloak
+                    class="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+
+                    <p class="text-[11px] font-black uppercase tracking-wider text-amber-700">
+                        🏅 Se concede al terminar la fase
+                    </p>
+
+                    <p class="mt-1 text-xs leading-relaxed text-amber-800/80">
+                        Nadie sabe quién lo recibirá hasta que la fase acabe. En cuanto
+                        termina, los mejores de esa clasificación entran a la fase
+                        siguiente con el bonus ya puesto.
+                    </p>
+
+                    <div class="mt-3 space-y-3">
+
+                        <div>
+                            <label class="text-[10px] font-black uppercase tracking-wider text-amber-700">
+                                Fase que lo concede
+                            </label>
+
+                            <select name="award_phase"
+                                class="mt-1.5 w-full rounded-xl border-amber-300 text-sm focus:border-amber-500 focus:ring-amber-500">
+                                <option value="">Cualquier fase que termine</option>
+                                @foreach ($phases as $phase)
+                                    <option value="{{ $phase['name'] }}"
+                                        @selected(old('award_phase') === $phase['name'])>
+                                        {{ $phase['name'] }}@if ($phase['type']) · {{ $phase['type'] }}@endif
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="grid gap-3 sm:grid-cols-3">
+
+                            <div>
+                                <label class="text-[10px] font-black uppercase tracking-wider text-amber-700">
+                                    Qué parte
+                                </label>
+
+                                <select name="selector_type" x-model="selector"
+                                    class="mt-1.5 w-full rounded-xl border-amber-300 text-sm focus:border-amber-500 focus:ring-amber-500">
+                                    @foreach (\App\Models\UniverseTournamentModifier::SELECTORS as $value => $label)
+                                        <option value="{{ $value }}" @selected(old('selector_type') === $value)>
+                                            {{ $label }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="text-[10px] font-black uppercase tracking-wider text-amber-700">
+                                    <span x-text="selector === 'RANK_RANGE' ? 'Desde el puesto'
+                                        : (selector === 'RANK_POSITION' ? 'Puesto' : 'Cuántos')"></span>
+                                </label>
+
+                                <input type="number" name="selector_from" min="1" max="999"
+                                    value="{{ old('selector_from', 3) }}"
+                                    class="mt-1.5 w-full rounded-xl border-amber-300 text-sm focus:border-amber-500 focus:ring-amber-500">
+                            </div>
+
+                            <div x-show="selector === 'RANK_RANGE'" x-cloak>
+                                <label class="text-[10px] font-black uppercase tracking-wider text-amber-700">
+                                    Hasta el puesto
+                                </label>
+
+                                <input type="number" name="selector_to" min="1" max="999"
+                                    value="{{ old('selector_to', 4) }}"
+                                    class="mt-1.5 w-full rounded-xl border-amber-300 text-sm focus:border-amber-500 focus:ring-amber-500">
+                            </div>
+
+                        </div>
+
+                        <p class="text-[10px] leading-relaxed text-amber-700/80">
+                            <strong class="font-black">Los N primeros</strong> con 3 es el podio ·
+                            <strong class="font-black">Un puesto exacto</strong> con 2 es solo el
+                            subcampeón · <strong class="font-black">Un rango</strong> del 3 al 4 son
+                            los semifinalistas de una eliminatoria ·
+                            <strong class="font-black">Los N últimos</strong> penaliza la cola.
+                            En fase de grupos el corte se aplica dentro de cada grupo.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                @if ($availableGames->count() > 1)
+                    <div>
+                        <label class="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                            Juego al que afecta
+                        </label>
+
+                        <div class="mt-1.5 grid gap-2 sm:grid-cols-2">
+                            @foreach ($availableGames as $game)
+                                <button type="button" @click="game = '{{ $game['key'] }}'"
+                                    :class="game === '{{ $game['key'] }}'
+                                        ? 'border-sky-500 bg-sky-50 text-sky-800'
+                                        : 'border-slate-200 bg-white text-slate-500'"
+                                    class="flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-left transition">
+                                    <span class="text-base">{{ $game['icon'] ?? '🎲' }}</span>
+                                    <span class="min-w-0">
+                                        <span class="block truncate text-[11px] font-black">{{ $game['name'] }}</span>
+                                    </span>
+                                </button>
+                            @endforeach
+                        </div>
+
+                        <input type="hidden" name="game_key" :value="game">
+                    </div>
+                @else
+                    <input type="hidden" name="game_key" :value="game">
+                @endif
+
+
                 <div class="grid gap-3 sm:grid-cols-3">
 
                     <div>
@@ -394,9 +679,9 @@
 
                         <select name="stat_key"
                             class="mt-1.5 w-full rounded-xl border-slate-300 text-sm focus:border-violet-400 focus:ring-violet-400">
-                            @foreach ($definition['stats'] ?? [] as $stat)
-                                <option value="{{ $stat['key'] }}">{{ $stat['label'] }}</option>
-                            @endforeach
+                            <template x-for="stat in stats" :key="stat.key">
+                                <option :value="stat.key" x-text="stat.label"></option>
+                            </template>
                         </select>
                     </div>
 
@@ -446,6 +731,57 @@
                 </p>
 
             </form>
+
+                @if ($running->isNotEmpty())
+
+                    {{-- ============================================ --}}
+                    {{-- LLEVARLOS A UNA COMPETICIÓN EN MARCHA --}}
+                    {{-- ============================================ --}}
+
+                    <div class="mb-4 rounded-2xl border border-violet-200 bg-violet-50/70 p-4">
+
+                        <p class="text-[11px] font-black uppercase tracking-wider text-violet-700">
+                            ⚡ Aplicar a una competición en curso
+                        </p>
+
+                        <p class="mt-1 text-xs leading-relaxed text-violet-800/80">
+                            Lleva estas reglas a un torneo que ya está jugándose. Lo que
+                            alguien ya se ganó jugando no se toca, y las fases que ya
+                            terminaron conceden su podio al momento.
+                        </p>
+
+                        <div class="mt-3 space-y-2">
+
+                            @foreach ($running as $edition)
+                                <form method="POST"
+                                    action="{{ route('universes.tournaments.modifiers.sync', [$universe, $universeTournament, $edition]) }}"
+                                    class="flex items-center gap-3 rounded-xl bg-white px-3 py-2">
+                                    @csrf
+                                    @method('PUT')
+
+                                    <span class="font-mono text-[10px] font-black text-violet-500">
+                                        {{ $edition->code }}
+                                    </span>
+
+                                    <span class="min-w-0 flex-1 truncate text-xs font-bold text-slate-700">
+                                        {{ $edition->name }}
+                                    </span>
+
+                                    <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black text-slate-500">
+                                        {{ $edition->status_label }}
+                                    </span>
+
+                                    <button class="shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 text-[10px] font-black text-white transition hover:bg-violet-500">
+                                        Aplicar
+                                    </button>
+                                </form>
+                            @endforeach
+
+                        </div>
+
+                    </div>
+                @endif
+
 
         </section>
 

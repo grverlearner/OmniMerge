@@ -3,6 +3,7 @@
 namespace App\Services\Games;
 
 use App\Models\Universe;
+use App\Support\Games\GameConfiguration;
 use App\Models\UniverseGame;
 use Illuminate\Support\Collection;
 
@@ -146,6 +147,57 @@ class UniverseGameService
                 $universe->games()->get()
             );
         }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Configuracion del juego dentro del Universo
+    |--------------------------------------------------------------------------
+    */
+
+    public function configuration(
+        Universe $universe,
+        string $gameKey
+    ): GameConfiguration {
+
+        $record = $universe->games()
+            ->where('game_key', strtoupper($gameKey))
+            ->first();
+
+        return new GameConfiguration(
+            $this->registry->definition($gameKey),
+            $record?->configuration ?? []
+        );
+    }
+
+    public function saveConfiguration(
+        Universe $universe,
+        string $gameKey,
+        array $stats,
+        array $options = []
+    ): GameConfiguration {
+
+        if (! $this->registry->has($gameKey)) {
+            return $this->configuration($universe, $gameKey);
+        }
+
+        $key = strtoupper($gameKey);
+
+        $record = $universe->games()
+            ->firstOrCreate(
+                ['game_key' => $key],
+                ['is_enabled' => true, 'is_default' => false]
+            );
+
+        $record->configuration = GameConfiguration::merge(
+            $record->configuration ?? [],
+            $stats,
+            $options
+        );
+
+        $record->save();
+
+        return $this->configuration($universe, $key);
     }
 
     private function guaranteeDefault(
