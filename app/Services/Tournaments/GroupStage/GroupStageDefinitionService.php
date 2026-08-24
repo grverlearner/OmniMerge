@@ -120,18 +120,20 @@ class GroupStageDefinitionService
         return [
             'EACH_GROUP_TOP_N' => [
                 'label' =>
-                'Top N de cada grupo',
+                'Los N primeros de cada grupo',
 
                 'description' =>
-                'Selecciona los mejores N participantes de todos los grupos.',
+                'La cantidad es POR GRUPO, no en total: con 4 grupos, N=2 '
+                    . 'clasifica a 8. Si N llega al tamaño del grupo, pasan todos.',
             ],
 
             'EACH_GROUP_BOTTOM_N' => [
                 'label' =>
-                'Bottom N de cada grupo',
+                'Los N últimos de cada grupo',
 
                 'description' =>
-                'Selecciona los últimos N participantes de todos los grupos.',
+                'La cantidad es POR GRUPO, no en total: con 4 grupos, N=2 '
+                    . 'toma a 8. Si N llega al tamaño del grupo, los toma a todos.',
             ],
 
             'EACH_GROUP_POSITION' => [
@@ -155,7 +157,8 @@ class GroupStageDefinitionService
                 'Mejores N de una misma posición',
 
                 'description' =>
-                'Ejemplo: los cuatro mejores terceros entre todos los grupos.',
+                'La cantidad es el total, no por grupo. Ejemplo: los cuatro '
+                    . 'mejores terceros entre todos los grupos.',
             ],
 
             'CROSS_GROUP_POSITION_BOTTOM_N' => [
@@ -163,7 +166,8 @@ class GroupStageDefinitionService
                 'Peores N de una misma posición',
 
                 'description' =>
-                'Ejemplo: los dos peores ganadores de grupo.',
+                'La cantidad es el total, no por grupo. Ejemplo: los dos peores '
+                    . 'ganadores de grupo.',
             ],
 
             'BEST_REMAINING' => [
@@ -171,7 +175,8 @@ class GroupStageDefinitionService
                 'Mejores N restantes',
 
                 'description' =>
-                'Compara globalmente a quienes todavía no hayan sido seleccionados.',
+                'Aquí la cantidad SÍ es el total: compara entre todos los grupos '
+                    . 'a quienes no haya tomado una regla anterior y se queda con N.',
             ],
 
             'WORST_REMAINING' => [
@@ -179,7 +184,8 @@ class GroupStageDefinitionService
                 'Peores N restantes',
 
                 'description' =>
-                'Selecciona globalmente a los peores participantes restantes.',
+                'Aquí la cantidad SÍ es el total: compara entre todos los grupos '
+                    . 'a quienes no haya tomado una regla anterior y toma a los N peores.',
             ],
 
             'SPECIFIC_GROUP_POSITION' => [

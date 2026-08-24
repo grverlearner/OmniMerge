@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Tournaments;
 
 use App\Models\PhaseTemplate;
+use App\Services\Tournaments\GroupStage\GroupStageExitForecastService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -329,7 +330,149 @@ class StoreGroupStageAdvancementRuleRequest extends FormRequest
                             'El grupo seleccionado no pertenece a esta Fase.'
                         );
                 }
+
+                $this->validateScale(
+                    $validator,
+                    $phaseTemplate
+                );
             }
         );
+    }
+
+    /*
+     * Una regla «de cada grupo» multiplica: la cantidad que se escribe no
+     * es la que clasifica.
+     *
+     * Sin este control se puede pedir «los 8 primeros de cada grupo» en
+     * una fase de 4 grupos de 4 y guardarlo sin una sola queja. La regla
+     * es válida, se ejecuta, y clasifica a los 16 —todos— porque la
+     * posición de todo el mundo es menor o igual que 8. El error no se ve
+     * al configurar ni al empezar: se ve cuando la fase entera ya se jugó
+     * y la siguiente puerta rechaza el doble de participantes de los que
+     * admite, con el torneo bloqueado y sin vuelta atrás.
+     *
+     * El aviso llega aquí, en el campo donde se escribió el número, y trae
+     * hecha la cuenta que hay que hacer.
+     */
+    private function validateScale(
+        Validator $validator,
+        PhaseTemplate $phaseTemplate
+    ): void {
+
+        $ruleType =
+            (string)
+            $this->input('rule_type');
+
+        $usesPerGroupTake =
+            in_array(
+                $ruleType,
+                [
+                    'EACH_GROUP_TOP_N',
+                    'EACH_GROUP_BOTTOM_N',
+                ],
+                true
+            );
+
+        $usesPerGroupPosition =
+            in_array(
+                $ruleType,
+                [
+                    'EACH_GROUP_POSITION',
+                    'EACH_GROUP_RANGE',
+                ],
+                true
+            );
+
+        if (
+            ! $usesPerGroupTake
+            &&
+            ! $usesPerGroupPosition
+        ) {
+            return;
+        }
+
+        $forecaster =
+            app(
+                GroupStageExitForecastService::class
+            );
+
+        $sizes =
+            $forecaster->groupSizes(
+                $phaseTemplate,
+                $forecaster->referenceParticipants(
+                    $phaseTemplate
+                )
+            );
+
+        /*
+         * Sin un reparto en grupos válido no hay nada que comparar, y el
+         * motivo ya se está avisando en la pantalla de estructura. Un
+         * segundo aviso derivado del primero solo sería ruido.
+         */
+        if ($sizes === []) {
+            return;
+        }
+
+        $smallest =
+            min($sizes);
+
+        $groupCount =
+            count($sizes);
+
+        if ($usesPerGroupPosition) {
+
+            $from =
+                (int)
+                $this->input('position_from');
+
+            if ($from > $smallest) {
+                $validator
+                    ->errors()
+                    ->add(
+                        'position_from',
+                        'El grupo más pequeño tiene '
+                        . $smallest
+                        . ' participantes, así que el puesto '
+                        . $from
+                        . ' no existe: esta regla no seleccionaría a nadie.'
+                    );
+            }
+
+            return;
+        }
+
+        $take =
+            (int)
+            $this->input('take');
+
+        if ($take < $smallest) {
+            return;
+        }
+
+        $perGroup =
+            intdiv(
+                $take,
+                $groupCount
+            );
+
+        $validator
+            ->errors()
+            ->add(
+                'take',
+                'Esta cantidad es POR GRUPO, no en total. Con '
+                . $groupCount
+                . ' grupos de '
+                . $smallest
+                . ', pedir '
+                . $take
+                . ' de cada uno clasifica a los '
+                . ($smallest * $groupCount)
+                . ' participantes de la fase: no eliminaría a nadie. '
+                . (
+                    $perGroup >= 1 && $perGroup < $smallest
+                    ? 'Para que pasen ' . $take . ' en total, escribe ' . $perGroup . '.'
+                    : 'Si la cantidad que quieres es el total, usa «Mejores N restantes».'
+                )
+            );
     }
 }

@@ -1,13 +1,58 @@
 @php
     $editingRule = isset($advancementRule) && $advancementRule;
 
+    /*
+     * El reparto real en grupos, para que el formulario pueda hacer la
+     * cuenta en voz alta mientras se escribe.
+     *
+     * Una regla «de cada grupo» multiplica, y esa multiplicacion no se ve
+     * por ninguna parte: escribir 8 en una fase de 4 grupos de 4 clasifica
+     * a los 16. Aqui abajo se dice cuantos pasan, con el numero puesto.
+     */
+    $scaleService = app(\App\Services\Tournaments\GroupStage\GroupStageExitForecastService::class);
+
+    $scaleParticipants = $scaleService->referenceParticipants($phaseTemplate);
+
+    $scaleSizes = $scaleService->groupSizes($phaseTemplate, $scaleParticipants);
+
+    $scaleGroups = count($scaleSizes);
+
+    $scaleSmallest = $scaleSizes === [] ? 0 : min($scaleSizes);
+
     $action = $editingRule
         ? route('tournaments.group-stage.advancement-rules.update', [$phaseTemplate, $advancementRule])
         : route('tournaments.group-stage.advancement-rules.store', $phaseTemplate);
 @endphp
 
 <form method="POST" action="{{ $action }}" x-data="{
-    type: @js(old('rule_type', $editingRule ? $advancementRule->rule_type : 'EACH_GROUP_TOP_N'))
+    type: @js(old('rule_type', $editingRule ? $advancementRule->rule_type : 'EACH_GROUP_TOP_N')),
+    take: @js((int) old('take', $editingRule ? $advancementRule->take : 2)),
+    groups: @js($scaleGroups),
+    groupSize: @js($scaleSmallest),
+
+    /* Cuantos clasifica de verdad la cantidad escrita */
+    get reach() {
+        const n = Math.max(0, parseInt(this.take) || 0);
+
+        if (!this.groups || !this.groupSize) {
+            return null;
+        }
+
+        if (['EACH_GROUP_TOP_N', 'EACH_GROUP_BOTTOM_N'].includes(this.type)) {
+            return {
+                perGroup: true,
+                total: Math.min(n, this.groupSize) * this.groups,
+                everyone: n >= this.groupSize,
+            };
+        }
+
+        if (['CROSS_GROUP_POSITION_TOP_N', 'CROSS_GROUP_POSITION_BOTTOM_N',
+             'BEST_REMAINING', 'WORST_REMAINING'].includes(this.type)) {
+            return { perGroup: false, total: n, everyone: false };
+        }
+
+        return null;
+    },
 }" class="space-y-4">
 
     @csrf
@@ -25,6 +70,15 @@
                 <option value="{{ $value }}">{{ $definition['label'] }}</option>
             @endforeach
         </select>
+
+        {{-- Qué hace exactamente la regla elegida --}}
+
+        @foreach ($ruleTypes as $value => $definition)
+            <p x-show="type === @js($value)" x-cloak
+                class="mt-1.5 text-[10px] leading-relaxed text-slate-500">
+                {{ $definition['description'] }}
+            </p>
+        @endforeach
     </div>
 
     <div>
@@ -120,8 +174,7 @@
             Cantidad
         </label>
 
-        <input type="number" name="take" min="1" max="512"
-            value="{{ old('take', $editingRule ? $advancementRule->take : 2) }}"
+        <input type="number" name="take" min="1" max="512" x-model="take"
             :disabled="![
                 'EACH_GROUP_TOP_N',
                 'EACH_GROUP_BOTTOM_N',
@@ -131,6 +184,39 @@
                 'WORST_REMAINING'
             ].includes(type)"
             class="mt-2 w-full rounded-xl border-slate-300 text-sm">
+
+        {{-- La cuenta hecha en voz alta --}}
+
+        <template x-if="reach">
+            <p class="mt-2 rounded-xl px-3 py-2 text-[11px] font-bold leading-relaxed"
+                :class="reach.everyone
+                    ? 'bg-red-50 text-red-700'
+                    : 'bg-violet-50 text-violet-700'">
+
+                <template x-if="reach.perGroup">
+                    <span>
+                        <span x-text="take"></span> de cada uno de los
+                        <span x-text="groups"></span> grupos de
+                        <span x-text="groupSize"></span>
+                        =
+                        <strong x-text="reach.total"></strong>
+                        clasificados de {{ $scaleParticipants }}.
+                    </span>
+                </template>
+
+                <template x-if="!reach.perGroup">
+                    <span>
+                        Aquí la cantidad es el total:
+                        <strong x-text="reach.total"></strong>
+                        clasificados de {{ $scaleParticipants }}.
+                    </span>
+                </template>
+
+                <span x-show="reach.everyone" x-cloak class="mt-1 block font-black">
+                    Pasan todos: esta regla no eliminaría a nadie.
+                </span>
+            </p>
+        </template>
 
     </div>
 

@@ -39,7 +39,8 @@ class GroupStageStructureController extends Controller
         private readonly GroupStagePreviewService $previewService,
         private readonly GroupStageDefinitionService $definitionService,
         private readonly PreviewCastService $cast,
-        private readonly \App\Services\Tournaments\GroupStage\GroupStageGateService $gates
+        private readonly \App\Services\Tournaments\GroupStage\GroupStageGateService $gates,
+        private readonly \App\Services\Tournaments\GroupStage\GroupStageExitForecastService $exitForecast
     ) {}
 
     /*
@@ -200,6 +201,19 @@ class GroupStageStructureController extends Controller
         $ruleTypes =
             $this->definitionService->ruleTypes();
 
+        /*
+         * Cuánta gente sale de verdad por cada puerta.
+         *
+         * El selector de la puerta ("Top 8") no lo aplica nadie cuando hay
+         * reglas de clasificación: el motor entrega la lista que producen
+         * las reglas y la puerta solo la deja pasar. Mientras ese número no
+         * estuvo a la vista, se podía dejar una puerta declarando 8 y unas
+         * reglas mandando 16, y el desacuerdo no aparecía hasta tener la
+         * fase entera jugada y el torneo bloqueado.
+         */
+        $exitForecast =
+            $this->exitForecast->forecast($phaseTemplate) ?? [];
+
         return view(
             'tournaments.phase-templates.group-stage-io',
             compact(
@@ -212,7 +226,8 @@ class GroupStageStructureController extends Controller
                 'advancementRules',
                 'activeGroupDefinitions',
                 'ruleTypes',
-                'distributionModes'
+                'distributionModes',
+                'exitForecast'
             )
         );
     }

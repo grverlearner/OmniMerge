@@ -220,6 +220,31 @@
 
                 @php
                     $rules = $rulesByExit->get($exit->id, collect());
+
+                    /*
+                     * Cuantos salen de verdad por esta puerta. Es el numero
+                     * que ejecuta el motor: lo producen las reglas, no el
+                     * selector de la puerta.
+                     */
+                    $emits = $exitForecast['by_exit'][$exit->id] ?? null;
+
+                    /*
+                     * Lo que la puerta dice de si misma. Solo tiene efecto
+                     * cuando ninguna regla la alimenta; con reglas, es el
+                     * numero que leen el grafo y sus validaciones, y por eso
+                     * conviene que coincida.
+                     */
+                    $declares = match ($exit->selector_type) {
+                        'TOP_N', 'BOTTOM_N' => (int) $exit->selector_from,
+                        'RANK_POSITION' => 1,
+                        'RANK_RANGE' => max(0, (int) $exit->selector_to - (int) $exit->selector_from + 1),
+                        default => null,
+                    };
+
+                    $mismatch = $emits !== null
+                        && $emits > 0
+                        && $declares !== null
+                        && $declares !== $emits;
                 @endphp
 
                 <div class="border-b border-slate-100 p-5 last:border-0">
@@ -278,9 +303,16 @@
 
                         @forelse ($rules as $rule)
                             <p class="mt-1.5 text-xs font-bold text-violet-700">
-                                → {{ $rule->rule_type_label ?? $rule->rule_type }}
+                                → {{ $rule->rule_summary ?? $rule->rule_type }}
                                 @if ($rule->group)
                                     <span class="text-slate-500">· {{ $rule->group->name }}</span>
+                                @endif
+
+                                @if (isset($exitForecast['by_rule'][$rule->id]))
+                                    <span class="text-slate-500">
+                                        · {{ $exitForecast['by_rule'][$rule->id] }}
+                                        {{ $exitForecast['by_rule'][$rule->id] === 1 ? 'participante' : 'participantes' }}
+                                    </span>
                                 @endif
                             </p>
                         @empty
@@ -289,7 +321,35 @@
                             </p>
                         @endforelse
 
+                        @if ($emits !== null && $rules->isNotEmpty())
+                            <p class="mt-2 border-t border-slate-200 pt-2 text-[11px] font-black text-slate-700">
+                                Salen {{ $emits }} de {{ $exitForecast['participants'] }}
+                            </p>
+                        @endif
+
                     </div>
+
+
+                    {{-- Las reglas y la puerta no dicen lo mismo --}}
+
+                    @if ($mismatch)
+                        <div class="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3">
+
+                            <p class="text-xs font-black text-red-800">
+                                La puerta declara {{ $declares }} y las reglas mandan {{ $emits }}
+                            </p>
+
+                            <p class="mt-1.5 text-[11px] leading-relaxed text-red-700">
+                                Manda el {{ $emits }}: con reglas de clasificación el motor entrega
+                                la lista que ellas producen y el selector de la puerta no se aplica.
+                                Pero el número que leen el grafo y sus validaciones es el
+                                {{ $declares }}, así que el torneo se valida con una cantidad y se
+                                juega con otra. Ajusta la regla, o el selector de la puerta, hasta
+                                que digan lo mismo.
+                            </p>
+
+                        </div>
+                    @endif
 
                 </div>
             @empty
@@ -359,8 +419,8 @@
                         </select>
 
                         <p class="mt-1 text-[10px] leading-relaxed text-slate-500">
-                            <span x-show="selector === 'TOP_N'">Se llevara a los N mejores clasificados de cada grupo.</span>
-                            <span x-show="selector === 'BOTTOM_N'" x-cloak>Se llevara a los N peores clasificados de cada grupo.</span>
+                            <span x-show="selector === 'TOP_N'">Se llevara a los N mejores de la clasificacion general de la fase, no N por grupo.</span>
+                            <span x-show="selector === 'BOTTOM_N'" x-cloak>Se llevara a los N peores de la clasificacion general de la fase, no N por grupo.</span>
                             <span x-show="selector === 'RANK_POSITION'" x-cloak>Solo a quien acabe exactamente en ese puesto. Util para «los mejores terceros».</span>
                             <span x-show="selector === 'RANK_RANGE'" x-cloak>Desde un puesto hasta otro, ambos incluidos.</span>
                             <span x-show="selector === 'REMAINING'" x-cloak>Recoge a quien no haya salido ya por otra puerta. Buena para «Eliminados».</span>

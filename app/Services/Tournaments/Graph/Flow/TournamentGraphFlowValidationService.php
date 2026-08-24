@@ -7,13 +7,17 @@ use App\Models\TournamentPhaseConnection;
 use App\Models\TournamentPhaseNode;
 use App\Models\TournamentTemplate;
 use App\Models\TournamentTerminal;
+use App\Services\Tournaments\GroupStage\GroupStageExitForecastService;
 use Illuminate\Support\Collection;
 
 class TournamentGraphFlowValidationService
 {
     public function __construct(
         private readonly
-        TournamentGraphCapacityCalculator $calculator
+        TournamentGraphCapacityCalculator $calculator,
+
+        private readonly
+        GroupStageExitForecastService $groupStageForecast
     ) {}
 
     public function validate(
@@ -24,6 +28,9 @@ class TournamentGraphFlowValidationService
             'graphStarts.outgoingConnections',
             'graphNodes.phaseTemplate.exits',
             'graphNodes.phaseTemplate.singleEliminationSetting',
+            'graphNodes.phaseTemplate.groupStageSetting',
+            'graphNodes.phaseTemplate.groupStageGroups',
+            'graphNodes.phaseTemplate.groupStageAdvancementRules',
             'graphNodes.entryPorts.incomingConnections',
             'graphTerminals.incomingConnections',
             'graphConnections.sourceStart',
@@ -197,6 +204,19 @@ class TournamentGraphFlowValidationService
                 $information
             );
 
+            /*
+             * En una Fase de grupos el selector de la puerta es decoracion:
+             * quien decide cuanta gente sale son las reglas de
+             * clasificacion, y el motor entrega esa lista tal cual. Si aqui
+             * se valida el selector, el grafo aprueba un numero que el
+             * torneo nunca va a producir.
+             */
+            $ruleDrivenExits =
+                $this->groupStageExitForecast(
+                    $node,
+                    $nodeForecast
+                );
+
             foreach (
                 $node
                     ->phaseTemplate
@@ -206,6 +226,8 @@ class TournamentGraphFlowValidationService
                 $exit
             ) {
                 $exitForecast =
+                    $ruleDrivenExits[$exit->id]
+                    ??
                     $this->calculator
                     ->fromExit(
                         $nodeForecast,
@@ -479,6 +501,102 @@ class TournamentGraphFlowValidationService
                 count($terminalForecasts),
             ],
         ];
+    }
+
+    /*
+     * Lo que cada puerta de una Fase de grupos va a emitir de verdad.
+     *
+     * Solo se pronostican las puertas que alguna regla activa alimenta con
+     * al menos un participante: cuando una regla no selecciona a nadie el
+     * motor deja la puerta libre y vuelve a mandar su propio selector, asi
+     * que ahi el pronostico correcto sigue siendo el de siempre.
+     *
+     * Si la fase todavia no reparte grupos validos, o entra una cantidad
+     * abierta de participantes, no se inventa un numero: se devuelve nada y
+     * manda el calculo de siempre.
+     *
+     * @return array<int,array{min:int,max:?int,exact:?int}>
+     */
+    private function groupStageExitForecast(
+        TournamentPhaseNode $node,
+        array $nodeForecast
+    ): array {
+
+        $phaseTemplate =
+            $node->phaseTemplate;
+
+        if (
+            $phaseTemplate?->phase_type
+            !==
+            'GROUP_STAGE'
+        ) {
+            return [];
+        }
+
+        $low =
+            $nodeForecast['exact']
+            ?? $nodeForecast['min']
+            ?? null;
+
+        $high =
+            $nodeForecast['exact']
+            ?? $nodeForecast['max']
+            ?? null;
+
+        if (
+            $low === null
+            ||
+            $high === null
+            ||
+            $low < 1
+        ) {
+            return [];
+        }
+
+        $lowForecast =
+            $this->groupStageForecast->forecast(
+                $phaseTemplate,
+                (int) $low
+            );
+
+        $highForecast =
+            $low === $high
+            ? $lowForecast
+            : $this->groupStageForecast->forecast(
+                $phaseTemplate,
+                (int) $high
+            );
+
+        if (
+            $lowForecast === null
+            ||
+            $highForecast === null
+        ) {
+            return [];
+        }
+
+        $forecasts = [];
+
+        foreach ($lowForecast['by_exit'] as $exitId => $count) {
+
+            $other =
+                $highForecast['by_exit'][$exitId]
+                ?? $count;
+
+            if ($count < 1 && $other < 1) {
+                continue;
+            }
+
+            $minimum = min($count, $other);
+            $maximum = max($count, $other);
+
+            $forecasts[(int) $exitId] =
+                $minimum === $maximum
+                ? $this->calculator->exact($minimum)
+                : $this->calculator->range($minimum, $maximum);
+        }
+
+        return $forecasts;
     }
 
     private function validateEntryPort(
