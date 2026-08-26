@@ -78,23 +78,6 @@
                 <h3 class="mt-2 font-black text-slate-900">
                     Cómo llegan los participantes
                 </h3>
-                <p class="mt-2 max-w-2xl text-xs leading-6 text-slate-500">
-                    Group Stage recibe un único conjunto de participantes y los distribuye
-                    internamente en grupos según el modo de distribución configurado abajo
-                    (Snake Seeded, Pots, manual, etc.) — no existen puertas de entrada por
-                    grupo. Ese conjunto respeta el contrato de participantes de esta Fase:
-                    <strong class="text-slate-800">
-                        {{ $phaseTemplate->participant_contract_label }}
-                    </strong>.
-                </p>
-                <p class="mt-3 max-w-2xl text-xs leading-6 text-slate-500">
-                    Cuando coloques esta Fase como Node dentro de un Tournament Graph, se
-                    genera automáticamente una puerta de entrada única ("Entrada
-                    principal") que acumula a todos los participantes que le lleguen desde
-                    cualquier Start o Phase Exit conectado. Puedes editar su política de
-                    unión o su contrato de capacidad desde el editor del grafo (pestaña
-                    "Camino" de la plantilla de torneo, panel del Node).
-                </p>
             </div>
 
             <div class="shrink-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center">

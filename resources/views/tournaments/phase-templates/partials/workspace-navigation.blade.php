@@ -2,6 +2,18 @@
     $current = $current ?? 'summary';
     $canUpdatePhase = auth()->user()?->can('update', $phaseTemplate) ?? false;
 
+    /*
+     * Super Edicion.
+     *
+     * Donde existe, absorbe las pestanas cuyo contenido ya vive dentro:
+     * Reglas (configuracion del motor) y Estructura (representacion). Las
+     * que NO absorbe siguen: Entradas y salidas todavia es donde se crean
+     * las puertas, y el Simulador es ejecucion, no edicion.
+     */
+    $superEditor = app(\App\Services\Tournaments\PhaseEditor\PhaseSuperEditorRegistry::class);
+
+    $hasSuperEdition = $canUpdatePhase && $superEditor->supports($phaseTemplate);
+
     $rulesRouteName = match ($phaseTemplate->phase_type) {
         'SINGLE_ELIMINATION' => 'tournaments.single-elimination.show',
         'ROUND_ROBIN' => 'tournaments.round-robin.show',
@@ -108,7 +120,18 @@
         ];
     }
 
-    if ($canUpdatePhase && $rulesRouteName !== null && Route::has($rulesRouteName)) {
+    if ($hasSuperEdition) {
+        $tabs[] = [
+            'key' => 'super',
+            'label' => 'Super Edición',
+            'description' => 'Editor completo de la fase',
+            'icon' => '◈',
+            'url' => route('tournaments.phase-templates.super.show', $phaseTemplate),
+            'highlight' => true,
+        ];
+    }
+
+    if (! $hasSuperEdition && $canUpdatePhase && $rulesRouteName !== null && Route::has($rulesRouteName)) {
         $tabs[] = [
             'key' => 'rules',
             'label' => 'Reglas',
@@ -151,23 +174,10 @@
 
         'ROUND_ROBIN' => [
             /*
-             * Round Robin no tiene estructura EDITABLE -su calendario es
-             * deterministico-, pero si merece verse antes de jugar.
+             * Round Robin ya no tiene pestana de Estructura: su calendario se
+             * ve dentro de la Super Edicion, junto a la configuracion que lo
+             * produce. La ruta antigua sigue viva y funcionando.
              */
-            [
-                'key' => 'structure',
-                'label' => 'Estructura',
-                'description' => 'Calendario completo',
-                'icon' => '◇',
-                'url' => route('tournaments.round-robin.structure', $phaseTemplate),
-            ],
-            [
-                'key' => 'io',
-                'label' => 'Entrada y salida',
-                'description' => 'Puertas de salida',
-                'icon' => '⇄',
-                'url' => route('tournaments.round-robin.io', $phaseTemplate),
-            ],
             [
                 'key' => 'simulator',
                 'label' => 'Simulador',
@@ -270,7 +280,10 @@
                     <span @class([
                         'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black transition',
                         'bg-amber-500 text-white shadow-lg shadow-amber-500/20' => $current === $tab['key'],
-                        'bg-slate-100 text-slate-400 group-hover:bg-amber-50 group-hover:text-amber-700' => $current !== $tab['key'],
+                        'bg-gradient-to-br from-slate-900 to-slate-700 text-amber-400 shadow-lg shadow-slate-900/20'
+                            => $current !== $tab['key'] && ($tab['highlight'] ?? false),
+                        'bg-slate-100 text-slate-400 group-hover:bg-amber-50 group-hover:text-amber-700'
+                            => $current !== $tab['key'] && ! ($tab['highlight'] ?? false),
                     ])>
                         {{ $tab['icon'] }}
                     </span>

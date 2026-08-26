@@ -9,6 +9,7 @@ import singleEliminationSimulator from './tournaments/single-elimination/simulat
 import roundRobinSimulator from './tournaments/round-robin/simulator';
 import groupStageSimulator from './tournaments/group-stage/simulator';
 import phaseTemplateDesigner from './tournaments/phase-templates/designer';
+import phaseSuperEditor from './tournaments/phase-templates/super-editor';
 
 window.Alpine = Alpine;
 window.tournamentFlowBuilder = tournamentFlowBuilder;
@@ -18,6 +19,7 @@ window.singleEliminationSimulator = singleEliminationSimulator;
 window.roundRobinSimulator = roundRobinSimulator;
 window.groupStageSimulator = groupStageSimulator;
 window.phaseTemplateDesigner = phaseTemplateDesigner;
+window.phaseSuperEditor = phaseSuperEditor;
 
 
 window.Alpine =

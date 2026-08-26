@@ -44,6 +44,7 @@ use App\Http\Controllers\Universes\UniverseGameController;
 use App\Http\Controllers\Universes\UniverseRewardController;
 use App\Http\Controllers\Universes\UniverseTrophyController;
 
+use App\Http\Controllers\Tournaments\PhaseSuperEditorController;
 use App\Http\Controllers\Tournaments\PhaseTemplateController;
 use App\Http\Controllers\Tournaments\PhaseExitController;
 use App\Http\Controllers\Tournaments\SingleEliminationController;
@@ -927,6 +928,82 @@ Route::middleware('auth')->group(function () {
                 )->name(
                     'phase-templates.show'
                 );
+
+                /*
+                | Super Edicion.
+                |
+                | La vista normal de una fase describe; aqui se edita. Las
+                | tres rutas son agnosticas del motor: quien sabe editar un
+                | ROUND_ROBIN lo decide PhaseSuperEditorRegistry, asi que
+                | anadir Eliminacion Directa no toca este bloque.
+                */
+
+                Route::get(
+                    '/phases/{phaseTemplate}/super',
+                    [
+                        PhaseSuperEditorController::class,
+                        'show',
+                    ]
+                )->name(
+                    'phase-templates.super.show'
+                );
+
+                Route::get(
+                    '/phases/{phaseTemplate}/super/preview',
+                    [
+                        PhaseSuperEditorController::class,
+                        'preview',
+                    ]
+                )->name(
+                    'phase-templates.super.preview'
+                );
+
+                Route::put(
+                    '/phases/{phaseTemplate}/super',
+                    [
+                        PhaseSuperEditorController::class,
+                        'update',
+                    ]
+                )->name(
+                    'phase-templates.super.update'
+                );
+
+                /*
+                | Puertas, desde dentro del editor.
+                |
+                | Son las mismas tablas de siempre; lo que cambia es que ya
+                | no hay que salir de la pantalla para tocarlas.
+                */
+
+                Route::post(
+                    '/phases/{phaseTemplate}/super/gates',
+                    [PhaseSuperEditorController::class, 'storeGate']
+                )->name('phase-templates.super.gates.store');
+
+                Route::put(
+                    '/phases/{phaseTemplate}/super/gates/{gate}',
+                    [PhaseSuperEditorController::class, 'updateGate']
+                )->name('phase-templates.super.gates.update');
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/super/gates/{gate}',
+                    [PhaseSuperEditorController::class, 'destroyGate']
+                )->name('phase-templates.super.gates.destroy');
+
+                Route::post(
+                    '/phases/{phaseTemplate}/super/exits',
+                    [PhaseSuperEditorController::class, 'storeExit']
+                )->name('phase-templates.super.exits.store');
+
+                Route::put(
+                    '/phases/{phaseTemplate}/super/exits/{phaseExit}',
+                    [PhaseSuperEditorController::class, 'updateExit']
+                )->name('phase-templates.super.exits.update');
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/super/exits/{phaseExit}',
+                    [PhaseSuperEditorController::class, 'destroyExit']
+                )->name('phase-templates.super.exits.destroy');
 
                 Route::get(
                     '/phases/{phaseTemplate}/edit',

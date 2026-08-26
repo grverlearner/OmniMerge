@@ -177,37 +177,29 @@ class RoundRobinController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /*
+     * Entradas y salidas de una liga.
+     *
+     * Esta pantalla ya no existe: las puertas se crean y se editan dentro
+     * de la Super Edicion, al lado de la parrilla y de la clasificacion a
+     * las que afectan. Tenerlas tambien aqui daba dos sitios donde guardar
+     * lo mismo, y solo uno de los dos ensenaba el efecto.
+     *
+     * La ruta se conserva y redirige, para que ningun enlace guardado ni
+     * ningun marcador acabe en un 404.
+     */
     public function io(
         PhaseTemplate $phaseTemplate
-    ): View {
-        $this->authorize(
-            'update',
-            $phaseTemplate
-        );
+    ): RedirectResponse {
 
-        $this->ensureCorrectType(
-            $phaseTemplate
-        );
+        $this->authorize('update', $phaseTemplate);
+        $this->ensureCorrectType($phaseTemplate);
 
-        $exits =
+        return redirect()->route(
+            'tournaments.phase-templates.super.show',
             $phaseTemplate
-            ->exits()
-            ->get();
-
-        return view(
-            'tournaments.phase-templates.round-robin-io',
-            compact(
-                'phaseTemplate',
-                'exits'
-            )
         );
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Update
-    |--------------------------------------------------------------------------
-    */
 
     public function update(
         UpdateRoundRobinSettingsRequest $request,

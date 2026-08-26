@@ -106,6 +106,58 @@
 
 
     {{-- ========================================================= --}}
+    {{-- SUPER EDICIÓN --}}
+    {{-- ========================================================= --}}
+    {{--
+        Esta pantalla explica la fase; la Super Edición la cambia.
+
+        La separación es deliberada: antes había botones de editar repartidos
+        por todo el resumen, así que mirar una fase y modificarla eran la
+        misma pantalla y se podía tocar algo de paso. Ahora entrar a cambiar
+        cosas es una decisión, con un solo sitio por el que se pasa.
+    --}}
+
+    @php
+        $superEditorRegistry = app(\App\Services\Tournaments\PhaseEditor\PhaseSuperEditorRegistry::class);
+    @endphp
+
+    @if ($canUpdatePhase && $superEditorRegistry->supports($phaseTemplate))
+
+        <a href="{{ route('tournaments.phase-templates.super.show', $phaseTemplate) }}"
+            class="group mt-6 flex flex-wrap items-center gap-5 overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-amber-950 p-6 transition hover:shadow-2xl hover:shadow-amber-900/20">
+
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-2xl font-black text-slate-950 shadow-lg shadow-amber-500/30 transition group-hover:scale-105">
+                ◈
+            </div>
+
+            <div class="min-w-0 flex-1">
+
+                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-400">
+                    Configuración avanzada
+                </p>
+
+                <h2 class="mt-1 text-xl font-black text-white">
+                    Super Edición
+                </h2>
+
+                <p class="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-400">
+                    El editor completo de la fase, a pantalla entera: configuración,
+                    estructura, puertas y todas las jornadas en un solo sitio, y todo
+                    reaccionando a la vez.
+                </p>
+
+            </div>
+
+            <span class="shrink-0 rounded-xl bg-white/10 px-5 py-3 text-xs font-black text-white transition group-hover:bg-amber-500 group-hover:text-slate-950">
+                Abrir editor →
+            </span>
+
+        </a>
+
+    @endif
+
+
+    {{-- ========================================================= --}}
     {{-- HERO --}}
     {{-- ========================================================= --}}
 
@@ -888,7 +940,8 @@
 
 
     {{--
-        Las puertas de salida de una Fase de grupos NO se editan aqui.
+        Las puertas de salida NO se editan aqui en las fases que tienen su
+        propio sitio para hacerlo.
 
         Se editaban en dos sitios a la vez: esta seccion y la pestana de
         entradas y salidas. Y solo una de las dos ensena el criterio que
@@ -899,7 +952,7 @@
         El resumen conserva el recuento de salidas mas arriba, en el
         contrato competitivo.
     --}}
-    @if ($phaseTemplate->phase_type !== 'GROUP_STAGE')
+    @if (! in_array($phaseTemplate->phase_type, ['GROUP_STAGE', 'ROUND_ROBIN'], true))
 
     <section id="exits" class="mt-10">
 

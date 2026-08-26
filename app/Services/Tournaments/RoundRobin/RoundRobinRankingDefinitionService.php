@@ -136,12 +136,22 @@ class RoundRobinRankingDefinitionService
     |--------------------------------------------------------------------------
     */
 
+    /*
+     * El orden manda, y este es el que espera cualquiera que haya visto una
+     * liga: puntos, y si empatan, la diferencia.
+     *
+     * Estaba WINS por delante de SCORE_DIFFERENCE, que es el mismo defecto
+     * que se corrigio en Fase de grupos: con victorias primero, dos equipos
+     * con los mismos puntos se separaban por partidos ganados aunque uno
+     * hubiera arrasado y el otro ganara de uno, y la tabla en pantalla
+     * contradecia lo que el motor decidia al repartir plazas.
+     */
     public function defaultCriteria(): array
     {
         return [
-            'WINS',
             'SCORE_DIFFERENCE',
             'SCORE_FOR',
+            'WINS',
             'HEAD_TO_HEAD',
         ];
     }
