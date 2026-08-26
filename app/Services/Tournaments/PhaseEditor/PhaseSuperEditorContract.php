@@ -40,6 +40,53 @@ interface PhaseSuperEditorContract
     public function stageView(): string;
 
     /*
+     * La vista Blade del panel derecho: puertas.
+     *
+     * Es un hueco del motor y no una vista compartida porque una puerta no
+     * significa lo mismo en cada fase. En una liga reparte puestos de la
+     * parrilla; en una fase de grupos reparte GRUPOS, que es otra cosa
+     * completamente. Una sola vista con condicionales acabaria siendo dos
+     * vistas mal separadas dentro del mismo archivo.
+     */
+    public function gatesView(): string;
+
+    /*
+     * La vista Blade de la zona inferior: jornadas.
+     *
+     * Igual: una liga tiene una lista de jornadas, y una fase de grupos
+     * tiene esa lista repetida por grupo y jugandose en paralelo.
+     */
+    public function scheduleView(): string;
+
+    /*
+     * La vista Blade con los campos ocultos del guardado.
+     *
+     * La cabecera es compartida, asi que en vez de listar en ella los
+     * campos de los cuatro motores, cada uno declara los suyos.
+     */
+    public function saveFieldsView(): string;
+
+    /*
+     * Que controles acepta el preview, y de que tipo.
+     *
+     * El editor reacciona a lo que se esta TOCANDO, no a lo ultimo
+     * guardado, asi que la pantalla manda sus controles en cada peticion.
+     * Si el controlador no sabe cuales son los de este motor, los descarta
+     * en silencio: el servidor contesta con la configuracion guardada y el
+     * control salta hacia atras solo. Es exactamente lo que pasaba con
+     * fase de grupos, donde subir el numero de grupos volvia a 4.
+     *
+     * @return array<string,string> clave => 'int' | 'string'
+     */
+    public function previewOverrideKeys(): array;
+
+    /*
+     * El motor, en clave, para que el componente de JavaScript sepa que
+     * comportamiento cargar.
+     */
+    public function clientEngine(): string;
+
+    /*
      * Todo lo que la pantalla necesita para dibujarse: contrato de la fase,
      * estructura calculada, reparto prestado, puertas y diagnostico.
      *

@@ -1005,6 +1005,31 @@ Route::middleware('auth')->group(function () {
                     [PhaseSuperEditorController::class, 'destroyExit']
                 )->name('phase-templates.super.exits.destroy');
 
+                /*
+                | Grupos, para los motores que los tienen. Los demas
+                | responden 404 en estas tres.
+                */
+
+                Route::post(
+                    '/phases/{phaseTemplate}/super/groups',
+                    [PhaseSuperEditorController::class, 'storeGroup']
+                )->name('phase-templates.super.groups.store');
+
+                Route::post(
+                    '/phases/{phaseTemplate}/super/groups/adopt',
+                    [PhaseSuperEditorController::class, 'adoptGroups']
+                )->name('phase-templates.super.groups.adopt');
+
+                Route::put(
+                    '/phases/{phaseTemplate}/super/groups/{group}',
+                    [PhaseSuperEditorController::class, 'updateGroup']
+                )->name('phase-templates.super.groups.update');
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/super/groups/{group}',
+                    [PhaseSuperEditorController::class, 'destroyGroup']
+                )->name('phase-templates.super.groups.destroy');
+
                 Route::get(
                     '/phases/{phaseTemplate}/edit',
                     [

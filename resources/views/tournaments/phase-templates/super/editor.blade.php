@@ -32,6 +32,7 @@
 
     <div class="flex h-screen flex-col overflow-hidden"
         x-data="phaseSuperEditor({
+            engine: @js($clientEngine),
             payload: @js($payload),
             previewUrl: @js(route('tournaments.phase-templates.super.preview', $phaseTemplate)),
         })">
@@ -52,7 +53,7 @@
             </main>
 
             <aside class="arena-scroll shrink-0 border-t border-slate-800 bg-slate-900/40 lg:w-[300px] lg:overflow-y-auto lg:border-l lg:border-t-0">
-                @include('tournaments.phase-templates.super.partials.gates')
+                @include($gatesView)
             </aside>
 
         </div>
@@ -60,7 +61,7 @@
 
         {{-- JORNADAS --}}
 
-        @include('tournaments.phase-templates.super.partials.schedule')
+        @include($scheduleView)
 
     </div>
 

@@ -54,90 +54,28 @@ class GroupStageStructureController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /*
+     * La estructura de una fase de grupos.
+     *
+     * Esta pantalla ya no existe: su contenido vive dentro de la Super
+     * Edicion, junto a la configuracion que lo produce y reaccionando a
+     * ella. Tenerlo tambien aqui daba dos sitios para lo mismo y solo
+     * uno ensenaba el efecto de cada cambio.
+     *
+     * La ruta se conserva y redirige, para que ningun enlace guardado
+     * acabe en un 404.
+     */
     public function structure(
         Request $request,
         PhaseTemplate $phaseTemplate
-    ): View {
+    ): RedirectResponse {
 
         $this->authorize('update', $phaseTemplate);
         $this->ensureCorrectType($phaseTemplate);
 
-        $settings =
-            $this->settingsService->ensure($phaseTemplate);
-
-        $groupDefinitions =
-            $phaseTemplate->groupStageGroups()->get();
-
-        $advancementRules =
-            $phaseTemplate->groupStageAdvancementRules()
-            ->with(['phaseExit', 'group'])
-            ->get();
-
-        $participants =
-            $this->participantCount($request, $phaseTemplate);
-
-        $preview =
-            $this->previewService->preview(
-                $phaseTemplate,
-                $settings,
-                $groupDefinitions,
-                $advancementRules,
-                $participants
-            );
-
-        /*
-         * Caras prestadas, repartidas por los grupos que calculó el
-         * preview. Solo para ver: nada de esto se guarda.
-         */
-        $castByGroup = collect();
-
-        if ($preview['valid'] ?? false) {
-
-            $members =
-                $this->cast->borrow($request->user(), $participants);
-
-            $offset = 0;
-
-            $castByGroup =
-                collect($preview['groups'] ?? [])
-                ->map(
-                    function (array $group) use ($members, &$offset) {
-
-                        $size = (int) ($group['size'] ?? 0);
-
-                        $slice = $members->slice($offset, $size)->values();
-
-                        $offset += $size;
-
-                        return $group + ['cast' => $slice];
-                    }
-                );
-        }
-
-        $gates =
-            $phaseTemplate->inputGates()
-            ->orderBy('sort_order')
-            ->get();
-
-        $phaseExits =
-            $phaseTemplate->exits()
-            ->where('status', 'ACTIVE')
-            ->orderBy('sort_order')
-            ->get();
-
-        return view(
-            'tournaments.phase-templates.group-stage-structure',
-            compact(
-                'phaseTemplate',
-                'settings',
-                'groupDefinitions',
-                'advancementRules',
-                'preview',
-                'participants',
-                'castByGroup',
-                'gates',
-                'phaseExits'
-            )
+        return redirect()->route(
+            'tournaments.phase-templates.super.show',
+            $phaseTemplate
         );
     }
 
@@ -147,93 +85,28 @@ class GroupStageStructureController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /*
+     * Las entradas y salidas de una fase de grupos.
+     *
+     * Esta pantalla ya no existe: su contenido vive dentro de la Super
+     * Edicion, junto a la configuracion que lo produce y reaccionando a
+     * ella. Tenerlo tambien aqui daba dos sitios para lo mismo y solo
+     * uno ensenaba el efecto de cada cambio.
+     *
+     * La ruta se conserva y redirige, para que ningun enlace guardado
+     * acabe en un 404.
+     */
     public function io(
         Request $request,
         PhaseTemplate $phaseTemplate
-    ): View {
+    ): RedirectResponse {
 
         $this->authorize('update', $phaseTemplate);
         $this->ensureCorrectType($phaseTemplate);
 
-        $settings =
-            $this->settingsService->ensure($phaseTemplate);
-
-        $groupDefinitions =
-            $phaseTemplate->groupStageGroups()
-            ->where('is_active', true)
-            ->get();
-
-        $gates =
-            $phaseTemplate->inputGates()
-            ->orderBy('sort_order')
-            ->get();
-
-        $phaseExits =
-            $phaseTemplate->exits()
-            ->orderBy('sort_order')
-            ->get();
-
-        /*
-         * Qué regla de clasificación alimenta cada salida. Sin esto, la
-         * pantalla de salidas es una lista de puertas sin saber quién las
-         * cruza.
-         */
-        $rulesByExit =
-            $phaseTemplate->groupStageAdvancementRules()
-            ->with('group')
-            ->get()
-            ->groupBy('phase_exit_id');
-
-        $distributionModes =
-            $this->definitionService->distributionModes();
-
-        /*
-         * Las reglas se editan aqui, no en la pestana de reglas: una regla
-         * sin su puerta de salida no significa nada.
-         */
-        $advancementRules =
-            $phaseTemplate->groupStageAdvancementRules()
-            ->with(['phaseExit', 'group'])
-            ->orderBy('sort_order')
-            ->get();
-
-        /*
-         * Nombres que espera el formulario de reglas, que se reutiliza tal
-         * cual desde la pestana antigua.
-         */
-        $activeGroupDefinitions = $groupDefinitions;
-
-        $ruleTypes =
-            $this->definitionService->ruleTypes();
-
-        /*
-         * Cuánta gente sale de verdad por cada puerta.
-         *
-         * El selector de la puerta ("Top 8") no lo aplica nadie cuando hay
-         * reglas de clasificación: el motor entrega la lista que producen
-         * las reglas y la puerta solo la deja pasar. Mientras ese número no
-         * estuvo a la vista, se podía dejar una puerta declarando 8 y unas
-         * reglas mandando 16, y el desacuerdo no aparecía hasta tener la
-         * fase entera jugada y el torneo bloqueado.
-         */
-        $exitForecast =
-            $this->exitForecast->forecast($phaseTemplate) ?? [];
-
-        return view(
-            'tournaments.phase-templates.group-stage-io',
-            compact(
-                'phaseTemplate',
-                'settings',
-                'groupDefinitions',
-                'gates',
-                'phaseExits',
-                'rulesByExit',
-                'advancementRules',
-                'activeGroupDefinitions',
-                'ruleTypes',
-                'distributionModes',
-                'exitForecast'
-            )
+        return redirect()->route(
+            'tournaments.phase-templates.super.show',
+            $phaseTemplate
         );
     }
 

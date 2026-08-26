@@ -194,20 +194,12 @@
          * (ver docs/md/31-Fase-14-Group-Stage.md).
          */
         'GROUP_STAGE' => [
-            [
-                'key' => 'structure',
-                'label' => 'Estructura',
-                'description' => 'Cómo quedan los grupos',
-                'icon' => '◇',
-                'url' => route('tournaments.group-stage.structure', $phaseTemplate),
-            ],
-            [
-                'key' => 'io',
-                'label' => 'Entradas y salidas',
-                'description' => 'Puertas y grupos destino',
-                'icon' => '⇄',
-                'url' => route('tournaments.group-stage.io', $phaseTemplate),
-            ],
+            /*
+             * Fase de grupos ya no tiene Estructura ni Entradas y salidas:
+             * las dos viven dentro de la Super Edicion, al lado de la
+             * configuracion que las produce. Sus rutas siguen vivas y
+             * redirigen alli.
+             */
             [
                 'key' => 'simulator',
                 'label' => 'Simulador',

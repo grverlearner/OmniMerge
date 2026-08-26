@@ -33,7 +33,8 @@
     $scaleSmallest = $scaleSizes === [] ? 0 : min($scaleSizes);
 
     /* Los criterios agrupados por familia, para que el desplegable se lea */
-    $families = collect($ruleTypes)->groupBy(fn($definition) => $definition['family'] ?? 'Otros');
+    /* groupBy reindexa: sin preservar la clave, el <option> valdria 0, 1, 2 */
+    $families = collect($ruleTypes)->groupBy(fn($definition) => $definition['family'] ?? 'Otros', true);
 @endphp
 
 <div class="space-y-3" x-data="{

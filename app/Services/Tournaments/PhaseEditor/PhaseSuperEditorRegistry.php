@@ -3,6 +3,7 @@
 namespace App\Services\Tournaments\PhaseEditor;
 
 use App\Models\PhaseTemplate;
+use App\Services\Tournaments\GroupStage\GroupStageSuperEditor;
 use App\Services\Tournaments\RoundRobin\RoundRobinSuperEditor;
 
 /*
@@ -25,6 +26,7 @@ class PhaseSuperEditorRegistry
      */
     private const EDITORS = [
         'ROUND_ROBIN' => RoundRobinSuperEditor::class,
+        'GROUP_STAGE' => GroupStageSuperEditor::class,
     ];
 
     public function supports(

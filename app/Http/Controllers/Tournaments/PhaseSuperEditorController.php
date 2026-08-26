@@ -7,9 +7,11 @@ use App\Http\Requests\Tournaments\PhaseSuperEditorGateRequest;
 use App\Http\Requests\Tournaments\PhaseSuperEditorExitRequest;
 use App\Http\Requests\Tournaments\UpdatePhaseSuperEditorRequest;
 use App\Models\PhaseExit;
+use App\Models\PhaseGroupStageGroup;
 use App\Models\PhaseInputGate;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\PhaseEditor\PhaseSuperEditorRegistry;
+use App\Services\Tournaments\PhaseEditor\SupportsEditableGroups;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -58,7 +60,7 @@ class PhaseSuperEditorController extends Controller
         $payload = $editor->payload(
             $phaseTemplate,
             $request->user(),
-            $this->overrides($request)
+            $this->overrides($request, $phaseTemplate)
         );
 
         return view(
@@ -68,6 +70,10 @@ class PhaseSuperEditorController extends Controller
                 'payload' => $payload,
                 'configView' => $editor->configView(),
                 'stageView' => $editor->stageView(),
+                'gatesView' => $editor->gatesView(),
+                'scheduleView' => $editor->scheduleView(),
+                'saveFieldsView' => $editor->saveFieldsView(),
+                'clientEngine' => $editor->clientEngine(),
             ]
         );
     }
@@ -85,7 +91,7 @@ class PhaseSuperEditorController extends Controller
             $editor->payload(
                 $phaseTemplate,
                 $request->user(),
-                $this->overrides($request)
+                $this->overrides($request, $phaseTemplate)
             )
         );
     }
@@ -216,6 +222,106 @@ class PhaseSuperEditorController extends Controller
         return $this->backToEditor($phaseTemplate, 'Puerta de salida eliminada.');
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Grupos
+    |--------------------------------------------------------------------------
+    |
+    | Solo para los motores que reparten en grupos con nombre propio. Se
+    | pregunta con instanceof en vez de meterlo en el contrato principal:
+    | una liga no tiene grupos, y obligarla a escribir metodos vacios seria
+    | prometer algo que no cumple.
+    |
+    */
+
+    public function storeGroup(
+        Request $request,
+        PhaseTemplate $phaseTemplate
+    ): RedirectResponse {
+
+        $this->authorize('update', $phaseTemplate);
+
+        $editor = $this->groupEditor($phaseTemplate);
+
+        $editor->persistGroup(
+            $phaseTemplate,
+            null,
+            $request->validate($editor->groupRules())
+        );
+
+        return $this->backToEditor($phaseTemplate, 'Grupo creado.');
+    }
+
+    public function updateGroup(
+        Request $request,
+        PhaseTemplate $phaseTemplate,
+        PhaseGroupStageGroup $group
+    ): RedirectResponse {
+
+        $this->authorize('update', $phaseTemplate);
+
+        $this->ensureBelongs($phaseTemplate, $group->phase_template_id);
+
+        $editor = $this->groupEditor($phaseTemplate);
+
+        $editor->persistGroup(
+            $phaseTemplate,
+            $group,
+            $request->validate($editor->groupRules())
+        );
+
+        return $this->backToEditor($phaseTemplate, 'Grupo actualizado.');
+    }
+
+    public function destroyGroup(
+        PhaseTemplate $phaseTemplate,
+        PhaseGroupStageGroup $group
+    ): RedirectResponse {
+
+        $this->authorize('update', $phaseTemplate);
+
+        $this->groupEditor($phaseTemplate)
+            ->deleteGroup($phaseTemplate, $group);
+
+        return $this->backToEditor($phaseTemplate, 'Grupo eliminado.');
+    }
+
+    public function adoptGroups(
+        Request $request,
+        PhaseTemplate $phaseTemplate
+    ): RedirectResponse {
+
+        $this->authorize('update', $phaseTemplate);
+
+        $data = $request->validate([
+            'sizes' => ['required', 'array', 'min:1', 'max:64'],
+            'sizes.*' => ['required', 'integer', 'min:1', 'max:512'],
+        ]);
+
+        $this->groupEditor($phaseTemplate)
+            ->adoptGroupSizes($phaseTemplate, $data['sizes']);
+
+        return $this->backToEditor(
+            $phaseTemplate,
+            'Grupos creados a partir del reparto anterior.'
+        );
+    }
+
+    private function groupEditor(
+        PhaseTemplate $phaseTemplate
+    ): SupportsEditableGroups {
+
+        $editor = $this->registry->for($phaseTemplate);
+
+        abort_unless(
+            $editor instanceof SupportsEditableGroups,
+            404,
+            'Este tipo de fase no reparte en grupos.'
+        );
+
+        return $editor;
+    }
+
     private function ensureBelongs(
         PhaseTemplate $phaseTemplate,
         ?int $ownerId
@@ -236,7 +342,7 @@ class PhaseSuperEditorController extends Controller
         return redirect()
             ->route(
                 'tournaments.phase-templates.super.show',
-                [$phaseTemplate, ...$this->overrides(request())]
+                [$phaseTemplate, ...$this->overrides(request(), $phaseTemplate)]
             )
             ->with('success', $message);
     }
@@ -246,20 +352,24 @@ class PhaseSuperEditorController extends Controller
      * Sin esto el preview contestaria con la configuracion antigua y la
      * pantalla parpadearia hacia atras en cada cambio.
      */
-    private function overrides(Request $request): array
-    {
+    private function overrides(
+        Request $request,
+        PhaseTemplate $phaseTemplate
+    ): array {
+
         $overrides = [];
 
-        if ($request->filled('participants')) {
-            $overrides['participants'] = (int) $request->integer('participants');
-        }
+        foreach (
+            $this->registry->for($phaseTemplate)->previewOverrideKeys()
+            as $key => $type
+        ) {
+            if (! $request->filled($key)) {
+                continue;
+            }
 
-        if ($request->filled('cycles')) {
-            $overrides['cycles'] = (int) $request->integer('cycles');
-        }
-
-        if ($request->filled('round_limit')) {
-            $overrides['round_limit'] = (int) $request->integer('round_limit');
+            $overrides[$key] = $type === 'int'
+                ? (int) $request->integer($key)
+                : (string) $request->string($key);
         }
 
         return $overrides;

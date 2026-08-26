@@ -44,23 +44,60 @@ use Illuminate\Validation\Rule;
 class RoundRobinSuperEditor implements PhaseSuperEditorContract
 {
     /*
-     * Paleta de las puertas.
+     * Un color por grupo.
      *
-     * El color no es decoracion: es como se reconoce la misma puerta en el
-     * panel derecho, en el borde del participante y en la linea que los une.
-     * Va indexada por numero de secuencia para que una puerta conserve su
-     * color aunque se cree o se borre otra.
+     * Los tonos van elegidos por SEPARACION, no por gusto: azul, ambar,
+     * verde y magenta estan a mas de 100 grados unos de otros en el circulo
+     * cromatico, que es lo que hace que cuatro grupos se distingan de un
+     * vistazo. Los cuatro siguientes rellenan los huecos.
+     *
+     * El color no decora: es lo que permite seguir a un participante desde
+     * la fila de entrantes, a su grupo, a su jornada y a su salida, sin leer
+     * un solo numero.
      */
     private const PALETTE = [
-        ['key' => 'sky',     'dot' => 'bg-sky-400',     'ring' => 'ring-sky-400/70',     'text' => 'text-sky-300',     'soft' => 'bg-sky-500/10',     'border' => 'border-sky-400/40'],
-        ['key' => 'emerald', 'dot' => 'bg-emerald-400', 'ring' => 'ring-emerald-400/70', 'text' => 'text-emerald-300', 'soft' => 'bg-emerald-500/10', 'border' => 'border-emerald-400/40'],
-        ['key' => 'amber',   'dot' => 'bg-amber-400',   'ring' => 'ring-amber-400/70',   'text' => 'text-amber-300',   'soft' => 'bg-amber-500/10',   'border' => 'border-amber-400/40'],
-        ['key' => 'fuchsia', 'dot' => 'bg-fuchsia-400', 'ring' => 'ring-fuchsia-400/70', 'text' => 'text-fuchsia-300', 'soft' => 'bg-fuchsia-500/10', 'border' => 'border-fuchsia-400/40'],
-        ['key' => 'rose',    'dot' => 'bg-rose-400',    'ring' => 'ring-rose-400/70',    'text' => 'text-rose-300',    'soft' => 'bg-rose-500/10',    'border' => 'border-rose-400/40'],
-        ['key' => 'violet',  'dot' => 'bg-violet-400',  'ring' => 'ring-violet-400/70',  'text' => 'text-violet-300',  'soft' => 'bg-violet-500/10',  'border' => 'border-violet-400/40'],
-        ['key' => 'lime',    'dot' => 'bg-lime-400',    'ring' => 'ring-lime-400/70',    'text' => 'text-lime-300',    'soft' => 'bg-lime-500/10',    'border' => 'border-lime-400/40'],
-        ['key' => 'cyan',    'dot' => 'bg-cyan-400',    'ring' => 'ring-cyan-400/70',    'text' => 'text-cyan-300',    'soft' => 'bg-cyan-500/10',    'border' => 'border-cyan-400/40'],
+        ['key' => 'sky', 'dot' => 'bg-sky-400', 'ring' => 'ring-sky-400/70', 'text' => 'text-sky-300', 'soft' => 'bg-sky-500/10', 'border' => 'border-sky-400/40', 'solid' => 'bg-sky-500'],
+        ['key' => 'amber', 'dot' => 'bg-amber-400', 'ring' => 'ring-amber-400/70', 'text' => 'text-amber-300', 'soft' => 'bg-amber-500/10', 'border' => 'border-amber-400/40', 'solid' => 'bg-amber-500'],
+        ['key' => 'emerald', 'dot' => 'bg-emerald-400', 'ring' => 'ring-emerald-400/70', 'text' => 'text-emerald-300', 'soft' => 'bg-emerald-500/10', 'border' => 'border-emerald-400/40', 'solid' => 'bg-emerald-500'],
+        ['key' => 'fuchsia', 'dot' => 'bg-fuchsia-400', 'ring' => 'ring-fuchsia-400/70', 'text' => 'text-fuchsia-300', 'soft' => 'bg-fuchsia-500/10', 'border' => 'border-fuchsia-400/40', 'solid' => 'bg-fuchsia-500'],
+        ['key' => 'rose', 'dot' => 'bg-rose-400', 'ring' => 'ring-rose-400/70', 'text' => 'text-rose-300', 'soft' => 'bg-rose-500/10', 'border' => 'border-rose-400/40', 'solid' => 'bg-rose-500'],
+        ['key' => 'lime', 'dot' => 'bg-lime-400', 'ring' => 'ring-lime-400/70', 'text' => 'text-lime-300', 'soft' => 'bg-lime-500/10', 'border' => 'border-lime-400/40', 'solid' => 'bg-lime-500'],
+        ['key' => 'blue', 'dot' => 'bg-blue-400', 'ring' => 'ring-blue-400/70', 'text' => 'text-blue-300', 'soft' => 'bg-blue-500/10', 'border' => 'border-blue-400/40', 'solid' => 'bg-blue-500'],
+        ['key' => 'purple', 'dot' => 'bg-purple-400', 'ring' => 'ring-purple-400/70', 'text' => 'text-purple-300', 'soft' => 'bg-purple-500/10', 'border' => 'border-purple-400/40', 'solid' => 'bg-purple-500'],
     ];
+
+    /*
+     * Paleta propia para las salidas, separada en DOS ejes.
+     *
+     * En TONO: violeta, teal, naranja y rosa caen en los huecos que dejan
+     * los colores de grupo, asi que ninguna salida se confunde con un grupo
+     * -antes la salida #1 recibia el mismo magenta que el Grupo D-.
+     *
+     * Dos fondos, no uno: `wash` casi invisible mientras no se ha jugado
+     * nada -lo que se ve entonces es una prevision, no un resultado- y
+     * `soft` en cuanto hay marcadores. Asi simular se nota.
+     *
+     * En INTENSIDAD: las salidas van un escalon mas claras (-300 frente a
+     * -400). Aunque dos tonos queden cerca, el brillo dice a que familia
+     * pertenece cada marca. Con un solo eje no llegan los colores: hay ocho
+     * grupos y seis salidas, y el circulo cromatico no da para catorce tonos
+     * que de verdad se distingan.
+     */
+    private const EXIT_PALETTE = [
+        ['key' => 'violet', 'dot' => 'bg-violet-300', 'ring' => 'ring-violet-300/70', 'text' => 'text-violet-200', 'soft' => 'bg-violet-400/10', 'wash' => 'bg-violet-400/5', 'border' => 'border-violet-300/50', 'solid' => 'bg-violet-400'],
+        ['key' => 'teal', 'dot' => 'bg-teal-300', 'ring' => 'ring-teal-300/70', 'text' => 'text-teal-200', 'soft' => 'bg-teal-400/10', 'wash' => 'bg-teal-400/5', 'border' => 'border-teal-300/50', 'solid' => 'bg-teal-400'],
+        ['key' => 'orange', 'dot' => 'bg-orange-300', 'ring' => 'ring-orange-300/70', 'text' => 'text-orange-200', 'soft' => 'bg-orange-400/10', 'wash' => 'bg-orange-400/5', 'border' => 'border-orange-300/50', 'solid' => 'bg-orange-400'],
+        ['key' => 'pink', 'dot' => 'bg-pink-300', 'ring' => 'ring-pink-300/70', 'text' => 'text-pink-200', 'soft' => 'bg-pink-400/10', 'wash' => 'bg-pink-400/5', 'border' => 'border-pink-300/50', 'solid' => 'bg-pink-400'],
+        ['key' => 'indigo', 'dot' => 'bg-indigo-300', 'ring' => 'ring-indigo-300/70', 'text' => 'text-indigo-200', 'soft' => 'bg-indigo-400/10', 'wash' => 'bg-indigo-400/5', 'border' => 'border-indigo-300/50', 'solid' => 'bg-indigo-400'],
+        ['key' => 'slate', 'dot' => 'bg-slate-300', 'ring' => 'ring-slate-300/70', 'text' => 'text-slate-200', 'soft' => 'bg-slate-400/10', 'wash' => 'bg-slate-400/5', 'border' => 'border-slate-300/50', 'solid' => 'bg-slate-400'],
+    ];
+
+    private function exitColor(int $sequence): array
+    {
+        return self::EXIT_PALETTE[
+            ($sequence - 1 + count(self::EXIT_PALETTE)) % count(self::EXIT_PALETTE)
+        ];
+    }
 
     /*
      * Tope de jornadas que se dibujan.
@@ -95,6 +132,35 @@ class RoundRobinSuperEditor implements PhaseSuperEditorContract
     public function stageView(): string
     {
         return 'tournaments.phase-templates.super.round-robin.stage';
+    }
+
+    public function gatesView(): string
+    {
+        return 'tournaments.phase-templates.super.round-robin.gates';
+    }
+
+    public function scheduleView(): string
+    {
+        return 'tournaments.phase-templates.super.round-robin.schedule';
+    }
+
+    public function saveFieldsView(): string
+    {
+        return 'tournaments.phase-templates.super.round-robin.save-fields';
+    }
+
+    public function previewOverrideKeys(): array
+    {
+        return [
+            'participants' => 'int',
+            'cycles' => 'int',
+            'round_limit' => 'int',
+        ];
+    }
+
+    public function clientEngine(): string
+    {
+        return 'roundRobin';
     }
 
 
@@ -502,8 +568,8 @@ class RoundRobinSuperEditor implements PhaseSuperEditorContract
                     'name' => $exit->name,
 
                     'color' =>
-                    $this->color(
-                        ($exit->sequence_number ?? ($index + 1)) + 3
+                    $this->exitColor(
+                        $exit->sequence_number ?? ($index + 1)
                     ),
 
                     'selector_type' => $exit->selector_type,

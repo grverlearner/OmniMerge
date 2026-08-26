@@ -10,6 +10,7 @@ import roundRobinSimulator from './tournaments/round-robin/simulator';
 import groupStageSimulator from './tournaments/group-stage/simulator';
 import phaseTemplateDesigner from './tournaments/phase-templates/designer';
 import phaseSuperEditor from './tournaments/phase-templates/super-editor';
+import exitCriterionFields from './tournaments/phase-templates/super/criterion-fields';
 
 window.Alpine = Alpine;
 window.tournamentFlowBuilder = tournamentFlowBuilder;
@@ -20,6 +21,7 @@ window.roundRobinSimulator = roundRobinSimulator;
 window.groupStageSimulator = groupStageSimulator;
 window.phaseTemplateDesigner = phaseTemplateDesigner;
 window.phaseSuperEditor = phaseSuperEditor;
+window.exitCriterionFields = exitCriterionFields;
 
 
 window.Alpine =

@@ -77,7 +77,8 @@ class GroupStageAllocator
             $this->buildGroups(
                 $structure,
                 $participants,
-                $settings
+                $settings,
+                $phaseTemplate
             );
 
         return [
@@ -451,7 +452,8 @@ class GroupStageAllocator
     private function buildGroups(
         array $structure,
         int $participants,
-        PhaseGroupStageSetting $settings
+        PhaseGroupStageSetting $settings,
+        ?PhaseTemplate $phaseTemplate = null
     ): array {
         $groups = [];
 
@@ -503,31 +505,11 @@ class GroupStageAllocator
             ===
             'MANUAL'
         ) {
-            foreach (
-                $groups
-                as
-                &$group
-            ) {
-                for (
-                    $slot = 1;
-                    $slot <= $group['size'];
-                    $slot++
-                ) {
-                    $group['members'][] = [
-                        'seed' =>
-                        null,
-
-                        'label' =>
-                        'Asignación manual '
-                            .
-                            $slot,
-                    ];
-                }
-            }
-
-            unset($group);
-
-            return $groups;
+            return $this->fillByGates(
+                $groups,
+                $participants,
+                $phaseTemplate
+            );
         }
 
         $seeds =
@@ -630,32 +612,162 @@ class GroupStageAllocator
         );
     }
 
+    /*
+     * Reparto por orden de entrada: se van repartiendo como cartas.
+     *
+     * El primero al grupo A, el segundo al B, el tercero al C, y al llegar
+     * al ultimo se vuelve a empezar. Con 12 participantes y 4 grupos:
+     *
+     *   A  1  5  9
+     *   B  2  6 10
+     *   C  3  7 11
+     *   D  4  8 12
+     *
+     * Antes se llenaba un grupo entero antes de pasar al siguiente, asi que
+     * los cuatro primeros en llegar acababan juntos en el grupo A. Eso hace
+     * que el orden de llegada decida el grupo en bloque, que es justo lo
+     * contrario de lo que se espera de un reparto: repartiendo, dos
+     * inscripciones seguidas caen en grupos distintos.
+     *
+     * Un grupo que se llena deja de recibir y el reparto sigue con los
+     * demas, para que los cupos desiguales no descuadren la vuelta.
+     */
+    /*
+     * Reparto manual: lo dictan las puertas de entrada.
+     *
+     * Una puerta de fase de grupos dice QUE TRAMO de los que llegan va a QUE
+     * GRUPO -del entrante 1 al 4, al Grupo A-. Este es el unico modo donde
+     * esas puertas mandan de verdad; en los demas decide el algoritmo y las
+     * puertas se guardan pero no se aplican.
+     *
+     * Antes este modo devolvia los grupos con huecos vacios etiquetados
+     * "Asignacion manual 1, 2, 3...", asi que la estructura salia en blanco
+     * por mucho que hubieras configurado las puertas: se podia dejar todo
+     * apuntado y no ver nada.
+     *
+     * Vive en el repartidor y no en la Super Edicion a proposito: asi el
+     * motor reparte igual que el editor dibuja, en vez de que uno ensene una
+     * cosa y el otro juegue otra.
+     */
+    private function fillByGates(
+        array $groups,
+        int $participants,
+        ?PhaseTemplate $phaseTemplate
+    ): array {
+
+        $pending = range(1, $participants);
+
+        $byCode = [];
+
+        foreach ($groups as $index => $group) {
+            $byCode[$group['code']] = $index;
+        }
+
+        $gates = $phaseTemplate
+            ? $phaseTemplate->inputGates()
+                ->where('status', 'ACTIVE')
+                ->get()
+            : collect();
+
+        /*
+         * Primero las puertas, en su orden: cada una reclama su tramo de
+         * llegada y lo lleva a su grupo, hasta donde quepa.
+         */
+        foreach ($gates as $gate) {
+
+            $code = $gate->settings['target_group_code'] ?? null;
+            $range = $gate->settings['entry_range'] ?? null;
+
+            if ($code === null || ! isset($byCode[$code]) || ! is_array($range)) {
+                continue;
+            }
+
+            $index = $byCode[$code];
+
+            $from = (int) ($range['from'] ?? 0);
+            $to = (int) ($range['to'] ?? $from);
+
+            if ($from < 1) {
+                continue;
+            }
+
+            for ($arrival = $from; $arrival <= $to; $arrival++) {
+
+                if (! in_array($arrival, $pending, true)) {
+                    continue;
+                }
+
+                if (
+                    count($groups[$index]['members'])
+                    >=
+                    $groups[$index]['size']
+                ) {
+                    break;
+                }
+
+                $groups[$index]['members'][] = [
+                    'seed' => $arrival,
+                    'label' => 'Seed ' . $arrival,
+                ];
+
+                $pending = array_values(array_diff($pending, [$arrival]));
+            }
+        }
+
+        /*
+         * Lo que ninguna puerta reclamo se reparte por orden de llegada en
+         * los huecos que queden. Sin esto, configurar una sola puerta
+         * dejaria a todos los demas fuera de la estructura.
+         */
+        foreach ($groups as $index => $group) {
+
+            while (
+                count($groups[$index]['members']) < $group['size']
+                && $pending !== []
+            ) {
+                $arrival = array_shift($pending);
+
+                $groups[$index]['members'][] = [
+                    'seed' => $arrival,
+                    'label' => 'Seed ' . $arrival,
+                ];
+            }
+        }
+
+        return $groups;
+    }
+
     private function fillSequential(
         array $groups,
         array $seeds
     ): array {
-        $seedIndex = 0;
+        $keys = array_keys($groups);
 
-        foreach (
-            $groups
-            as
-            &$group
-        ) {
-            while (
-                count(
-                    $group['members']
-                )
-                <
-                $group['size']
-                &&
-                isset(
-                    $seeds[$seedIndex]
-                )
-            ) {
-                $seed =
-                    $seeds[$seedIndex];
+        $cursor = 0;
 
-                $group['members'][] = [
+        foreach ($seeds as $seed) {
+
+            $placed = false;
+
+            /*
+             * Se da una vuelta completa como maximo: si ninguno admite a
+             * nadie, es que estan todos llenos y sobra gente.
+             */
+            for ($attempt = 0; $attempt < count($keys); $attempt++) {
+
+                $key = $keys[$cursor % count($keys)];
+
+                $cursor++;
+
+                if (
+                    count($groups[$key]['members'])
+                    >=
+                    $groups[$key]['size']
+                ) {
+                    continue;
+                }
+
+                $groups[$key]['members'][] = [
                     'seed' =>
                     $seed,
 
@@ -665,11 +777,15 @@ class GroupStageAllocator
                         $seed,
                 ];
 
-                $seedIndex++;
+                $placed = true;
+
+                break;
+            }
+
+            if (! $placed) {
+                break;
             }
         }
-
-        unset($group);
 
         return $groups;
     }

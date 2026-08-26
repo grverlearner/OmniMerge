@@ -36,15 +36,67 @@
 
     {{-- IDENTIDAD --}}
 
-    <div class="flex min-w-0 flex-1 items-center gap-3" x-data="{ editing: false }">
+    <div class="flex min-w-0 flex-1 items-center gap-3"
+        x-data="{
+            editing: false,
 
-        <div class="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-slate-800 ring-1 ring-slate-700">
-            @if ($payload['phase']['image_url'])
-                <img src="{{ $payload['phase']['image_url'] }}" alt=""
-                    class="h-full w-full object-cover">
-            @else
-                <div class="flex h-full w-full items-center justify-center text-sm text-slate-600">◇</div>
-            @endif
+            /*
+             * La imagen elegida, antes de guardarla.
+             *
+             * Se lee en el navegador con createObjectURL: asi se ve el
+             * cambio en el sitio donde va a quedar y se puede descartar sin
+             * haber subido nada. Antes el nombre del archivo era la unica
+             * pista de que habias elegido algo.
+             */
+            preview: null,
+
+            pick(event) {
+                const file = event.target.files?.[0];
+
+                this.revoke();
+
+                this.preview = file ? URL.createObjectURL(file) : null;
+            },
+
+            discard() {
+                this.revoke();
+                this.preview = null;
+                this.$refs.image.value = '';
+            },
+
+            revoke() {
+                if (this.preview) {
+                    URL.revokeObjectURL(this.preview);
+                }
+            },
+        }"
+        x-on:beforeunload.window="revoke()">
+
+        <div class="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-slate-800 ring-1"
+            :class="preview ? 'ring-amber-400' : 'ring-slate-700'">
+
+            {{-- La nueva, si se acaba de elegir --}}
+            <template x-if="preview">
+                <img :src="preview" alt="" class="h-full w-full object-cover">
+            </template>
+
+            <template x-if="!preview">
+                <span class="block h-full w-full">
+                    @if ($payload['phase']['image_url'])
+                        <img src="{{ $payload['phase']['image_url'] }}" alt=""
+                            class="h-full w-full object-cover">
+                    @else
+                        <span class="flex h-full w-full items-center justify-center text-sm text-slate-600">◇</span>
+                    @endif
+                </span>
+            </template>
+
+            {{-- Marca de que hay un cambio sin guardar --}}
+            <span x-show="preview" x-cloak
+                class="absolute inset-x-0 bottom-0 bg-amber-500 text-center text-[7px] font-black leading-tight text-slate-950">
+                nueva
+            </span>
+
         </div>
 
         <div class="min-w-0" x-show="!editing">
@@ -103,16 +155,28 @@
                 class="min-w-0 flex-1 rounded-lg border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-300 focus:border-amber-500 focus:ring-amber-500"
                 placeholder="Descripción">
 
-            <label class="cursor-pointer rounded-lg border border-slate-700 px-2 py-1 text-[10px] font-black text-slate-400 transition hover:border-amber-500 hover:text-amber-400">
-                Imagen
-                <input type="file" name="image" accept="image/*" class="hidden">
+            <label class="cursor-pointer rounded-lg border px-2 py-1 text-[10px] font-black transition"
+                :class="preview
+                    ? 'border-amber-500 text-amber-400'
+                    : 'border-slate-700 text-slate-400 hover:border-amber-500 hover:text-amber-400'">
+                <span x-show="!preview">Imagen</span>
+                <span x-show="preview" x-cloak>Cambiar otra</span>
+
+                <input type="file" name="image" accept="image/*" class="hidden"
+                    x-ref="image" @change="pick($event)">
             </label>
+
+            <button type="button" x-show="preview" x-cloak @click="discard()"
+                class="rounded-lg border border-slate-700 px-2 py-1 text-[10px] font-black text-slate-500 transition hover:border-rose-500 hover:text-rose-400"
+                title="Descartar la imagen elegida">
+                Descartar
+            </button>
 
             <button class="rounded-lg bg-amber-500 px-3 py-1 text-[10px] font-black text-slate-950 transition hover:bg-amber-400">
                 Guardar
             </button>
 
-            <button type="button" @click="editing = false"
+            <button type="button" @click="discard(); editing = false"
                 class="text-[10px] font-black text-slate-500 transition hover:text-slate-300">
                 Cancelar
             </button>
@@ -173,16 +237,17 @@
             @csrf
             @method('PUT')
 
-            <input type="hidden" name="cycles" :value="cycles">
-            <input type="hidden" name="initial_order_mode" :value="orderMode">
-            <input type="hidden" name="ranking_source" :value="rankingSource">
-            <input type="hidden" name="allow_draws" :value="allowDraws ? 1 : 0">
-            <input type="hidden" name="win_points" :value="points.win">
-            <input type="hidden" name="draw_points" :value="points.draw">
-            <input type="hidden" name="loss_points" :value="points.loss">
+            {{--
+                Lo que se guarda lo decide cada motor. La cabecera es
+                compartida, asi que en vez de listar aqui los campos de
+                todos, cada uno declara los suyos en su panel y aqui solo
+                viajan los comunes.
+            --}}
             <input type="hidden" name="round_limit" :value="isTrimmed ? roundLimit : ''">
             <input type="hidden" name="pin_participants" :value="pinParticipants ? 1 : 0">
             <input type="hidden" name="participants" :value="participants">
+
+            @includeIf($saveFieldsView)
 
             <button :disabled="!isValid"
                 class="rounded-lg px-3 py-1.5 text-[11px] font-black transition"
