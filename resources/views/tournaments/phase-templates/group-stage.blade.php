@@ -243,18 +243,18 @@
                 </p>
 
                 <h2 class="mt-1.5 text-xl font-black text-slate-900">
-                    Reglas de clasificacion
+                    Quien clasifica
                 </h2>
 
                 <p class="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-500">
-                    Quien clasifica y por que puerta sale se configuran juntos, porque son
+                    Cada puerta de salida lleva dentro el criterio que la cruza, porque son
                     la misma decision.
                     @if ($advancementRules->isNotEmpty())
                         Ahora mismo hay
                         <strong class="font-black text-slate-700">{{ $advancementRules->count() }}</strong>
-                        {{ $advancementRules->count() === 1 ? 'regla' : 'reglas' }}.
+                        {{ $advancementRules->count() === 1 ? 'criterio' : 'criterios' }}.
                     @else
-                        Todavia no hay ninguna.
+                        Todavia no hay ninguno.
                     @endif
                 </p>
 

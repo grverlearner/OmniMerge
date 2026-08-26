@@ -119,6 +119,9 @@ class GroupStageDefinitionService
     {
         return [
             'EACH_GROUP_TOP_N' => [
+                'family' =>
+                'Dentro de cada grupo',
+
                 'label' =>
                 'Los N primeros de cada grupo',
 
@@ -128,6 +131,9 @@ class GroupStageDefinitionService
             ],
 
             'EACH_GROUP_BOTTOM_N' => [
+                'family' =>
+                'Dentro de cada grupo',
+
                 'label' =>
                 'Los N últimos de cada grupo',
 
@@ -137,6 +143,9 @@ class GroupStageDefinitionService
             ],
 
             'EACH_GROUP_POSITION' => [
+                'family' =>
+                'Dentro de cada grupo',
+
                 'label' =>
                 'Posición de cada grupo',
 
@@ -145,6 +154,9 @@ class GroupStageDefinitionService
             ],
 
             'EACH_GROUP_RANGE' => [
+                'family' =>
+                'Dentro de cada grupo',
+
                 'label' =>
                 'Rango de cada grupo',
 
@@ -153,6 +165,9 @@ class GroupStageDefinitionService
             ],
 
             'CROSS_GROUP_POSITION_TOP_N' => [
+                'family' =>
+                'Comparando entre grupos',
+
                 'label' =>
                 'Mejores N de una misma posición',
 
@@ -162,6 +177,9 @@ class GroupStageDefinitionService
             ],
 
             'CROSS_GROUP_POSITION_BOTTOM_N' => [
+                'family' =>
+                'Comparando entre grupos',
+
                 'label' =>
                 'Peores N de una misma posición',
 
@@ -171,6 +189,9 @@ class GroupStageDefinitionService
             ],
 
             'BEST_REMAINING' => [
+                'family' =>
+                'Comparando entre grupos',
+
                 'label' =>
                 'Mejores N restantes',
 
@@ -180,6 +201,9 @@ class GroupStageDefinitionService
             ],
 
             'WORST_REMAINING' => [
+                'family' =>
+                'Comparando entre grupos',
+
                 'label' =>
                 'Peores N restantes',
 
@@ -189,6 +213,9 @@ class GroupStageDefinitionService
             ],
 
             'SPECIFIC_GROUP_POSITION' => [
+                'family' =>
+                'De un grupo concreto',
+
                 'label' =>
                 'Posición de un grupo específico',
 
@@ -197,6 +224,9 @@ class GroupStageDefinitionService
             ],
 
             'SPECIFIC_GROUP_RANGE' => [
+                'family' =>
+                'De un grupo concreto',
+
                 'label' =>
                 'Rango de un grupo específico',
 
@@ -205,6 +235,9 @@ class GroupStageDefinitionService
             ],
 
             'REMAINING' => [
+                'family' =>
+                'Todo lo que sobre',
+
                 'label' =>
                 'Todos los restantes',
 

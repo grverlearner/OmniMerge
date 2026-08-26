@@ -48,11 +48,19 @@ class GroupStageAdvancementRuleService
                 $data['sort_order'] =
                     $sortOrder;
 
-                return $phaseTemplate
+                $rule =
+                    $phaseTemplate
                     ->groupStageAdvancementRules()
                     ->create(
                         $data
                     );
+
+                $this->alignExit(
+                    $phaseTemplate,
+                    $rule->phase_exit_id
+                );
+
+                return $rule;
             }
         );
     }
@@ -67,7 +75,55 @@ class GroupStageAdvancementRuleService
             )
         );
 
-        return $rule->fresh();
+        $rule = $rule->fresh();
+
+        $this->alignExit(
+            $rule->phaseTemplate,
+            $rule->phase_exit_id
+        );
+
+        return $rule;
+    }
+
+    /*
+     * La puerta que alimenta un criterio pasa a decir la verdad sobre si
+     * misma.
+     *
+     * En una fase de grupos el motor entrega la lista que producen los
+     * criterios y el selector propio de la puerta no lo aplica nadie. Si la
+     * puerta guarda además su propio numero ("Top 8"), quedan dos verdades
+     * sobre lo mismo: el grafo valida con la de la puerta y el torneo se
+     * juega con la del criterio. Ese desacuerdo no se nota al configurar,
+     * se nota con la fase entera jugada y el torneo bloqueado.
+     *
+     * ENGINE_RULES es la puerta diciendo "yo no decido, decide el
+     * criterio", que es lo que ya ocurria de hecho.
+     */
+    private function alignExit(
+        ?PhaseTemplate $phaseTemplate,
+        ?int $exitId
+    ): void {
+
+        if (
+            $phaseTemplate === null
+            ||
+            $exitId === null
+        ) {
+            return;
+        }
+
+        $phaseTemplate
+            ->exits()
+            ->whereKey($exitId)
+            ->where(
+                'selector_type',
+                '!=',
+                'ENGINE_RULES'
+            )
+            ->update([
+                'selector_type' =>
+                'ENGINE_RULES',
+            ]);
     }
 
     public function delete(

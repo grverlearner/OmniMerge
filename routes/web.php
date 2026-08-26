@@ -1635,6 +1635,32 @@ Route::middleware('auth')->group(function () {
                     'group-stage.io'
                 );
 
+                /*
+                | Puertas de salida de la fase de grupos: se crean con su
+                | criterio en un solo paso y se borran con el, porque son
+                | la misma decision.
+                */
+
+                Route::post(
+                    '/phases/{phaseTemplate}/group-stage/exits',
+                    [
+                        GroupStageStructureController::class,
+                        'storeExit',
+                    ]
+                )->name(
+                    'group-stage.exits.store'
+                );
+
+                Route::delete(
+                    '/phases/{phaseTemplate}/group-stage/exits/{phaseExit}',
+                    [
+                        GroupStageStructureController::class,
+                        'destroyExit',
+                    ]
+                )->name(
+                    'group-stage.exits.destroy'
+                );
+
                 Route::put(
                     '/phases/{phaseTemplate}/group-stage/gates/{gate}/target',
                     [

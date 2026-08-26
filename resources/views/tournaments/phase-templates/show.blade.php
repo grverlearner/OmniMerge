@@ -886,6 +886,21 @@
     {{-- PUERTAS DE SALIDA --}}
     {{-- ========================================================= --}}
 
+
+    {{--
+        Las puertas de salida de una Fase de grupos NO se editan aqui.
+
+        Se editaban en dos sitios a la vez: esta seccion y la pestana de
+        entradas y salidas. Y solo una de las dos ensena el criterio que
+        cruza cada puerta, que es la mitad que de verdad decide quien
+        avanza. Dejar la otra puerta abierta permitia crear salidas que
+        parecian completas y no las cruzaba nadie.
+
+        El resumen conserva el recuento de salidas mas arriba, en el
+        contrato competitivo.
+    --}}
+    @if ($phaseTemplate->phase_type !== 'GROUP_STAGE')
+
     <section id="exits" class="mt-10">
 
         <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
@@ -1306,6 +1321,9 @@
         @endif
 
     </section>
+
+    @endif
+
 
 
     {{-- ========================================================= --}}

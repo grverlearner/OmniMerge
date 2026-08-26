@@ -8,7 +8,27 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class StoreGroupStageAdvancementRuleRequest extends FormRequest
+/*
+|--------------------------------------------------------------------------
+| StoreGroupStageExitRequest
+|--------------------------------------------------------------------------
+|
+| Una salida de fase de grupos y el criterio que la cruza, en un solo paso.
+|
+| Antes eran dos formularios en dos secciones distintas: se creaba la puerta
+| y después, más abajo, una «regla de clasificación» que había que acordarse
+| de apuntar a esa puerta. Una puerta sin regla no la cruza nadie y una
+| regla sin puerta no lleva a ningún sitio, así que separarlas solo servía
+| para poder dejar la mitad hecha.
+|
+| Aquí se pide lo único que hay que decidir: cómo se llama la salida y quién
+| sale por ella. Lo demás —el selector de la puerta y el momento en que se
+| cruza— lo fija el motor, porque en una fase de grupos solo hay una
+| respuesta posible: las reglas mandan, y no hay clasificación firme hasta
+| que la fase termina.
+|
+*/
+class StoreGroupStageExitRequest extends FormRequest
 {
     use ValidatesGroupStageRuleScale;
 
@@ -44,7 +64,8 @@ class StoreGroupStageAdvancementRuleRequest extends FormRequest
             strtoupper(
                 (string)
                 $this->input(
-                    'rule_type'
+                    'rule_type',
+                    'EACH_GROUP_TOP_N'
                 )
             ),
 
@@ -119,45 +140,33 @@ class StoreGroupStageAdvancementRuleRequest extends FormRequest
             );
 
         return [
-            /*
-        |--------------------------------------------------------------------------
-        | Puerta
-        |--------------------------------------------------------------------------
-        */
-
-            'phase_exit_id' => [
+            'name' => [
                 'required',
-                'integer',
-                'exists:phase_exits,id',
+                'string',
+                'max:120',
             ],
 
+            'description' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
 
-            /*
-        |--------------------------------------------------------------------------
-        | Grupo específico
-        |--------------------------------------------------------------------------
-        */
-
-            'phase_group_stage_group_id' => [
-                Rule::excludeIf(
-                    ! $usesGroup
-                ),
-
-                Rule::requiredIf(
-                    $usesGroup
-                ),
-
+            'priority' => [
                 'nullable',
                 'integer',
-                'exists:phase_group_stage_groups,id',
+                'min:1',
+                'max:999',
             ],
 
+            'status' => [
+                'required',
 
-            /*
-        |--------------------------------------------------------------------------
-        | Rule Type
-        |--------------------------------------------------------------------------
-        */
+                Rule::in([
+                    'ACTIVE',
+                    'INACTIVE',
+                ]),
+            ],
 
             'rule_type' => [
                 'required',
@@ -182,12 +191,19 @@ class StoreGroupStageAdvancementRuleRequest extends FormRequest
                 ]),
             ],
 
+            'phase_group_stage_group_id' => [
+                Rule::excludeIf(
+                    ! $usesGroup
+                ),
 
-            /*
-        |--------------------------------------------------------------------------
-        | Position From
-        |--------------------------------------------------------------------------
-        */
+                Rule::requiredIf(
+                    $usesGroup
+                ),
+
+                'nullable',
+                'integer',
+                'exists:phase_group_stage_groups,id',
+            ],
 
             'position_from' => [
                 Rule::excludeIf(
@@ -203,13 +219,6 @@ class StoreGroupStageAdvancementRuleRequest extends FormRequest
                 'min:1',
                 'max:512',
             ],
-
-
-            /*
-        |--------------------------------------------------------------------------
-        | Position To
-        |--------------------------------------------------------------------------
-        */
 
             'position_to' => [
                 Rule::excludeIf(
@@ -228,13 +237,6 @@ class StoreGroupStageAdvancementRuleRequest extends FormRequest
                 'gte:position_from',
             ],
 
-
-            /*
-        |--------------------------------------------------------------------------
-        | Take
-        |--------------------------------------------------------------------------
-        */
-
             'take' => [
                 Rule::excludeIf(
                     ! $usesTake
@@ -248,22 +250,6 @@ class StoreGroupStageAdvancementRuleRequest extends FormRequest
                 'integer',
                 'min:1',
                 'max:512',
-            ],
-
-
-            /*
-        |--------------------------------------------------------------------------
-        | Estado
-        |--------------------------------------------------------------------------
-        */
-
-            'status' => [
-                'required',
-
-                Rule::in([
-                    'ACTIVE',
-                    'INACTIVE',
-                ]),
             ],
         ];
     }
@@ -285,29 +271,6 @@ class StoreGroupStageAdvancementRuleRequest extends FormRequest
                         instanceof PhaseTemplate
                 ) {
                     return;
-                }
-
-                $exitId =
-                    $this->integer(
-                        'phase_exit_id'
-                    );
-
-                if (
-                    $exitId
-                    &&
-                    ! $phaseTemplate
-                        ->exits()
-                        ->whereKey(
-                            $exitId
-                        )
-                        ->exists()
-                ) {
-                    $validator
-                        ->errors()
-                        ->add(
-                            'phase_exit_id',
-                            'La puerta seleccionada no pertenece a esta Fase.'
-                        );
                 }
 
                 $groupId =

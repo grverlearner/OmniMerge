@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Tournaments;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Tournaments\StoreGroupStageExitRequest;
+use App\Models\PhaseExit;
 use App\Models\PhaseInputGate;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\GroupStage\GroupStageDefinitionService;
@@ -11,6 +13,7 @@ use App\Services\Tournaments\GroupStage\GroupStageSettingsService;
 use App\Services\Tournaments\Preview\PreviewCastService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -40,7 +43,9 @@ class GroupStageStructureController extends Controller
         private readonly GroupStageDefinitionService $definitionService,
         private readonly PreviewCastService $cast,
         private readonly \App\Services\Tournaments\GroupStage\GroupStageGateService $gates,
-        private readonly \App\Services\Tournaments\GroupStage\GroupStageExitForecastService $exitForecast
+        private readonly \App\Services\Tournaments\GroupStage\GroupStageExitForecastService $exitForecast,
+        private readonly \App\Services\Tournaments\PhaseExitService $exitService,
+        private readonly \App\Services\Tournaments\GroupStage\GroupStageAdvancementRuleService $ruleService
     ) {}
 
     /*
@@ -231,6 +236,104 @@ class GroupStageStructureController extends Controller
             )
         );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Puertas de salida: alta y baja
+    |--------------------------------------------------------------------------
+    |
+    | Una salida y el criterio que la cruza se crean juntos, porque son la
+    | misma decisión. Una puerta sin criterio no la cruza nadie; un criterio
+    | sin puerta no lleva a ningún sitio. Tenerlos en dos formularios
+    | distintos solo servía para poder dejar la mitad hecha y descubrirlo
+    | jugando.
+    |
+    | El selector de la puerta se fija en ENGINE_RULES a propósito. En una
+    | fase de grupos quien decide es el criterio, y el motor entrega esa
+    | lista tal cual: si la puerta además guardara su propio número, serían
+    | dos verdades sobre lo mismo, y el grafo validaría una mientras el
+    | torneo juega la otra.
+    |
+    */
+
+    public function storeExit(
+        StoreGroupStageExitRequest $request,
+        PhaseTemplate $phaseTemplate
+    ): RedirectResponse {
+
+        $this->authorize('update', $phaseTemplate);
+        $this->ensureCorrectType($phaseTemplate);
+
+        $data = $request->validated();
+
+        DB::transaction(function () use ($phaseTemplate, $data) {
+
+            $exit = $this->exitService->create($phaseTemplate, [
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+
+                'selector_type' => 'ENGINE_RULES',
+                'exit_timing' => 'PHASE_END',
+
+                'priority' => $data['priority'] ?? 10,
+                'status' => $data['status'],
+            ]);
+
+            $this->ruleService->create($phaseTemplate, [
+                'phase_exit_id' => $exit->id,
+                'rule_type' => $data['rule_type'],
+
+                'take' => $data['take'] ?? null,
+                'position_from' => $data['position_from'] ?? null,
+                'position_to' => $data['position_to'] ?? null,
+                'phase_group_stage_group_id' => $data['phase_group_stage_group_id'] ?? null,
+
+                'status' => $data['status'],
+            ]);
+        });
+
+        return redirect()
+            ->route('tournaments.group-stage.io', $phaseTemplate)
+            ->with('success', 'Salida creada con su criterio.');
+    }
+
+    /*
+     * Al borrar una salida se llevan sus criterios.
+     *
+     * La tabla de criterios guarda el id de la puerta sin llave foránea,
+     * así que dejarlos atrás no da error: deja reglas apuntando a una
+     * puerta que ya no existe, invisibles en pantalla y silenciosas hasta
+     * que alguien mira el pronóstico y no le cuadran los números.
+     */
+    public function destroyExit(
+        Request $request,
+        PhaseTemplate $phaseTemplate,
+        PhaseExit $phaseExit
+    ): RedirectResponse {
+
+        $this->authorize('update', $phaseTemplate);
+        $this->ensureCorrectType($phaseTemplate);
+
+        abort_unless(
+            (int) $phaseExit->phase_template_id === (int) $phaseTemplate->id,
+            404
+        );
+
+        DB::transaction(function () use ($phaseTemplate, $phaseExit) {
+
+            $phaseTemplate
+                ->groupStageAdvancementRules()
+                ->where('phase_exit_id', $phaseExit->id)
+                ->delete();
+
+            $this->exitService->delete($phaseExit);
+        });
+
+        return redirect()
+            ->route('tournaments.group-stage.io', $phaseTemplate)
+            ->with('success', 'Salida eliminada junto con sus criterios.');
+    }
+
 
     /*
     |--------------------------------------------------------------------------
