@@ -1,6 +1,7 @@
 import { superEditorBase, mergeParts } from './super/base';
 import { roundRobinEditor } from './super/round-robin';
 import { groupStageEditor } from './super/group-stage';
+import { singleEliminationEditor } from './super/single-elimination';
 
 /*
 |--------------------------------------------------------------------------
@@ -24,6 +25,7 @@ import { groupStageEditor } from './super/group-stage';
 const ENGINES = {
     roundRobin: roundRobinEditor,
     groupStage: groupStageEditor,
+    singleElimination: singleEliminationEditor,
 };
 
 export default function phaseSuperEditor(config) {

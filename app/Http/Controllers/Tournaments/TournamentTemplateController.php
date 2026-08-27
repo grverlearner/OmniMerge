@@ -6,9 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\StoreTournamentTemplateRequest;
 use App\Http\Requests\Tournaments\UpdateTournamentTemplateRequest;
 use App\Models\TournamentTemplate;
+use App\Services\Tournaments\Graph\Preview\TournamentFlowPreviewService;
+use App\Services\Tournaments\Graph\TournamentSuperEditorService;
 use App\Services\Tournaments\TournamentTemplateService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 
@@ -300,7 +304,9 @@ class TournamentTemplateController extends Controller
 
 
     public function show(
-        TournamentTemplate $tournamentTemplate
+        Request $request,
+        TournamentTemplate $tournamentTemplate,
+        TournamentSuperEditorService $editor
     ): View {
 
         $this->authorize(
@@ -308,32 +314,94 @@ class TournamentTemplateController extends Controller
             $tournamentTemplate
         );
 
+        $tournamentTemplate->loadCount([
+            'graphNodes',
+            'graphConnections',
+            'graphStarts',
+            'graphTerminals',
+        ]);
 
-        $tournamentTemplate
-            ->load([
-                'graphNodes',
-
-                'graphStarts',
-
-                'graphTerminals',
-            ])
-            ->loadCount([
-                'graphNodes',
-
-                'graphConnections',
-
-                'graphStarts',
-
-                'graphTerminals',
-            ]);
-
-
+        /*
+         * La ficha ensena el torneo COMO SE RECORRE, y para eso necesita el
+         * mismo grafo que la Super Edicion: sus niveles, sus rutas, sus
+         * vecinos y la silueta de cada fase.
+         *
+         * Se reutiliza el payload entero en vez de escribir una version "de
+         * solo lectura": lo unico que sobra son los botones, y esos no
+         * estan en el payload sino en la vista.
+         */
         return view(
-            'tournaments.templates.show',
-            compact(
-                'tournamentTemplate'
-            )
+            'tournaments.templates.dossier',
+            [
+                'tournamentTemplate' => $tournamentTemplate,
+                'payload' => $editor->payload($tournamentTemplate, $request->user()),
+            ]
         );
+    }
+
+    /*
+     * Simular el torneo entero.
+     *
+     * No hay motor nuevo: lo ejecuta TournamentFlowPreviewService, que ya
+     * existia y recorre el grafo repartiendo participantes sinteticos por
+     * las rutas hasta que llegan a un terminal o se pierden por el camino.
+     *
+     * Devuelve JSON porque la ficha lo pinta sin recargar: una simulacion
+     * que te cambia de pagina te obliga a volver a buscar donde estabas.
+     *
+     * Los problemas del grafo NO se ocultan. Si el recorrido tiene errores
+     * bloqueantes el servicio se niega a ejecutar, y eso es exactamente lo
+     * que hay que ensenar: simular un torneo roto daria un resultado
+     * inventado.
+     */
+    public function simulate(
+        Request $request,
+        TournamentTemplate $tournamentTemplate,
+        TournamentFlowPreviewService $preview
+    ): JsonResponse {
+
+        $this->authorize('view', $tournamentTemplate);
+
+        $data = $request->validate([
+            'participants' => ['nullable', 'integer', 'min:2', 'max:512'],
+            'seed' => ['nullable', 'integer', 'min:1', 'max:999999'],
+        ]);
+
+        $tournamentTemplate->load([
+            'graphNodes.phaseTemplate.exits',
+            'graphNodes.entryPorts',
+            'graphStarts',
+            'graphTerminals',
+            'graphConnections',
+        ]);
+
+        $count = (int) ($data['participants']
+            ?? $tournamentTemplate->max_participants
+            ?? $tournamentTemplate->min_participants
+            ?? 16);
+
+        try {
+            return response()->json([
+                'ok' => true,
+                'result' => $preview->preview($tournamentTemplate, [
+                    'participant_mode' => 'SYNTHETIC',
+                    'resolution_strategy' => 'RANDOM',
+                    'seed' => (int) ($data['seed'] ?? random_int(1, 999999)),
+                    'starts' => $tournamentTemplate->graphStarts
+                        ->map(fn ($start) => [
+                            'start_id' => $start->id,
+                            'count' => $count,
+                            'prefix' => 'P',
+                        ])
+                        ->all(),
+                ]),
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'ok' => false,
+                'messages' => collect($e->errors())->flatten()->all(),
+            ]);
+        }
     }
 
 

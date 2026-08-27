@@ -196,7 +196,8 @@ class GroupStageSuperEditor implements PhaseSuperEditorContract, SupportsEditabl
         $contract = $this->contract(
             $phaseTemplate,
             $overrides['participants'] ?? null,
-            $this->customCapacity($phaseTemplate, $overrides)
+            $this->customCapacity($phaseTemplate, $overrides),
+            $this->rememberedParticipants($settings)
         );
 
         /*
@@ -574,10 +575,34 @@ class GroupStageSuperEditor implements PhaseSuperEditorContract, SupportsEditabl
     |--------------------------------------------------------------------------
     */
 
+    /*
+     * Con cuantos abre el editor.
+     *
+     * NO es lo mismo que `exact_participants`. Esa columna es el CONTRATO
+     * -"esta fase admite exactamente N"- y cambiarla porque alguien
+     * previsualizo con doce seria convertir una fase flexible en una rigida
+     * a sus espaldas.
+     *
+     * Pero tampoco vale olvidarlo: escribir un numero, guardar, y ver que
+     * vuelve al de por defecto parece que el guardado no funciona. Asi que
+     * el numero se recuerda como preferencia de trabajo, en `settings`, y
+     * solo decide con que abre la pantalla. El contrato sigue detras de su
+     * casilla.
+     */
+    private function rememberedParticipants($settings): ?int
+    {
+        $stored = $settings->settings['preview_participants'] ?? null;
+
+        return is_numeric($stored) && (int) $stored >= 2
+            ? (int) $stored
+            : null;
+    }
+
     private function contract(
         PhaseTemplate $phaseTemplate,
         ?int $requested,
-        ?int $derived = null
+        ?int $derived = null,
+        ?int $remembered = null
     ): array {
 
         $min = (int) ($phaseTemplate->min_participants ?? 4);
@@ -585,7 +610,7 @@ class GroupStageSuperEditor implements PhaseSuperEditorContract, SupportsEditabl
         $exact = $phaseTemplate->exact_participants !== null ? (int) $phaseTemplate->exact_participants : null;
         $multiple = $phaseTemplate->participant_multiple !== null ? (int) $phaseTemplate->participant_multiple : null;
 
-        $default = $exact ?? max($min, 16);
+        $default = $exact ?? $remembered ?? max($min, 16);
 
         $resolved = $derived
             ?? ($requested !== null && $requested > 0 ? $requested : $default);
@@ -1011,6 +1036,11 @@ class GroupStageSuperEditor implements PhaseSuperEditorContract, SupportsEditabl
 
         $stored = $settings->settings ?? [];
 
+        /* Con cuantos abrir la proxima vez. No es el contrato: ver abajo. */
+        if (! empty($data['participants'])) {
+            $stored['preview_participants'] = (int) $data['participants'];
+        }
+
         if (! empty($data['round_limit'])) {
             $stored['round_limit'] = (int) $data['round_limit'];
         } else {
@@ -1398,4 +1428,220 @@ class GroupStageSuperEditor implements PhaseSuperEditorContract, SupportsEditabl
 
         $this->groupService->delete($phaseTemplate, $group);
     }
+
+    /*
+     * Etiqueta de catalogo, o la clave cruda si el catalogo no la conoce.
+     *
+     * Devolver la clave en vez de una cadena vacia es deliberado: un ajuste
+     * viejo que ya no esta en el catalogo se ve como "POTS" y se puede
+     * arreglar, mientras que un hueco en blanco solo desconcierta.
+     */
+    private function labelOf(array $catalog, ?string $key, string $fallback = '—'): string
+    {
+        if ($key === null || $key === '') {
+            return $fallback;
+        }
+
+        return $catalog[$key]['label'] ?? $key;
+    }
+
+    private function hintOf(array $catalog, ?string $key): ?string
+    {
+        return $key === null ? null : ($catalog[$key]['hint'] ?? null);
+    }
+
+    private function plural(int $n, string $singular, string $plural): string
+    {
+        return $n . ' ' . ($n === 1 ? $singular : $plural);
+    }
+
+    /*
+     * Una fase de grupos se reconoce por sus cajas: un grupo, una caja.
+     */
+    public function outline(PhaseTemplate $phaseTemplate): array
+    {
+        $settings = $this->settingsService->ensure($phaseTemplate);
+
+        $contract = $this->contract(
+            $phaseTemplate,
+            null,
+            null,
+            $this->rememberedParticipants($settings)
+        );
+
+        $players = $contract['resolved'];
+
+        /*
+         * Cuantos grupos, sin repartir a nadie. Con cantidad fija lo dice el
+         * ajuste; con tamano objetivo se divide y se redondea hacia arriba,
+         * que es lo que hace el repartidor de verdad.
+         */
+        $groups = match ($settings->group_count_mode) {
+            'FIXED_COUNT' => max(1, (int) $settings->group_count),
+            'TARGET_SIZE' => max(1, (int) ceil($players / max(1, (int) $settings->target_group_size))),
+            default => max(1, (int) ($settings->group_count ?: 1)),
+        };
+
+        $size = (int) ceil($players / $groups);
+
+        return [
+            'kind' => 'GROUPS',
+            'label' => $groups . ' grupos de ' . $size,
+            'columns' => array_fill(0, min($groups, 12), $size),
+            'slots' => $players,
+        ];
+    }
+
+    /*
+     * La fase de grupos, contada. Ver PhaseSuperEditorContract::summary().
+     */
+    public function summary(PhaseTemplate $phaseTemplate, array $payload): array
+    {
+        $s = $payload['settings'];
+        $catalog = $payload['catalog'];
+        $structure = $payload['structure'];
+
+        $mode = $s['group_count_mode'];
+        $cycles = (int) $s['internal_cycles'];
+        $limit = $s['round_limit'] ?? null;
+        $rounds = (int) ($structure['max_rounds'] ?? 0);
+
+        $grupos = [
+            [
+                'label' => 'Se deciden',
+                'value' => $this->labelOf($catalog['group_count_modes'], $mode),
+                'hint' => $this->hintOf($catalog['group_count_modes'], $mode),
+            ],
+            [
+                'label' => 'Cuántos',
+                'value' => $this->plural((int) ($structure['groups_count'] ?? 0), 'grupo', 'grupos'),
+            ],
+            [
+                'label' => 'Tamaño',
+                'value' => ($structure['min_size'] ?? null) === ($structure['max_size'] ?? null)
+                    ? $this->plural((int) ($structure['min_size'] ?? 0), 'competidor', 'competidores')
+                    : ($structure['min_size'] ?? '?') . '–' . ($structure['max_size'] ?? '?') . ' competidores',
+                'hint' => ($structure['min_size'] ?? null) === ($structure['max_size'] ?? null)
+                    ? 'Todos los grupos son iguales.'
+                    : 'Los grupos no son iguales: la clasificación entre ellos se normaliza.',
+            ],
+        ];
+
+        $reparto = [
+            [
+                'label' => 'Cómo se reparten',
+                'value' => $this->labelOf($catalog['distribution_modes'], $s['distribution_mode']),
+                'hint' => $this->hintOf($catalog['distribution_modes'], $s['distribution_mode']),
+            ],
+            [
+                'label' => 'Los que sobran',
+                'value' => $this->labelOf($catalog['remainder_policies'], $s['remainder_policy']),
+                'hint' => $this->hintOf($catalog['remainder_policies'], $s['remainder_policy']),
+            ],
+        ];
+
+        return [
+
+            'figures' => [
+                [
+                    'label' => 'Compiten',
+                    'value' => (string) ($structure['participants'] ?? 0),
+                ],
+                [
+                    'label' => 'Grupos',
+                    'value' => (string) ($structure['groups_count'] ?? 0),
+                    'accent' => 'text-indigo-300',
+                ],
+                [
+                    'label' => 'Jornadas',
+                    'value' => (string) ($limit ?? $rounds),
+                    'accent' => 'text-cyan-300',
+                ],
+                [
+                    'label' => 'Duelos',
+                    'value' => (string) ($structure['total_series'] ?? 0),
+                    'accent' => 'text-amber-300',
+                ],
+            ],
+
+            'groups' => [
+            [
+                'title' => 'Los grupos',
+                'icon' => '▦',
+                'accent' => 'indigo',
+                'rows' => $grupos,
+            ],
+            [
+                'title' => 'Cómo se juega dentro',
+                'icon' => '↻',
+                'accent' => 'cyan',
+                'rows' => [
+                    [
+                        'label' => 'Vueltas',
+                        'value' => match ($cycles) {
+                            1 => 'Una vuelta',
+                            2 => 'Ida y vuelta',
+                            default => $cycles . ' vueltas',
+                        },
+                        'hint' => 'Dentro de cada grupo, por separado.',
+                    ],
+                    [
+                        'label' => 'Jornadas',
+                        'value' => $limit !== null && $limit < $rounds
+                            ? $limit . ' de ' . $rounds
+                            : $this->plural($rounds, 'jornada', 'jornadas'),
+                        'hint' => $limit !== null && $limit < $rounds
+                            ? 'Los grupos se cortan antes de terminar.'
+                            : 'Todos los grupos se juegan enteros.',
+                    ],
+                    [
+                        'label' => 'Enfrentamientos',
+                        'value' => $this->plural((int) ($structure['total_series'] ?? 0), 'duelo', 'duelos'),
+                        'hint' => 'Sumando todos los grupos.',
+                    ],
+                    [
+                        'label' => 'Empates',
+                        'value' => $s['internal_allow_draws'] ? 'Se permiten' : 'No hay',
+                    ],
+                ],
+            ],
+            [
+                'title' => 'Puntos',
+                'icon' => '⊕',
+                'accent' => 'emerald',
+                'rows' => [
+                    ['label' => 'Victoria', 'value' => $this->points($s['win_points'])],
+                    ['label' => 'Empate', 'value' => $s['internal_allow_draws'] ? $this->points($s['draw_points']) : '—'],
+                    ['label' => 'Derrota', 'value' => $this->points($s['loss_points'])],
+                ],
+            ],
+            [
+                'title' => 'Reparto',
+                'icon' => '⇥',
+                'accent' => 'amber',
+                'rows' => $reparto,
+            ],
+            [
+                'title' => 'Cómo se desempata',
+                'icon' => '⚖',
+                'accent' => 'violet',
+                'rows' => array_values(array_map(
+                    fn (string $label, int $i) => [
+                        'label' => ($i + 1) . 'º',
+                        'value' => $label,
+                    ],
+                    $catalog['tiebreak_chain'],
+                    array_keys($catalog['tiebreak_chain'])
+                )),
+            ],
+            ],
+        ];
+    }
+
+    private function points(float $value): string
+    {
+        return rtrim(rtrim(number_format($value, 2, ',', ''), '0'), ',')
+            . ' pt' . (abs($value) === 1.0 ? '' : 's');
+    }
+
 }

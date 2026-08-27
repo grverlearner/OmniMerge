@@ -217,25 +217,68 @@ class TournamentGraphFlowValidationService
                     $nodeForecast
                 );
 
-            foreach (
+            /*
+             * Las salidas se pronostican en DOS pasadas.
+             *
+             * "El resto" no se puede calcular mirando solo su propia salida:
+             * depende de lo que se lleven las demas. Asi que primero se
+             * resuelven las que se bastan solas, y despues las de resto
+             * restando lo ya reclamado.
+             *
+             * En una pasada, un torneo bien montado -20 entran, 16
+             * clasifican, 4 caen- decia que sus eliminados podian ser
+             * "entre 0 y 20", y su destino se quejaba para siempre.
+             */
+            $activeExits =
                 $node
-                    ->phaseTemplate
-                    ->exits
-                    ->where('status', 'ACTIVE')
+                ->phaseTemplate
+                ->exits
+                ->where('status', 'ACTIVE');
+
+            $remainderTypes = [
+                'REMAINING',
+                'ELIMINATED',
+                'ELIMINATED_IN_ROUND',
+                'MATCH_LOSERS',
+            ];
+
+            $claimed = [];
+
+            foreach ($activeExits as $exit) {
+
+                if (isset($ruleDrivenExits[$exit->id])) {
+                    $claimed[$exit->id] = $ruleDrivenExits[$exit->id];
+
+                    continue;
+                }
+
+                if (in_array($exit->selector_type, $remainderTypes, true)) {
+                    continue;
+                }
+
+                $claimed[$exit->id] =
+                    $this->calculator->fromExit(
+                        $nodeForecast,
+                        $exit,
+                        $node->phaseTemplate->singleEliminationSetting
+                    );
+            }
+
+            foreach (
+                $activeExits
                 as
                 $exit
             ) {
                 $exitForecast =
                     $ruleDrivenExits[$exit->id]
                     ??
-                    $this->calculator
-                    ->fromExit(
-                        $nodeForecast,
-                        $exit,
-                        $node
-                            ->phaseTemplate
-                            ->singleEliminationSetting
-                    );
+                    ($claimed[$exit->id]
+                        ?? $this->remainderForecast(
+                            $node,
+                            $exit,
+                            $nodeForecast,
+                            $claimed
+                        ));
 
                 $exitForecasts[$node->id
                     .
@@ -517,6 +560,38 @@ class TournamentGraphFlowValidationService
      *
      * @return array<int,array{min:int,max:?int,exact:?int}>
      */
+    /*
+     * El pronostico de una salida de tipo "el resto".
+     *
+     * Una Eliminacion Directa ya sabe decir cuantos elimina -entran menos
+     * los que sobreviven- y su calculo es mejor que una resta generica, asi
+     * que ese se respeta. Para todo lo demas, el resto es lo que entra menos
+     * lo que se llevan las otras salidas.
+     */
+    private function remainderForecast(
+        $node,
+        $exit,
+        array $nodeForecast,
+        array $claimed
+    ): array {
+
+        $single = $node->phaseTemplate->singleEliminationSetting;
+
+        if ($single && $exit->selector_type === 'ELIMINATED') {
+            return $this->calculator->fromExit(
+                $nodeForecast,
+                $exit,
+                $single
+            );
+        }
+
+        return $this->calculator->fromRemainder(
+            $nodeForecast,
+            array_values($claimed)
+        );
+    }
+
+
     private function groupStageExitForecast(
         TournamentPhaseNode $node,
         array $nodeForecast
@@ -808,10 +883,28 @@ class TournamentGraphFlowValidationService
             }
         }
 
+        /*
+         * Un destino de campeon que no dice "cabe uno".
+         *
+         * Se avisa porque casi siempre es un descuido, PERO no cuando el
+         * recorrido ya garantiza que llega exactamente uno: entonces no hay
+         * nada raro que senalar, y repetirlo era pedir que se escriba a mano
+         * un numero que el propio grafo acaba de calcular.
+         *
+         * Antes esa distincion no se podia hacer: el pronostico de una
+         * salida WINNER salia "no se sabe", asi que un campeon perfectamente
+         * bien conectado se quejaba igual.
+         */
+        $llegaExactamenteUno =
+            ($forecast['known'] ?? false)
+            && ($forecast['exact'] ?? null) === 1;
+
         if (
             $terminal->terminal_type
             ===
             'CHAMPION'
+            &&
+            ! $llegaExactamenteUno
             &&
             (
                 $terminal->expected_participants

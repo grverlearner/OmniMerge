@@ -209,8 +209,11 @@
             <input type="checkbox" x-model="pinParticipants" @change="dirty = true"
                 class="mt-0.5 h-3 w-3 rounded border-slate-600 bg-slate-950 text-amber-500 focus:ring-amber-500">
             <span class="text-[9px] leading-relaxed text-slate-500">
-                Fijar como cantidad exacta.
-                <span class="text-slate-600">Si no, esto solo es previsualización.</span>
+                Fijar como cantidad exacta de la fase.
+                <span class="text-slate-600">
+                    Sin marcar, el número se recuerda para abrir aquí pero la
+                    fase sigue admitiendo su rango.
+                </span>
             </span>
         </label>
 

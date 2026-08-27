@@ -254,7 +254,15 @@ class TournamentGraphCapacityCalculator
                 )
             ),
 
-            'RANK_POSITION' =>
+            /*
+             * Un puesto concreto es una persona. WINNER y RUNNER_UP lo son
+             * tambien -el campeon y el finalista- y faltaban en esta lista:
+             * caian en `default` y el pronostico salia "no se sabe", que
+             * despues hacia imposible avisar de nada sobre su destino.
+             */
+            'RANK_POSITION',
+            'WINNER',
+            'RUNNER_UP' =>
             $this->limitedSelection(
                 $phaseInput,
                 1
@@ -270,6 +278,14 @@ class TournamentGraphCapacityCalculator
             'ALL' =>
             $phaseInput,
 
+            /*
+             * El resto: lo que queda despues de las demas salidas.
+             *
+             * Sin saber que se llevan las otras esto solo puede decir "entre
+             * 0 y todos", y por eso `fromRemainder()` existe: cuando el que
+             * llama SI sabe lo que reclaman las hermanas, el resto es una
+             * resta exacta. Aqui se conserva el caso pesimista.
+             */
             'REMAINING',
             'ELIMINATED',
             'ELIMINATED_IN_ROUND',
@@ -290,6 +306,47 @@ class TournamentGraphCapacityCalculator
             default =>
             $this->unknown(),
         };
+    }
+
+    /*
+     * Lo que sobra de una fase despues de las demas salidas.
+     *
+     * "El resto" es una resta, no un rango: si a una fase entran 20 y otra
+     * salida se lleva 16 exactos, por el resto salen 4. Exactamente 4.
+     *
+     * Calcularlo como "entre 0 y 20" no era conservador, era ruidoso: un
+     * torneo bien montado -20 entran, 16 clasifican, 4 caen- se quejaba de
+     * que su destino de eliminados "necesita exactamente 4 pero el flujo es
+     * 0-20", y no habia forma de contentarlo. La cuenta estaba ahi; solo
+     * hacia falta pasarle lo que se llevan las otras.
+     *
+     * Si algo de lo que reclaman las hermanas no se sabe, se vuelve al
+     * rango pesimista: restar de un desconocido no da un exacto.
+     *
+     * @param  array<int,array>  $claimedBySiblings
+     */
+    public function fromRemainder(
+        array $phaseInput,
+        array $claimedBySiblings
+    ): array {
+
+        $phaseInput = $this->normalize($phaseInput);
+
+        $claimed = $this->sum($claimedBySiblings);
+
+        /* Sin techo en la entrada o en lo reclamado, no hay resta posible */
+        if ($phaseInput['max'] === null || $claimed['max'] === null) {
+            return $this->range(0, $phaseInput['max']);
+        }
+
+        /*
+         * El resto es mayor cuando las hermanas se llevan lo minimo, y menor
+         * cuando se llevan lo maximo. Por eso los extremos se cruzan.
+         */
+        return $this->range(
+            max(0, $phaseInput['min'] - $claimed['max']),
+            max(0, $phaseInput['max'] - $claimed['min'])
+        );
     }
 
     public function label(array $forecast): string

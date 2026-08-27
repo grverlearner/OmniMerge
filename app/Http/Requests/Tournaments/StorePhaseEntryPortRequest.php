@@ -69,6 +69,27 @@ extends FormRequest
                 )
             ),
 
+            /*
+             * Los numericos que llegan vacios se normalizan a null.
+             *
+             * Un formulario manda cadena vacia cuando no rellenas un
+             * numero, y `nullable` no la trata como ausente: la regla
+             * `gte:min_participants` de mas abajo la comparaba contra un
+             * hueco y fallaba diciendo que el maximo tenia que ser mayor
+             * que un minimo que nadie habia escrito.
+             */
+            ...array_reduce(
+                ['min_participants', 'max_participants', 'exact_participants'],
+                function (array $carry, string $field) {
+                    $value = $this->input($field);
+
+                    $carry[$field] = ($value === '' || $value === null) ? null : $value;
+
+                    return $carry;
+                },
+                []
+            ),
+
             'is_required' =>
             $this->boolean(
                 'is_required'
@@ -137,7 +158,13 @@ extends FormRequest
                 'integer',
                 'min:1',
                 'max:512',
-                'gte:min_participants',
+
+                /*
+                 * Solo tiene sentido comparar cuando hay minimo. Poner solo
+                 * el maximo -"caben hasta 8"- es una puerta perfectamente
+                 * valida, y antes se rechazaba.
+                 */
+                ...($this->filled('min_participants') ? ['gte:min_participants'] : []),
             ],
 
             'exact_participants' => [

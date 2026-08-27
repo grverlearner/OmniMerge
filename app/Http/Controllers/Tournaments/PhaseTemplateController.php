@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\StorePhaseTemplateRequest;
 use App\Http\Requests\Tournaments\UpdatePhaseTemplateRequest;
 use App\Models\PhaseTemplate;
+use App\Services\Tournaments\PhaseEditor\PhaseSuperEditorRegistry;
 use App\Services\Tournaments\PhaseTemplateService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,10 @@ class PhaseTemplateController extends Controller
 {
     public function __construct(
         private readonly
-        PhaseTemplateService $service
+        PhaseTemplateService $service,
+
+        private readonly
+        PhaseSuperEditorRegistry $registry
     ) {}
 
     public function index(
@@ -233,6 +237,7 @@ class PhaseTemplateController extends Controller
     }
 
     public function show(
+        Request $request,
         PhaseTemplate $phaseTemplate
     ): View {
         $this->authorize(
@@ -250,12 +255,100 @@ class PhaseTemplateController extends Controller
             ])
             ->loadCount('exits');
 
-        return view(
-            'tournaments.phase-templates.show',
-            compact(
-                'phaseTemplate'
-            )
+        /*
+         * Los motores con Super Edicion tienen ficha propia.
+         *
+         * La ficha ensena la fase COMO SE JUEGA -su estructura, sus aduanas,
+         * su configuracion contada en frases- y para eso necesita el mismo
+         * payload que el editor. Los que todavia no tienen editor -Swiss,
+         * League- se quedan con la pantalla de siempre: darles una ficha a
+         * medias seria peor que no darsela.
+         */
+        if (! $this->registry->supports($phaseTemplate)) {
+            return view(
+                'tournaments.phase-templates.show',
+                compact('phaseTemplate')
+            );
+        }
+
+        $editor = $this->registry->for($phaseTemplate);
+
+        $payload = $editor->payload(
+            $phaseTemplate,
+            $request->user()
         );
+
+        $summary = $editor->summary($phaseTemplate, $payload);
+
+        return view(
+            'tournaments.phase-templates.dossier',
+            [
+                'phaseTemplate' => $phaseTemplate,
+                'payload' => $payload,
+                'summary' => $summary['groups'],
+                'figures' => $summary['figures'],
+                'stageView' => $editor->stageView(),
+                'scheduleView' => $editor->scheduleView(),
+                'clientEngine' => $editor->clientEngine(),
+                'typeIcon' => $this->typeIcon($phaseTemplate),
+                'typeAccent' => $this->typeAccent($phaseTemplate),
+            ]
+        );
+    }
+
+    private function typeIcon(PhaseTemplate $phaseTemplate): string
+    {
+        return match ($phaseTemplate->phase_type) {
+            'SINGLE_ELIMINATION' => '\u{2694}',
+            'ROUND_ROBIN' => '\u{21BB}',
+            'GROUP_STAGE' => '\u{25A6}',
+            'LEAGUE' => '\u{21C5}',
+            'SWISS' => '\u{25C6}',
+            default => '\u{2726}',
+        };
+    }
+
+    /*
+     * El color de cada tipo de fase, que se repite en toda la ficha.
+     *
+     * Las clases van literales y no armadas juntando cadenas: Tailwind lee
+     * el codigo fuente para decidir que compila, y una clase construida en
+     * tiempo de ejecucion nunca llega al CSS.
+     *
+     * @return array<string,string>
+     */
+    private function typeAccent(PhaseTemplate $phaseTemplate): array
+    {
+        return match ($phaseTemplate->phase_type) {
+
+            'SINGLE_ELIMINATION' => [
+                'text' => 'text-amber-300',
+                'soft' => 'bg-amber-500/15',
+                'border' => 'border-amber-500/30',
+                'glow' => 'bg-amber-500/10',
+            ],
+
+            'ROUND_ROBIN' => [
+                'text' => 'text-cyan-300',
+                'soft' => 'bg-cyan-500/15',
+                'border' => 'border-cyan-500/30',
+                'glow' => 'bg-cyan-500/10',
+            ],
+
+            'GROUP_STAGE' => [
+                'text' => 'text-indigo-300',
+                'soft' => 'bg-indigo-500/15',
+                'border' => 'border-indigo-500/30',
+                'glow' => 'bg-indigo-500/10',
+            ],
+
+            default => [
+                'text' => 'text-slate-300',
+                'soft' => 'bg-slate-700/50',
+                'border' => 'border-slate-700',
+                'glow' => 'bg-slate-500/10',
+            ],
+        };
     }
 
     public function edit(

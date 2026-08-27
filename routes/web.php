@@ -65,6 +65,7 @@ use App\Http\Controllers\Tournaments\SwissRoundRuleController;
 use App\Http\Controllers\Tournaments\SwissAdvancementRuleController;
 
 use App\Http\Controllers\Tournaments\TournamentGraphController;
+use App\Http\Controllers\Tournaments\TournamentSuperEditorController;
 use App\Http\Controllers\Tournaments\TournamentPhaseNodeController;
 use App\Http\Controllers\Tournaments\PhaseEntryPortController;
 use App\Http\Controllers\Tournaments\PhaseInputGateController;
@@ -2127,6 +2128,43 @@ Route::middleware('auth')->group(function () {
                     ->name(
                         'templates.destroy'
                     );
+
+                /*
+|--------------------------------------------------------------------------
+| SUPER EDICION DE TORNEO
+|--------------------------------------------------------------------------
+|
+| Una sola pantalla completa para el recorrido entero.
+|
+| No trae CRUD propio del grafo: los formularios de fases, inicios,
+| terminales y conexiones apuntan a las rutas de abajo, que ya existen y
+| responden con back(). Aqui solo esta la pantalla, su refresco y lo unico
+| que no tenia dueno: la identidad del torneo.
+|
+*/
+
+                /* Simular el torneo entero desde su ficha, sin recargar */
+                Route::post(
+                    '/templates/{tournamentTemplate}/simulate',
+                    [TournamentTemplateController::class, 'simulate']
+                )->name('templates.simulate');
+
+
+                Route::get(
+                    '/templates/{tournamentTemplate}/super',
+                    [TournamentSuperEditorController::class, 'show']
+                )->name('super.show');
+
+                Route::get(
+                    '/templates/{tournamentTemplate}/super/preview',
+                    [TournamentSuperEditorController::class, 'preview']
+                )->name('super.preview');
+
+                Route::put(
+                    '/templates/{tournamentTemplate}/super',
+                    [TournamentSuperEditorController::class, 'update']
+                )->name('super.update');
+
 
                 /*
 |--------------------------------------------------------------------------

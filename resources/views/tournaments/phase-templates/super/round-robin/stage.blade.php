@@ -169,7 +169,7 @@
                                         parrilla, así que se esconde en cuanto la tabla
                                         deja de ir en ese orden.
                                     --}}
-                                    <span x-show="showsManual && !hasResults" x-cloak
+                                    <span x-show="showsManual && !hasResults && !readonly" x-cloak
                                         class="ml-auto flex shrink-0 gap-0.5">
                                         <button type="button" @click="move(row.seed - 1, -1)"
                                             :disabled="row.seed === 1"

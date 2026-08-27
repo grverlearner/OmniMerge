@@ -51,6 +51,64 @@ interface PhaseSuperEditorContract
     public function gatesView(): string;
 
     /*
+     * La configuracion de la fase, contada.
+     *
+     * La Super Edicion ensena controles: desplegables, casillas, botones. La
+     * ficha de la fase ensena DECISIONES: "ida y vuelta", "se siembra por
+     * ranking del torneo", "se ordenan los puestos 5 al 8". Es la misma
+     * informacion leida al reves, y por eso la responde el motor y no una
+     * vista compartida: solo el sabe traducir sus propios ajustes a algo que
+     * se lea como una frase.
+     *
+     * Recibe el payload ya calculado para no repetir el trabajo.
+     *
+     * Lo que NO va aqui: el formato de batalla. Cuantos juegos tiene un
+     * enfrentamiento pertenece al torneo real, no a la fase, y ensenarlo
+     * aqui haria creer lo contrario.
+     *
+     * Devuelve dos cosas:
+     *
+     *   figures  las cifras de portada -la respuesta corta: "un cuadro de
+     *            16, cuatro rondas, quince duelos"-. Cuales son depende del
+     *            motor: una liga titula jornadas y una eliminacion titula
+     *            descansos, y ninguna vista compartida puede saber eso.
+     *
+     *   groups   la configuracion agrupada, para leerla entera.
+     *
+     * @return array{
+     *     figures: array<int,array{label: string, value: string, accent?: string}>,
+     *     groups: array<int,array{
+     *         title: string,
+     *         icon: string,
+     *         accent: string,
+     *         rows: array<int,array{label: string, value: string, hint?: string}>
+     *     }>
+     * }
+     */
+    public function summary(
+        PhaseTemplate $phaseTemplate,
+        array $payload
+    ): array;
+
+    /*
+     * El esquema de la fase, en numeros.
+     *
+     * Un dibujo pequeno de que FORMA tiene, para poder ensenarla dentro de
+     * otra pantalla -el mapa de un torneo- sin montar la fase entera.
+     *
+     * Es deliberadamente pobre: no reparte competidores, no calcula
+     * emparejamientos y no toca el reparto prestado. Solo dice "un cuadro de
+     * 16 con rondas de 8, 4, 2 y 1" o "ocho grupos de cuatro", que es lo
+     * justo para reconocerla de un vistazo.
+     *
+     * Sin esto, ensenar la forma de cinco fases en un mapa costaria cinco
+     * payload() completos, con su reparto prestado y sus consultas.
+     *
+     * @return array{kind: string, label: string, columns: array<int,int>, slots: int}
+     */
+    public function outline(PhaseTemplate $phaseTemplate): array;
+
+    /*
      * La vista Blade de la zona inferior: jornadas.
      *
      * Igual: una liga tiene una lista de jornadas, y una fase de grupos

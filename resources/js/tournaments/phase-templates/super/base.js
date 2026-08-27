@@ -33,6 +33,21 @@ export function superEditorBase(config) {
 
         previewUrl: config.previewUrl,
 
+        /*
+         * Solo lectura: la ficha de la fase.
+         *
+         * Reutiliza las mismas vistas del editor -el escenario, las
+         * jornadas- porque dibujar un cuadro dos veces seria mantenerlo dos
+         * veces. Lo unico que sobra ahi son los controles que CAMBIAN la
+         * configuracion: en la ficha no hay boton de guardar, asi que
+         * moverlos cambiaria el preview sin guardar nada y solo confundiria.
+         *
+         * Simular NO es cambiar la configuracion: los resultados inventados
+         * nunca se guardaron, ni aqui ni en el editor, y ver como se llena
+         * el cuadro es media razon de que esta pantalla exista.
+         */
+        readonly: config.readonly ?? false,
+
         participants: config.payload.contract.resolved,
 
         pinParticipants: config.payload.contract.is_pinned,

@@ -952,7 +952,7 @@
         El resumen conserva el recuento de salidas mas arriba, en el
         contrato competitivo.
     --}}
-    @if (! in_array($phaseTemplate->phase_type, ['GROUP_STAGE', 'ROUND_ROBIN'], true))
+    @if (! in_array($phaseTemplate->phase_type, ['GROUP_STAGE', 'ROUND_ROBIN', 'SINGLE_ELIMINATION'], true))
 
     <section id="exits" class="mt-10">
 

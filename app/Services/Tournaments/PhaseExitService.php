@@ -158,6 +158,15 @@ class PhaseExitService
                     'BOTTOM_N',
                     'RANK_POSITION',
                     'RANK_RANGE',
+
+                    /*
+                     * La rama del cuadro de la que recoge una salida de
+                     * eliminacion directa. Es un numero como los de arriba y
+                     * viaja por el mismo campo; sin estar en esta lista se
+                     * guardaba en blanco y la puerta quedaba apuntando a la
+                     * rama cero, que no existe.
+                     */
+                    'BRACKET_BRANCH',
                 ],
                 true
             )

@@ -1,13 +1,9 @@
-<header
-    class="
-        sticky
-        top-0
-        z-30
-        border-b
-        border-slate-200
-        bg-white/90
-        backdrop-blur
-    ">
+@php
+    /* Acompana a la superficie de la pagina: ver App\View\Components\TournamentLayout */
+    $dark = $dark ?? false;
+@endphp
+
+<header class="sticky top-0 z-30 border-b backdrop-blur {{ $dark ? 'border-slate-800 bg-slate-950/90' : 'border-slate-200 bg-white/90' }}">
 
     <div
         class="
@@ -29,16 +25,9 @@
             <button type="button" @click="
                     sidebarOpen = true
                 "
-                class="
-                    rounded-xl
-                    border
-                    border-slate-200
-                    p-2
-                    text-slate-600
-                    transition
-                    hover:bg-slate-100
-                    lg:hidden
-                ">
+                class="rounded-xl border p-2 transition lg:hidden {{ $dark
+                    ? 'border-slate-800 text-slate-400 hover:bg-slate-800'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-100' }}">
                 ☰
             </button>
 
@@ -57,12 +46,7 @@
                 </p>
 
 
-                <h1
-                    class="
-                        text-lg
-                        font-bold
-                        text-slate-900
-                    ">
+                <h1 class="text-lg font-bold {{ $dark ? 'text-slate-100' : 'text-slate-900' }}">
                     {{ $header ?? 'Competition Designer' }}
                 </h1>
 
@@ -81,18 +65,9 @@
                     open = !open
                 "
                 class="
-                    flex
-                    items-center
-                    gap-3
-                    rounded-xl
-                    border
-                    border-slate-200
-                    bg-white
-                    px-3
-                    py-2
-                    transition
+                    flex items-center gap-3 rounded-xl border px-3 py-2 transition
                     hover:border-amber-300
-                    hover:bg-amber-50
+                    {{ $dark ? 'border-slate-800 bg-slate-900 hover:bg-slate-800' : 'border-slate-200 bg-white hover:bg-amber-50' }}
                 ">
 
                 <x-user-avatar :user="auth()->user()" size="sm" />
@@ -105,12 +80,7 @@
                         sm:block
                     ">
 
-                    <p
-                        class="
-                            text-sm
-                            font-semibold
-                            text-slate-800
-                        ">
+                    <p class="text-sm font-semibold {{ $dark ? 'text-slate-200' : 'text-slate-800' }}">
                         {{ auth()->user()->name }}
                     </p>
 

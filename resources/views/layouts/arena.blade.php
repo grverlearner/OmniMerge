@@ -21,13 +21,6 @@
 
         [x-cloak] { display: none !important; }
 
-        .arena-scroll::-webkit-scrollbar { height: 10px; width: 10px; }
-        .arena-scroll::-webkit-scrollbar-track { background: rgb(15 23 42); }
-        .arena-scroll::-webkit-scrollbar-thumb {
-            background: rgb(51 65 85);
-            border-radius: 9999px;
-        }
-        .arena-scroll::-webkit-scrollbar-thumb:hover { background: rgb(71 85 105); }
     </style>
 </head>
 

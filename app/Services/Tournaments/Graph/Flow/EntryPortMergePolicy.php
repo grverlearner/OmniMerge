@@ -89,11 +89,37 @@ final class EntryPortMergePolicy
         return $participants;
     }
 
+    /*
+     * Quita huecos y repetidos de una lista de participantes.
+     *
+     * Se hacia con array_unique, y array_unique compara sus elementos
+     * CONVERTIDOS A TEXTO. Con ids sueltos eso funciona; pero por aqui
+     * pasan tambien participantes completos -arrays-, y todos los arrays se
+     * convierten a la misma cadena, "Array".
+     *
+     * O sea que no es que avisara y ya: colapsaba la lista entera a UN solo
+     * participante. Tres que llegaban por una conexion salian uno, y los
+     * otros dos desaparecian sin dejar rastro ni error. En el preview de un
+     * torneo eso se veia como "16 entraron, 1 llego al final, 15 perdidos".
+     *
+     * Comparar en estricto no convierte nada: dos arrays son el mismo si
+     * tienen las mismas claves con los mismos valores.
+     */
     private static function normalizeIds(array $ids): array
     {
-        return array_values(array_unique(array_filter(
-            $ids,
-            static fn($id) => $id !== null && $id !== ''
-        )));
+        $out = [];
+
+        foreach ($ids as $id) {
+
+            if ($id === null || $id === '' || $id === []) {
+                continue;
+            }
+
+            if (! in_array($id, $out, true)) {
+                $out[] = $id;
+            }
+        }
+
+        return $out;
     }
 }

@@ -410,10 +410,26 @@
 
 
                 @can('update', $tournamentTemplate)
-                    <a href="{{ route('tournaments.graph.show', $tournamentTemplate) }}"
-                        class="mt-4 rounded-xl bg-amber-500 px-5 py-3.5 text-center text-sm font-black text-white shadow-lg shadow-amber-500/20">
+                    {{--
+                        Dos puertas al mismo grafo, y no es un descuido.
 
-                        ◇ Abrir Tournament Graph
+                        La Super Edición es la pantalla completa: ve el
+                        recorrido entero, lo configura y lo explica. El
+                        constructor de siempre sigue ahí porque es el que
+                        coloca las piezas a mano en el lienzo, que la Super
+                        Edición no hace.
+                    --}}
+                    <a href="{{ route('tournaments.super.show', $tournamentTemplate) }}"
+                        class="mt-4 rounded-xl bg-amber-500 px-5 py-3.5 text-center text-sm font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-400">
+
+                        ⛯ Abrir Super Edición
+
+                    </a>
+
+                    <a href="{{ route('tournaments.graph.show', $tournamentTemplate) }}"
+                        class="mt-2 rounded-xl border border-slate-200 px-5 py-2.5 text-center text-xs font-black text-slate-500 transition hover:border-amber-300 hover:text-amber-700">
+
+                        ◇ Constructor de grafo
 
                     </a>
                 @else

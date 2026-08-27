@@ -668,6 +668,411 @@ por grupo enseñaría el torneo en un orden que no ocurre.
 
 ---
 
+## 8quinquies. Eliminación directa
+
+El tercer motor. Es el que menos reglas nuevas necesitó y el que más
+cuidado pidió al dibujar, porque un cuadro no es una lista: es un árbol
+donde cada casilla depende de otra que todavía no se ha jugado.
+
+### La costura sigue siendo el puesto, no la persona
+
+`SingleEliminationBracketPlanner` es lo único en todo el proyecto que dice
+«el 1 juega contra el 8». Empareja PUESTOS del cuadro, numerados 1..N, y
+nunca personas:
+
+```php
+$planner->seededOrder(8);   // [1, 8, 4, 5, 2, 7, 3, 6]
+```
+
+Es la misma costura que ya usaban `RoundRobinScheduleCalculator` y
+`GroupStageAllocator`. Por eso cambiar el orden de entrada, barajar o
+sembrar por ranking **no recalcula el árbol**: solo cambia quién ocupa cada
+puesto. El servidor hace las cuentas; el cliente decide quién se sienta.
+
+Cada lado de un enfrentamiento es una de cuatro cosas:
+
+| Lado | Significa |
+|---|---|
+| `SEED` | Entra desde la parrilla, en el puesto *n* |
+| `BYE` | No hay rival: el otro pasa directo |
+| `WINNER` | Quien gane el enfrentamiento *k* |
+| `LOSER` | Quien pierda el enfrentamiento *k* — solo el tercer puesto |
+
+El cliente resuelve esa cadena hacia atrás, recursivamente. Un `BYE` se
+resuelve solo, sin simular nada: si enfrente no hay nadie, ya está decidido.
+
+### El nombre de la ronda sale del número de enfrentamientos
+
+Primer intento: contar la distancia hasta el final (la última es la Final,
+la anterior las Semifinales…). Se rompía en cuanto el cuadro se recortaba
+para dejar 2 supervivientes, y salían cosas como «Semifinales» con cuatro
+enfrentamientos. Ahora el nombre lo dicta cuántos duelos tiene la ronda:
+1 → Final, 2 → Semifinales, 4 → Cuartos, y el resto «Ronda de N». Es la
+definición que usa cualquiera que mire un cuadro, y no depende de dónde
+termine.
+
+### Finalización
+
+| Modo | Qué hace |
+|---|---|
+| Hasta que quede uno | El cuadro completo, hasta la Final |
+| Sobrevivientes | Se corta antes: se para cuando quedan *N* en pie |
+
+«Sobrevivientes» no es una fase distinta: es el mismo árbol, podado. Sirve
+para una fase que solo filtra y entrega cuatro clasificados a la siguiente.
+
+### Grupos de puestos: lo que un cuadro NO sabe decidir
+
+Un cuadro decide menos de lo que parece. Decide el primero y el segundo, y
+de ahí para abajo solo sabe **agrupar**: los dos que caen en semifinales
+comparten el tercer puesto, los cuatro que caen en cuartos comparten del
+quinto al octavo. No hay nada en el árbol que los separe, porque nunca se
+han jugado entre ellos.
+
+Cada uno de esos bloques es un **grupo de puestos**. La clave es el puesto
+en el que empieza, porque eso es estable: no depende de cuántas rondas
+tenga el cuadro ni de dónde se corte.
+
+| Grupo | Quiénes | En un cuadro de 16 |
+|---|---|---|
+| `P1` | Los que sobreviven | El campeón, o los N que quedan vivos |
+| `P2` | El finalista | Puesto 2 |
+| `P3` | Los que caen en semifinales | Puestos 3–4 |
+| `P5` | Los que caen en cuartos | Puestos 5–8 |
+| `P9` | Los que caen antes | Puestos 9–16 |
+
+Un grupo de un solo miembro ya está decidido y no hay nada que activar. Los
+demás quedan **empatados** hasta que se marquen.
+
+Los huecos no cuentan como personas: con 12 participantes en un cuadro de
+16, `P9` reparte del 9 al 12, no del 9 al 16. Contar los descansos como
+gente prometía cuatro puestos que nadie ocupa.
+
+### Cuadros de clasificación
+
+Marcar un grupo es decir «quiero saber el orden exacto de estos», y
+entonces se juega un cuadro entre ellos.
+
+**El partido por el tercer puesto no es un caso especial: es este mismo
+mecanismo con dos.** Antes era un interruptor suelto, y era el único puesto
+del cuadro que se podía romper. Ahora es el grupo `P3`, y el ajuste antiguo
+`third_place: true` se traduce solo a `['P3']` al leerlo.
+
+Con más de dos, ordenar del todo es recursivo: se juega una ronda, y
+después hay que ordenar tanto a los que ganaron —que se llevan la mitad de
+arriba de los puestos— como a los que perdieron:
+
+```
+4 en juego, puestos 5 a 8
+  ronda 1     A vs B, C vs D
+  ganadores   -> se ordenan entre sí: puestos 5 y 6
+  perdedores  -> se ordenan entre sí: puestos 7 y 8
+```
+
+Cada puesto lo decide **exactamente un duelo**, el que enfrenta a dos, y
+viene marcado con `awards: {win, lose}`. Los de arriba solo encaminan.
+
+Ordenar M cuesta `T(M)` duelos, y el editor lo enseña antes de marcar:
+
+| Ordenar | Cuesta |
+|---|---|
+| 2 | 1 duelo |
+| 4 | 4 duelos |
+| 8 | 12 duelos |
+| 16 | 32 duelos |
+
+Lo que se deja sin marcar queda empatado, y el escenario lo dice con sus
+nombres —«Empatados en los puestos 9–16: …»— con un botón para separarlos.
+Decirlo es más honesto que repartir puestos a dedo: los cuatro que caen en
+cuartos son cuartofinalistas, no un quinto, un sexto, un séptimo y un
+octavo.
+
+### Distribución
+
+Igual que en los otros motores: orden de entrada, aleatorio, ranking (del
+torneo o universal) y manual. Y aparte, el **cruce**, que es cosa distinta:
+
+| Cruce | Primera ronda |
+|---|---|
+| Siembra clásica | 1v16, 8v9, 4v13, 5v12… el mejor contra el peor |
+| Por vecinos | 1v2, 3v4, 5v6… |
+
+Los descansos (`BYE`), cuando el número no es potencia de dos, van a los
+mejores puestos o se sortean.
+
+### Ramas: de qué trozo del cuadro sale cada superviviente
+
+Cuando la fase termina con varios en pie, cada superviviente sale de un
+trozo distinto del árbol. Eso importa: no es lo mismo «salen cuatro» que
+«sale uno de cada cuarto», y la fase siguiente puede querer recoger a cada
+uno por una puerta distinta.
+
+Una **rama** es el subárbol que cuelga de cada enfrentamiento de la última
+ronda que se juega. Con 16 participantes y 4 supervivientes salen cuatro:
+
+```
+Rama A   puestos del cuadro 1, 8, 9, 16
+Rama B   puestos del cuadro 4, 5, 12, 13
+Rama C   puestos del cuadro 2, 7, 10, 15
+Rama D   puestos del cuadro 3, 6, 11, 14
+```
+
+Con un solo superviviente hay una sola rama, que es el cuadro entero, y
+entonces no dice nada: por eso no se emiten.
+
+El escenario dedica una tarjeta a cada rama, con quién sale de ella y por
+qué puerta se va. Antes ahí solo había un cartel que decía «salen 4», que
+es justo lo que confundía: no decía de dónde salía cada uno ni a dónde iba,
+y esas son las dos únicas preguntas que importan en ese modo.
+
+Las ramas tienen **paleta propia** —la tercera—, por el mismo motivo que
+las salidas: una rama y una ronda son cosas distintas y compartir color
+hacía creer que eran la misma familia.
+
+### Puertas de entrada: reparten PUESTOS DEL CUADRO
+
+Reutilizan `RoundRobinSeedRuleResolver` sin tocarlo: los cinco tipos de
+regla (los *N* primeros, los *N* últimos, un rango, un puesto suelto, el
+resto) ya significaban exactamente lo que hace falta aquí. Una puerta que
+toma «los 4 primeros» está diciendo qué cabezas de serie ocupan los cuatro
+mejores puestos de la parrilla — no quién va a quedar entre los cuatro
+primeros al final.
+
+### Puertas de salida: la lista depende de cómo termine la fase
+
+No es la misma lista siempre, y esa es la única forma de que se entienda.
+Parándose antes de la final **no hay campeón ni finalista**: ofrecerlos
+daba a elegir dos puertas que no se iban a llenar nunca, sin decir por qué.
+
+| Selector | Hasta que quede uno | Hasta que queden N |
+|---|---|---|
+| El campeón | Sí | — |
+| El finalista | Sí | — |
+| Todos los que sobreviven | — | Sí |
+| El que sale de una rama | — | Sí |
+| Los N primeros | Sí | Sí |
+| Un puesto concreto | Sí | Sí |
+| Un tramo de puestos | Sí | Sí |
+| Los eliminados | Sí | Sí |
+
+La salida **por rama** es la que responde a «una puerta a un lado y otra al
+otro»: cuatro ramas, cuatro salidas distintas, cada una con su color y su
+letra. El número de rama viaja en `selector_from` porque es un número y ese
+campo ya existía; darle columna propia habría sido una migración para
+guardar un entero donde ya cabía.
+
+Todas se guardan con `exit_timing = PHASE_END`. El modelo admite además
+salir *en cuanto te eliminan*, pero eso es comportamiento de ejecución —el
+motor te expulsa a mitad de cuadro— y no algo que se decida dibujando el
+árbol.
+
+### Una salida sabe si puede resolverse, y lo dice
+
+Es la mitad que faltaba. Cada salida llega al editor con dos cosas que
+antes no tenía:
+
+- **`capacity`** — cuántos caben, sin jugar nada. Un cero antes de empezar
+  significaría «no sale nadie», que es muy distinto de «todavía no se sabe
+  quiénes».
+- **`is_ready` + `blocked_hint`** — si el cuadro sabe de verdad a quién se
+  refiere.
+
+Una salida que pide el puesto 9 en un cuadro donde el 9 lo comparten ocho
+no está mal escrita: le falta que alguien ordene ese grupo. Así que en vez
+de un aviso genérico dice exactamente qué hacer, y trae el botón que lo
+hace:
+
+> El puesto 9 lo comparten 8: activa «Puestos 9–16» para separarlos.
+> `[ Ordenarlo ahora ]`
+
+El mismo aviso aparece **mientras se escribe el formulario**, calculado con
+los valores que hay en ese momento en los campos.
+
+Antes solo se avisaba del tercero, porque era el único caso que existía.
+
+### Una trampa: el servicio compartido borraba el número
+
+`PhaseExitService::normalizeSelector()` tiene una lista blanca de qué
+selectores conservan `selector_from`, y anula el campo en los demás. Es
+correcto —evita guardar un «los 3 primeros» en una salida que no cuenta— y
+`BRACKET_BRANCH` no estaba en ella, así que las puertas por rama se
+guardaban apuntando a la rama cero, que no existe. Una línea en un servicio
+que comparten los cuatro motores, y nada en el editor lo delataba: el
+formulario mandaba el número correcto.
+
+### Simulación dentro de la estructura
+
+No hay panel de simulación aparte: se simula en el propio árbol. Un rayo
+por enfrentamiento, uno por ronda, uno por cuadro de clasificación, uno
+para todo. Un enfrentamiento con `BYE` no ofrece rayo, ofrece una flecha:
+no se juega, se pasa.
+
+Los duelos de clasificación entran en el **mismo índice global** que los
+del cuadro principal, a propósito: sus lados apuntan a partidos de allí
+—«el que pierda las semifinales»—, así que la resolución tiene que poder
+saltar de un sitio a otro sin saber de qué cuadro viene cada uno.
+
+Un enfrentamiento solo es jugable cuando sus dos lados ya están resueltos.
+Los que aún no lo están enseñan `· · ·`, que dice «todavía no se sabe» sin
+fingir que hay alguien ahí.
+
+### Guardar en «hasta que quede uno» no guardaba nada
+
+`target_survivors` tenía la regla `min:2`, que es correcta para el modo que
+la usa: terminar con varios exige dos o más. Pero el formulario manda ese
+campo **siempre**, y en modo «hasta que quede uno» vale exactamente 1.
+
+La validación rechazaba el envío entero. No fallaba el campo: fallaba el
+guardado completo —el cuadro, la siembra, los grupos, la cantidad de
+participantes—, la pantalla volvía a lo último persistido, y desde fuera
+parecía que el botón no hacía nada. El síntoma con el que llegó fue «pongo
+otro número de participantes y vuelve a 8».
+
+Aceptar el 1 no afloja nada: `persist()` fuerza 1 cuando se juega hasta el
+final y sube a 2 cuando no, así que el valor que acaba en la base de datos
+es correcto igualmente.
+
+### La cantidad de participantes se recuerda, el contrato no cambia
+
+Son dos cosas distintas y confundirlas rompe una de las dos:
+
+- **`exact_participants`** es el CONTRATO —«esta fase admite exactamente
+  N»—. Cambiarlo porque alguien previsualizó con doce convertiría una fase
+  flexible en rígida a sus espaldas. Sigue detrás de su casilla.
+- **`settings.preview_participants`** es con cuántos abre el editor. Nada
+  más. Escribir un número, guardar, y verlo volver al de por defecto parecía
+  que el guardado no funcionaba.
+
+Los tres motores lo hacen igual. En fase de grupos, el número derivado de
+los cupos personalizados sigue mandando sobre el recordado: `$derived ??
+($requested ?? $default)`, y el recordado solo entra en `$default`.
+
+Si el número recordado viola el contrato, se recuerda igual y el
+diagnóstico lo dice con su nombre —«Esta Fase requiere exactamente 16
+participantes»— en vez de corregirlo en silencio, que es la regla que ya
+seguía el resto del editor.
+
+### La trampa de sincronizar un array con el servidor
+
+`afterRefresh` devuelve al cliente lo que el servidor decidió, para que el
+editor no se quede con una configuración que ya no existe. Con números eso
+es inofensivo. Con un array **no**:
+
+```js
+this.placements = [...(payload.settings.placements ?? [])];
+```
+
+Un array nuevo con el mismo contenido sigue siendo una referencia nueva, y
+`$watch` mira la referencia. Así que la asignación disparaba otro refresco,
+que volvía a asignar, que volvía a disparar: un bucle cada 280 ms —el
+retardo de `scheduleRefresh`— que no paraba nunca. Se veía como si la
+pantalla se refrescara sola sin tocar nada.
+
+Medido interceptando `fetch`: con el código anterior las peticiones subían
+1 → 2 → 3 → 4 sin parar; comparando el contenido antes de asignar, se queda
+en una.
+
+Los otros dos motores no lo sufren porque su `afterRefresh` solo asigna
+números, y asignar el mismo número no dispara nada. Es una trampa que
+aparece la primera vez que un motor necesita sincronizar una lista.
+
+### La trampa del `x-if` que se desmonta
+
+`Cannot read properties of null (reading 'a')`. Cuando Alpine destruye un
+bloque `x-if`, los hijos vuelven a evaluar sus expresiones **antes** de
+desaparecer, y para entonces el dato que leían ya no existe. La solución no
+fue reordenar las plantillas sino hacer que las seis funciones que tocan un
+enfrentamiento (`decisionOf`, `isPlayable`, `isBye`, `winnerOf`, `loserOf`,
+`simulateMatch`) devuelvan algo sensato cuando reciben `null`. Una función
+que se llama durante el desmontaje tiene que sobrevivir al desmontaje.
+
+### Lo que NO se configura aquí
+
+Ni el formato de batalla (`series_format`, `default_best_of`, `fixed_games`
+siguen en la tabla, el motor los lee, pero pertenecen al torneo real), ni
+los enfrentamientos de tres o más. El modelo los admite
+(`encounter_profile = MULTI_COMPETITOR`) pero esta versión dibuja **solo
+duelos de uno contra uno**, por decisión explícita.
+
+---
+
+## 8sexies. La ficha de la fase
+
+La pantalla a la que se entra al abrir una fase. No edita nada: **presenta**.
+
+### Por qué existe
+
+La Super Edición enseña controles —desplegables, casillas, botones—. Eso
+está bien para configurar y mal para entender: para saber cómo es una fase
+había que ir abriendo paneles y traducir mentalmente cada control a lo que
+significa. Y la pantalla de siempre era una lista blanca de campos que no
+se parecía en nada al editor.
+
+La ficha se lee de arriba abajo como una respuesta:
+
+| Zona | Contesta |
+|---|---|
+| Portada | Qué es: su cara, su tipo, su contrato, y las cifras |
+| Configuración | Cómo se juega, en frases y no en controles |
+| Estructura | Qué forma tiene — y se puede simular |
+| Entradas y salidas | Con qué conecta |
+| Enfrentamientos | Qué se juega, jornada a jornada |
+
+Los que todavía no tienen Super Edición —Swiss, League— se quedan con la
+pantalla de siempre. Darles una ficha a medias sería peor que no dársela.
+
+### No dibuja la estructura: reutiliza la del editor
+
+Un cuadro de eliminación directa es difícil de dibujar bien, y ya estaba
+dibujado. La ficha incluye **las mismas vistas** —`stageView()` y
+`scheduleView()`— dentro del mismo componente Alpine. Una segunda versión
+«de solo lectura» habría significado arreglar cada fallo dos veces y verlas
+separarse con el tiempo.
+
+Lo único que sobra de esas vistas son los dos controles que CAMBIAN la
+configuración: reordenar la parrilla a mano en liga, y activar un grupo de
+puestos en eliminación. Sin botón de guardar, tocarlos cambiaría el preview
+sin guardar nada. Van detrás de la bandera `readonly` del componente.
+
+**Simular se queda.** Los resultados inventados nunca se guardaron, ni aquí
+ni en el editor, y ver cómo se llena el cuadro es media razón de que esta
+pantalla exista.
+
+### Cada motor cuenta su propia configuración
+
+`summary()` es lo único nuevo del servidor. Devuelve dos cosas:
+
+- **`figures`** — las cifras de portada. Cuáles son depende del motor: una
+  liga titula jornadas y vueltas, una eliminación titula el tamaño del
+  cuadro y las rondas. Ninguna vista compartida puede saber eso.
+- **`groups`** — la configuración agrupada, cada fila con su etiqueta, su
+  valor y el porqué.
+
+Lo responde el motor y no una vista porque solo él sabe traducir sus
+ajustes a una frase: `cycles = 2` es «ida y vuelta», y `P5` activado es
+«los puestos 5 al 8 se ordenan jugando, cuesta 4 duelos».
+
+**Lo que no aparece: el formato de batalla.** Cuántos juegos tiene un
+enfrentamiento pertenece al torneo real, y enseñarlo aquí haría creer lo
+contrario.
+
+### El fondo oscuro llega hasta el sidebar
+
+El layout con sidebar acepta ahora `surface="dark"`, y con él la cabecera y
+la navegación de pestañas. No es una copia del layout: es una bandera, y la
+navegación —que decide qué pestañas existe para cada tipo de fase— sigue
+siendo un solo archivo, porque tenerlo en dos garantiza que un día diverjan.
+
+El sidebar **ya era oscuro**. Lo que rompía la continuidad era el contenido
+blanco entre un sidebar oscuro y un editor oscuro; oscurecerlo acerca las
+dos mitades en vez de separarlas.
+
+La clase `.arena-scroll` se mudó del `<style>` de `layouts/arena.blade.php`
+a `app.css` por lo mismo: la ficha reutiliza vistas que la usan, y ahí
+dentro no existía.
+
+---
+
 ## 9. Navegación
 
 Round Robin y Fase de grupos pierden sus pestañas de edición, porque su
@@ -688,8 +1093,27 @@ contenido vive ahora dentro:
 `round-robin.structure` responden 200; solo dejaron de tener pestaña. Nada
 que enlace a ellas se rompe.
 
-Los tipos sin editor propio (Single Elimination, Group Stage, Swiss)
-conservan sus pestañas intactas y su `/super` responde 404.
+### Eliminación directa conserva dos pestañas
+
+No es un descuido. Es el único motor que **persiste su estructura
+interna** —rondas, encuentros, slots y rutas de resultado, en tablas
+propias— y esa pantalla edita el grafo interno, que la Super Edición
+todavía no cubre. Retirarla dejaría sin acceso a cosas que solo existen
+ahí.
+
+| Pestaña | Estado |
+|---|---|
+| **Super Edición** | Nueva — configuración, cuadro, puertas, simulación |
+| Estructura | Se queda — edita el grafo interno persistido |
+| Entradas y salidas | Se queda — slots de la estructura persistida |
+| Simulador | Se queda |
+
+Lo que sí se retiró en los tres motores es la sección de puertas de salida
+del **Resumen**, por el mismo motivo que en Round Robin y Fase de grupos:
+se editaban en dos sitios y solo uno enseñaba el criterio.
+
+Swiss no tiene editor todavía: conserva sus pestañas intactas y su
+`/super` responde 404.
 
 ---
 
@@ -711,6 +1135,30 @@ conservan sus pestañas intactas y su `/super` responde 404.
 | 3 participantes (mínimo 4) | ✕ «La Fase requiere al menos 4 participantes» |
 | 40 participantes (máximo 32) | ✕ «La Fase admite como máximo 32 participantes» |
 
+### Eliminación directa
+
+| Caso | Resultado |
+|---|---|
+| 16 participantes | Ronda de 16(8) · Cuartos(4) · Semifinales(2) · Final(1) |
+| Siembra clásica | 1v16, 8v9, 4v13, 5v12… |
+| Por vecinos | 1v2, 3v4, 5v6… |
+| Grupo `P3` activado | Un duelo extra entre los dos perdedores de semifinales |
+| Grupo `P3` apagado | Los dos semifinalistas quedan como terceros empatados |
+| Grupos `P3` + `P5` | Puestos 1º a 8º resueltos; 20 duelos (15 + 5) |
+| Grupo `P9` con 12 participantes | «Puestos 9–12», no 9–16: los descansos no son gente |
+| `third_place: true` guardado antes | Se lee como `['P3']`, y al guardar el booleano se retira |
+| Número no potencia de dos | Descansos a los mejores puestos, pasan sin jugar |
+| Sobrevivientes = 2 | El cuadro se corta antes de la Final |
+| Sobrevivientes = 4, siembra por ranking, cruce por vecinos, tercero sí | Se guarda entero; `default_best_of` intacto |
+| Selectores en modo campeón | Campeón, finalista, N primeros, puesto, tramo, eliminados |
+| Selectores en modo supervivientes | Sobrevivientes, rama, N primeros, puesto, tramo, eliminados |
+| Cuatro salidas por rama, 4 supervivientes | Una persona cada una, la que gana su rama |
+| Salida al puesto 9 sin ordenar `P9` | «Lo comparten 8: activa Puestos 9–16» + botón |
+| Salida por rama en modo campeón | «El cuadro no tiene ramas: solo queda uno al final» |
+| Capacidad antes de jugar | Rama 1 · sobrevivientes 4 · eliminados 12 · tramo 5–6 → 2 |
+| Puerta de entrada «los 4 primeros» | Cupo 4, ocupa los cuatro mejores puestos |
+| Simular un duelo / una ronda / todo | Propaga en cascada; el árbol se recoloca solo |
+
 Suite completa: 88 pasan / 99 fallan — idéntico al baseline anterior.
 
 ---
@@ -725,10 +1173,19 @@ Suite completa: 88 pasan / 99 fallan — idéntico al baseline anterior.
    en el simulador.
 2. **El recorte de jornadas tampoco lo aplica el motor todavía.** Se guarda
    y el editor lo respeta; falta que el runtime lo lea.
-3. **Los otros dos motores** (Single Elimination y Swiss). El armazón está
-   listo; falta la clase, las cuatro vistas y el módulo de JavaScript de
-   cada uno.
-4. **Sacar el formato de batalla de la fase de verdad**, cuando exista la
+3. **Swiss.** El armazón está listo; falta la clase, las cuatro vistas y el
+   módulo de JavaScript.
+4. **Enfrentamientos de tres o más** en eliminación directa. El modelo los
+   admite; el editor dibuja solo duelos de uno contra uno, por decisión
+   explícita de esta versión.
+
+4bis. **El motor todavía no juega los cuadros de clasificación ni conoce
+   las salidas por rama.** Se guardan, el editor los dibuja y los simula,
+   pero `RuntimeOutcomeResolver` no sabe aún qué hacer con un selector
+   `BRACKET_BRANCH` ni con un grupo de puestos ordenado.
+5. **La Super Edición todavía no edita la estructura interna persistida**
+   de eliminación directa, por eso esa pestaña sigue viva.
+6. **Sacar el formato de batalla de la fase de verdad**, cuando exista la
    capa de configuración del torneo real que lo reciba.
-5. **Arrastrar para reordenar** en modo manual. Hoy son flechas, que
+7. **Arrastrar para reordenar** en modo manual. Hoy son flechas, que
    funcionan y no dependen de una librería.

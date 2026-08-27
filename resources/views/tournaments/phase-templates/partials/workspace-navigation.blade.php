@@ -149,6 +149,16 @@
      */
     $engineTabs = match ($phaseTemplate->phase_type) {
         'SINGLE_ELIMINATION' => [
+            /*
+             * Estructura y Entradas y salidas siguen aqui, a diferencia de
+             * los otros dos motores.
+             *
+             * No es un descuido: Eliminacion Directa es el unico que
+             * PERSISTE su estructura interna -rondas, encuentros, slots y
+             * rutas de resultado- y esa pantalla edita el grafo interno, que
+             * la Super Edicion todavia no cubre. Retirarla dejaria sin
+             * acceso a cosas que solo existen ahi.
+             */
             [
                 'key' => 'structure',
                 'label' => 'Estructura',
@@ -162,13 +172,6 @@
                 'description' => 'Puertas y slots',
                 'icon' => '⇄',
                 'url' => route('tournaments.single-elimination.structure.io', $phaseTemplate),
-            ],
-            [
-                'key' => 'simulator',
-                'label' => 'Simulador',
-                'description' => 'Probar con participantes ficticios',
-                'icon' => '▶',
-                'url' => route('tournaments.single-elimination.simulator.show', $phaseTemplate),
             ],
         ],
 
@@ -219,8 +222,20 @@
     }
 @endphp
 
-<section class="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-    <div class="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+@php
+    /*
+     * La misma navegacion sobre fondo claro u oscuro.
+     *
+     * Se hace con una bandera y no con una segunda copia porque lo que esta
+     * pantalla decide -que pestanas existen para cada tipo de fase- es lo
+     * unico que de verdad importa aqui, y tenerlo en dos archivos garantiza
+     * que un dia diverjan.
+     */
+    $dark = $dark ?? false;
+@endphp
+
+<section class="mb-5 overflow-hidden rounded-3xl border shadow-sm {{ $dark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-200 bg-white' }}">
+    <div class="flex flex-col gap-4 border-b px-5 py-4 lg:flex-row lg:items-center lg:justify-between {{ $dark ? 'border-slate-800' : 'border-slate-100' }}">
         <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
                 <a href="{{ route('tournaments.phase-templates.index') }}"
@@ -232,7 +247,7 @@
             </div>
 
             <div class="mt-2 flex flex-wrap items-center gap-3">
-                <h1 class="truncate text-lg font-black text-slate-950">
+                <h1 class="truncate text-lg font-black {{ $dark ? 'text-slate-100' : 'text-slate-950' }}">
                     {{ $phaseTemplate->name }}
                 </h1>
 
@@ -249,10 +264,10 @@
 
         @if ($workspaceSettings && $phaseTemplate->phase_type === 'SINGLE_ELIMINATION')
             <div class="flex shrink-0 flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-wider text-slate-500">
-                <span class="rounded-full bg-slate-100 px-3 py-1.5">
+                <span class="rounded-full px-3 py-1.5 {{ $dark ? 'bg-slate-800' : 'bg-slate-100' }}">
                     {{ $workspaceSettings->configuration_mode_label }}
                 </span>
-                <span class="rounded-full bg-violet-50 px-3 py-1.5 text-violet-700">
+                <span class="rounded-full px-3 py-1.5 {{ $dark ? 'bg-violet-500/15 text-violet-300' : 'bg-violet-50 text-violet-700' }}">
                     {{ $workspaceSettings->structure_mode === 'MANUAL' ? 'Estructura personalizada' : 'Estructura automática' }}
                 </span>
             </div>
@@ -266,15 +281,17 @@
                     @if ($current === $tab['key']) aria-current="page" @endif
                     @class([
                         'group relative flex min-w-[150px] items-center gap-3 px-4 py-4 transition',
-                        'text-slate-900' => $current === $tab['key'],
-                        'text-slate-400 hover:text-slate-700' => $current !== $tab['key'],
+                        ($dark ? 'text-slate-100' : 'text-slate-900') => $current === $tab['key'],
+                        ($dark ? 'text-slate-500 hover:text-slate-200' : 'text-slate-400 hover:text-slate-700') => $current !== $tab['key'],
                     ])>
                     <span @class([
                         'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black transition',
                         'bg-amber-500 text-white shadow-lg shadow-amber-500/20' => $current === $tab['key'],
                         'bg-gradient-to-br from-slate-900 to-slate-700 text-amber-400 shadow-lg shadow-slate-900/20'
                             => $current !== $tab['key'] && ($tab['highlight'] ?? false),
-                        'bg-slate-100 text-slate-400 group-hover:bg-amber-50 group-hover:text-amber-700'
+                        ($dark
+                            ? 'bg-slate-800 text-slate-500 group-hover:bg-amber-500/20 group-hover:text-amber-300'
+                            : 'bg-slate-100 text-slate-400 group-hover:bg-amber-50 group-hover:text-amber-700')
                             => $current !== $tab['key'] && ! ($tab['highlight'] ?? false),
                     ])>
                         {{ $tab['icon'] }}

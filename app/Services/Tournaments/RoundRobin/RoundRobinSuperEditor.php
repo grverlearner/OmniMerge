@@ -184,7 +184,8 @@ class RoundRobinSuperEditor implements PhaseSuperEditorContract
         $contract =
             $this->contract(
                 $phaseTemplate,
-                $overrides['participants'] ?? null
+                $overrides['participants'] ?? null,
+                $this->rememberedParticipants($settings)
             );
 
         /*
@@ -365,9 +366,33 @@ class RoundRobinSuperEditor implements PhaseSuperEditorContract
     |
     */
 
+    /*
+     * Con cuantos abre el editor.
+     *
+     * NO es lo mismo que `exact_participants`. Esa columna es el CONTRATO
+     * -"esta fase admite exactamente N"- y cambiarla porque alguien
+     * previsualizo con doce seria convertir una fase flexible en una rigida
+     * a sus espaldas.
+     *
+     * Pero tampoco vale olvidarlo: escribir un numero, guardar, y ver que
+     * vuelve al de por defecto parece que el guardado no funciona. Asi que
+     * el numero se recuerda como preferencia de trabajo, en `settings`, y
+     * solo decide con que abre la pantalla. El contrato sigue detras de su
+     * casilla.
+     */
+    private function rememberedParticipants($settings): ?int
+    {
+        $stored = $settings->settings['preview_participants'] ?? null;
+
+        return is_numeric($stored) && (int) $stored >= 2
+            ? (int) $stored
+            : null;
+    }
+
     private function contract(
         PhaseTemplate $phaseTemplate,
-        ?int $requested
+        ?int $requested,
+        ?int $remembered = null
     ): array {
 
         $min =
@@ -390,6 +415,7 @@ class RoundRobinSuperEditor implements PhaseSuperEditorContract
 
         $default =
             $exact
+            ?? $remembered
             ?? max($min, 8);
 
         $resolved =
@@ -584,6 +610,16 @@ class RoundRobinSuperEditor implements PhaseSuperEditorContract
                      */
                     'positions' =>
                     $this->exitPositions($exit),
+
+                    /*
+                     * Cuantos caben. Se sabe sin jugar nada, y hace falta en
+                     * la ficha de la fase: un hueco vacio ahi se lee como
+                     * "no sale nadie", que es otra cosa.
+                     */
+                    'capacity' =>
+                    ($p = $this->exitPositions($exit)) !== null
+                        ? $p['to'] - $p['from'] + 1
+                        : null,
 
                     'priority' => $exit->priority,
                     'status' => $exit->status,
@@ -1022,6 +1058,11 @@ class RoundRobinSuperEditor implements PhaseSuperEditorContract
         $stored['ranking_source'] =
             $data['ranking_source'] ?? 'TOURNAMENT';
 
+        /* Con cuantos abrir la proxima vez. No es el contrato: ver abajo. */
+        if (! empty($data['participants'])) {
+            $stored['preview_participants'] = (int) $data['participants'];
+        }
+
         /*
          * Sin recorte no se guarda nada: asi una liga que se juega entera
          * no arrastra un numero que habria que revisar cada vez que cambia
@@ -1252,4 +1293,200 @@ class RoundRobinSuperEditor implements PhaseSuperEditorContract
 
         $this->exitService->delete($exit);
     }
+
+    /*
+     * Etiqueta de catalogo, o la clave cruda si el catalogo no la conoce.
+     *
+     * Devolver la clave en vez de una cadena vacia es deliberado: un ajuste
+     * viejo que ya no esta en el catalogo se ve como "POTS" y se puede
+     * arreglar, mientras que un hueco en blanco solo desconcierta.
+     */
+    private function labelOf(array $catalog, ?string $key, string $fallback = '—'): string
+    {
+        if ($key === null || $key === '') {
+            return $fallback;
+        }
+
+        return $catalog[$key]['label'] ?? $key;
+    }
+
+    private function hintOf(array $catalog, ?string $key): ?string
+    {
+        return $key === null ? null : ($catalog[$key]['hint'] ?? null);
+    }
+
+    private function plural(int $n, string $singular, string $plural): string
+    {
+        return $n . ' ' . ($n === 1 ? $singular : $plural);
+    }
+
+    /*
+     * Una liga se reconoce por su tabla: una fila por competidor.
+     */
+    public function outline(PhaseTemplate $phaseTemplate): array
+    {
+        $settings = $this->settingsService->ensure($phaseTemplate);
+
+        $contract = $this->contract(
+            $phaseTemplate,
+            null,
+            $this->rememberedParticipants($settings)
+        );
+
+        $players = $contract['resolved'];
+
+        return [
+            'kind' => 'TABLE',
+            'label' => $players . ' en una tabla',
+            'columns' => [$players],
+            'slots' => $players,
+        ];
+    }
+
+    /*
+     * La liga, contada.
+     *
+     * Ver PhaseSuperEditorContract::summary(). Se lee del payload ya
+     * calculado, asi que no repite ni una cuenta.
+     */
+    public function summary(PhaseTemplate $phaseTemplate, array $payload): array
+    {
+        $s = $payload['settings'];
+        $catalog = $payload['catalog'];
+        $structure = $payload['structure'];
+
+        $cycles = (int) $s['cycles'];
+        $limit = $s['round_limit'] ?? null;
+        $total = (int) ($structure['total_rounds'] ?? 0);
+
+        $juego = [
+            [
+                'label' => 'Vueltas',
+                'value' => match ($cycles) {
+                    1 => 'Una vuelta',
+                    2 => 'Ida y vuelta',
+                    default => $cycles . ' vueltas',
+                },
+                'hint' => $cycles === 1
+                    ? 'Cada uno juega una vez contra cada rival.'
+                    : 'Cada emparejamiento se repite ' . $cycles . ' veces.',
+            ],
+            [
+                'label' => 'Jornadas',
+                'value' => $limit !== null && $limit < $total
+                    ? $limit . ' de ' . $total
+                    : $this->plural($total, 'jornada', 'jornadas'),
+                'hint' => $limit !== null && $limit < $total
+                    ? 'La liga se corta antes de terminar: no todos se enfrentan a todos.'
+                    : 'Se juega entera.',
+            ],
+            [
+                'label' => 'Enfrentamientos',
+                'value' => $this->plural((int) ($structure['total_series'] ?? 0), 'duelo', 'duelos'),
+                'hint' => ($structure['series_per_round'] ?? 0) . ' por jornada.',
+            ],
+            [
+                'label' => 'Empates',
+                'value' => $s['allow_draws'] ? 'Se permiten' : 'No hay',
+                'hint' => $s['allow_draws']
+                    ? null
+                    : 'Todo enfrentamiento acaba con un ganador.',
+            ],
+        ];
+
+        if (! empty($structure['is_odd'])) {
+            $juego[] = [
+                'label' => 'Descansos',
+                'value' => 'Uno por jornada',
+                'hint' => 'Al ser impares, alguien descansa en cada jornada.',
+            ];
+        }
+
+        $orderMode = $s['initial_order_mode'];
+
+        $parrilla = [
+            [
+                'label' => 'Orden de salida',
+                'value' => $this->labelOf($catalog['order_modes'], $orderMode),
+                'hint' => $this->hintOf($catalog['order_modes'], $orderMode),
+            ],
+        ];
+
+        if ($orderMode === 'RANKING') {
+            $parrilla[] = [
+                'label' => 'Ranking',
+                'value' => $this->labelOf($catalog['ranking_sources'], $s['ranking_source']),
+                'hint' => $this->hintOf($catalog['ranking_sources'], $s['ranking_source']),
+            ];
+        }
+
+        return [
+
+            'figures' => [
+                [
+                    'label' => 'Compiten',
+                    'value' => (string) ($structure['participants'] ?? 0),
+                ],
+                [
+                    'label' => 'Jornadas',
+                    'value' => (string) ($limit ?? $total),
+                    'accent' => 'text-cyan-300',
+                ],
+                [
+                    'label' => 'Duelos',
+                    'value' => (string) ($structure['total_series'] ?? 0),
+                    'accent' => 'text-amber-300',
+                ],
+                [
+                    'label' => 'Vueltas',
+                    'value' => (string) $cycles,
+                ],
+            ],
+
+            'groups' => [
+            [
+                'title' => 'Cómo se juega',
+                'icon' => '↻',
+                'accent' => 'cyan',
+                'rows' => $juego,
+            ],
+            [
+                'title' => 'Puntos',
+                'icon' => '⊕',
+                'accent' => 'emerald',
+                'rows' => [
+                    ['label' => 'Victoria', 'value' => $this->points($s['win_points'])],
+                    ['label' => 'Empate', 'value' => $s['allow_draws'] ? $this->points($s['draw_points']) : '—'],
+                    ['label' => 'Derrota', 'value' => $this->points($s['loss_points'])],
+                ],
+            ],
+            [
+                'title' => 'Parrilla de salida',
+                'icon' => '⇥',
+                'accent' => 'amber',
+                'rows' => $parrilla,
+            ],
+            [
+                'title' => 'Cómo se desempata',
+                'icon' => '⚖',
+                'accent' => 'violet',
+                'rows' => array_values(array_map(
+                    fn (string $label, int $i) => [
+                        'label' => ($i + 1) . 'º',
+                        'value' => $label,
+                    ],
+                    $catalog['tiebreak_chain'],
+                    array_keys($catalog['tiebreak_chain'])
+                )),
+            ],
+            ],
+        ];
+    }
+
+    private function points(float $value): string
+    {
+        return rtrim(rtrim(number_format($value, 2, ',', ''), '0'), ',')
+            . ' pt' . (abs($value) === 1.0 ? '' : 's');
+    }
+
 }

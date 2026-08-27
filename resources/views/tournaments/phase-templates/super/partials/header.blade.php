@@ -243,7 +243,12 @@
                 todos, cada uno declara los suyos en su panel y aqui solo
                 viajan los comunes.
             --}}
-            <input type="hidden" name="round_limit" :value="isTrimmed ? roundLimit : ''">
+            {{--
+                Aqui solo lo que tienen TODOS los motores. El recorte de
+                jornadas vivia aqui y reventaba en Eliminacion Directa, que
+                no tiene jornadas que recortar: la cabecera nombraba un
+                control que en ese motor no existe.
+            --}}
             <input type="hidden" name="pin_participants" :value="pinParticipants ? 1 : 0">
             <input type="hidden" name="participants" :value="participants">
 
