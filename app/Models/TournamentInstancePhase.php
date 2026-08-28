@@ -22,6 +22,14 @@ class TournamentInstancePhase extends Model
         'phase_type',
         'status',
         'participant_count',
+
+        /*
+         * La excepcion de esta fase. Nulos = lo que diga la competicion,
+         * que es lo normal: "todo al mejor de 3, menos la final".
+         */
+        'series_format',
+        'best_of',
+        'fixed_games',
     ];
 
     protected function casts(): array

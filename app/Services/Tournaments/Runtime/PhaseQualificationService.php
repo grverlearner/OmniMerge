@@ -61,7 +61,7 @@ class PhaseQualificationService
         }
 
         try {
-            $template = $this->hydrator->hydrate($snapshot);
+            $template = $this->hydrator->hydrate($snapshot, $instance);
         } catch (\Throwable) {
             /*
              * Un snapshot que no hidrata no debe tumbar la pantalla: sin

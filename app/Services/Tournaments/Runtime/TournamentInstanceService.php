@@ -3,6 +3,7 @@
 namespace App\Services\Tournaments\Runtime;
 
 use App\Models\TournamentInstance;
+use App\Models\TournamentTemplate;
 use App\Models\TournamentInstanceParticipant;
 use App\Models\TournamentInstanceSnapshot;
 use App\Models\TournamentInstanceState;
@@ -67,8 +68,19 @@ class TournamentInstanceService
         array $assignments
     ): TournamentInstance {
 
+        /*
+         * Que forma tiene ESTA edicion.
+         *
+         * Un torneo es una marca -"la Copa"- y su plantilla es la forma con
+         * la que suele jugarse, no una condena. Las temporadas cambian: la
+         * cuarta edicion puede necesitar una fase previa que la primera no
+         * tenia, porque ahora se apunta el triple de gente.
+         *
+         * Por eso la competicion puede elegir otra plantilla. Si no elige,
+         * se juega con la del torneo, que es lo habitual.
+         */
         $template =
-            $universeTournament->tournamentTemplate;
+            $this->resolveTemplate($universeTournament, $data);
 
         if (! $template) {
 
@@ -142,9 +154,23 @@ class TournamentInstanceService
          * así el estado inicial se construye con exactamente la misma
          * configuración que ejecutará el motor después.
          */
+        /*
+         * El formato de batalla que se acaba de elegir, ya en juego.
+         *
+         * La competicion todavia no existe como fila -se crea mas abajo-
+         * asi que viaja en memoria: lo unico que hace falta aqui es que el
+         * estado inicial se construya con el mismo formato con el que
+         * despues se jugara.
+         */
+        $chosenFormat = new TournamentInstance([
+            'series_format' => $data['series_format'] ?? 'BEST_OF',
+            'best_of' => (int) ($data['best_of'] ?? 1),
+            'fixed_games' => (int) ($data['fixed_games'] ?? 1),
+        ]);
+
         $frozenTemplate =
             $this->hydrator
-            ->hydrate($snapshot);
+            ->hydrate($snapshot, $chosenFormat);
 
         /*
          * Juego de la competicion: el del torneo, y si no eligio ninguno
@@ -221,8 +247,27 @@ class TournamentInstanceService
                         $data['universe_season_id']
                             ?? null,
 
+                        /*
+                         * La plantilla con la que se juega ESTA edicion,
+                         * que puede no ser la del torneo. Ver
+                         * resolveTemplate().
+                         */
                         'tournament_template_id' =>
                         $template->id,
+
+                        /*
+                         * El formato de batalla, congelado igual que el
+                         * resto: cambiarlo despues no altera una
+                         * competicion ya en curso.
+                         */
+                        'series_format' =>
+                        $data['series_format'] ?? 'BEST_OF',
+
+                        'best_of' =>
+                        max(1, (int) ($data['best_of'] ?? 1)),
+
+                        'fixed_games' =>
+                        max(1, (int) ($data['fixed_games'] ?? 1)),
 
                         'sequence_number' =>
                         $sequence,
@@ -536,4 +581,47 @@ class TournamentInstanceService
         )
             + 1;
     }
+    /*
+     * La plantilla con la que se juega esta competicion.
+     *
+     * La elegida, si es del mismo dueno que el torneo y esta activa; y si no
+     * se eligio ninguna, la del torneo.
+     *
+     * La comprobacion de dueno no es paranoia: el id viaja en un formulario,
+     * y sin ella cualquiera podria jugar una competicion con la plantilla de
+     * otra persona.
+     */
+    private function resolveTemplate(
+        UniverseTournament $universeTournament,
+        array $data
+    ): ?TournamentTemplate {
+
+        $chosen = (int) ($data['tournament_template_id'] ?? 0);
+
+        $default = $universeTournament->tournamentTemplate;
+
+        if ($chosen === 0 || ($default && $chosen === (int) $default->id)) {
+            return $default;
+        }
+
+        $template = TournamentTemplate::query()
+            ->when(
+                $default,
+                fn ($query) => $query->where('user_id', $default->user_id)
+            )
+            ->where('status', 'ACTIVE')
+            ->find($chosen);
+
+        if (! $template) {
+
+            throw ValidationException::withMessages([
+                'tournament_template_id' => [
+                    'Esa plantilla de torneo no esta disponible.',
+                ],
+            ]);
+        }
+
+        return $template;
+    }
+
 }

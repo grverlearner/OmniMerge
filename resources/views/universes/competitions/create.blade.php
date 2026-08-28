@@ -334,6 +334,164 @@
 
                     </div>
 
+
+                    {{-- ============ CON QUÉ FORMA SE JUEGA ============ --}}
+
+                    {{--
+                        Un torneo es una marca; su plantilla es la forma con
+                        la que suele jugarse, no una condena.
+
+                        Las temporadas cambian: la cuarta edición puede
+                        necesitar una fase previa que la primera no tenía,
+                        porque ahora se apunta el triple de gente. Por eso
+                        esto se elige aquí, en cada competición, y no una
+                        sola vez al crear el torneo.
+                    --}}
+
+                    <div class="mt-6 border-t border-slate-100 pt-6">
+
+                        <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+                            Con qué forma se juega
+                        </label>
+
+                        <select name="tournament_template_id"
+                            class="mt-2 w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
+
+                            @foreach ($availableTemplates as $option)
+                                <option value="{{ $option['id'] }}"
+                                    @selected(old('tournament_template_id', $universeTournament->tournament_template_id) == $option['id'])>
+                                    {{ $option['name'] }}
+                                    @if ($option['is_default']) · la del torneo @endif
+                                    · {{ $option['phases'] }} fases
+                                </option>
+                            @endforeach
+
+                        </select>
+
+                        <p class="mt-2 text-xs text-slate-400">
+                            Por defecto, la del torneo. Cambiarla aquí no toca el
+                            torneo ni las competiciones ya jugadas: esta edición se
+                            congela con la forma que elijas.
+                        </p>
+
+                        <x-input-error :messages="$errors->get('tournament_template_id')" class="mt-2" />
+
+                    </div>
+
+
+                    {{-- ============ EL FORMATO DE BATALLA ============ --}}
+
+                    {{--
+                        Cuántos juegos dura un enfrentamiento se decide AQUÍ y
+                        solo aquí.
+
+                        No describe la forma del torneo —esa es la misma cada
+                        año— sino cómo se juega esta edición. La misma Copa
+                        puede ser al mejor de 3 este año y al mejor de 5 el
+                        siguiente sin que su plantilla cambie una coma.
+                    --}}
+
+                    <div class="mt-6 border-t border-slate-100 pt-6"
+                        x-data="{ formato: @js(old('series_format', 'BEST_OF')) }">
+
+                        <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+                            Formato de batalla
+                        </label>
+
+                        <div class="mt-2 grid gap-2 sm:grid-cols-2">
+
+                            <label class="flex cursor-pointer items-start gap-2 rounded-xl border p-3 transition"
+                                :class="formato === 'BEST_OF'
+                                    ? 'border-violet-400 bg-violet-50'
+                                    : 'border-slate-200 hover:border-slate-300'">
+
+                                <input type="radio" name="series_format" value="BEST_OF"
+                                    x-model="formato"
+                                    class="mt-0.5 text-violet-500 focus:ring-violet-400">
+
+                                <span>
+                                    <span class="block text-sm font-black text-slate-800">
+                                        Al mejor de N
+                                    </span>
+                                    <span class="block text-xs text-slate-500">
+                                        Se juega hasta que uno gana la mayoría. Termina
+                                        en cuanto está decidido.
+                                    </span>
+                                </span>
+                            </label>
+
+                            <label class="flex cursor-pointer items-start gap-2 rounded-xl border p-3 transition"
+                                :class="formato === 'FIXED_GAMES'
+                                    ? 'border-violet-400 bg-violet-50'
+                                    : 'border-slate-200 hover:border-slate-300'">
+
+                                <input type="radio" name="series_format" value="FIXED_GAMES"
+                                    x-model="formato"
+                                    class="mt-0.5 text-violet-500 focus:ring-violet-400">
+
+                                <span>
+                                    <span class="block text-sm font-black text-slate-800">
+                                        Enfrentamiento fijo
+                                    </span>
+                                    <span class="block text-xs text-slate-500">
+                                        Se juegan siempre los mismos juegos, aunque ya
+                                        esté decidido.
+                                    </span>
+                                </span>
+                            </label>
+
+                        </div>
+
+                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+
+                            <label x-show="formato === 'BEST_OF'" class="block">
+                                <span class="text-xs font-black uppercase tracking-wider text-slate-500">
+                                    Al mejor de
+                                </span>
+
+                                <select name="best_of"
+                                    class="mt-1 w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
+                                    @foreach ([1, 3, 5, 7, 9] as $n)
+                                        <option value="{{ $n }}" @selected(old('best_of', 1) == $n)>
+                                            {{ $n === 1 ? 'Un solo juego' : $n . ' juegos' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+
+                                <span class="mt-1 block text-xs text-slate-400">
+                                    Siempre impar: al mejor de un número par se
+                                    empata y no hay forma de decidirlo.
+                                </span>
+                            </label>
+
+                            <label x-show="formato === 'FIXED_GAMES'" x-cloak class="block">
+                                <span class="text-xs font-black uppercase tracking-wider text-slate-500">
+                                    Cuántos juegos
+                                </span>
+
+                                <input type="number" name="fixed_games" min="1" max="15"
+                                    value="{{ old('fixed_games', 1) }}"
+                                    class="mt-1 w-full rounded-xl border-slate-300 focus:border-violet-400 focus:ring-violet-400">
+
+                                <span class="mt-1 block text-xs text-slate-400">
+                                    Se juegan todos, decida o no decida.
+                                </span>
+                            </label>
+
+                        </div>
+
+                        <p class="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-500">
+                            Esto se decide por competición, no por plantilla. Después
+                            podrás poner una excepción en una fase concreta —«todo al
+                            mejor de 3, menos la final»—.
+                        </p>
+
+                        <x-input-error :messages="$errors->get('series_format')" class="mt-2" />
+                        <x-input-error :messages="$errors->get('best_of')" class="mt-2" />
+                        <x-input-error :messages="$errors->get('fixed_games')" class="mt-2" />
+
+                    </div>
+
                 </section>
 
 

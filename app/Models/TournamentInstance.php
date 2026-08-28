@@ -38,6 +38,15 @@ class TournamentInstance extends Model
 
         'tournament_template_id',
 
+        /*
+         * El formato de batalla lo decide la competicion, no la plantilla:
+         * la misma forma de torneo se juega al mejor de 3 este ano y al
+         * mejor de 5 el que viene.
+         */
+        'series_format',
+        'best_of',
+        'fixed_games',
+
         'sequence_number',
 
         'code',

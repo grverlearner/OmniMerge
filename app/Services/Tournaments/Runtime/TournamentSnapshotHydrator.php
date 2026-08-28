@@ -5,6 +5,7 @@ namespace App\Services\Tournaments\Runtime;
 use App\Models\PhaseTemplate;
 use App\Models\Snapshots\SnapshotPhaseTemplate;
 use App\Models\Snapshots\SnapshotTournamentTemplate;
+use App\Models\TournamentInstance;
 use App\Models\TournamentTemplate;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
@@ -42,8 +43,15 @@ class TournamentSnapshotHydrator
         SnapshotPhaseTemplate::class,
     ];
 
+    /*
+     * @param  ?TournamentInstance  $competition  Si se pasa, su formato de
+     *         batalla pisa el de las plantillas: cuantos juegos dura un
+     *         enfrentamiento lo decide la competicion, no la forma del
+     *         torneo. Ver CompetitionBattleFormat.
+     */
     public function hydrate(
-        array $snapshot
+        array $snapshot,
+        ?TournamentInstance $competition = null
     ): TournamentTemplate {
 
         $version =
@@ -87,6 +95,10 @@ class TournamentSnapshotHydrator
                     'La configuración congelada no corresponde a una plantilla de torneo.',
                 ],
             ]);
+        }
+
+        if ($competition !== null) {
+            $this->applyBattleFormat($template, $competition);
         }
 
         return $template;
@@ -181,4 +193,45 @@ class TournamentSnapshotHydrator
 
         return $model;
     }
+    /*
+     * El formato de batalla de la competicion, sobre cada fase.
+     *
+     * Se hace aqui y no en los cinco motores porque aqui es donde el
+     * torneo se reconstruye para jugarse: un solo sitio, y ningun motor
+     * puede quedarse atras.
+     *
+     * Los modelos que salen del hidratador son Snapshot* y tienen save()
+     * bloqueado, asi que esto no puede tocar la plantilla de nadie ni
+     * aunque quisiera.
+     */
+    private function applyBattleFormat(
+        TournamentTemplate $template,
+        TournamentInstance $competition
+    ): void {
+
+        /*
+         * Al CREAR una competicion todavia no hay fila ni fases: llega una
+         * competicion en memoria que solo trae el formato elegido, y
+         * preguntar por sus fases seria una consulta con id nulo.
+         */
+        if ($competition->exists) {
+            $competition->loadMissing('phases');
+        } else {
+            $competition->setRelation('phases', collect());
+        }
+
+        $formats = app(CompetitionBattleFormat::class);
+
+        foreach ($template->graphNodes as $node) {
+
+            $phase = $node->phaseTemplate;
+
+            if ($phase === null) {
+                continue;
+            }
+
+            $formats->applyTo($phase, $competition, (int) $node->id);
+        }
+    }
+
 }

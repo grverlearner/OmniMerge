@@ -80,6 +80,60 @@ class StoreTournamentInstanceRequest extends FormRequest
                     ->whereNull('deleted_at'),
             ],
 
+            /*
+             * Con que forma se juega ESTA edicion.
+             *
+             * Opcional: sin elegir nada se usa la del torneo, que es lo
+             * habitual. Elegir otra es lo que permite que la cuarta
+             * temporada tenga una fase previa que la primera no tenia.
+             *
+             * Que la plantilla sea de quien debe lo comprueba el servicio,
+             * que es quien sabe de quien es el torneo.
+             */
+            'tournament_template_id' => [
+                'nullable',
+                'integer',
+
+                Rule::exists('tournament_templates', 'id')
+                    ->whereNull('deleted_at'),
+            ],
+
+            /*
+             * El formato de batalla. Se decide AQUI y solo aqui: cuantos
+             * juegos dura un enfrentamiento describe como se juega esta
+             * edicion, no la forma del torneo.
+             */
+            'series_format' => [
+                'required',
+                Rule::in(['BEST_OF', 'FIXED_GAMES']),
+            ],
+
+            'best_of' => [
+                'required_if:series_format,BEST_OF',
+                'nullable',
+                'integer',
+                'min:1',
+                'max:15',
+
+                /*
+                 * Impar: al mejor de 4 se empata a 2 y no hay forma de
+                 * decidirlo.
+                 */
+                function (string $attribute, $value, $fail) {
+                    if ($value !== null && (int) $value % 2 === 0) {
+                        $fail('Al mejor de un número par no se puede decidir: usa un impar.');
+                    }
+                },
+            ],
+
+            'fixed_games' => [
+                'required_if:series_format,FIXED_GAMES',
+                'nullable',
+                'integer',
+                'min:1',
+                'max:15',
+            ],
+
             'name' => [
                 'required',
                 'string',

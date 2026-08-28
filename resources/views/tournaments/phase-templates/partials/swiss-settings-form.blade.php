@@ -358,30 +358,7 @@
         </div>
 
 
-        <div class="mt-5">
-
-            <label class="text-xs font-black uppercase text-slate-500">
-                Best Of por defecto
-            </label>
-
-            <select name="default_best_of" class="mt-2 w-full rounded-xl border-slate-300">
-
-                @foreach ([1, 3, 5, 7, 9] as $bestOf)
-                    <option value="{{ $bestOf }}"
-                        @selected((int) old('default_best_of', $settings->default_best_of) === $bestOf)>
-
-                        BO{{ $bestOf }}
-
-                    </option>
-                @endforeach
-
-            </select>
-
-            <p class="mt-2 text-[11px] leading-5 text-emerald-700">
-                En BO3+ cada resultado corresponde a un juego y la ronda espera a que la serie termine.
-            </p>
-
-        </div>
+        @include('tournaments.phase-templates.partials.battle-format-moved')
 
     </section>
 

@@ -242,6 +242,15 @@ class TournamentInstanceController extends Controller
         $activeSeason =
             $universe->activeSeason();
 
+        /*
+         * Las formas con las que se puede jugar esta edicion.
+         *
+         * La del torneo primero, porque es lo habitual; despues las demas
+         * plantillas activas del mismo dueno. Es lo que permite que la
+         * cuarta temporada tenga una fase previa que la primera no tenia.
+         */
+        $availableTemplates = $this->availableTemplates($universeTournament);
+
         return view(
             'universes.competitions.create',
             compact(
@@ -252,9 +261,39 @@ class TournamentInstanceController extends Controller
                 'universeEntities',
                 'seasons',
                 'activeSeason',
-                'graphErrors'
+                'graphErrors',
+                'availableTemplates'
             )
         );
+    }
+
+    /*
+     * Las plantillas entre las que puede elegir una competicion.
+     *
+     * @return array<int,array{id:int,name:string,phases:int,is_default:bool}>
+     */
+    private function availableTemplates(UniverseTournament $universeTournament): array
+    {
+        $default = $universeTournament->tournamentTemplate;
+
+        if (! $default) {
+            return [];
+        }
+
+        return \App\Models\TournamentTemplate::query()
+            ->where('user_id', $default->user_id)
+            ->where('status', 'ACTIVE')
+            ->withCount('graphNodes')
+            ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [$default->id])
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'phases' => $t->graph_nodes_count,
+                'is_default' => (int) $t->id === (int) $default->id,
+            ])
+            ->all();
     }
 
     /*

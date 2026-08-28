@@ -175,11 +175,17 @@ class TournamentInstanceRuntimeService
                     );
                 }
 
+                /*
+                 * La competicion se pasa a proposito: su formato de batalla
+                 * -al mejor de N, o N juegos fijos- pisa el de las
+                 * plantillas al hidratar. Ver CompetitionBattleFormat.
+                 */
                 $template =
                     $this->hydrator
                     ->hydrate(
                         $instance->snapshot?->snapshot
-                            ?? []
+                            ?? [],
+                        $instance
                     );
 
                 /*
