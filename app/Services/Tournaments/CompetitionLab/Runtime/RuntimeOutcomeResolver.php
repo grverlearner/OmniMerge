@@ -7,6 +7,31 @@ use Illuminate\Validation\ValidationException;
 
 class RuntimeOutcomeResolver
 {
+    /*
+     * Salidas «lo que quede».
+     *
+     * Un «#3 lugar» y unos «Eliminados» hablan de la misma gente: el tercero
+     * perdio, luego esta eliminado. Tratando las dos como salidas especificas,
+     * cualquier fase que reparta puestos chocaba consigo misma —«las Phase
+     * Exits intentan consumir al mismo participante mas de una vez»— y no
+     * habia forma de configurarla.
+     *
+     * Estas tres no describen un puesto, describen un resto: se evaluan
+     * DESPUES de las especificas y sobre quien todavia no ha salido por
+     * ninguna. «Eliminados» sigue queriendo decir lo mismo que siempre; lo
+     * unico que cambia es que ya no reclama a quien salio por la puerta del
+     * tercer puesto.
+     *
+     * SURVIVORS se queda fuera a proposito: es la salida con la que una fase
+     * alimenta a la siguiente, y convertirla en un resto podria vaciar en
+     * silencio el reparto de un torneo que hoy funciona.
+     */
+    private const CATCH_ALL = [
+        'REMAINING',
+        'ALL',
+        'ELIMINATED',
+    ];
+
     public function resolve(
         Collection $phaseExits,
         array $runtime,
@@ -170,7 +195,13 @@ class RuntimeOutcomeResolver
                 ->sortBy(
                     fn($exit) =>
                     sprintf(
-                        '%010d-%010d-%010d',
+                        '%01d-%010d-%010d-%010d',
+
+                        /* Las de «lo que quede», al final */
+                        in_array($exit->selector_type, self::CATCH_ALL, true)
+                            ? 1
+                            : 0,
+
                         $exit->priority,
                         $exit->sort_order,
                         $exit->id
@@ -199,13 +230,16 @@ class RuntimeOutcomeResolver
                 );
 
             /*
-             * Un selector describe posiciones/resultados globales de la fase.
-             * Solo REMAINING se evalúa deliberadamente sobre lo que no fue
-             * consumido por una salida anterior. Reinterpretar TOP_N sobre
-             * "los mejores que quedan" produciría resultados falsos.
+             * Un selector describe posiciones/resultados globales de la fase,
+             * asi que se evalua sobre la fase entera: reinterpretar TOP_N
+             * sobre "los mejores que quedan" produciria resultados falsos.
+             *
+             * Las de CATCH_ALL son la excepcion, y no por comodidad: no
+             * describen un puesto, describen un resto. Ver la nota de la
+             * constante.
              */
             $selectionUniverse =
-                $exit->selector_type === 'REMAINING'
+                in_array($exit->selector_type, self::CATCH_ALL, true)
                 ? $available
                 : $participantIds;
 

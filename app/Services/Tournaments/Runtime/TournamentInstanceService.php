@@ -176,10 +176,26 @@ class TournamentInstanceService
          * Juego de la competicion: el del torneo, y si no eligio ninguno
          * el que el Universo tenga por defecto.
          */
-        $gameKey =
+        /*
+         * El de la EDICION cuando el torneo deja elegir.
+         *
+         * Un torneo de juego unico impone el suyo: cambiarlo por edicion
+         * haria que "la Copa" dejase de significar lo mismo cada ano. Uno
+         * de juego variado existe justamente para lo contrario.
+         */
+        $chosenGame = strtoupper((string) ($data['game_key'] ?? ''));
+
+        $gameKey = match (true) {
+
+            ($universeTournament->game_mode ?: 'SINGLE') === 'VARIED'
+                && $this->gameRegistry->has($chosenGame)
+                => $chosenGame,
+
             $this->gameRegistry->has($universeTournament->game_key)
-            ? strtoupper((string) $universeTournament->game_key)
-            : $this->universeGames->defaultKey($universe);
+                => strtoupper((string) $universeTournament->game_key),
+
+            default => $this->universeGames->defaultKey($universe),
+        };
 
         /*
          * Modificadores temporales del torneo (Fase 12). Se congelan
@@ -321,7 +337,14 @@ class TournamentInstanceService
                         $assignments,
                         $universeEntities,
                         $gameKey,
-                        $modifiers
+                        $modifiers,
+
+                        /*
+                         * Las reglas de participacion del torneo. Con ellas
+                         * cada competidor sale con la version que encaja:
+                         * un torneo de Shippuden ensena caras de Shippuden.
+                         */
+                        $universeTournament->eligibility
                     );
 
                 TournamentInstanceState::query()
@@ -375,6 +398,175 @@ class TournamentInstanceService
     | tenía cuando se jugó.
     |
     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rehacer el reparto de una edicion que todavia no empezo
+    |--------------------------------------------------------------------------
+    |
+    | Al crear una edicion se dibuja su cuadro con la gente que entra, y por
+    | eso cambiar competidores DESPUES es peligroso: dejaria enfrentamientos
+    | apuntando a quien ya no esta.
+    |
+    | Pero eso solo vale una vez que se ha jugado algo. Una edicion en
+    | borrador que nadie ha empezado no tiene nada que estropear: su cuadro
+    | es un dibujo en limpio, y volver a dibujarlo con otra gente es
+    | exactamente lo que hace falta cuando se te olvido meter a alguien.
+    |
+    | Se rehace desde el MISMO snapshot -la forma no cambia- y se reconstruye
+    | el estado inicial entero. Lo que se borra son los participantes viejos:
+    | dejarlos convertiria "quito a uno" en "ahora hay uno de sobra".
+    */
+    public function reassign(
+        TournamentInstance $instance,
+        array $assignments
+    ): TournamentInstance {
+
+        if (! $this->canReassign($instance)) {
+
+            throw ValidationException::withMessages([
+                'assignments' => [
+                    'Esta edición ya empezó a jugarse: sus competidores no se '
+                        . 'pueden cambiar sin invalidar lo ya jugado.',
+                ],
+            ]);
+        }
+
+        $universe = $instance->universe;
+
+        $universeEntityIds = collect($assignments)
+            ->flatten()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($universeEntityIds->isEmpty()) {
+
+            throw ValidationException::withMessages([
+                'assignments' => [
+                    'Selecciona al menos un competidor para la competición.',
+                ],
+            ]);
+        }
+
+        $universeEntities = UniverseEntity::query()
+            ->where('universe_id', $universe->id)
+            ->whereIn('id', $universeEntityIds)
+            ->get()
+            ->keyBy('id');
+
+        if ($universeEntities->count() !== $universeEntityIds->count()) {
+
+            throw ValidationException::withMessages([
+                'assignments' => [
+                    'Alguno de los competidores seleccionados ya no pertenece a este Universo.',
+                ],
+            ]);
+        }
+
+        $snapshot = $instance->snapshot?->snapshot ?? [];
+
+        if ($snapshot === []) {
+
+            throw ValidationException::withMessages([
+                'assignments' => [
+                    'Esta edición no tiene su configuración congelada: no se puede rehacer.',
+                ],
+            ]);
+        }
+
+        /*
+         * Se hidrata con la propia competicion para que el estado nuevo
+         * nazca con el mismo formato de batalla con el que se jugara.
+         */
+        $frozenTemplate = $this->hydrator->hydrate($snapshot, $instance);
+
+        $modifiers = $instance->universeTournament
+            ?->modifiers()
+            ->where('is_active', true)
+            ->get()
+            ->map(fn ($modifier) => [
+                'rule_id' => (string) $modifier->id,
+                'scope' => $modifier->scope,
+                'scope_value' => $modifier->scope_value,
+                'award_phase' => $modifier->award_phase,
+                'selector_type' => $modifier->selector_type,
+                'selector_from' => $modifier->selector_from,
+                'selector_to' => $modifier->selector_to,
+                'target' => $modifier->target,
+                'universe_entity_id' => $modifier->universe_entity_id,
+                'game_key' => $modifier->game_key,
+                'stat_key' => $modifier->stat_key,
+                'operation' => $modifier->operation,
+                'amount' => (float) $modifier->amount,
+                'label' => $modifier->label,
+            ])
+            ->all() ?? [];
+
+        return DB::transaction(function () use (
+            $instance,
+            $universe,
+            $assignments,
+            $universeEntities,
+            $frozenTemplate,
+            $modifiers
+        ) {
+
+            $state = $this->stateFactory->create(
+                $frozenTemplate,
+                (int) $universe->user_id,
+                $assignments,
+                $universeEntities,
+                $instance->game_key,
+                $modifiers,
+                $instance->universeTournament?->eligibility
+            );
+
+            TournamentInstanceState::query()
+                ->where('tournament_instance_id', $instance->id)
+                ->update([
+                    'state' => $state,
+
+                    /*
+                     * La revision sube: si otra pestana tenia abierta la
+                     * edicion, su siguiente accion se rechaza en vez de
+                     * jugar sobre un cuadro que ya no existe.
+                     */
+                    'revision' => DB::raw('revision + 1'),
+                ]);
+
+            /*
+             * Fuera los viejos. Sin esto, quitar a un competidor lo dejaria
+             * en la lista para siempre.
+             */
+            TournamentInstanceParticipant::query()
+                ->where('tournament_instance_id', $instance->id)
+                ->delete();
+
+            $this->freezeParticipants($instance, $state, $universeEntities);
+
+            $instance->update([
+                'participant_count' => count($state['participants'] ?? []),
+            ]);
+
+            $this->projector->project($instance->fresh(), $state);
+
+            return $instance->fresh();
+        });
+    }
+
+    /*
+     * Si todavia se puede rehacer el reparto.
+     *
+     * Borrador y sin nada jugado. runtime_status READY significa que el
+     * grafo ni siquiera arranco; en cuanto arranca hay rondas dibujadas y
+     * cambiar la gente dejaria huecos.
+     */
+    public function canReassign(TournamentInstance $instance): bool
+    {
+        return $instance->status === 'DRAFT'
+            && in_array($instance->runtime_status, ['READY', 'NOT_STARTED'], true);
+    }
 
     private function freezeParticipants(
         TournamentInstance $instance,

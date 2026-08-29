@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Universes;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Universes\StoreTournamentInstanceRequest;
+use App\Http\Requests\Universes\UpdateTournamentInstanceRequest;
 use App\Http\Requests\Universes\TournamentInstanceActionRequest;
 use App\Models\TournamentInstance;
 use App\Models\Universe;
@@ -13,6 +14,9 @@ use App\Services\Tournaments\CompetitionLab\CompetitionLabService;
 use App\Services\Tournaments\History\TournamentHistoryService;
 use App\Services\Tournaments\Runtime\TournamentInstanceRuntimeService;
 use App\Services\Tournaments\Runtime\TournamentInstanceService;
+use App\Services\Universes\CompetitionConfigurationService;
+use App\Services\Universes\CompetitionDesignerContext;
+use App\Services\Universes\CompetitionStartRouting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,6 +38,9 @@ use Illuminate\View\View;
 class TournamentInstanceController extends Controller
 {
     public function __construct(
+        private readonly CompetitionDesignerContext $designer,
+        private readonly CompetitionConfigurationService $configuration,
+        private readonly CompetitionStartRouting $routing,
         private readonly
         TournamentInstanceService $service,
 
@@ -161,140 +168,236 @@ class TournamentInstanceController extends Controller
                 'universe_id',
                 $universe->id
             )
-            ->with(
-                'tournamentTemplate'
-            )
+            ->with([
+                'tournamentTemplate',
+                'rewards.trophy',
+            ])
             ->findOrFail(
                 (int) $request->query(
                     'universe_tournament_id'
                 )
             );
 
-        $template =
-            $universeTournament
-            ->tournamentTemplate;
-
-        $graphErrors = [];
-
-        $starts =
-            collect();
-
-        if ($template) {
-
-            $compatibility =
-                $this->engine
-                ->compatibility($template);
-
-            $graphErrors =
-                $compatibility['valid']
-                ? []
-                : $compatibility['errors'];
-
-            $template->loadMissing(
-                'graphStarts'
-            );
-
-            $starts =
-                $template
-                ->graphStarts
-                ->where(
-                    'status',
-                    'ACTIVE'
-                )
-                ->values();
-        }
-
-        $universeEntities =
-            UniverseEntity::query()
-            ->where(
-                'universe_id',
-                $universe->id
-            )
-            ->where(
-                'status',
-                'ACTIVE'
-            )
-            /*
-             * Sin eager loading de Biblioteca: la entidad del Universo
-             * lleva su propia copia de nombre, imagen, tipo y atributos.
-             */
-            ->get()
-            ->sortBy(
-                fn($universeEntity) =>
-                mb_strtolower(
-                    $universeEntity->display_label
-                )
-            )
-            ->values();
-
-        $seasons =
-            $universe
-            ->seasons()
-            ->whereIn(
-                'status',
-                [
-                    'PLANNED',
-                    'ACTIVE',
-                ]
-            )
-            ->get();
-
-        $activeSeason =
-            $universe->activeSeason();
-
         /*
-         * Las formas con las que se puede jugar esta edicion.
+         * De que edicion se parte.
          *
-         * La del torneo primero, porque es lo habitual; despues las demas
-         * plantillas activas del mismo dueno. Es lo que permite que la
-         * cuarta temporada tenga una fase previa que la primera no tenia.
+         * La siguiente casi nunca se disena de cero: se copia la anterior
+         * y se cambia lo que cambio -mas gente, otra fase previa, otro
+         * juego-. Lo que NO cambia son las reglas del torneo, que siguen
+         * siendo suyas.
          */
-        $availableTemplates = $this->availableTemplates($universeTournament);
+        $source = null;
+
+        if ($copyId = (int) $request->query('copy')) {
+
+            $source = TournamentInstance::query()
+                ->where('universe_id', $universe->id)
+                ->where('universe_tournament_id', $universeTournament->id)
+                ->with(['phases', 'rewards'])
+                ->find($copyId);
+        }
 
         return view(
             'universes.competitions.create',
-            compact(
-                'universe',
-                'universeTournament',
-                'template',
-                'starts',
-                'universeEntities',
-                'seasons',
-                'activeSeason',
-                'graphErrors',
-                'availableTemplates'
-            )
+            [
+                'universe' => $universe,
+                'universeTournament' => $universeTournament,
+                'competition' => null,
+                'source' => $source,
+                'seasons' => $this->seasons($universe),
+                ...$this->designer->build(
+                    $universe,
+                    $universeTournament,
+                    null,
+                    $source
+                ),
+            ]
         );
     }
 
-    /*
-     * Las plantillas entre las que puede elegir una competicion.
-     *
-     * @return array<int,array{id:int,name:string,phases:int,is_default:bool}>
-     */
-    private function availableTemplates(UniverseTournament $universeTournament): array
-    {
-        $default = $universeTournament->tournamentTemplate;
 
-        if (! $default) {
-            return [];
+    /*
+    |--------------------------------------------------------------------------
+    | Edit
+    |--------------------------------------------------------------------------
+    |
+    | Retocar una edicion que todavia no empezo.
+    |
+    | Se puede cambiar como se pelea y que se lleva quien gane; no se puede
+    | cambiar la plantilla ni quien compite, porque eso congelo el estado
+    | inicial al crearla. Para eso esta copiar.
+    |
+    */
+
+    public function edit(
+        Universe $universe,
+        TournamentInstance $competition
+    ): View|RedirectResponse {
+
+        $this->authorize('update', $universe);
+
+        abort_unless(
+            (int) $competition->universe_id === (int) $universe->id,
+            404
+        );
+
+        if ($competition->status !== 'DRAFT') {
+
+            return redirect()
+                ->route('universes.competitions.show', [$universe, $competition])
+                ->with(
+                    'error',
+                    'Esta edición ya empezó: su configuración quedó congelada. '
+                        . 'Para jugar con otras reglas, crea una edición nueva copiando esta.'
+                );
         }
 
-        return \App\Models\TournamentTemplate::query()
-            ->where('user_id', $default->user_id)
-            ->where('status', 'ACTIVE')
-            ->withCount('graphNodes')
-            ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [$default->id])
-            ->orderBy('name')
-            ->get()
-            ->map(fn ($t) => [
-                'id' => $t->id,
-                'name' => $t->name,
-                'phases' => $t->graph_nodes_count,
-                'is_default' => (int) $t->id === (int) $default->id,
+        $universeTournament =
+            $competition->universeTournament()
+            ->with(['tournamentTemplate', 'rewards.trophy'])
+            ->firstOrFail();
+
+        $competition->load(['phases', 'rewards', 'trophies']);
+
+        return view(
+            'universes.competitions.edit',
+            [
+                'universe' => $universe,
+                'universeTournament' => $universeTournament,
+                'competition' => $competition,
+                'source' => null,
+                'seasons' => $this->seasons($universe),
+                ...$this->designer->build(
+                    $universe,
+                    $universeTournament,
+                    $competition
+                ),
+            ]
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Update
+    |--------------------------------------------------------------------------
+    */
+
+    public function update(
+        UpdateTournamentInstanceRequest $request,
+        Universe $universe,
+        TournamentInstance $competition
+    ): RedirectResponse {
+
+        abort_unless(
+            (int) $competition->universe_id === (int) $universe->id,
+            404
+        );
+
+        if ($competition->status !== 'DRAFT') {
+
+            return back()->with(
+                'error',
+                'Esta edición ya empezó: su configuración quedó congelada.'
+            );
+        }
+
+        $startRules = $request->startRulesPayload();
+
+        $this->configuration->apply(
+            $competition,
+            $competition->universeTournament,
+            $request->validated(),
+            $request->phasesPayload(),
+            $request->rewardsPayload(),
+            $startRules,
+            $request->file('image')
+        );
+
+        /*
+         * Y si ademas cambio quien compite, se rehace el cuadro.
+         *
+         * Solo mientras no se haya jugado nada: el servicio lo comprueba y
+         * se niega si toca. Va DESPUES de guardar la configuracion para que
+         * el estado nuevo nazca ya con el formato de batalla recien
+         * elegido.
+         */
+        $aviso = 'Edición actualizada.';
+
+        if ($this->service->canReassign($competition)) {
+
+            $assignments = $request->assignments();
+
+            if ($assignments === [] && $startRules) {
+
+                $assignments = array_filter(
+                    $this->routing->route(
+                        $universe,
+                        $startRules,
+                        $this->capacitiesOf($competition)
+                    )['assignments'],
+                    fn ($ids) => $ids !== []
+                );
+            }
+
+            if ($assignments !== []) {
+
+                $this->service->reassign($competition->fresh(), $assignments);
+
+                $aviso = 'Edición actualizada, y su cuadro rehecho con '
+                    . collect($assignments)->flatten()->count() . ' competidores.';
+            }
+        }
+
+        return redirect()
+            ->route('universes.competitions.show', [$universe, $competition])
+            ->with('success', $aviso);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Quien entra por cada puerta
+    |--------------------------------------------------------------------------
+    |
+    | Devuelve, para las reglas que se estan escribiendo, a quien manda
+    | cada una y quien se queda fuera. Se consulta mientras se escribe: sin
+    | esto, saber si una regla trae 8 o 30 competidores obligaba a guardar
+    | y volver.
+    |
+    */
+
+    public function startPreview(
+        Request $request,
+        Universe $universe
+    ) {
+
+        $this->authorize('update', $universe);
+
+        $capacities = collect((array) $request->input('capacities', []))
+            ->mapWithKeys(fn ($v, $k) => [
+                (int) $k => ($v === null || $v === '') ? null : (int) $v,
             ])
             ->all();
+
+        $routed = $this->routing->route(
+            $universe,
+            (array) $request->input('start_rules', []),
+            array_filter($capacities, fn ($v) => $v !== null)
+        );
+
+        return response()->json($routed);
     }
+
+
+    private function seasons(Universe $universe)
+    {
+        return $universe
+            ->seasons()
+            ->whereIn('status', ['PLANNED', 'ACTIVE'])
+            ->get();
+    }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -322,14 +425,70 @@ class TournamentInstanceController extends Controller
                 )
             );
 
+        $startRules = $request->startRulesPayload();
+
+        /*
+         * Quien entra por cada puerta.
+         *
+         * Dos formas de decirlo, y las dos valen: marcarlos a mano, o
+         * describirlos con una regla -"los que lleven sharingan"-. La
+         * regla se resuelve AQUI, en el servidor, y no se confia en lo que
+         * la pantalla calculo: una pantalla abierta hace media hora pudo
+         * quedarse con competidores que ya no estan.
+         */
+        $assignments = $request->assignments();
+
+        if ($assignments === [] && $startRules) {
+
+            $assignments = $this->routing->route(
+                $universe,
+                $startRules,
+                $this->capacities($universeTournament, $request)
+            )['assignments'];
+
+            $assignments = array_filter($assignments, fn ($ids) => $ids !== []);
+        }
+
+        if ($assignments === []) {
+
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'assignments' =>
+                    'Ningún competidor entra en la competición: márcalos a mano '
+                        . 'o escribe una regla que seleccione a alguien.',
+                ]);
+        }
+
         $instance =
             $this->service
             ->create(
                 $universe,
                 $universeTournament,
                 $request->validated(),
-                $request->assignments()
+                $assignments
             );
+
+        /*
+         * El resto de la configuracion, DESPUES de crear.
+         *
+         * No es un detalle de orden: la excepcion de una fase se guarda en
+         * su fila, y esas filas no existen hasta que el proyector dibuja
+         * el grafo de esta edicion.
+         */
+        $this->configuration->apply(
+            $instance,
+            $universeTournament,
+            $request->validated(),
+            $request->phasesPayload(),
+            $request->rewardsPayload(),
+            $startRules,
+            $request->file('image')
+        );
+
+        if ($copied = (int) $request->input('copied_from_instance_id')) {
+            $instance->update(['copied_from_instance_id' => $copied]);
+        }
 
         return redirect()
             ->route(
@@ -344,6 +503,58 @@ class TournamentInstanceController extends Controller
                 'Competición preparada. La configuración quedó congelada: '
                     . 'editar la plantilla ya no la afecta.'
             );
+    }
+
+    /*
+     * Cuantos caben por cada puerta de la plantilla elegida.
+     *
+     * Hace falta para que una regla que trae 30 no meta 30 por una puerta
+     * de 8: el sobrante se aparta y se dice, en vez de reventar al crear
+     * el estado inicial.
+     */
+    /*
+     * Lo mismo, para una edicion que ya existe: su plantilla ya se congelo.
+     */
+    private function capacitiesOf(TournamentInstance $competition): array
+    {
+        $template = \App\Models\TournamentTemplate::query()
+            ->with('graphStarts')
+            ->find($competition->tournament_template_id);
+
+        if (! $template) {
+            return [];
+        }
+
+        return $template->graphStarts
+            ->where('status', 'ACTIVE')
+            ->filter(fn ($s) => $s->expected_participants)
+            ->mapWithKeys(fn ($s) => [(int) $s->id => (int) $s->expected_participants])
+            ->all();
+    }
+
+    private function capacities(
+        UniverseTournament $universeTournament,
+        StoreTournamentInstanceRequest $request
+    ): array {
+
+        $templateId = (int) ($request->validated('tournament_template_id')
+            ?: $universeTournament->tournament_template_id);
+
+        $template = \App\Models\TournamentTemplate::query()
+            ->with('graphStarts')
+            ->find($templateId);
+
+        if (! $template) {
+            return [];
+        }
+
+        return $template->graphStarts
+            ->where('status', 'ACTIVE')
+            ->filter(fn ($s) => $s->expected_participants)
+            ->mapWithKeys(fn ($s) => [
+                (int) $s->id => (int) $s->expected_participants,
+            ])
+            ->all();
     }
 
     /*
@@ -540,6 +751,85 @@ class TournamentInstanceController extends Controller
         }
 
         /*
+         * Las salidas por puesto que no se pudieron servir.
+         *
+         * Una salida «#3 lugar» en un cuadro puro no tiene a quien mandar:
+         * varios cayeron en la misma ronda y nadie jugo para separarlos. El
+         * motor lo anota en vez de elegir uno al azar, y la pantalla lo
+         * dice en vez de dejar la salida muda.
+         */
+        $unresolvedExits = [];
+
+        foreach (($payload['state']['nodes'] ?? []) as $node) {
+
+            foreach (($node['runtime']['unresolved_exits'] ?? []) as $fila) {
+
+                $unresolvedExits[] = $fila + [
+                    'node_name' => $node['name'] ?? null,
+                ];
+            }
+        }
+
+        /*
+         * Los puestos que cada fase va a disputar.
+         *
+         * Un cuadro no decide quien es tercero: dos pierden en semifinales y
+         * ahi acaban los dos. Si la fase pide un «#3 lugar», ese puesto se
+         * juega DESPUES del cuadro, en batallas que el motor crea al
+         * terminarlo.
+         *
+         * Se anuncia desde el primer momento porque, sin decirlo, la fase
+         * arranca exactamente igual que una sin puestos configurados y no hay
+         * forma de distinguir «todavia no toca» de «no se aplico nada».
+         *
+         * Se calcula aqui y no se lee del estado guardado: el estado solo se
+         * reescribe al ejecutar una accion, asi que anadir un premio al 5.o
+         * puesto y recargar la pantalla no habria ensenado nada hasta jugar
+         * la siguiente batalla. Lo que hay que decidir es una pregunta con
+         * respuesta ahora mismo.
+         */
+        $placementPlan = [];
+
+        $demandas =
+            app(\App\Services\Tournaments\Runtime\PlacementDemands::class)
+            ->forCompetition($competition);
+
+        foreach ($demandas as $nodeId => $pedidos) {
+
+            if ($pedidos === []) {
+                continue;
+            }
+
+            $node = $payload['state']['nodes'][$nodeId] ?? [];
+
+            $reparto = $node['runtime']['placement'] ?? null;
+
+            /* Cuantas batallas de desempate quedan por jugar */
+            $pendientes = 0;
+
+            foreach (($node['runtime']['rounds'] ?? []) as $ronda) {
+
+                if (! isset($ronda['placement'])) {
+                    continue;
+                }
+
+                foreach (($ronda['matches'] ?? []) as $match) {
+                    if (($match['status'] ?? null) === 'PENDING') {
+                        $pendientes++;
+                    }
+                }
+            }
+
+            $placementPlan[(int) $nodeId] = [
+                'wanted' => $pedidos,
+                'total' => count($pedidos),
+                'started' => $reparto !== null,
+                'done' => (bool) ($reparto['done'] ?? false),
+                'pending' => $pendientes,
+            ];
+        }
+
+        /*
          * El recorrido del campeon: cada batalla que tuvo que ganar,
          * con su fase y su rival. Se lee de lo ya proyectado.
          */
@@ -654,6 +944,8 @@ class TournamentInstanceController extends Controller
                 'ranking',
                 'battles',
                 'bands',
+                'unresolvedExits',
+                'placementPlan',
                 'championRoute',
                 'tracksPoints',
                 'pointsLabel',

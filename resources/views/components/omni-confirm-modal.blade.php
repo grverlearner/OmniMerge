@@ -309,12 +309,24 @@
                             bg-slate-200
                         ">
 
-                        <img :src="image" alt=""
-                            class="
-                                h-full
-                                w-full
-                                object-cover
-                            ">
+                        {{--
+                            x-if y no solo x-show.
+
+                            x-show oculta el <img>, pero el <img> sigue en el
+                            DOM con src="" —porque `image` es null mientras no
+                            hay nada que confirmar—, y un src vacio hace que
+                            el navegador vuelva a pedir LA PAGINA ENTERA. Una
+                            peticion duplicada en cada pantalla que monte
+                            este modal, que son casi todas.
+                        --}}
+                        <template x-if="image">
+                            <img :src="image" alt=""
+                                class="
+                                    h-full
+                                    w-full
+                                    object-cover
+                                ">
+                        </template>
 
                     </div>
 

@@ -36,6 +36,51 @@
     @endif
 
 
+    {{--
+        Retocar una edicion que todavia no empezo.
+
+        Solo mientras es un borrador: en cuanto arranca, su configuracion
+        queda congelada, y el boton desaparece en vez de llevar a una
+        pantalla que iba a rechazarlo.
+    --}}
+
+    @if ($competition->status === 'DRAFT')
+        <div class="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+
+            <span class="text-lg">✎</span>
+
+            <div class="min-w-0 flex-1">
+                <p class="text-xs font-black text-amber-300">Todavía no ha empezado</p>
+                <p class="text-[11px] text-slate-400">
+                    Aún puedes cambiar el juego, cómo se pelea en cada fase y qué se
+                    lleva quien gane. La forma y los competidores ya están dibujados.
+                </p>
+            </div>
+
+            <a href="{{ route('universes.competitions.edit', [$universe, $competition]) }}"
+                class="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-black text-slate-950 transition hover:bg-amber-400">
+                Editar la configuración
+            </a>
+
+            <a href="{{ route('universes.competitions.create', $universe) }}?universe_tournament_id={{ $competition->universe_tournament_id }}&copy={{ $competition->id }}"
+                class="shrink-0 rounded-lg border border-slate-700 px-3 py-1.5 text-[11px] font-black text-slate-400 transition hover:border-slate-500 hover:text-slate-100">
+                Copiar en una edición nueva
+            </a>
+        </div>
+    @else
+        <div class="mb-4 flex flex-wrap items-center gap-2">
+            <p class="mr-auto text-[11px] text-slate-500">
+                Esta edición ya empezó: su configuración quedó congelada.
+            </p>
+
+            <a href="{{ route('universes.competitions.create', $universe) }}?universe_tournament_id={{ $competition->universe_tournament_id }}&copy={{ $competition->id }}"
+                class="rounded-lg border border-slate-700 px-3 py-1.5 text-[11px] font-black text-slate-400 transition hover:border-slate-500 hover:text-slate-100">
+                Copiar en una edición nueva
+            </a>
+        </div>
+    @endif
+
+
     {{-- Acceso a la experiencia de ejecucion (Fase 13) --}}
 
     <div class="mb-6">

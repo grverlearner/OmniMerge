@@ -3,6 +3,7 @@
 namespace App\Services\Tournaments\CompetitionLab\Engines;
 
 use App\Models\PhaseTemplate;
+use App\Services\Tournaments\CompetitionLab\Runtime\PlacementPlanner;
 use App\Services\Tournaments\SingleElimination\SingleEliminationSettingsService;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureExecutionPolicy;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureFingerprint;
@@ -22,7 +23,10 @@ class SingleEliminationGraphRuntime
         SingleEliminationStructureFingerprint $fingerprint,
 
         private readonly
-        SingleEliminationSettingsService $settingsService
+        SingleEliminationSettingsService $settingsService,
+
+        private readonly
+        PlacementPlanner $placement
     ) {}
 
     public function prepare(PhaseTemplate $phase, array $participantIds): array
@@ -166,9 +170,39 @@ class SingleEliminationGraphRuntime
                 'selector_round_size' => $exit->selector_round_size === null
                     ? null
                     : (int) $exit->selector_round_size,
+
+                /*
+                 * Que puesto pide esta salida.
+                 *
+                 * Una salida RANK_POSITION 3 o RANK_RANGE 5-8 dice «por
+                 * aqui salen los que acaben en ese puesto». Sin guardar el
+                 * rango no habia forma de servirla, y de hecho no se
+                 * servia: nadie la alimentaba nunca.
+                 */
+                'selector_from' => $exit->selector_from === null
+                    ? null
+                    : (int) $exit->selector_from,
+
+                'selector_to' => $exit->selector_to === null
+                    ? null
+                    : (int) $exit->selector_to,
             ];
             $runtime['exit_participants'][$exit->id] = [];
         }
+
+        /*
+         * Que puestos pide esta fase, dicho ANTES de jugar nada.
+         *
+         * Una salida «#3 lugar» no se sirve con el cuadro normal: hay que
+         * disputarla. Anunciarlo desde el minuto cero evita la sensacion
+         * de que la configuracion no se aplico -que es exactamente lo que
+         * parecia cuando el cuadro arrancaba igual que siempre-.
+         */
+        $runtime['placement_wanted'] =
+            $this->placement
+            ->wantedFromExits(
+                $runtime['exit_definitions']
+            );
 
         foreach ($phase->singleEliminationConnections as $connection) {
             if ($connection->status !== 'ACTIVE') {
@@ -404,6 +438,21 @@ class SingleEliminationGraphRuntime
         $runtime['encounters'][$encounterId]['status'] = 'COMPLETED';
         $runtime['encounters'][$encounterId]['qualifier_ids'] = $qualifierIds;
         $runtime['encounters'][$encounterId]['eliminated_ids'] = $eliminatedIds;
+
+        /*
+         * Un desempate de puestos no elimina a nadie: los que lo juegan ya
+         * estaban eliminados del cuadro, y solo estan decidiendo en que
+         * orden quedan. Pasarlos por recordEliminations() haria saltar el
+         * control de doble eliminacion -con razon-, y enrutarlos por los
+         * resultados de la estructura tampoco tiene sentido: un encuentro
+         * de clasificacion no existe en la estructura, lo crea el motor.
+         */
+        if (isset($runtime['encounters'][$encounterId]['placement'])) {
+
+            $runtime['matches_completed']++;
+
+            return $this->refresh($runtime);
+        }
 
         $this->recordEliminations(
             $runtime,
@@ -720,15 +769,491 @@ class SingleEliminationGraphRuntime
             })->unique()->values()->all();
 
         if ($completed) {
+
+            /*
+             * El cuadro se acabo. Antes de dar la fase por terminada hay
+             * que mirar si quedan puestos por disputar: si la fase pide un
+             * «#3 lugar», el cuadro no lo ha decidido -dos perdieron en
+             * semifinales y nadie jugo para separarlos- y hace falta una
+             * batalla mas.
+             */
+            $runtime = $this->advancePlacement($runtime);
+
+            $sigueCompleta =
+                collect($runtime['encounters'])
+                ->every(
+                    fn($encounter) =>
+                    $encounter['status'] === 'COMPLETED'
+                );
+
+            /* Se acaban de crear desempates: hay que volver a repartirlos */
+            if (! $sigueCompleta) {
+                return $this->refresh($runtime);
+            }
+
             $runtime['status'] = 'COMPLETED';
             $runtime['standings'] =
-                $this->standings(
+                $this->placementStandings(
                     $runtime
                 );
+
+            /*
+             * Y ahora las salidas por puesto.
+             *
+             * Van al final a proposito: hasta que la fase no termina no hay
+             * clasificacion, y sin clasificacion no se puede decir quien
+             * acabo tercero.
+             */
+            $runtime = $this->routeRankExits($runtime);
         } elseif (! $pending && $waiting) {
             $this->fail(
                 'El grafo interno quedó bloqueado: existen encuentros en espera y ninguna transición puede producir nuevos participantes.'
             );
+        }
+
+        return $runtime;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Las salidas por puesto
+    |--------------------------------------------------------------------------
+    |
+    | Una fase puede tener una salida «#3 lugar» o «puestos 5-8». Hasta
+    | ahora se podian crear y no servian para nada: solo el motor de liga
+    | las resolvia, y en eliminacion directa nadie las alimentaba jamas.
+    |
+    | Aqui se sirven contra la clasificacion de la propia fase.
+    |
+    | ---------------------------------------------------------------
+    |
+    | La regla que gobierna esto: solo se sirve lo que se DISPUTO.
+    |
+    | En un cuadro puro, cuatro pierden en la misma ronda y nadie jugo para
+    | separarlos: su plaza es un RANGO -«5.o-8.o»-, no un numero. Una salida
+    | que pide «5-8» se sirve entera, porque pide exactamente ese rango. Una
+    | que pide «el 5.o» NO se sirve: elegir uno de los cuatro seria inventar
+    | un resultado que nadie jugo.
+    |
+    | Cuando pasa eso se anota en `unresolved_exits` para que la pantalla
+    | pueda decir por que esa salida quedo vacia, en vez de dejar al usuario
+    | pensando que se rompio algo.
+    |
+    */
+    /*
+    |--------------------------------------------------------------------------
+    | Disputar los puestos
+    |--------------------------------------------------------------------------
+    |
+    | Un cuadro de 16 reparte plazas asi: 1.o, 2.o, dos empatados en 3.o-4.o,
+    | cuatro en 5.o-8.o y ocho en 9.o-16.o. Esas bandas no son un defecto: es
+    | que nadie jugo para separarlas.
+    |
+    | Cuando la fase pide un «#3 lugar», un «#7» o un «#13», lo que falta es
+    | precisamente eso -jugarlo-. Aqui se generan esas batallas.
+    |
+    | El metodo es el mismo que usa cualquier torneo real para el tercer
+    | puesto, aplicado tantas veces como haga falta: se emparejan los
+    | empatados, los que ganan se quedan con la mitad alta de la banda y los
+    | que pierden con la baja. Repitiendo, la banda se parte hasta que el
+    | puesto pedido cae en un borde.
+    |
+    | Solo se parten las bandas que HACEN FALTA. Pedir el #13 en una banda de
+    | 9.o-16.o obliga a separar 9-12 de 13-16, luego 13-14 de 15-16, y luego
+    | el 13 del 14: siete batallas. La banda 9.o-12.o no se toca, porque
+    | nadie ha pedido distinguir dentro de ella y jugar esas batallas seria
+    | hacer trabajar a los competidores para nada.
+    |
+    */
+    private function advancePlacement(array $runtime): array
+    {
+        $pedidos =
+            $runtime['placement_wanted']
+            ?? $this->placement->wantedFromExits(
+                $runtime['exit_definitions'] ?? []
+            );
+
+        $cortes = $this->placement->cuts($pedidos);
+
+        if (! isset($runtime['placement'])) {
+
+            $runtime['placement'] = [
+                'cuts' => $cortes,
+                'bands' => $this->placement->bands(
+                    $this->standings($runtime)
+                ),
+                'splits' => [],
+                'sequence' => 0,
+                'done' => $cortes === [],
+            ];
+        }
+
+        if ($cortes === []) {
+            $runtime['placement']['done'] = true;
+
+            return $runtime;
+        }
+
+        /*
+         * Primero se cierran los desempates ya jugados: su banda se parte
+         * en dos -arriba los que ganaron, abajo los que perdieron-.
+         */
+        foreach ($runtime['placement']['splits'] as $indice => $split) {
+
+            if (($split['status'] ?? null) === 'CLOSED') {
+                continue;
+            }
+
+            $encuentros = [];
+            $todosJugados = true;
+
+            foreach ($split['encounter_ids'] as $encounterId) {
+
+                $encuentro = $runtime['encounters'][$encounterId] ?? null;
+
+                if (($encuentro['status'] ?? null) !== 'COMPLETED') {
+                    $todosJugados = false;
+                    break;
+                }
+
+                $encuentros[] = $encuentro;
+            }
+
+            if (! $todosJugados) {
+                continue;
+            }
+
+            $arriba = $split['byes'];
+            $abajo = [];
+
+            foreach ($encuentros as $encuentro) {
+                $arriba = [...$arriba, ...$encuentro['qualifier_ids']];
+                $abajo = [...$abajo, ...$encuentro['eliminated_ids']];
+            }
+
+            $runtime['placement']['bands'] =
+                $this->placement->replaceBand(
+                    $runtime['placement']['bands'],
+                    (int) $split['from'],
+                    (int) $split['to'],
+                    $arriba,
+                    $abajo
+                );
+
+            $runtime['placement']['splits'][$indice]['status'] = 'CLOSED';
+        }
+
+        /* Y despues se abren los que ahora hacen falta */
+        $abiertos = [];
+
+        foreach ($runtime['placement']['splits'] as $split) {
+            if (($split['status'] ?? null) !== 'CLOSED') {
+                $abiertos[] = (int) $split['from'];
+            }
+        }
+
+        foreach ($runtime['placement']['bands'] as $band) {
+
+            if (in_array((int) $band['from'], $abiertos, true)) {
+                continue;
+            }
+
+            if (! $this->placement->needsSplit($band, $cortes)) {
+                continue;
+            }
+
+            $runtime = $this->openPlacementSplit($runtime, $band);
+        }
+
+        $runtime['placement']['done'] =
+            collect($runtime['placement']['splits'])
+            ->every(
+                fn($split) =>
+                ($split['status'] ?? null) === 'CLOSED'
+            );
+
+        return $runtime;
+    }
+
+    /*
+     * Los puntos donde una banda NO puede seguir siendo una banda.
+     *
+     * Una salida «#3 lugar» necesita que 3 empiece banda y que 4 empiece
+     * otra; una «puestos 5-8», que 5 empiece banda y 9 empiece la siguiente.
+     *
+     * @return array<int,int>
+     */
+
+    /*
+     * Las bandas de la clasificacion del cuadro: grupos de empatados.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+
+    /*
+     * Una banda hay que partirla cuando algun corte cae DENTRO de ella.
+     */
+
+    /*
+     * @return array<int,array<string,mixed>>
+     */
+
+    /*
+     * Abre el desempate de una banda: empareja a los empatados y crea su
+     * ronda propia.
+     *
+     * Con un numero impar de empatados, uno pasa a la mitad alta sin jugar.
+     * Es el mismo BYE que usa cualquier cuadro cuando los participantes no
+     * son potencia de dos, y es preferible a inventarle un rival.
+     */
+    private function openPlacementSplit(array $runtime, array $band): array
+    {
+        ['pairs' => $parejas, 'byes' => $byes] =
+            $this->placement->pairings($band);
+
+        $formato = $this->placementFormat($runtime);
+
+        $runtime['placement']['sequence']++;
+        $secuencia = (int) $runtime['placement']['sequence'];
+
+        $roundId = 900000 + $secuencia;
+        $roundNumber = $this->nextRoundNumber($runtime);
+        $etiqueta = $this->placement->label((int) $band['from'], (int) $band['to']);
+
+        $runtime['rounds'][] = [
+            'id' => $roundId,
+            'number' => $roundNumber,
+            'participants_in_round' => count($band['ids']),
+            'label' => $etiqueta,
+
+            /*
+             * El proyector guarda esto como `group_label`, y es lo que
+             * permite a la pantalla del cuadro separar los desempates de
+             * las rondas normales sin adivinar por el numero de ronda.
+             */
+            'group_name' => $etiqueta,
+            'status' => 'WAITING',
+            'matches' => [],
+            'placement' => ['from' => (int) $band['from'], 'to' => (int) $band['to']],
+        ];
+
+        $encounterIds = [];
+
+        foreach ($parejas as $i => $pareja) {
+
+            $encounterId = 900000000 + $secuencia * 1000 + $i;
+
+            $runtime['encounters'][$encounterId] = [
+                'id' => $encounterId,
+                'round_id' => $roundId,
+                'round_number' => $roundNumber,
+                'round_participants' => count($band['ids']),
+                'match_id' => 'SE-G-' . $encounterId,
+                'code' => 'PL' . $secuencia . '-' . ($i + 1),
+                'name' => $etiqueta . ' · ' . ($i + 1),
+                'entrants_count' => 2,
+                'qualifiers_count' => 1,
+                'min_entrants_to_start' => 2,
+                'allows_incomplete' => false,
+                'activation_policy' => 'AUTOMATIC',
+                'profile' => 'DUEL',
+                'resolution_mode' => 'SCORE',
+                'qualifier_ordering' => 'ORDERED',
+                'series_format' => $formato['series_format'],
+                'best_of' => $formato['best_of'],
+                'fixed_games' => $formato['fixed_games'],
+                'status' => 'WAITING',
+                'participant_ids' => [],
+                'qualifier_ids' => [],
+                'eliminated_ids' => [],
+                'score_a' => null,
+                'score_b' => null,
+
+                /* La marca que distingue un desempate de una batalla del cuadro */
+                'placement' => [
+                    'from' => (int) $band['from'],
+                    'to' => (int) $band['to'],
+                    'split' => $secuencia,
+                ],
+            ];
+
+            foreach ([1, 2] as $posicion) {
+
+                $slotId = 800000000 + $secuencia * 1000 + $i * 2 + $posicion;
+
+                $runtime['slots'][$slotId] = [
+                    'id' => $slotId,
+                    'encounter_id' => $encounterId,
+                    'position' => $posicion,
+                    'required' => true,
+                    'empty_behavior' => 'BLOCK',
+                    'participant_id' => $pareja[$posicion - 1],
+                ];
+            }
+
+            $encounterIds[] = $encounterId;
+        }
+
+        $runtime['placement']['splits'][] = [
+            'id' => $secuencia,
+            'from' => (int) $band['from'],
+            'to' => (int) $band['to'],
+            'label' => $etiqueta,
+            'round_id' => $roundId,
+            'round_number' => $roundNumber,
+            'encounter_ids' => $encounterIds,
+            'byes' => $byes,
+            'status' => 'OPEN',
+        ];
+
+        return $runtime;
+    }
+
+    /*
+     * Los desempates se juegan como se juega la fase: si el cuadro va a
+     * BO3, el desempate por el tercer puesto tambien.
+     *
+     * @return array<string,mixed>
+     */
+    private function placementFormat(array $runtime): array
+    {
+        $referencia = null;
+
+        foreach ($runtime['encounters'] as $encuentro) {
+
+            if (isset($encuentro['placement'])) {
+                continue;
+            }
+
+            if (
+                $referencia === null
+                ||
+                (int) $encuentro['round_number'] > (int) $referencia['round_number']
+            ) {
+                $referencia = $encuentro;
+            }
+        }
+
+        return [
+            'series_format' => $referencia['series_format'] ?? 'SINGLE',
+            'best_of' => $referencia['best_of'] ?? null,
+            'fixed_games' => $referencia['fixed_games'] ?? null,
+        ];
+    }
+
+    private function nextRoundNumber(array $runtime): int
+    {
+        $maximo = 0;
+
+        foreach ($runtime['rounds'] as $ronda) {
+            $maximo = max($maximo, (int) ($ronda['number'] ?? 0));
+        }
+
+        return $maximo + 1;
+    }
+
+
+    /*
+     * La clasificacion final, con los desempates ya aplicados.
+     *
+     * El cuadro sigue siendo quien reparte las bandas; esto solo cambia el
+     * puesto de quien jugo para salir de una.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function placementStandings(array $runtime): array
+    {
+        return $this->placement->standings(
+            $this->standings($runtime),
+            $runtime['placement']['bands'] ?? []
+        );
+    }
+
+
+    private function routeRankExits(array $runtime): array
+    {
+        $runtime['unresolved_exits'] = [];
+
+        foreach (($runtime['exit_definitions'] ?? []) as $exitId => $definition) {
+
+            $selector = $definition['selector_type'] ?? null;
+
+            if (! in_array($selector, ['RANK_POSITION', 'RANK_RANGE'], true)) {
+                continue;
+            }
+
+            $from = (int) ($definition['selector_from'] ?? 0);
+
+            /* RANK_POSITION es un rango de uno */
+            $to = $selector === 'RANK_POSITION'
+                ? $from
+                : (int) ($definition['selector_to'] ?? $from);
+
+            if ($from <= 0) {
+                continue;
+            }
+
+            if ($to < $from) {
+                [$from, $to] = [$to, $from];
+            }
+
+            $servidos = [];
+            $sinDecidir = [];
+
+            foreach (($runtime['standings'] ?? []) as $fila) {
+
+                $desde = (int) ($fila['position_from'] ?? 0);
+                $hasta = (int) ($fila['position_to'] ?? $desde);
+
+                /* Fuera del rango pedido: ni se mira */
+                if ($hasta < $from || $desde > $to) {
+                    continue;
+                }
+
+                /*
+                 * Su plaza cabe ENTERA en lo que la salida pide. Si su
+                 * banda es 5-8 y la salida pide 5-8, entra; si pide solo
+                 * el 5, no, porque el 5 no se disputo.
+                 */
+                if ($desde >= $from && $hasta <= $to) {
+                    $servidos[] = $fila['participant_id'];
+                    continue;
+                }
+
+                $sinDecidir[] = [
+                    'participant_id' => $fila['participant_id'],
+                    'band_from' => $desde,
+                    'band_to' => $hasta,
+                ];
+            }
+
+            if ($servidos !== []) {
+
+                $runtime['exit_participants'][$exitId] = array_values(array_unique([
+                    ...($runtime['exit_participants'][$exitId] ?? []),
+                    ...$servidos,
+                ]));
+
+                $runtime['outcomes'][] = [
+                    'exit_id' => (int) $exitId,
+                    'exit_name' => $definition['name'] ?? 'Salida',
+                    'participant_ids' => $runtime['exit_participants'][$exitId],
+                ];
+            }
+
+            if ($sinDecidir !== []) {
+
+                $runtime['unresolved_exits'][] = [
+                    'exit_id' => (int) $exitId,
+                    'exit_name' => $definition['name'] ?? 'Salida',
+                    'wanted_from' => $from,
+                    'wanted_to' => $to,
+                    'candidates' => $sinDecidir,
+
+                    'reason' => 'Ese puesto no se disputó: varios competidores '
+                        . 'cayeron en la misma ronda y nadie jugó para separarlos.',
+                ];
+            }
         }
 
         return $runtime;

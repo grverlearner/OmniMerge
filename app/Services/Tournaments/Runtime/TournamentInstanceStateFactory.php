@@ -38,14 +38,32 @@ class TournamentInstanceStateFactory
     /*
      * $assignments = [ startId => [universeCompetitorId, ...], ... ]
      */
+    /* Las reglas del torneo mientras se arma este estado */
+    private ?array $context = null;
+
     public function create(
         TournamentTemplate $template,
         int $userId,
         array $assignments,
         Collection $universeEntities,
         ?string $gameKey = null,
-        array $modifiers = []
+        array $modifiers = [],
+
+        /*
+         * Las reglas del torneo. Deciden con que VERSION -y por tanto con
+         * que imagen- sale cada competidor. Ver
+         * UniverseEntityVersionResolver.
+         */
+        ?array $context = null
     ): array {
+
+        /*
+         * Se guarda en la instancia y no se pasa de metodo en metodo: entre
+         * create() y donde se arma cada participante hay varios saltos, y
+         * enhebrarlo por todos ellos solo para leerlo al final habria
+         * ensuciado cuatro firmas.
+         */
+        $this->context = $context;
 
         $participants = [];
         $starts = [];
@@ -247,7 +265,7 @@ class TournamentInstanceStateFactory
          */
         $context =
             $this->participantResolver
-            ->resolve($universeEntity);
+            ->resolve($universeEntity, $this->context);
 
         $location = [
 
@@ -310,6 +328,15 @@ class TournamentInstanceStateFactory
 
             'entity_version_name' =>
             $context['entity_version_name'],
+
+            /*
+             * De donde salio la cara: de una version que caso con las
+             * reglas del torneo, de la base, o de la propia entidad. Es lo
+             * que permite que la ficha explique por que este competidor
+             * sale asi y no de otra forma.
+             */
+            'version_from' =>
+            $context['version_from'] ?? 'ENTITY',
 
             'entity_type_name' =>
             $context['entity_type_name'],

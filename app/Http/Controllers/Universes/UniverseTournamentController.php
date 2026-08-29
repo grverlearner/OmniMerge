@@ -7,6 +7,8 @@ use App\Http\Requests\Universes\StoreUniverseTournamentRequest;
 use App\Http\Requests\Universes\UpdateUniverseTournamentRequest;
 use App\Models\TournamentTemplate;
 use App\Models\Universe;
+use App\Services\Universes\UniverseTournamentEligibility;
+use App\Models\UniverseTrophy;
 use App\Models\UniverseTournament;
 use App\Services\Games\GameRegistry;
 use App\Services\Games\UniverseGameService;
@@ -109,17 +111,42 @@ class UniverseTournamentController extends Controller
         $competitions =
             $universeTournament
             ->instances()
-            ->with('season')
+            ->with(['season', 'participants'])
             ->orderByDesc('created_at')
             ->paginate(10);
 
+        $eligibility = app(UniverseTournamentEligibility::class);
+
+        $catalog = $eligibility->catalog($universe);
+
+        $rules = $eligibility->normalize($universeTournament->eligibility);
+
         return view(
             'universes.tournaments.show',
-            compact(
-                'universe',
-                'universeTournament',
-                'competitions'
-            )
+            [
+                'universe' => $universe,
+                'universeTournament' => $universeTournament,
+                'competitions' => $competitions,
+
+                /* El juego con el que se pelea, entero: reglas incluidas */
+                'game' => app(GameRegistry::class)
+                    ->definitions()[$universeTournament->game_key] ?? null,
+
+                /*
+                 * Quien puede competir HOY. Se recalcula al mirar y no se
+                 * guarda: la regla es lo permanente, la lista cambia sola
+                 * cuando el universo crece.
+                 */
+                'eligibilityRules' => $rules,
+                'eligibilityText' => $eligibility->describe($rules, $catalog),
+                'eligibilityPreview' => $eligibility->preview($universe, $universeTournament->eligibility, 40),
+
+                'rewards' => $universeTournament
+                    ->rewards()
+                    ->where('is_active', true)
+                    ->with('trophy')
+                    ->get(),
+            ]
         );
     }
 
@@ -165,12 +192,112 @@ class UniverseTournamentController extends Controller
 
         return view(
             'universes.tournaments.create',
-            compact(
-                'universe',
-                'templates',
-                'games',
-                'defaultGameKey'
-            )
+            [
+                'universe' => $universe,
+                'templates' => $templates,
+                'games' => $games,
+                'defaultGameKey' => $defaultGameKey,
+                ...$this->configurationContext($universe, null),
+            ]
+        );
+    }
+
+    /*
+     * Todo lo que necesitan las pantallas de alta y edicion ademas de la
+     * identidad del torneo.
+     *
+     * Va en un solo sitio porque las dos pantallas piden exactamente lo
+     * mismo: el catalogo de atributos del universo, sus trofeos, y una
+     * vista previa de a quien deja competir la regla actual.
+     */
+    private function configurationContext(
+        Universe $universe,
+        ?UniverseTournament $tournament
+    ): array {
+
+        $eligibility = app(UniverseTournamentEligibility::class);
+
+        $catalog = $eligibility->catalog($universe);
+
+        /*
+         * Lo que hay guardado, o lo que se quedo a medias tras un error de
+         * validacion. Sin esto, equivocarte en el nombre te borraba las
+         * reglas de participacion que acababas de escribir.
+         */
+        $current = old('eligibility') !== null
+            ? [
+                'mode' => old('eligibility_mode', 'ALL'),
+                'rules' => array_values((array) old('eligibility')),
+            ]
+            : ($tournament?->eligibility ?? ['mode' => 'ALL', 'rules' => []]);
+
+        return [
+            'eligibilityCatalog' => $catalog,
+            'eligibilityRules' => $eligibility->normalize($current),
+            'eligibilityPreview' => $eligibility->preview($universe, $current),
+
+            /*
+             * Todos los competidores, para que la galeria responda en el
+             * acto al marcar un atributo en vez de esperar al servidor.
+             */
+            'eligibilityRoster' => $eligibility->roster($universe),
+
+            'trophies' => UniverseTrophy::query()
+                ->where('universe_id', $universe->id)
+                ->orderBy('name')
+                ->get(),
+
+            'previewUrl' => route(
+                'universes.tournaments.eligibility-preview',
+                $universe
+            ),
+        ];
+    }
+
+    /*
+     * Los datos validados, con la elegibilidad en la forma que espera el
+     * dominio.
+     *
+     * El formulario manda listas paralelas porque es lo que un formulario
+     * sabe hacer; el servicio la quiere como { mode, rules }. Sin traducir
+     * aqui se guardaba la lista cruda, y entonces normalize() no encontraba
+     * ninguna regla dentro: el filtro existia en la base de datos y no
+     * filtraba a nadie.
+     */
+    private function withEligibility($request): array
+    {
+        return [
+            ...$request->validated(),
+            'eligibility' => $request->eligibilityPayload(),
+            'rewards' => $request->rewardsPayload(),
+        ];
+    }
+
+    /*
+     * A quien deja competir una regla, sin recargar.
+     *
+     * La pantalla lo pide cada vez que se toca un filtro: sin ver los
+     * competidores que quedan, elegir atributos es escribir a ciegas.
+     */
+    public function eligibilityPreview(
+        Request $request,
+        Universe $universe
+    ) {
+        $this->authorize('update', $universe);
+
+        $data = $request->validate([
+            'mode' => ['nullable', 'in:ALL,ANY'],
+            'rules' => ['nullable', 'array', 'max:20'],
+            'rules.*.attribute' => ['nullable', 'string', 'max:120'],
+            'rules.*.values' => ['nullable', 'array', 'max:60'],
+            'rules.*.values.*' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        return response()->json(
+            app(UniverseTournamentEligibility::class)->preview($universe, [
+                'mode' => $data['mode'] ?? 'ALL',
+                'rules' => $data['rules'] ?? [],
+            ])
         );
     }
 
@@ -189,7 +316,7 @@ class UniverseTournamentController extends Controller
             ->create(
                 $universe,
 
-                $request->validated(),
+                $this->withEligibility($request),
 
                 $request->file('image')
             );
@@ -231,14 +358,28 @@ class UniverseTournamentController extends Controller
         $defaultGameKey =
             app(UniverseGameService::class)->defaultKey($universe);
 
+        /*
+         * Las plantillas tambien se ofrecen al editar: un torneo puede
+         * cambiar de forma entre temporadas, y esa es la eleccion por
+         * defecto que heredaran las ediciones futuras.
+         */
+        $templates =
+            TournamentTemplate::query()
+            ->ownedBy($universe->user)
+            ->withCount('graphNodes')
+            ->orderBy('name')
+            ->get();
+
         return view(
             'universes.tournaments.edit',
-            compact(
-                'universe',
-                'universeTournament',
-                'games',
-                'defaultGameKey'
-            )
+            [
+                'universe' => $universe,
+                'universeTournament' => $universeTournament,
+                'templates' => $templates,
+                'games' => $games,
+                'defaultGameKey' => $defaultGameKey,
+                ...$this->configurationContext($universe, $universeTournament),
+            ]
         );
     }
 
@@ -258,7 +399,7 @@ class UniverseTournamentController extends Controller
             ->update(
                 $universeTournament,
 
-                $request->validated(),
+                $this->withEligibility($request),
 
                 $request->file('image')
             );

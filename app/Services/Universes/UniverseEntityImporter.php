@@ -370,32 +370,92 @@ class UniverseEntityImporter
         Entity $entity
     ): array {
 
-        $entity->loadMissing('entityVersions');
+        $entity->loadMissing([
+            'entityVersions.version',
+        ]);
 
         $activeId =
             $entity->activeBaseVersion()?->id;
 
         return collect($entity->entityVersions)
+            ->filter(fn ($version) => $version->status !== 'ARCHIVED')
+            ->sortBy([
+                ['priority', 'desc'],
+                ['sort_order', 'asc'],
+            ])
             ->map(
-                fn($version) => [
+                fn ($version) => [
 
-                    'name' =>
-                    $version->name,
+                    /*
+                     * El id de la EntityVersion, que antes no se copiaba.
+                     *
+                     * Sin el, una version del Universo era un nombre y una
+                     * foto sueltos: no se podia volver a ella para saber
+                     * que atributos la definen, ni enlazarla con la
+                     * Biblioteca, ni elegirla para un torneo.
+                     */
+                    'id' => (int) $version->id,
 
-                    'description' =>
-                    $version->description,
+                    'version_id' => $version->version_id
+                        ? (int) $version->version_id
+                        : null,
 
-                    'image' =>
-                    $version->image,
+                    /*
+                     * Dos nombres distintos y los dos hacen falta: el de la
+                     * version de la Biblioteca -"Sennin"- y el que el
+                     * usuario le puso a ESTA entidad en ella -"Naruto
+                     * Sennin"-.
+                     */
+                    'version_name' => $version->version?->name,
 
-                    'code' =>
-                    $version->code,
+                    'name' => $version->name,
+                    'description' => $version->description,
+                    'image' => $version->image,
+                    'code' => $version->code,
+
+                    'priority' => (int) ($version->priority ?? 0),
+                    'is_default' => (bool) $version->is_default,
 
                     'is_base' =>
                     $activeId !== null
                         && (int) $version->id === (int) $activeId,
+
+                    /*
+                     * Los atributos que definen esta version.
+                     *
+                     * Es lo que permite decir "en el torneo de Shippuden
+                     * sale con la cara de Shippuden": la version se elige
+                     * casando SUS atributos con los del torneo, igual que
+                     * se eligen los competidores.
+                     */
+                    'attributes' => $this->versionAttributes($version),
                 ]
             )
+            ->values()
+            ->all();
+    }
+
+    /*
+     * Los atributos efectivos de una version, en la misma forma que los de
+     * la entidad. Que compartan forma no es cosmetica: quien decide si una
+     * version encaja en un torneo es el mismo codigo que decide si encaja
+     * un competidor, y solo puede serlo si lee lo mismo.
+     */
+    private function versionAttributes(EntityVersion $version): array
+    {
+        return collect(
+            $this->versionResolver->effectiveAttributes($version)
+        )
+            ->filter(fn ($row) => ($row['is_visible'] ?? true) !== false)
+            ->map(
+                fn ($row) => $this->attribute(
+                    $row['custom_label'] ?: $row['attribute']?->name,
+                    (string) ($row['display'] ?? ''),
+                    array_values((array) ($row['values'] ?? [])),
+                    (bool) ($row['is_featured'] ?? false)
+                )
+            )
+            ->filter()
             ->values()
             ->all();
     }

@@ -36,6 +36,9 @@ use Illuminate\View\View;
 class UniverseEntityController extends Controller
 {
     public function __construct(
+        private readonly \App\Services\Universes\UniverseEntityBrowser $browser,
+        private readonly \App\Services\Universes\UniverseEntitySync $sync,
+        private readonly \App\Services\Universes\UniverseEntityVersionResolver $versions,
         private readonly
         UniverseEntityService $service,
 
@@ -68,94 +71,73 @@ class UniverseEntityController extends Controller
         Universe $universe
     ): View {
 
-        $this->authorize(
-            'view',
-            $universe
-        );
-
-        $search =
-            trim((string) $request->input('search'));
-
-        $status =
-            (string) $request->input('status', '');
-
-        $base =
-            $universe->entities();
-
-        $statistics = [
-
-            'total' => (clone $base)->count(),
-
-            'active' => (clone $base)
-                ->where('status', 'ACTIVE')
-                ->count(),
-
-            'retired' => (clone $base)
-                ->where('status', 'RETIRED')
-                ->count(),
-        ];
-
-        $universeEntities =
-            $universe
-            ->entities()
-            ->when(
-                $search,
-
-                fn($query) =>
-                $query->where(
-                    function ($subquery) use ($search) {
-
-                        $subquery
-                            ->where('name', 'like', "%{$search}%")
-                            ->orWhere('display_name', 'like', "%{$search}%")
-                            ->orWhere('code', 'like', "%{$search}%")
-                            ->orWhere('entity_type_name', 'like', "%{$search}%");
-                    }
-                )
-            )
-            ->when(
-                $status,
-
-                fn($query) =>
-                $query->where('status', $status)
-            )
-            ->orderBy('name')
-            ->paginate(24)
-            ->withQueryString();
+        $this->authorize('view', $universe);
 
         /*
-         * Cifras competitivas de la página actual, en una sola consulta
-         * en lugar de una por entidad.
+         * Todo el trabajo vive en UniverseEntityBrowser: buscar, filtrar
+         * por atributo, ordenar y armar cada ficha con su record, sus
+         * trofeos y sus versiones.
+         *
+         * Filtrar por atributo no cabe en SQL -viven en un JSON copiado- y
+         * mezclarlo aqui con la consulta habria dejado media logica en el
+         * controlador y media en el servicio.
          */
-        $records =
-            TournamentInstanceParticipant::query()
-            ->whereIn(
-                'universe_entity_id',
-                $universeEntities->pluck('id')
-            )
-            ->selectRaw(
-                'universe_entity_id,
-                 count(*) as tournaments,
-                 sum(wins) as wins,
-                 sum(losses) as losses,
-                 sum(case when outcome = \'CHAMPION\' then 1 else 0 end) as titles'
-            )
-            ->groupBy('universe_entity_id')
-            ->get()
-            ->keyBy('universe_entity_id');
-
         return view(
             'universes.entities.index',
-            compact(
-                'universe',
-                'universeEntities',
-                'statistics',
-                'records',
-                'search',
-                'status'
-            )
+            [
+                'universe' => $universe,
+                ...$this->browser->browse($universe, $request),
+            ]
         );
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Traer de la Biblioteca lo que cambio
+    |--------------------------------------------------------------------------
+    |
+    | Dos pasos a proposito: primero se ve que cambiaria, despues se aplica.
+    | Una actualizacion que puede retirar atributos no deberia ocurrir de un
+    | clic a ciegas.
+    |
+    */
+
+    public function syncPreview(
+        Universe $universe,
+        UniverseEntity $entity
+    ) {
+        $this->authorize('update', $universe);
+
+        abort_unless((int) $entity->universe_id === (int) $universe->id, 404);
+
+        return response()->json(
+            $this->sync->diff($entity)
+        );
+    }
+
+
+    public function syncApply(
+        Request $request,
+        Universe $universe,
+        UniverseEntity $entity
+    ): RedirectResponse {
+
+        $this->authorize('update', $universe);
+
+        abort_unless((int) $entity->universe_id === (int) $universe->id, 404);
+
+        $resultado = $this->sync->apply(
+            $entity,
+            $request->boolean('with_identity')
+        );
+
+        return back()->with(
+            $resultado['applied'] ? 'success' : 'error',
+            $resultado['summary']
+        );
+    }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -325,38 +307,78 @@ class UniverseEntityController extends Controller
         UniverseEntity $entity
     ): View {
 
-        $this->authorize(
-            'view',
-            $universe
-        );
+        $this->authorize('view', $universe);
 
-        $rival =
-            $universe
-            ->entities()
-            ->findOrFail(
-                (int) $request->query('rival')
-            );
+        /*
+         * El rival es OPCIONAL.
+         *
+         * Antes se buscaba con findOrFail(query('rival')), asi que entrar
+         * sin elegir a nadie buscaba el rival numero 0 y devolvia 404. Y
+         * entrar sin elegir es lo normal: se viene aqui justamente a elegir.
+         */
+        $rival = null;
 
-        $comparison =
-            $this->stats
-            ->headToHead($entity, $rival);
+        if ($rivalId = (int) $request->query('rival')) {
+
+            $rival = $universe->entities()->find($rivalId);
+        }
+
+        $comparison = $rival
+            ? $this->stats->headToHead($entity, $rival)
+            : null;
+
+        /*
+         * Con quien se puede comparar: todos los demas, con su cara, sus
+         * atributos y cuantas veces se han cruzado ya. Se arma con el
+         * mismo servicio que el panel para que las fichas se lean igual en
+         * los dos sitios.
+         */
+        $candidatos = collect(
+            $this->browser->browse($universe, new Request())['entities']
+        )
+            ->reject(fn ($e) => (int) $e['id'] === (int) $entity->id)
+            ->values()
+            ->all();
+
+        /* Cuantas veces se ha cruzado con cada uno, para poder ordenarlos */
+        $cruces = collect($this->stats->rivals($entity))
+            ->keyBy('entity_id');
+
+        $candidatos = collect($candidatos)
+            ->map(function (array $c) use ($cruces) {
+
+                $cruce = $cruces->get($c['id']);
+
+                $c['h2h'] = $cruce ? [
+                    'matches' => (int) ($cruce['matches'] ?? 0),
+                    'wins' => (int) ($cruce['wins'] ?? 0),
+                    'losses' => (int) ($cruce['losses'] ?? 0),
+                    'draws' => (int) ($cruce['draws'] ?? 0),
+                ] : null;
+
+                return $c;
+            })
+            ->values()
+            ->all();
 
         return view(
             'universes.entities.head-to-head',
-            compact(
-                'universe',
-                'entity',
-                'rival',
-                'comparison'
-            )
+            [
+                'universe' => $universe,
+                'entity' => $entity,
+                'rival' => $rival,
+                'comparison' => $comparison,
+                'candidates' => $candidatos,
+
+                /* Las cifras de los dos, para poder enfrentarlas */
+                'leftStats' => $this->stats->summary($entity),
+                'rightStats' => $rival ? $this->stats->summary($rival) : null,
+                'leftGames' => $this->gameStats->profile($entity),
+                'rightGames' => $rival ? $this->gameStats->profile($rival) : null,
+            ]
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Actualizar / quitar
-    |--------------------------------------------------------------------------
-    */
 
     public function update(
         UpdateUniverseEntityRequest $request,

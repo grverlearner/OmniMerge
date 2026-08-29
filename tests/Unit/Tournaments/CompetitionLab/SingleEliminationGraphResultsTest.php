@@ -8,6 +8,7 @@ use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStruct
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureFingerprint;
 use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStructureValidator;
 use Tests\TestCase;
+use App\Services\Tournaments\CompetitionLab\Runtime\PlacementPlanner;
 
 class SingleEliminationGraphResultsTest extends TestCase
 {
@@ -108,7 +109,8 @@ class SingleEliminationGraphResultsTest extends TestCase
             $this->createMock(SingleEliminationStructureValidator::class),
             new SingleEliminationStructureExecutionPolicy(),
             new SingleEliminationStructureFingerprint(),
-            new SingleEliminationSettingsService()
+            new SingleEliminationSettingsService(),
+            new PlacementPlanner()
         );
     }
 

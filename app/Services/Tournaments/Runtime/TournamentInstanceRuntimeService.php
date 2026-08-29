@@ -61,7 +61,11 @@ class TournamentInstanceRuntimeService
         \App\Services\Rewards\RewardProcessor $rewards,
 
         private readonly
-        \App\Services\Rewards\PhaseBonusGranter $phaseBonuses
+        \App\Services\Rewards\PhaseBonusGranter $phaseBonuses,
+
+        /* Que se juega en cada fase, y como se decide */
+        private readonly
+        CompetitionPhasePlan $phasePlan
     ) {}
 
     /*
@@ -189,12 +193,27 @@ class TournamentInstanceRuntimeService
                     );
 
                 /*
+                 * Que se juega en cada fase y como se decide, escrito en
+                 * el estado justo antes de que el motor lo lea.
+                 *
+                 * En cada accion y no solo al crear: si se cambia el
+                 * formato de una fase que aun no ha empezado, tiene que
+                 * notarse cuando empiece.
+                 */
+                $incoming =
+                    $this->phasePlan
+                    ->applyToState(
+                        $stateRow->state ?? [],
+                        $instance
+                    );
+
+                /*
                  * El motor. Exactamente el mismo que usa el Lab.
                  */
                 $state =
                     $this->engine
                     ->applyAction(
-                        $stateRow->state ?? [],
+                        $incoming,
                         $template,
                         $action,
                         $payload

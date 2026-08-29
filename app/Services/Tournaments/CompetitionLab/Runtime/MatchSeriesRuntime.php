@@ -43,6 +43,21 @@ final class MatchSeriesRuntime
         float $pointsA = 0.0,
         float $pointsB = 0.0
     ): array {
+
+        /*
+         * Como decide esta edicion quien gana una serie.
+         *
+         * SERIES_THEN_POINTS  manda el marcador -quien gano mas juegos- y
+         *                     solo si empata deciden las anotaciones.
+         * POINTS_ONLY         el marcador no cuenta: gana quien mas sumo,
+         *                     aunque haya perdido mas juegos.
+         *
+         * Lo escribe CompetitionPhasePlan en el nodo antes de cada accion.
+         * Sin nada escrito se comporta como siempre se comporto.
+         */
+        $pointsOnly =
+            ($runtime['competition']['decision_mode'] ?? null)
+            === 'POINTS_ONLY';
         if ($scoreA < 0 || $scoreB < 0) {
             $this->fail(
                 'Los scores de un juego no pueden ser negativos.'
@@ -321,7 +336,49 @@ final class MatchSeriesRuntime
             $series['status'] =
                 'COMPLETED';
 
-            if (
+            if ($pointsOnly) {
+
+                /*
+                 * Solo el acumulado. Se marca decided_on_points para que
+                 * la ficha del enfrentamiento pueda explicar por que gano
+                 * quien gano, que si no parece un error.
+                 */
+                $pointsA = (float) ($series['points_for_a'] ?? 0);
+                $pointsB = (float) ($series['points_for_b'] ?? 0);
+
+                $series['decided_on_points'] = $pointsA !== $pointsB;
+
+                $series['winner_id'] = match (true) {
+                    $pointsA > $pointsB => $participantA,
+                    $pointsB > $pointsA => $participantB,
+                    default => null,
+                };
+
+                /*
+                 * Empatados en acumulado dentro de un cuadro.
+                 *
+                 * Dejarlo en nulo pararia el torneo: la ronda siguiente se
+                 * quedaria sin nadie a quien colocar. Se cae al marcador,
+                 * que es el criterio que esta edicion aparco pero no
+                 * borro, y solo si tambien empata se pide desempate.
+                 */
+                if ($series['winner_id'] === null && $requiresWinner) {
+
+                    if ($series['game_wins_a'] !== $series['game_wins_b']) {
+
+                        $series['decided_on_points'] = false;
+
+                        $series['winner_id'] =
+                            $series['game_wins_a'] > $series['game_wins_b']
+                            ? $participantA
+                            : $participantB;
+                    } else {
+                        $series['status'] = 'RUNNING';
+                        $series['tiebreak_required'] = true;
+                    }
+                }
+
+            } elseif (
                 $series['game_wins_a']
                 !==
                 $series['game_wins_b']

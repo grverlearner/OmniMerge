@@ -27,12 +27,33 @@ class TournamentParticipantResolver
 {
     public function __construct(
         private readonly
-        \App\Services\Games\GameStatsService $gameStats
+        \App\Services\Games\GameStatsService $gameStats,
+
+        private readonly
+        \App\Services\Universes\UniverseEntityVersionResolver $versions
     ) {}
 
+    /*
+     * @param  array|null  $context  las reglas del torneo {mode, rules[]}
+     */
     public function resolve(
-        UniverseEntity $universeEntity
+        UniverseEntity $universeEntity,
+        ?array $context = null
     ): array {
+
+        /*
+         * Con que cara sale en ESTE torneo.
+         *
+         * Un personaje no es uno solo: Naruto tiene su version de nino y su
+         * Sennin, cada una con su imagen. Un torneo definido como «los que
+         * llevan saga -> shippuden» tiene que ensenar la de Shippuden, y la
+         * version buena es exactamente la que tambien lo lleva.
+         *
+         * Se resuelve AQUI y se congela con el resto: si manana cambias las
+         * versiones de la entidad, el torneo ya jugado sigue ensenando la
+         * cara con la que se jugo.
+         */
+        $cara = $this->versions->face($universeEntity, $context);
 
         return [
 
@@ -49,21 +70,27 @@ class TournamentParticipantResolver
                 : null,
 
             'entity_version_id' =>
-            $universeEntity->source_entity_version_id
-                ? (int) $universeEntity->source_entity_version_id
-                : null,
+            $cara['version_id']
+                ?? ($universeEntity->source_entity_version_id
+                    ? (int) $universeEntity->source_entity_version_id
+                    : null),
 
             'entity_version_name' =>
-            $this->baseVersionName($universeEntity),
+            $cara['version_name']
+                ?? $this->baseVersionName($universeEntity),
+
+            /* De donde salio la cara: de una version que caso, o de la entidad */
+            'version_from' =>
+            $cara['from'],
 
             'entity_type_name' =>
             $universeEntity->entity_type_name,
 
             'name' =>
-            $universeEntity->display_label,
+            $cara['name'],
 
             'image_url' =>
-            $universeEntity->image_url,
+            $cara['image_url'],
 
             'attributes' =>
             $universeEntity->attribute_snapshot ?? [],

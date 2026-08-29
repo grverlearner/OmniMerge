@@ -21,12 +21,12 @@
 </head>
 
 
-<body class="
-        min-h-screen
-        bg-slate-100
-        text-slate-900
-        antialiased
-    ">
+@php
+    /* Ver App\View\Components\UniverseLayout */
+    $dark = ($surface ?? 'light') === 'dark';
+@endphp
+
+<body class="min-h-screen antialiased {{ $dark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900' }}">
 
     <div x-data="{
         sidebarOpen: false
@@ -39,21 +39,16 @@
 
         <div class="lg:pl-72">
 
-            @include('partials.universes.header')
+            @include('partials.universes.header', ['dark' => $dark])
 
 
-            <main
-                class="
-                    px-4
-                    py-6
-                    sm:px-6
-                    lg:px-8
-                ">
+            {{--
+                En oscuro la pagina ocupa mas y respira menos: lo que se
+                ensena ahi quiere ancho, no una columna de lectura.
+            --}}
+            <main class="{{ $dark ? 'px-3 py-4 sm:px-4 lg:px-6' : 'px-4 py-6 sm:px-6 lg:px-8' }}">
 
-                <div class="
-                        mx-auto
-                        max-w-7xl
-                    ">
+                <div class="mx-auto {{ $dark ? 'max-w-[1500px]' : 'max-w-7xl' }}">
 
                     <x-alert />
 

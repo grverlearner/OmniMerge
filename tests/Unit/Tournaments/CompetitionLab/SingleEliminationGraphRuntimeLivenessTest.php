@@ -10,6 +10,7 @@ use App\Services\Tournaments\SingleElimination\Structure\SingleEliminationStruct
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
+use App\Services\Tournaments\CompetitionLab\Runtime\PlacementPlanner;
 
 class SingleEliminationGraphRuntimeLivenessTest extends TestCase
 {
@@ -22,7 +23,8 @@ class SingleEliminationGraphRuntimeLivenessTest extends TestCase
                 ),
                 new SingleEliminationStructureExecutionPolicy(),
                 new SingleEliminationStructureFingerprint(),
-                new SingleEliminationSettingsService()
+                new SingleEliminationSettingsService(),
+                new PlacementPlanner()
             );
 
         $state = [

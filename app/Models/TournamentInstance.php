@@ -47,6 +47,21 @@ class TournamentInstance extends Model
         'best_of',
         'fixed_games',
 
+        /*
+         * El resto de lo que define como se pelea en ESTA edicion, y donde
+         * se decide cada cosa. Ver la migracion que las anadio.
+         */
+        'battle_participants',
+        'decision_mode',
+        'allow_draws',
+        'game_scope',
+        'battle_scope',
+        'start_rules',
+        'copied_from_instance_id',
+
+        'description',
+        'image',
+
         'sequence_number',
 
         'code',
@@ -76,6 +91,21 @@ class TournamentInstance extends Model
 
             'participant_count' =>
             'integer',
+
+            'battle_participants' =>
+            'integer',
+
+            'best_of' =>
+            'integer',
+
+            'fixed_games' =>
+            'integer',
+
+            'allow_draws' =>
+            'boolean',
+
+            'start_rules' =>
+            'array',
 
             'started_at' =>
             'datetime',
@@ -120,6 +150,38 @@ class TournamentInstance extends Model
     {
         return $this->belongsTo(
             TournamentTemplate::class
+        );
+    }
+
+    /*
+     * Los premios que existen solo en esta edicion. Los del torneo se
+     * heredan y no se tocan desde aqui.
+     */
+    public function rewards(): HasMany
+    {
+        return $this->hasMany(
+            TournamentInstanceReward::class
+        );
+    }
+
+    /*
+     * Los trofeos inventados para esta edicion. Los del universo siguen
+     * siendo del universo.
+     */
+    public function trophies(): HasMany
+    {
+        return $this->hasMany(
+            UniverseTrophy::class,
+            'tournament_instance_id'
+        );
+    }
+
+    /* De que edicion se copio esta */
+    public function copiedFrom(): BelongsTo
+    {
+        return $this->belongsTo(
+            TournamentInstance::class,
+            'copied_from_instance_id'
         );
     }
 

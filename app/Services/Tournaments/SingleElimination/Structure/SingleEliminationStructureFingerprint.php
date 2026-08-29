@@ -21,6 +21,27 @@ final class SingleEliminationStructureFingerprint
         $settings =
             $phaseTemplate->singleEliminationSetting;
 
+        /*
+         * El formato de batalla que tenia la plantilla, si una competicion
+         * lo piso en memoria.
+         *
+         * Una competicion decide cuantos juegos dura un enfrentamiento, y
+         * eso no cambia la FORMA del cuadro: las rondas, los cruces y las
+         * salidas son las mismas. Si la huella se calculase con el formato
+         * impuesto, cualquier competicion que no jugase al mismo numero que
+         * la plantilla se veria rechazada por «la estructura cambio despues
+         * de su ultima validacion», que ademas no seria verdad.
+         *
+         * Ver CompetitionBattleFormat::applyTo().
+         */
+        $format = $settings
+            ? ($settings->getAttribute('structure_format_before') ?? [
+                'series_format' => $settings->series_format,
+                'default_best_of' => $settings->default_best_of,
+                'fixed_games' => $settings->fixed_games,
+            ])
+            : [];
+
         $connections =
             $phaseTemplate
             ->singleEliminationConnections()
@@ -99,13 +120,13 @@ final class SingleEliminationStructureFingerprint
                     (bool) $settings->reseed_each_round,
 
                     'series_format' =>
-                    $settings->series_format,
+                    $format['series_format'] ?? null,
 
                     'default_best_of' =>
-                    (int) $settings->default_best_of,
+                    (int) ($format['default_best_of'] ?? 0),
 
                     'fixed_games' =>
-                    (int) $settings->fixed_games,
+                    (int) ($format['fixed_games'] ?? 0),
 
                     'custom_graph_participants' =>
                     (int) data_get(

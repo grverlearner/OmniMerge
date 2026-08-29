@@ -30,6 +30,15 @@ class TournamentInstancePhase extends Model
         'series_format',
         'best_of',
         'fixed_games',
+        'battle_participants',
+        'decision_mode',
+        'allow_draws',
+
+        /*
+         * El juego de esta fase. Solo se mira si la competicion bajo esa
+         * decision a las fases; si no, manda el de la competicion.
+         */
+        'game_key',
     ];
 
     protected function casts(): array
@@ -37,6 +46,10 @@ class TournamentInstancePhase extends Model
         return [
             'node_id' => 'integer',
             'participant_count' => 'integer',
+            'battle_participants' => 'integer',
+            'best_of' => 'integer',
+            'fixed_games' => 'integer',
+            'allow_draws' => 'boolean',
         ];
     }
 

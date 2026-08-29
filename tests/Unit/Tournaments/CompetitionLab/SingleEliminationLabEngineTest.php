@@ -15,6 +15,7 @@ use App\Services\Tournaments\SingleElimination\SingleEliminationValidator;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\TestCase;
+use App\Services\Tournaments\CompetitionLab\Runtime\PlacementPlanner;
 
 class SingleEliminationLabEngineTest extends TestCase
 {
@@ -371,7 +372,8 @@ class SingleEliminationLabEngineTest extends TestCase
             $validator,
             $inspector,
             $this->createMock(SingleEliminationGraphRuntime::class),
-            new SingleEliminationSettingsService()
+            new SingleEliminationSettingsService(),
+            new PlacementPlanner()
         );
     }
 

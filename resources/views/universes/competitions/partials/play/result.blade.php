@@ -42,6 +42,15 @@
 
     $medals = [2 => '🥈', 3 => '🥉'];
 
+    /*
+     * Las salidas por puesto que se quedaron vacías, y por qué.
+     *
+     * Configurar un «#3 lugar» y no ver a nadie salir por ahí desconcierta.
+     * No está roto: ese puesto no se disputó, y decirlo vale más que dejar
+     * la salida muda.
+     */
+    $sinResolver = collect($unresolvedExits ?? []);
+
     $bandLabel = function ($row) use ($bands) {
         $band = $bands[$row->runtime_key] ?? null;
 
@@ -229,6 +238,56 @@
                 </div>
 
             </section>
+        @endif
+
+
+        {{-- ============================================ --}}
+        {{-- SALIDAS POR PUESTO QUE NO SE PUDIERON SERVIR --}}
+        {{-- ============================================ --}}
+
+        @if ($sinResolver->isNotEmpty())
+
+            <section class="mt-8">
+
+                <div class="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.25em] text-amber-300">
+                        Salidas que quedaron sin servir
+                    </h3>
+
+                    <div class="mt-2 space-y-2">
+                        @foreach ($sinResolver as $fila)
+                            <div class="rounded-xl bg-slate-950/60 px-3 py-2">
+
+                                <p class="text-[11px] font-black text-slate-200">
+                                    «{{ $fila['exit_name'] }}»
+                                    <span class="font-mono text-[10px] text-slate-500">
+                                        pedía {{ $fila['wanted_from'] }}{{ $fila['wanted_to'] !== $fila['wanted_from'] ? '–' . $fila['wanted_to'] : '' }}.º
+                                    </span>
+                                </p>
+
+                                <p class="mt-0.5 text-[10px] leading-relaxed text-slate-400">
+                                    {{ $fila['reason'] }}
+                                </p>
+
+                                @php
+                                    $banda = $fila['candidates'][0] ?? null;
+                                @endphp
+
+                                @if ($banda)
+                                    <p class="mt-1 text-[10px] text-slate-500">
+                                        {{ count($fila['candidates']) }} competidores comparten el
+                                        <span class="font-mono text-slate-300">{{ $banda['band_from'] }}.º–{{ $banda['band_to'] }}.º</span>.
+                                        Para separarlos haría falta un partido entre ellos.
+                                    </p>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+            </section>
+
         @endif
 
 

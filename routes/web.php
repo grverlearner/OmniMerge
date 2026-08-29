@@ -212,6 +212,27 @@ Route::middleware('auth')->group(function () {
                                             ]
                                         )->name('create');
 
+                                        /*
+                                         * Traer de la Biblioteca lo que
+                                         * cambio. Dos pasos: ver antes que
+                                         * cambiaria, y aplicarlo despues.
+                                         */
+                                        Route::get(
+                                            '/{entity}/sync',
+                                            [
+                                                UniverseEntityController::class,
+                                                'syncPreview',
+                                            ]
+                                        )->name('sync.preview');
+
+                                        Route::post(
+                                            '/{entity}/sync',
+                                            [
+                                                UniverseEntityController::class,
+                                                'syncApply',
+                                            ]
+                                        )->name('sync.apply');
+
                                         Route::post(
                                             '/',
                                             [
@@ -380,6 +401,18 @@ Route::middleware('auth')->group(function () {
                                             ]
                                         )->name('create');
 
+                                        /*
+                                         * A quien deja competir una regla,
+                                         * sin recargar la pantalla.
+                                         */
+                                        Route::post(
+                                            '/eligibility-preview',
+                                            [
+                                                UniverseTournamentController::class,
+                                                'eligibilityPreview',
+                                            ]
+                                        )->name('eligibility-preview');
+
                                         Route::post(
                                             '/',
                                             [
@@ -527,6 +560,50 @@ Route::middleware('auth')->group(function () {
                                                 'store',
                                             ]
                                         )->name('store');
+
+                                        /*
+                                         * A quien manda cada regla de
+                                         * reparto, mientras se escribe.
+                                         * Sin esto habria que guardar la
+                                         * edicion para saber si la regla
+                                         * trae 8 competidores o 30.
+                                         */
+                                        Route::post(
+                                            '/start-preview',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'startPreview',
+                                            ]
+                                        )->name('start-preview');
+
+                                        /*
+                                         * Retocar una edicion que todavia
+                                         * no empezo. La plantilla y los
+                                         * participantes ya no se tocan:
+                                         * eso congelo el estado inicial.
+                                         */
+                                        Route::get(
+                                            '/{competition}/edit',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'edit',
+                                            ]
+                                        )->name('edit');
+
+                                        /*
+                                         * POST y PUT: el cartel de la
+                                         * edicion se sube con multipart, y
+                                         * Laravel convierte ese POST en
+                                         * PUT antes de enrutar.
+                                         */
+                                        Route::match(
+                                            ['POST', 'PUT'],
+                                            '/{competition}',
+                                            [
+                                                TournamentInstanceController::class,
+                                                'update',
+                                            ]
+                                        )->name('update');
 
                                         Route::get(
                                             '/{competition}',
@@ -734,6 +811,26 @@ Route::middleware('auth')->group(function () {
                                     'store',
                                 ]
                             )->name('trophies.store');
+
+                            /*
+                             * Las dos, y no una.
+                             *
+                             * El navegador manda la imagen en un FormData,
+                             * y un PUT con multipart no llega parseado a
+                             * PHP: hay que enviarlo por POST declarando la
+                             * intencion con _method. Pero Laravel convierte
+                             * ese POST en un PUT ANTES de enrutar, asi que
+                             * una ruta declarada solo como POST responde
+                             * 405 justo a la peticion que la necesita.
+                             */
+                            Route::match(
+                                ['POST', 'PUT'],
+                                '/trophies/{trophy}',
+                                [
+                                    UniverseTrophyController::class,
+                                    'update',
+                                ]
+                            )->name('trophies.update');
 
                             Route::delete(
                                 '/trophies/{trophy}',

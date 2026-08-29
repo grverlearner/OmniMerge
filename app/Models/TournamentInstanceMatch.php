@@ -40,20 +40,34 @@ class TournamentInstanceMatch extends Model
         'series',
         'participant_a_universe_entity_id',
         'participant_b_universe_entity_id',
+
+        /*
+         * Todos los que juegan este enfrentamiento, no solo dos. Una fase
+         * puede cruzar de cuatro en cuatro.
+         */
+        'participants',
         'winner_universe_entity_id',
         'group_label',
+
+        /*
+         * Una batalla que decide un puesto, no una ronda del cuadro.
+         */
+        'is_placement',
         'completed_at',
     ];
 
     protected function casts(): array
     {
         return [
+
+            'participants' => 'array',
             'node_id' => 'integer',
             'completed_at' => 'datetime',
             'round_number' => 'integer',
             'score_a' => 'integer',
             'score_b' => 'integer',
             'is_draw' => 'boolean',
+            'is_placement' => 'boolean',
             'series' => 'array',
         ];
     }

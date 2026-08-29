@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Universes;
 
+use App\Http\Requests\Universes\Concerns\ValidatesCompetitionConfiguration;
 use App\Models\Universe;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -19,6 +20,8 @@ use Illuminate\Validation\Rule;
 
 class StoreTournamentInstanceRequest extends FormRequest
 {
+    use ValidatesCompetitionConfiguration;
+
     public function authorize(): bool
     {
         $universe =
@@ -53,6 +56,16 @@ class StoreTournamentInstanceRequest extends FormRequest
             'universe_season_id' =>
             $this->input('universe_season_id')
                 ?: null,
+
+            /*
+             * Los desplegables que heredan mandan "" cuando se dejan en
+             * "lo que diga el torneo". Guardarlo tal cual pondria una
+             * cadena vacia donde deberia haber un nulo.
+             */
+            'battle_participants' =>
+            $this->input('battle_participants') !== ''
+                ? $this->input('battle_participants')
+                : null,
         ]);
     }
 
@@ -159,10 +172,17 @@ class StoreTournamentInstanceRequest extends FormRequest
             /*
              * assignments[startId][] = universeCompetitorId
              */
+            /*
+             * Ya no es obligatorio marcarlos uno a uno: una edicion puede
+             * repartirlos con reglas -"los que lleven sharingan entran por
+             * la puerta de invitados"- y entonces las cajas llegan
+             * resueltas por CompetitionStartRouting. Que al final haya
+             * alguien lo comprueba el servicio, que es quien puede mirar
+             * las dos formas a la vez.
+             */
             'assignments' => [
-                'required',
+                'nullable',
                 'array',
-                'min:1',
             ],
 
             'assignments.*' => [
@@ -178,7 +198,8 @@ class StoreTournamentInstanceRequest extends FormRequest
                         $universeId
                     ),
             ],
-        ];
+        ]
+        + $this->configurationRules($universeId);
     }
 
     public function messages(): array
@@ -194,65 +215,11 @@ class StoreTournamentInstanceRequest extends FormRequest
             'name.required' =>
             'Dale un nombre a esta competición.',
 
-            'assignments.required' =>
-            'Asigna competidores a al menos un punto de entrada.',
-
             'assignments.*.*.exists' =>
             'Alguno de los competidores seleccionados no pertenece a este Universo.',
 
             'universe_season_id.exists' =>
             'Esa temporada no pertenece a este Universo.',
         ];
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Asignaciones limpias
-    |--------------------------------------------------------------------------
-    |
-    | Descarta entradas vacías y competidores repetidos: un mismo
-    | competidor no puede entrar dos veces a la misma competición.
-    |
-    */
-
-    public function assignments(): array
-    {
-        $clean = [];
-
-        $seen = [];
-
-        foreach (
-            (array) $this->validated('assignments')
-            as
-            $startId => $universeEntityIds
-        ) {
-
-            $ids = [];
-
-            foreach ((array) $universeEntityIds as $universeEntityId) {
-
-                $universeEntityId = (int) $universeEntityId;
-
-                if (
-                    $universeEntityId <= 0
-                    ||
-                    isset($seen[$universeEntityId])
-                ) {
-                    continue;
-                }
-
-                $seen[$universeEntityId] = true;
-
-                $ids[] = $universeEntityId;
-            }
-
-            if ($ids === []) {
-                continue;
-            }
-
-            $clean[(int) $startId] = $ids;
-        }
-
-        return $clean;
     }
 }

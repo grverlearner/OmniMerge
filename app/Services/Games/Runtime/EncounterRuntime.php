@@ -82,8 +82,22 @@ class EncounterRuntime
         ?string $phaseName = null
     ): array {
 
+        /*
+         * Que juego se juega AQUI.
+         *
+         * Normalmente el de la competicion, que es uno para todas sus
+         * fases. Pero una edicion puede haber bajado esa decision a las
+         * fases -"los grupos a numero mas alto, la final a otra cosa"-, y
+         * entonces manda lo que diga el nodo.
+         *
+         * Lo escribe CompetitionPhasePlan antes de cada accion.
+         */
         $gameKey =
-            (string) ($state['game']['key'] ?? GameRegistry::DEFAULT_KEY);
+            (string) (
+                $state['competition_plan'][$nodeId]['game_key']
+                ?? $state['game']['key']
+                ?? GameRegistry::DEFAULT_KEY
+            );
 
         $definition =
             $this->registry->definition($gameKey);
@@ -931,8 +945,22 @@ class EncounterRuntime
             return true;
         }
 
+        /*
+         * Un cuadro necesita que alguien pase, diga lo que diga la
+         * competicion. Aceptar un empate aqui dejaria la ronda siguiente
+         * sin nadie a quien colocar.
+         */
         if (($runtime['engine'] ?? null) === 'SINGLE_ELIMINATION') {
             return true;
+        }
+
+        /*
+         * Lo que decidio la edicion. Manda sobre el defecto de la fase
+         * porque admitir tablas o no es de como se juega este ano, no de
+         * la forma del torneo.
+         */
+        if (array_key_exists('allow_draws', $state['competition_plan'][$nodeId] ?? [])) {
+            return ! (bool) $state['competition_plan'][$nodeId]['allow_draws'];
         }
 
         if (! array_key_exists('allow_draws', $runtime)) {

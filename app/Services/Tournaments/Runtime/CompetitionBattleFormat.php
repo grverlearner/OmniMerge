@@ -119,6 +119,27 @@ class CompetitionBattleFormat
         $format = $this->resolve($competition, $nodeId);
 
         /*
+         * Lo que habia antes, guardado antes de pisarlo.
+         *
+         * La huella de la estructura -la que dice "esto es el mismo cuadro
+         * que se valido"- incluye el formato de batalla. Al imponer el de
+         * la competicion, esa huella cambiaba y el motor se negaba a jugar
+         * con «la estructura avanzada cambio despues de su ultima
+         * validacion».
+         *
+         * Era una falsa alarma: cuantos juegos dura un enfrentamiento no
+         * cambia la forma del cuadro. Las rondas, los cruces y las salidas
+         * son exactamente las mismas. Asi que se conserva el original y la
+         * huella lo usa, en vez de sacar el formato de la huella —lo que
+         * habria invalidado de golpe todas las estructuras ya validadas—.
+         */
+        $settings->setAttribute('structure_format_before', [
+            'series_format' => $settings->series_format,
+            'default_best_of' => $settings->default_best_of,
+            'fixed_games' => $settings->fixed_games,
+        ]);
+
+        /*
          * forceFill y no save: el objetivo es que el motor lea otro valor,
          * no cambiar la plantilla de nadie.
          */

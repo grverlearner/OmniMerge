@@ -4,6 +4,7 @@ namespace App\Http\Requests\Universes;
 
 use App\Models\Universe;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Universes\Concerns\ValidatesTournamentConfiguration;
 use Illuminate\Validation\Rule;
 
 /*
@@ -18,6 +19,8 @@ use Illuminate\Validation\Rule;
 
 class UpdateUniverseTournamentRequest extends FormRequest
 {
+    use ValidatesTournamentConfiguration;
+
     public function authorize(): bool
     {
         $universe =
@@ -153,6 +156,13 @@ class UpdateUniverseTournamentRequest extends FormRequest
                 'min:1',
                 'max:9999',
             ],
+
+            /*
+             * El juego, la batalla y quien puede competir. Viven en un
+             * trait compartido con el alta y la edicion para que no
+             * diverjan.
+             */
+            ...$this->configurationRules(),
         ];
     }
 

@@ -392,7 +392,8 @@ class TournamentInstanceProjector
         array $runtime,
         ?int $roundNumber = null,
         ?string $roundLabel = null,
-        ?string $groupLabel = null
+        ?string $groupLabel = null,
+        bool $placement = false
     ): array {
 
         $found = [];
@@ -402,6 +403,7 @@ class TournamentInstanceProjector
             $runtime['__round_number'] = $roundNumber;
             $runtime['__round_label'] = $roundLabel;
             $runtime['__group_label'] = $groupLabel;
+            $runtime['__placement'] = $placement;
 
             return [$runtime];
         }
@@ -415,6 +417,15 @@ class TournamentInstanceProjector
             $childRound = $roundNumber;
             $childLabel = $roundLabel;
             $childGroup = $groupLabel;
+            $childPlacement = $placement;
+
+            /*
+             * Una ronda de desempate de puestos lo dice de si misma. Se
+             * recuerda para que la fila sepa que no es una ronda del cuadro.
+             */
+            if (isset($value['placement']) && isset($value['matches'])) {
+                $childPlacement = true;
+            }
 
             /*
              * Al atravesar una ronda se recuerda su número y etiqueta
@@ -470,12 +481,78 @@ class TournamentInstanceProjector
                     $value,
                     $childRound,
                     $childLabel,
-                    $childGroup
+                    $childGroup,
+                    $childPlacement
                 )
             );
         }
 
         return $found;
+    }
+
+    /*
+     * La lista completa de un enfrentamiento, en el orden en que el motor
+     * los coloco -que es el orden en que se ven en el cuadro-.
+     *
+     * @return array<int,array<string,mixed>>|null
+     */
+    private function matchParticipants(
+        array $match,
+        array $names,
+        array $entities,
+        ?string $winner
+    ): ?array {
+
+        /*
+         * participant_ids es la lista de verdad. Si el motor no la trae se
+         * reconstruye con A y B, que es lo que hacen los duelos.
+         */
+        $keys = $match['participant_ids']
+            ?? array_values(array_filter([
+                $match['participant_a_id'] ?? null,
+                $match['participant_b_id'] ?? null,
+            ]));
+
+        $keys = array_values(array_filter(
+            array_map(fn ($k) => $k === null ? null : (string) $k, (array) $keys)
+        ));
+
+        if ($keys === []) {
+            return null;
+        }
+
+        /* Quienes pasaron y quienes cayeron, si el encuentro ya se resolvio */
+        $pasan = array_map('strval', (array) ($match['qualifier_ids'] ?? []));
+        $caen = array_map('strval', (array) ($match['eliminated_ids'] ?? []));
+
+        /*
+         * El marcador solo existe por pareja -score_a y score_b-, asi que
+         * con mas de dos no se reparte: se deja en null en vez de
+         * atribuirle a un tercero un numero que no es suyo.
+         */
+        $pareja = count($keys) === 2;
+
+        return array_values(array_map(
+            function (string $key, int $i) use ($names, $entities, $winner, $pasan, $caen, $pareja, $match) {
+
+                return [
+                    'key' => $key,
+                    'position' => $i + 1,
+                    'name' => $names[$key] ?? null,
+                    'universe_entity_id' => $entities[$key] ?? null,
+
+                    'score' => $pareja
+                        ? ($i === 0 ? ($match['score_a'] ?? null) : ($match['score_b'] ?? null))
+                        : null,
+
+                    'is_winner' => $winner !== null && $key === $winner,
+                    'qualified' => in_array($key, $pasan, true),
+                    'eliminated' => in_array($key, $caen, true),
+                ];
+            },
+            $keys,
+            array_keys($keys)
+        ));
     }
 
     private function looksLikeMatch(
@@ -620,6 +697,22 @@ class TournamentInstanceProjector
                 ? ($names[$keyB] ?? null)
                 : null,
 
+            /*
+             * TODOS los que juegan, no solo dos.
+             *
+             * Una fase puede cruzar de cuatro en cuatro, y el motor lo
+             * resuelve bien: lo que se quedaba corto era esta proyeccion,
+             * que solo tenia sitio para A y B. Una competicion de 16 que
+             * juega de cuatro en cuatro ensenaba 8, porque de cada
+             * encuentro solo llegaban los dos primeros.
+             *
+             * Las columnas A y B se siguen llenando: media aplicacion las
+             * usa, un duelo sigue siendo el caso normal, y para un duelo
+             * dicen lo mismo que esta lista.
+             */
+            'participants' =>
+            $this->matchParticipants($match, $names, $entities, $winner),
+
             'score_a' =>
             is_numeric($scoreA)
                 ? (int) $scoreA
@@ -678,6 +771,9 @@ class TournamentInstanceProjector
 
             'group_label' =>
             $match['__group_label'] ?? null,
+
+            'is_placement' =>
+            (bool) ($match['__placement'] ?? false),
 
             /*
              * Se sella la primera vez que el encuentro aparece
@@ -1317,6 +1413,11 @@ class TournamentInstanceProjector
      * Ronda más lejana en la que aparece cada participante. Solo tiene
      * sentido en motores con rondas; en los demás queda a null porque no
      * habrá encuentros con round_number.
+     *
+     * Las batallas de PUESTOS quedan fuera a propósito. Van después de la
+     * final y con números de ronda más altos, así que contarlas diría que
+     * quien disputó el 13.º llegó más lejos que el campeón. Y de este orden
+     * cuelgan los premios por posición.
      */
     private function roundsReached(
         TournamentInstance $instance
@@ -1330,6 +1431,7 @@ class TournamentInstanceProjector
                 $instance->id
             )
             ->whereNotNull('round_number')
+            ->where('is_placement', false)
             ->get([
                 'participant_a_key',
                 'participant_b_key',

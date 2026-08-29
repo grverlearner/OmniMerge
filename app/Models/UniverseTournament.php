@@ -48,6 +48,21 @@ class UniverseTournament extends Model
         'recurrence_mode',
         'recurrence_interval',
         'first_season_number',
+
+        /*
+         * Lo que todas las ediciones heredan salvo que una diga otra cosa.
+         * Ver la migracion que las anadio.
+         */
+        'game_mode',
+        'allow_phase_game',
+        'allow_phase_battle',
+        'battle_participants',
+        'series_format',
+        'best_of',
+        'fixed_games',
+        'decision_mode',
+        'allow_draws',
+        'eligibility',
     ];
 
     protected function casts(): array
@@ -55,6 +70,13 @@ class UniverseTournament extends Model
         return [
             'recurrence_interval' => 'integer',
             'first_season_number' => 'integer',
+            'battle_participants' => 'integer',
+            'best_of' => 'integer',
+            'fixed_games' => 'integer',
+            'allow_draws' => 'boolean',
+            'allow_phase_game' => 'boolean',
+            'allow_phase_battle' => 'boolean',
+            'eligibility' => 'array',
         ];
     }
 

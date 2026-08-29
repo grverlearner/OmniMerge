@@ -56,6 +56,7 @@ class UniverseEntity extends Model
         'source_entity_id',
         'source_entity_version_id',
         'imported_at',
+        'synced_at',
 
         'display_name',
         'status',
@@ -68,6 +69,7 @@ class UniverseEntity extends Model
             'sequence_number' => 'integer',
             'attribute_snapshot' => 'array',
             'version_snapshot' => 'array',
+            'synced_at' => 'datetime',
             'progression' => 'array',
             'imported_at' => 'datetime',
         ];

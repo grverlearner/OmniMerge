@@ -12,22 +12,68 @@
     $destination = $destination ?? null;
 
     $isDone = $match->status === 'COMPLETED';
-    $isReady = $match->status === 'PENDING' && $match->participant_a_key && $match->participant_b_key;
 
-    $sides = [
-        [
-            'key' => $match->participant_a_key,
-            'name' => $match->participant_a_name,
-            'entity' => $match->participantAEntity,
-            'score' => $match->series ? $match->series_score[0] : $match->score_a,
-        ],
-        [
-            'key' => $match->participant_b_key,
-            'name' => $match->participant_b_name,
-            'entity' => $match->participantBEntity,
-            'score' => $match->series ? $match->series_score[1] : $match->score_b,
-        ],
+    /*
+     * TODOS los que juegan, no dos.
+     *
+     * Una fase puede cruzar de cuatro en cuatro. Esta ficha solo pintaba A
+     * y B, así que una competición de 16 jugada así enseñaba 8: de cada
+     * encuentro se veía la mitad.
+     *
+     * `participants` es la lista completa. Cuando no está —filas de antes
+     * de que existiera— se reconstruye con A y B, que es exactamente lo
+     * que son los duelos.
+     */
+    $lista = collect($match->participants ?? [])
+        ->filter(fn ($p) => ($p['key'] ?? null) !== null)
+        ->values();
+
+    if ($lista->isEmpty()) {
+        $lista = collect([
+            ['key' => $match->participant_a_key, 'name' => $match->participant_a_name],
+            ['key' => $match->participant_b_key, 'name' => $match->participant_b_name],
+        ])->filter(fn ($p) => $p['key'] !== null)->values();
+    }
+
+    /*
+     * Las caras.
+     *
+     * El modelo solo tiene accesor para A y B, así que los demás saldrían
+     * sin foto. `$participants` —la lista de la competición, que la
+     * pantalla ya tiene cargada— cubre a todos sin una consulta más.
+     */
+    $caras = [
+        $match->participant_a_key => $match->participantAEntity,
+        $match->participant_b_key => $match->participantBEntity,
     ];
+
+    $porClave = isset($participants)
+        ? collect($participants)->keyBy('runtime_key')
+        : collect();
+
+    $duelo = $lista->count() === 2;
+
+    $sides = $lista
+        ->map(fn ($p, $i) => [
+            'key' => $p['key'],
+            'name' => $p['name'] ?? null,
+            'entity' => $caras[$p['key']]
+                ?? $porClave->get($p['key'])?->universeEntity,
+
+            /*
+             * El marcador solo existe por pareja. Con más de dos se calla
+             * en vez de atribuirle a un tercero un número que no es suyo.
+             */
+            'qualified' => $p['qualified'] ?? false,
+
+            'score' => $duelo
+                ? ($match->series ? ($match->series_score[$i] ?? null) : ($i === 0 ? $match->score_a : $match->score_b))
+                : null,
+        ])
+        ->all();
+
+    /* Listo para jugar cuando están todos sus sitios ocupados */
+    $isReady = $match->status === 'PENDING' && count($sides) >= 2;
 @endphp
 
 <button type="button"
@@ -39,17 +85,39 @@
         'border-slate-800 bg-slate-900/40 hover:border-slate-700' => !$isDone && !$isReady,
     ])>
 
-    {{-- LOS DOS LADOS, UNO SOBRE OTRO --}}
+{{--
+        Un lado por participante.
+
+        El ancho se reparte entre los que hay: con dos son mitades, con
+        cuatro son cuartos. Estaba fijo en w-1/2, así que un encuentro de
+        cuatro no cabía —y de hecho ni llegaba: solo se pintaban dos—.
+
+        Literales y no interpolación: Tailwind lee el código fuente.
+    --}}
+
+    @php
+        $ancho = match (count($sides)) {
+            1 => 'w-full',
+            2 => 'w-1/2',
+            3 => 'w-1/3',
+            4 => 'w-1/4',
+            5 => 'w-1/5',
+            default => 'w-1/6',
+        };
+    @endphp
 
     <div class="flex">
 
         @foreach ($sides as $index => $side)
 
             @php
-                $isWinner = $isDone && $match->winner_key === $side['key'];
+                $isWinner = $isDone && (
+                    $match->winner_key === $side['key']
+                    || ($side['qualified'] ?? false)
+                );
             @endphp
 
-            <div class="relative w-1/2 {{ $index === 0 ? 'border-r border-slate-950/60' : '' }}">
+            <div class="relative {{ $ancho }} {{ $index + 1 < count($sides) ? 'border-r border-slate-950/60' : '' }}">
 
                 {{-- Retrato --}}
                 <div class="relative aspect-square overflow-hidden bg-slate-800">

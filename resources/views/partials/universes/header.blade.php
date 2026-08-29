@@ -4,8 +4,7 @@
         top-0
         z-30
         border-b
-        border-slate-200
-        bg-white/90
+        {{ ($dark ?? false) ? 'border-slate-800 bg-slate-950/90' : 'border-slate-200 bg-white/90' }}
         backdrop-blur
     ">
 
@@ -32,7 +31,7 @@
                 class="
                     rounded-xl
                     border
-                    border-slate-200
+                    {{ ($dark ?? false) ? 'border-slate-800' : 'border-slate-200' }}
                     p-2
                     text-slate-600
                     transition
@@ -61,7 +60,7 @@
                     class="
                         text-lg
                         font-bold
-                        text-slate-900
+                        {{ ($dark ?? false) ? 'text-slate-100' : 'text-slate-900' }}
                     ">
                     {{ $header ?? 'Universos' }}
                 </h1>
@@ -86,8 +85,7 @@
                     gap-3
                     rounded-xl
                     border
-                    border-slate-200
-                    bg-white
+                    {{ ($dark ?? false) ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white' }}
                     px-3
                     py-2
                     transition
@@ -109,7 +107,7 @@
                         class="
                             text-sm
                             font-semibold
-                            text-slate-800
+                            {{ ($dark ?? false) ? 'text-slate-200' : 'text-slate-800' }}
                         ">
                         {{ auth()->user()->name }}
                     </p>

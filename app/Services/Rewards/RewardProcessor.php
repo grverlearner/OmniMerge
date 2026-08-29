@@ -7,6 +7,7 @@ use App\Models\TournamentInstance;
 use App\Models\TournamentInstanceParticipant;
 use App\Models\UniverseEntity;
 use App\Models\UniverseStatChange;
+use App\Models\TournamentInstanceReward;
 use App\Models\UniverseTournamentReward;
 use App\Models\UniverseTrophyAward;
 use App\Services\Games\GameRegistry;
@@ -82,11 +83,34 @@ class RewardProcessor
             return $summary;
         }
 
+        /*
+         * Los premios del TORNEO los hereda toda edicion suya. Los de la
+         * EDICION existen solo en esta.
+         *
+         * Los segundos se podian configurar desde hace tiempo y no se
+         * repartian nunca: aqui solo se leian los del torneo, asi que un
+         * «#5 lugar» creado en la edicion se guardaba, se mostraba, y no
+         * entregaba nada.
+         *
+         * Se juntan en una sola lista porque el reparto es identico: los dos
+         * modelos declaran los mismos disparadores y los mismos efectos. Lo
+         * unico que cambia es de que columna cuelga el registro, y de eso se
+         * ocupa applyStat().
+         */
         $rules =
-            $tournament->rewards()
-            ->where('is_active', true)
-            ->with('trophy')
-            ->get();
+            collect([
+                ...$tournament->rewards()
+                    ->where('is_active', true)
+                    ->with('trophy')
+                    ->get()
+                    ->all(),
+
+                ...$instance->rewards()
+                    ->where('is_active', true)
+                    ->with('trophy')
+                    ->get()
+                    ->all(),
+            ]);
 
         /* Las posiciones se calculan igualmente: sirven al palmarés */
         $ordered =
@@ -182,7 +206,7 @@ class RewardProcessor
      * @return Collection<int, TournamentInstanceParticipant>
      */
     private function qualifiers(
-        UniverseTournamentReward $rule,
+        UniverseTournamentReward|TournamentInstanceReward $rule,
         Collection $ordered,
         array $encounterWins
     ): Collection {
@@ -272,7 +296,7 @@ class RewardProcessor
 
     private function applyStat(
         TournamentInstance $instance,
-        UniverseTournamentReward $rule,
+        UniverseTournamentReward|TournamentInstanceReward $rule,
         UniverseEntity $entity,
         string $defaultGameKey,
         TournamentInstanceParticipant $participant
@@ -305,6 +329,15 @@ class RewardProcessor
             return false;
         }
 
+        /*
+         * De que columna cuelga el registro. Un premio de torneo y uno de
+         * edicion pueden compartir numero sin tener nada que ver, asi que
+         * apuntar los dos a la misma columna los confundiria.
+         */
+        $columna = $rule instanceof TournamentInstanceReward
+            ? 'tournament_instance_reward_id'
+            : 'universe_tournament_reward_id';
+
         /* Idempotencia: este motivo ya se aplicó */
         $already =
             UniverseStatChange::query()
@@ -312,7 +345,7 @@ class RewardProcessor
             ->where('universe_entity_id', $entity->id)
             ->where('game_key', $definition['key'])
             ->where('stat_key', $rule->stat_key)
-            ->where('universe_tournament_reward_id', $rule->id)
+            ->where($columna, $rule->id)
             ->exists();
 
         if ($already) {
@@ -351,7 +384,7 @@ class RewardProcessor
             'universe_entity_id' => $entity->id,
             'universe_season_id' => $instance->universe_season_id,
             'tournament_instance_id' => $instance->id,
-            'universe_tournament_reward_id' => $rule->id,
+            $columna => $rule->id,
 
             'source_type' => 'REWARD',
 
@@ -372,7 +405,7 @@ class RewardProcessor
 
     private function awardTrophy(
         TournamentInstance $instance,
-        UniverseTournamentReward $rule,
+        UniverseTournamentReward|TournamentInstanceReward $rule,
         UniverseEntity $entity,
         TournamentInstanceParticipant $participant
     ): bool {

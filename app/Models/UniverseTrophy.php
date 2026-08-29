@@ -26,6 +26,13 @@ class UniverseTrophy extends Model
 
     protected $fillable = [
         'universe_id',
+
+        /*
+         * Nulo = trofeo del universo, visible para todos sus torneos.
+         * Con valor = inventado para una edicion concreta, y solo ella
+         * puede corregirlo o retirarlo.
+         */
+        'tournament_instance_id',
         'name',
         'description',
         'icon',
@@ -43,6 +50,20 @@ class UniverseTrophy extends Model
     public function universe(): BelongsTo
     {
         return $this->belongsTo(Universe::class);
+    }
+
+    public function competition(): BelongsTo
+    {
+        return $this->belongsTo(
+            TournamentInstance::class,
+            'tournament_instance_id'
+        );
+    }
+
+    /* Los del universo entero, sin los inventados para una edicion */
+    public function scopeShared($query)
+    {
+        return $query->whereNull('tournament_instance_id');
     }
 
     public function awards(): HasMany

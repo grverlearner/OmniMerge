@@ -12,6 +12,11 @@ import phaseTemplateDesigner from './tournaments/phase-templates/designer';
 import phaseSuperEditor from './tournaments/phase-templates/super-editor';
 import tournamentSuperEditor from './tournaments/super/tournament-editor';
 import tournamentDossier from './tournaments/super/tournament-dossier';
+import tournamentDesigner from './universes/tournament-designer';
+import tournamentPrizes from './universes/tournament-prizes';
+import competitionDesigner from './universes/competition-designer';
+import competitionPrizes from './universes/competition-prizes';
+import entityBrowser from './universes/entity-browser';
 import exitCriterionFields from './tournaments/phase-templates/super/criterion-fields';
 
 window.Alpine = Alpine;
@@ -25,6 +30,11 @@ window.phaseTemplateDesigner = phaseTemplateDesigner;
 window.phaseSuperEditor = phaseSuperEditor;
 window.tournamentSuperEditor = tournamentSuperEditor;
 window.tournamentDossier = tournamentDossier;
+window.tournamentDesigner = tournamentDesigner;
+window.tournamentPrizes = tournamentPrizes;
+window.competitionDesigner = competitionDesigner;
+window.competitionPrizes = competitionPrizes;
+window.entityBrowser = entityBrowser;
 window.exitCriterionFields = exitCriterionFields;
 
 
@@ -218,6 +228,70 @@ document.addEventListener(
     'alpine:init',
 
     () => {
+
+        /*
+        |----------------------------------------------------------------------
+        | x-keep-selected
+        |----------------------------------------------------------------------
+        |
+        | Mantiene seleccionada la opción de un <select> cuyas opciones las
+        | pinta Alpine.
+        |
+        | El problema que resuelve destruía datos. Un <select> con x-model
+        | se enlaza ANTES de que su <template x-for> haya insertado los
+        | <option>: no encuentra el valor, se queda en «», y x-model no
+        | vuelve a intentarlo porque el valor enlazado no ha cambiado.
+        |
+        | Al guardar, ese «» viajaba como si el usuario hubiera elegido
+        | «ninguno». En los premios de un torneo eso significaba que abrir la
+        | pantalla y pulsar guardar BORRABA el trofeo de cada premio —y con
+        | él el premio entero, porque una fila que no da nada se descarta—.
+        |
+        | Dos disparadores, y hacen falta los dos:
+        |
+        |   el efecto   cuando cambia el valor enlazado
+        |   el observer cuando cambian las OPCIONES, que es el caso que
+        |               rompía: al elegir otro juego se repintan las
+        |               estadísticas y el valor volvería a perderse
+        |
+        | Solo toca el DOM. El estado de Alpine no se altera nunca, así que
+        | esto no puede inventar una selección que el usuario no hizo: si el
+        | valor guardado no está entre las opciones, el select se queda como
+        | está.
+        */
+        Alpine.directive(
+            'keep-selected',
+
+            (el, { expression }, { evaluateLater, effect, cleanup }) => {
+
+                const leer = evaluateLater(expression);
+
+                const aplicar = () => leer((valor) => {
+
+                    const quiero =
+                        valor === null || valor === undefined
+                            ? ''
+                            : String(valor);
+
+                    if (el.value === quiero) {
+                        return;
+                    }
+
+                    if ([...el.options].some((o) => o.value === quiero)) {
+                        el.value = quiero;
+                    }
+                });
+
+                effect(() => aplicar());
+
+                const observador = new MutationObserver(() => aplicar());
+
+                observador.observe(el, { childList: true, subtree: true });
+
+                cleanup(() => observador.disconnect());
+            }
+        );
+
         Alpine.data(
             'tournamentFlowBuilder',
             tournamentFlowBuilder
@@ -254,6 +328,18 @@ document.addEventListener(
         Alpine.data(
             'phaseTemplateDesigner',
             phaseTemplateDesigner
+        );
+        Alpine.data(
+            'competitionDesigner',
+            competitionDesigner
+        );
+        Alpine.data(
+            'competitionPrizes',
+            competitionPrizes
+        );
+        Alpine.data(
+            'entityBrowser',
+            entityBrowser
         );
 
         Alpine.data(

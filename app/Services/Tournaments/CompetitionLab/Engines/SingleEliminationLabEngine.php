@@ -5,6 +5,7 @@ namespace App\Services\Tournaments\CompetitionLab\Engines;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\SingleElimination\SingleEliminationValidator;
 use App\Services\Tournaments\SingleElimination\SingleEliminationConfigurationInspector;
+use App\Services\Tournaments\CompetitionLab\Runtime\PlacementPlanner;
 use App\Services\Tournaments\SingleElimination\SingleEliminationSettingsService;
 use Illuminate\Validation\ValidationException;
 
@@ -22,7 +23,10 @@ implements LabPhaseEngine
         SingleEliminationGraphRuntime $graphRuntime,
 
         private readonly
-        SingleEliminationSettingsService $settingsService
+        SingleEliminationSettingsService $settingsService,
+
+        private readonly
+        PlacementPlanner $placement
     ) {}
 
     public function supports(
@@ -42,6 +46,7 @@ implements LabPhaseEngine
         $phase->loadMissing([
             'singleEliminationSetting',
             'singleEliminationRoundRules',
+            'exits',
         ]);
 
         /*
@@ -315,6 +320,39 @@ implements LabPhaseEngine
 
             'bye_count' =>
             0,
+
+            /*
+             * Que puestos pide esta fase, dicho ANTES de jugar nada.
+             *
+             * Un cuadro no decide quien es tercero: dos pierden en
+             * semifinales y ahi acaban los dos. Si la fase tiene una salida
+             * «#3 lugar», ese puesto hay que DISPUTARLO, y anunciarlo desde
+             * el minuto cero evita la sensacion de que la configuracion no
+             * se aplico —que es exactamente lo que parecia cuando el cuadro
+             * arrancaba igual que siempre—.
+             */
+            'placement_wanted' =>
+            $this->placement->wantedFromExits(
+                $phase->exits
+                    ->mapWithKeys(
+                        fn ($exit) => [
+                            $exit->id => [
+                                'name' => $exit->name,
+                                'selector_type' => $exit->selector_type,
+                                'selector_from' => $exit->selector_from,
+                                'selector_to' => $exit->selector_to,
+                            ],
+                        ]
+                    )
+                    ->all()
+            ),
+
+            /*
+             * El cuadro y la fase ya no terminan a la vez: entre uno y otra
+             * caben los desempates de puestos.
+             */
+            'bracket_status' =>
+            'RUNNING',
         ];
 
         $runtime['rounds'][] =
@@ -439,12 +477,23 @@ implements LabPhaseEngine
                 $match['status'] =
                     'COMPLETED';
 
-                $this->recordElimination(
-                    $runtime,
-                    $match['loser_id'],
-                    (int) $round['number'],
-                    $matchId
-                );
+                /*
+                 * Un desempate de puestos no elimina a nadie: los que lo
+                 * juegan ya cayeron del cuadro y solo estan decidiendo en
+                 * que orden quedan. Anotarlo como eliminacion haria saltar
+                 * el control de doble eliminacion —con razon— y ademas
+                 * moveria la clasificacion base sobre la que se apoyan las
+                 * propias bandas.
+                 */
+                if (! isset($round['placement'])) {
+
+                    $this->recordElimination(
+                        $runtime,
+                        $match['loser_id'],
+                        (int) $round['number'],
+                        $matchId
+                    );
+                }
 
                 $runtime['competitive_matches_completed'] =
                     (int) (
@@ -528,6 +577,17 @@ implements LabPhaseEngine
     private function advanceAutomatic(
         array $runtime
     ): array {
+        /*
+         * Si el cuadro ya termino, lo que queda por jugar son desempates de
+         * puestos. Tienen su propia progresion —no alimentan una ronda
+         * siguiente, parten una banda en dos— asi que no pasan por el bucle
+         * de abajo, que asume que los ganadores de una ronda son los
+         * participantes de la siguiente.
+         */
+        if (($runtime['bracket_status'] ?? null) === 'COMPLETED') {
+            return $this->advancePlacementRounds($runtime);
+        }
+
         while (true) {
             $roundIndex =
                 count(
@@ -658,7 +718,8 @@ implements LabPhaseEngine
             }
 
             if (count($winners) === $target) {
-                $runtime['status'] =
+
+                $runtime['bracket_status'] =
                     'COMPLETED';
 
                 $runtime['survivor_ids'] =
@@ -670,7 +731,13 @@ implements LabPhaseEngine
                         $winners
                     );
 
-                return $runtime;
+                /*
+                 * El cuadro se acabo, pero la fase quiza no: si pide un
+                 * «#3 lugar» todavia hay que jugarlo.
+                 */
+                return $this->advancePlacementRounds(
+                    $runtime
+                );
             }
 
             unset($round);
@@ -690,6 +757,283 @@ implements LabPhaseEngine
             $runtime['current_round'] =
                 $roundNumber;
         }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Los desempates de puestos
+    |--------------------------------------------------------------------------
+    |
+    | Ver PlacementPlanner para la aritmetica —donde hay que cortar y quien
+    | queda en que banda—. Aqui solo se convierte ese plan en rondas y
+    | emparejamientos de este motor.
+    |
+    | Se llama cada vez que el cuadro avanza una vez terminado: cierra los
+    | desempates ya jugados, parte su banda en dos, y abre los que la nueva
+    | reparticion vuelve a necesitar. Cuando no queda ninguno, la fase se da
+    | por terminada con la clasificacion ya desempatada.
+    |
+    */
+    private function advancePlacementRounds(
+        array $runtime
+    ): array {
+
+        $cortes =
+            $this->placement
+            ->cuts(
+                $runtime['placement_wanted']
+                ??
+                []
+            );
+
+        if (! isset($runtime['placement'])) {
+            $runtime['placement'] = [
+                'cuts' => $cortes,
+
+                'bands' => $this->placement->bands(
+                    $runtime['standings']
+                ),
+
+                'splits' => [],
+                'sequence' => 0,
+                'done' => $cortes === [],
+            ];
+        }
+
+        if ($cortes === []) {
+            $runtime['status'] = 'COMPLETED';
+
+            return $runtime;
+        }
+
+        /* 1. Los desempates ya jugados parten su banda en dos */
+        foreach ($runtime['placement']['splits'] as $indice => $split) {
+
+            if (($split['status'] ?? null) === 'CLOSED') {
+                continue;
+            }
+
+            $ronda =
+                collect($runtime['rounds'])
+                ->firstWhere(
+                    'number',
+                    $split['round_number']
+                );
+
+            $jugados =
+                collect($ronda['matches'] ?? [])
+                ->every(
+                    fn ($match) =>
+                    in_array($match['status'], ['COMPLETED', 'BYE'], true)
+                );
+
+            if (! $jugados) {
+                continue;
+            }
+
+            $arriba = $split['byes'];
+            $abajo = [];
+
+            foreach (($ronda['matches'] ?? []) as $match) {
+
+                if ($match['winner_id'] !== null) {
+                    $arriba[] = $match['winner_id'];
+                }
+
+                if ($match['loser_id'] !== null) {
+                    $abajo[] = $match['loser_id'];
+                }
+            }
+
+            $runtime['placement']['bands'] =
+                $this->placement->replaceBand(
+                    $runtime['placement']['bands'],
+                    (int) $split['from'],
+                    (int) $split['to'],
+                    $arriba,
+                    $abajo
+                );
+
+            $runtime['placement']['splits'][$indice]['status'] = 'CLOSED';
+
+            foreach ($runtime['rounds'] as $posicion => $otra) {
+                if ((int) $otra['number'] === (int) $split['round_number']) {
+                    $runtime['rounds'][$posicion]['status'] = 'COMPLETED';
+                }
+            }
+        }
+
+        /* 2. Y la nueva reparticion abre los que ahora hacen falta */
+        $abiertos = [];
+
+        foreach ($runtime['placement']['splits'] as $split) {
+            if (($split['status'] ?? null) !== 'CLOSED') {
+                $abiertos[] = (int) $split['from'];
+            }
+        }
+
+        foreach ($runtime['placement']['bands'] as $banda) {
+
+            if (in_array((int) $banda['from'], $abiertos, true)) {
+                continue;
+            }
+
+            if (! $this->placement->needsSplit($banda, $cortes)) {
+                continue;
+            }
+
+            $runtime = $this->openPlacementRound($runtime, $banda);
+        }
+
+        $pendientes =
+            collect($runtime['placement']['splits'])
+            ->contains(
+                fn ($split) =>
+                ($split['status'] ?? null) !== 'CLOSED'
+            );
+
+        $runtime['placement']['done'] = ! $pendientes;
+
+        if ($pendientes) {
+            $runtime['status'] = 'RUNNING';
+
+            return $runtime;
+        }
+
+        $runtime['status'] = 'COMPLETED';
+
+        $runtime['standings'] =
+            $this->placement
+            ->standings(
+                $runtime['standings'],
+                $runtime['placement']['bands']
+            );
+
+        return $runtime;
+    }
+
+    /*
+     * Abre el desempate de una banda como una ronda mas.
+     */
+    private function openPlacementRound(
+        array $runtime,
+        array $banda
+    ): array {
+
+        ['pairs' => $parejas, 'byes' => $byes] =
+            $this->placement
+            ->pairings(
+                $banda
+            );
+
+        if ($parejas === []) {
+            return $runtime;
+        }
+
+        $runtime['placement']['sequence']++;
+        $secuencia = (int) $runtime['placement']['sequence'];
+
+        $roundNumber =
+            collect($runtime['rounds'])
+            ->max('number')
+            + 1;
+
+        $etiqueta =
+            $this->placement
+            ->label(
+                (int) $banda['from'],
+                (int) $banda['to']
+            );
+
+        /*
+         * Un desempate se juega como se juega el final del cuadro: si la
+         * final va a BO3, el partido por el tercer puesto tambien.
+         */
+        $serie =
+            $runtime['round_series_rules'][2]
+            ?? [
+                'series_format' => $runtime['default_series_format'],
+                'best_of' => $runtime['default_best_of'],
+                'fixed_games' => $runtime['default_fixed_games'],
+            ];
+
+        $matches = [];
+
+        foreach ($parejas as $i => $pareja) {
+
+            $matches[] = [
+                'id' => 'SE-P' . $secuencia . '-M' . ($i + 1),
+                'number' => $i + 1,
+                'participant_a_id' => $pareja[0],
+                'participant_b_id' => $pareja[1],
+                'score_a' => null,
+                'score_b' => null,
+                'winner_id' => null,
+                'loser_id' => null,
+
+                'series_format' => $serie['series_format'],
+                'best_of' => (int) $serie['best_of'],
+                'fixed_games' => (int) $serie['fixed_games'],
+
+                'series_label' => $serie['series_format'] === 'FIXED_GAMES'
+                    ? $serie['fixed_games'] . ' '
+                        . ((int) $serie['fixed_games'] === 1
+                            ? 'enfrentamiento fijo'
+                            : 'enfrentamientos fijos')
+                    : 'BO' . $serie['best_of'],
+
+                'status' => 'PENDING',
+            ];
+        }
+
+        $runtime['rounds'][] = [
+            'number' => $roundNumber,
+            'participants_in_round' => count($banda['ids']),
+            'participants_count' => count($banda['ids']),
+            'label' => $etiqueta,
+
+            /*
+             * El proyector guarda esto como `group_label`, y es lo que
+             * permite a la pantalla del cuadro separar los desempates de las
+             * rondas normales sin adivinar por el numero de ronda.
+             */
+            'group_name' => $etiqueta,
+
+            'status' => 'RUNNING',
+            'survivors_after' => null,
+            'eliminated_count' => 0,
+            'matches' => $matches,
+
+            'placement' => [
+                'from' => (int) $banda['from'],
+                'to' => (int) $banda['to'],
+            ],
+        ];
+
+        $runtime['placement']['splits'][] = [
+            'id' => $secuencia,
+            'from' => (int) $banda['from'],
+            'to' => (int) $banda['to'],
+            'label' => $etiqueta,
+            'round_number' => $roundNumber,
+            'byes' => $byes,
+            'status' => 'OPEN',
+        ];
+
+        $runtime['current_round'] = $roundNumber;
+
+        $runtime['structural_matches_total'] =
+            (int) ($runtime['structural_matches_total'] ?? 0)
+            + count($matches);
+
+        $runtime['competitive_matches_total'] =
+            (int) ($runtime['competitive_matches_total'] ?? 0)
+            + count($matches);
+
+        $runtime['matches_total'] =
+            $runtime['competitive_matches_total'];
+
+        return $runtime;
     }
 
     private function makeRound(
