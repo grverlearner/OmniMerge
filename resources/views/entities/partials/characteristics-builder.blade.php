@@ -173,25 +173,45 @@
                             )
                         );
                     }
-                } else if (
-                    value !== null &&
-                    value !== ''
-                ) {
-
-                    result.push(
-                        String(
-                            value
-                        )
-                    );
                 }
+
+            /*
+             * Esta llave cierra el `if (Array.isArray(value))`.
+             *
+             * Faltaba, así que el `else` quedaba colgando del `for` —que no
+             * admite ninguno— y era un error de sintaxis. No fallaba solo
+             * esta función: Alpine evalúa el objeto `x-data` entero de una
+             * vez, así que el editor de características se quedaba SIN
+             * componente. Todo seguía dibujado y nada respondía: ni el
+             * buscador, ni los filtros, ni el botón de añadir.
+             */
+            } else if (
+                value !== null &&
+                value !== ''
+            ) {
+
+                result.push(
+                    String(
+                        value
+                    )
+                );
             }
+        }
 
+        /*
+         * Y esta cierra el `for` que recorre las selecciones.
+         *
+         * También faltaba: el `return` quedaba DENTRO del bucle —así que
+         * habría devuelto solo la primera característica— y la función se
+         * cerraba con la llave del `for`, dejando la coma del objeto
+         * suelta. Ese era el segundo error de sintaxis.
+         */
 
-            return [
-                ...new Set(
-                    result
-                )
-            ];
+        return [
+            ...new Set(
+                result
+            )
+        ];
         },
 
 

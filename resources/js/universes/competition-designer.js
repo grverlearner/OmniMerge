@@ -697,27 +697,80 @@ export default function competitionDesigner(config) {
         },
 
         doorTone(startId) {
+            return {
+                OVER: 'text-rose-400',
+                FULL: 'text-emerald-400',
+                FREE: 'text-slate-500',
+                EMPTY: 'text-slate-500',
+            }[this.doorState(startId)] ?? 'text-amber-400';
+        },
+
+        /*
+         * En qué situación está una puerta. Un solo sitio decide esto, y de
+         * él salen el color, la palabra y la barra: antes cada uno lo
+         * calculaba por su cuenta y podían no coincidir.
+         *
+         *   FREE     sin límite de plazas
+         *   EMPTY    tiene límite y no hay nadie
+         *   PARTIAL  van entrando
+         *   FULL     justo las que caben
+         *   OVER     hay más de los que caben
+         */
+        doorState(startId) {
             const room = this.doorRoom(startId);
 
-            if (this.overflowOf(startId)) return 'text-rose-400';
-            if (room === null) return 'text-slate-500';
-            if (room === 0) return 'text-emerald-400';
-            if (room < 0) return 'text-rose-400';
+            if (room === null) return 'FREE';
+            if (room < 0) return 'OVER';
+            if (room === 0) return 'FULL';
+            if (this.inDoor(startId) === 0) return 'EMPTY';
 
-            return 'text-amber-400';
+            return 'PARTIAL';
+        },
+
+        doorIsFull(startId) {
+            const estado = this.doorState(startId);
+
+            return estado === 'FULL' || estado === 'OVER';
         },
 
         doorHint(startId) {
             const room = this.doorRoom(startId);
 
-            const sobran = this.overflowOf(startId);
+            return {
+                FREE: 'sin límite',
+                FULL: '✓ llena',
+                OVER: 'sobra' + (Math.abs(room) === 1 ? '' : 'n') + ' ' + Math.abs(room),
+                EMPTY: 'faltan ' + room,
+                PARTIAL: 'faltan ' + room,
+            }[this.doorState(startId)];
+        },
 
-            if (sobran) return sobran + ' no caben';
-            if (room === null) return 'sin límite';
-            if (room === 0) return 'llena';
-            if (room < 0) return Math.abs(room) + ' de más';
+        /*
+         * Quiénes están dentro de una puerta, como competidores enteros.
+         *
+         * Es lo que faltaba. Un número —«2»— no dice si marcaste a quien
+         * querías; con la cara y el nombre delante, sí. Sirve igual con
+         * reglas (lo reparte el servidor) que a mano (lo marcas tú), porque
+         * la pregunta es la misma: quién ha quedado aquí.
+         */
+        doorRoster(startId) {
+            const ids = this.assignMode === 'RULES'
+                ? (this.routing.assignments?.[startId] ?? [])
+                : (this.manual[startId] ?? []);
 
-            return 'faltan ' + room;
+            return ids
+                .map((id) => this.competitors.find((c) => Number(c.id) === Number(id)))
+                .filter(Boolean);
+        },
+
+        /*
+         * Los que la regla eligió y se quedaron en la puerta por falta de
+         * plazas. Decir «19 no caben» sin decir quiénes no ayudaba a nadie.
+         */
+        doorOverflowRoster(startId) {
+            return (this.routing.overflow?.[startId] ?? [])
+                .map((id) => this.competitors.find((c) => Number(c.id) === Number(id)))
+                .filter(Boolean);
         },
 
         get doorsSummary() {

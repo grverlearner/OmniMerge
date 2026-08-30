@@ -830,6 +830,64 @@ class TournamentInstanceController extends Controller
         }
 
         /*
+         * Las decisiones que el motor está esperando.
+         *
+         * Una fase configurada «a mano» —grupos manuales, orden manual,
+         * BYEs elegidos— no arranca sola: el motor la deja parada y pide
+         * que alguien decida. Eso existía y funcionaba desde el Lab, pero
+         * esta pantalla no lo enseñaba: ofrecía «Abrir la fase», y abrir
+         * exige un recorrido en marcha, así que respondía «el Tournament
+         * Graph Runtime no está en ejecución» —cierto y completamente
+         * inútil para saber qué hacer—.
+         *
+         * Aquí se saca a la superficie, con las caras: repartir doce
+         * competidores en cuatro grupos leyendo claves «UC-000123» no lo
+         * hace nadie.
+         */
+        $pendingDecisions = [];
+
+        $caras =
+            $participants
+            ->keyBy('runtime_key')
+            ->map(
+                fn($p) => [
+                    'key' => $p->runtime_key,
+                    'name' => $p->name ?: ($p->universeEntity?->name ?? $p->runtime_key),
+                    'image_url' => $p->universeEntity?->image_url,
+                    'seed' => (int) $p->seed,
+                ]
+            );
+
+        foreach (($payload['state']['nodes'] ?? []) as $nodeId => $node) {
+
+            $decision = $node['runtime']['manual_decision'] ?? null;
+
+            if (! is_array($decision)) {
+                continue;
+            }
+
+            $pendingDecisions[] = [
+                'node_id' => (int) $nodeId,
+                'node_name' => $node['name'] ?? 'Fase',
+                'phase_type' => $node['phase_type'] ?? null,
+                'decision' => $decision,
+
+                'participants' =>
+                collect($decision['eligible_participant_ids'] ?? [])
+                    ->map(
+                        fn($clave) => $caras[$clave] ?? [
+                            'key' => $clave,
+                            'name' => $clave,
+                            'image_url' => null,
+                            'seed' => 0,
+                        ]
+                    )
+                    ->values()
+                    ->all(),
+            ];
+        }
+
+        /*
          * El recorrido del campeon: cada batalla que tuvo que ganar,
          * con su fase y su rival. Se lee de lo ya proyectado.
          */
@@ -946,6 +1004,7 @@ class TournamentInstanceController extends Controller
                 'bands',
                 'unresolvedExits',
                 'placementPlan',
+                'pendingDecisions',
                 'championRoute',
                 'tracksPoints',
                 'pointsLabel',

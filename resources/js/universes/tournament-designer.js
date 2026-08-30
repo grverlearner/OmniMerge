@@ -558,6 +558,20 @@ export default function tournamentDesigner(config) {
             return 'RULE';
         },
 
+        /*
+         * Deshace la decisión sobre UNO, sin pasar por el ciclo.
+         *
+         * cycleHand va RULE → IN → OUT → RULE, que está bien mientras
+         * marcas mirando la ficha; para un botón «quitar» sería una
+         * trampa —pulsar sobre alguien que está dentro lo dejaría fuera—.
+         */
+        unsetHand(id) {
+            this.include = this.include.filter((x) => x !== id);
+            this.exclude = this.exclude.filter((x) => x !== id);
+
+            this.schedulePreview();
+        },
+
         clearHand() {
             this.include = [];
             this.exclude = [];
@@ -566,6 +580,26 @@ export default function tournamentDesigner(config) {
 
         get handCount() {
             return this.include.length + this.exclude.length;
+        },
+
+        /*
+         * Los que has metido o sacado a mano, como competidores enteros.
+         *
+         * Un contador no confirma nada: marcas a alguien, el número sube, y
+         * sigues sin saber si subió por quien tú querías. Con la cara y el
+         * nombre delante se ve de un vistazo, y ese era el hueco: elegir a
+         * dedo funcionaba y no lo parecia.
+         */
+        get handInRoster() {
+            return this.include
+                .map((id) => this.roster.find((c) => Number(c.id) === Number(id)))
+                .filter(Boolean);
+        },
+
+        get handOutRoster() {
+            return this.exclude
+                .map((id) => this.roster.find((c) => Number(c.id) === Number(id)))
+                .filter(Boolean);
         },
 
         get pickerList() {

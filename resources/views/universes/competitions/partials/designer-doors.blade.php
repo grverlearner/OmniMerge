@@ -181,8 +181,19 @@
                                 x-text="st.capacity ? st.capacity + ' plazas' : 'sin límite'"></span>
                         </span>
 
+                        {{--
+                            Cuántos van, de cuántos caben.
+
+                            Antes solo salía el número de dentro y, al lado,
+                            una palabra suelta. «2» no dice nada si no
+                            recuerdas que la puerta tiene tres plazas.
+                        --}}
                         <span class="text-right">
-                            <span class="block font-mono text-[15px] font-black text-rose-300" x-text="inDoor(st.id)"></span>
+                            <span class="block font-mono text-[15px] font-black leading-none">
+                                <span class="text-rose-300" x-text="inDoor(st.id)"></span><span
+                                    class="text-slate-600" x-show="st.capacity"
+                                    x-text="'/' + st.capacity"></span>
+                            </span>
                             <span class="text-[9px] font-bold" :class="doorTone(st.id)" x-text="doorHint(st.id)"></span>
                         </span>
 
@@ -195,8 +206,109 @@
 
                     <div class="h-1 bg-slate-900" x-show="st.capacity">
                         <div class="h-full transition-all"
-                            :class="overflowOf(st.id) ? 'bg-rose-500' : (doorRoom(st.id) === 0 ? 'bg-emerald-500' : 'bg-amber-500')"
+                            :class="{
+                                'bg-rose-500': doorState(st.id) === 'OVER',
+                                'bg-emerald-500': doorState(st.id) === 'FULL',
+                                'bg-amber-500': doorState(st.id) === 'PARTIAL' || doorState(st.id) === 'EMPTY',
+                            }"
                             :style="'width:' + Math.min(100, (inDoor(st.id) / Math.max(1, st.capacity)) * 100) + '%'"></div>
+                    </div>
+
+
+                    {{-- ============ QUIÉN ESTÁ AQUÍ ============ --}}
+
+                    {{--
+                        Siempre visible, con la puerta abierta o cerrada.
+
+                        Un contador no confirma nada: marcas a alguien, el
+                        número sube, y sigues sin saber si subió por quien tú
+                        querías. Con la cara y el nombre delante se ve de un
+                        vistazo, y ese era justo el hueco: la elección a dedo
+                        funcionaba y no lo parecía.
+
+                        Vale igual con reglas —lo reparte el servidor— que a
+                        mano: la pregunta es la misma.
+                    --}}
+
+                    <div class="border-t border-slate-800/70 px-3 py-2">
+
+                        <template x-if="doorRoster(st.id).length === 0">
+                            <p class="text-[10px] text-slate-600">
+                                Todavía no entra nadie por aquí.
+                                <span x-show="assignMode === 'MANUAL'">Pulsa <span class="font-bold text-slate-400">✎ elegir</span> y márcalos.</span>
+                                <span x-show="assignMode === 'RULES'">Escribe una condición, o déjala vacía para que entre quien quede libre.</span>
+                            </p>
+                        </template>
+
+                        <div class="flex flex-wrap gap-1.5">
+                            <template x-for="c in doorRoster(st.id)" :key="'in' + st.id + '-' + c.id">
+                                <span class="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 py-0.5 pl-0.5 pr-2">
+
+                                    <span class="relative block h-6 w-6 shrink-0 overflow-hidden rounded bg-slate-900">
+                                        <template x-if="c.image_url">
+                                            <img :src="c.image_url" alt="" loading="lazy" class="h-full w-full object-cover">
+                                        </template>
+                                        <template x-if="!c.image_url">
+                                            <span class="flex h-full w-full items-center justify-center font-mono text-[8px] font-black text-slate-700"
+                                                x-text="c.name.slice(0, 2).toUpperCase()"></span>
+                                        </template>
+                                    </span>
+
+                                    <span class="max-w-[120px] truncate text-[10px] font-bold text-slate-200" x-text="c.name"></span>
+
+                                    {{-- Sacarlo desde aquí, sin abrir la puerta --}}
+                                    <button type="button" x-show="assignMode === 'MANUAL'"
+                                        @click="pick(st.id, c.id)"
+                                        title="Sacar de esta entrada"
+                                        class="-mr-1 shrink-0 px-0.5 text-[11px] leading-none text-slate-600 transition hover:text-rose-400">×</button>
+                                </span>
+                            </template>
+                        </div>
+
+                        {{--
+                            Y los que la regla eligió pero no caben.
+
+                            «19 no caben» era exacto y no servía de nada: no
+                            decía por qué —la condición captura a más gente
+                            que plazas hay— ni a quiénes deja fuera.
+                        --}}
+                        <template x-if="assignMode === 'RULES' && doorOverflowRoster(st.id).length">
+                            <div class="mt-2 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2">
+
+                                <p class="text-[10px] leading-relaxed text-rose-200">
+                                    Tu condición elige a
+                                    <span class="font-black" x-text="inDoor(st.id) + doorOverflowRoster(st.id).length"></span>,
+                                    y esta entrada tiene
+                                    <span class="font-black" x-text="st.capacity"></span>
+                                    plazas. Estos
+                                    <span class="font-black" x-text="doorOverflowRoster(st.id).length"></span>
+                                    se quedan fuera:
+                                </p>
+
+                                <div class="mt-1.5 flex flex-wrap gap-1">
+                                    <template x-for="c in doorOverflowRoster(st.id)" :key="'ov' + st.id + '-' + c.id">
+                                        <span class="flex items-center gap-1 rounded border border-rose-500/20 bg-slate-950 py-0.5 pl-0.5 pr-1.5 opacity-70">
+                                            <span class="relative block h-5 w-5 shrink-0 overflow-hidden rounded bg-slate-900">
+                                                <template x-if="c.image_url">
+                                                    <img :src="c.image_url" alt="" loading="lazy" class="h-full w-full object-cover grayscale">
+                                                </template>
+                                                <template x-if="!c.image_url">
+                                                    <span class="flex h-full w-full items-center justify-center font-mono text-[7px] font-black text-slate-700"
+                                                        x-text="c.name.slice(0, 2).toUpperCase()"></span>
+                                                </template>
+                                            </span>
+                                            <span class="max-w-[100px] truncate text-[9px] font-bold text-slate-400" x-text="c.name"></span>
+                                        </span>
+                                    </template>
+                                </div>
+
+                                <p class="mt-1.5 text-[9px] leading-relaxed text-slate-500">
+                                    Afina la condición para que elija justo a
+                                    <span class="font-bold" x-text="st.capacity"></span>,
+                                    o usa <span class="font-bold">✋ a dedo</span> para decidir cuáles.
+                                </p>
+                            </div>
+                        </template>
                     </div>
 
 
@@ -462,16 +574,13 @@
                                 </template>
                             </div>
 
-                            <p class="mt-2 text-[10px]" :class="routingBusy ? 'text-slate-600' : 'text-rose-300'">
-                                <span x-show="routingBusy">calculando…</span>
-                                <span x-show="!routingBusy">
-                                    Entran <span class="font-mono font-black" x-text="inDoor(st.id)"></span>
-                                    competidores por esta puerta.
-                                    <span x-show="overflowOf(st.id)" class="text-rose-400">
-                                        Sobran <span class="font-mono font-black" x-text="overflowOf(st.id)"></span>:
-                                        no caben y se quedan fuera.
-                                    </span>
-                                </span>
+                            {{--
+                                Quiénes entran ya se ve arriba, con sus caras,
+                                y quiénes no caben también. Aquí solo queda
+                                decir que el servidor está echando la cuenta.
+                            --}}
+                            <p class="mt-2 text-[10px] text-slate-600" x-show="routingBusy">
+                                calculando quién entra…
                             </p>
                         </div>
 
@@ -491,11 +600,37 @@
 
                             <div class="mb-2 flex flex-wrap items-center gap-1.5">
 
-                                <span class="flex items-baseline gap-1 rounded-lg bg-rose-500/15 px-2 py-1">
-                                    <span class="font-mono text-[14px] font-black text-rose-300"
+                                <span class="flex items-baseline gap-1 rounded-lg px-2 py-1"
+                                    :class="{
+                                        'bg-emerald-500/20': doorState(st.id) === 'FULL',
+                                        'bg-rose-500/25': doorState(st.id) === 'OVER',
+                                        'bg-rose-500/15': doorState(st.id) !== 'FULL' && doorState(st.id) !== 'OVER',
+                                    }">
+                                    <span class="font-mono text-[14px] font-black"
+                                        :class="doorState(st.id) === 'FULL' ? 'text-emerald-300' : 'text-rose-300'"
                                         x-text="inDoor(st.id)"></span>
                                     <span class="font-mono text-[9px] text-slate-500"
                                         x-text="st.capacity ? '/ ' + st.capacity : 'dentro'"></span>
+                                </span>
+
+                                {{--
+                                    Que la entrada esté llena hay que decirlo
+                                    donde se marca, no solo en la cabecera:
+                                    marcando caras no se mira arriba.
+
+                                    No se bloquea a propósito —a veces quieres
+                                    poner uno más y luego quitar otro— pero
+                                    pasarse se ve en rojo y no se escapa.
+                                --}}
+                                <span x-show="doorState(st.id) === 'FULL'"
+                                    class="rounded-lg bg-emerald-500/15 px-2 py-1 text-[10px] font-black text-emerald-300">
+                                    ✓ completa
+                                </span>
+
+                                <span x-show="doorState(st.id) === 'OVER'"
+                                    class="rounded-lg bg-rose-500/20 px-2 py-1 text-[10px] font-black text-rose-300">
+                                    ⚠ te pasaste por
+                                    <span class="font-mono" x-text="Math.abs(doorRoom(st.id))"></span>
                                 </span>
 
                                 <input type="search" x-model="search" placeholder="buscar por nombre o atributo…"

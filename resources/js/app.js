@@ -3,6 +3,7 @@ import Alpine from 'alpinejs';
 import tournamentFlowBuilder from './tournaments/graph/flow-builder';
 import competitionLab from './tournaments/lab/competition-lab';
 import competitionArena from './tournaments/lab/competition-arena';
+import phaseDecision from './tournaments/lab/phase-decision';
 import singleEliminationWorkspace from './tournaments/single-elimination/workspace';
 import singleEliminationStructureVisualizer from './tournaments/single-elimination/structure-visualizer';
 import singleEliminationSimulator from './tournaments/single-elimination/simulator';
@@ -304,6 +305,11 @@ document.addEventListener(
         Alpine.data(
             'competitionArena',
             competitionArena
+        );
+
+        Alpine.data(
+            'phaseDecision',
+            phaseDecision
         );
         Alpine.data(
             'singleEliminationWorkspace',

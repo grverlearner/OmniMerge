@@ -2943,19 +2943,43 @@ class TournamentGraphRuntimeService
     private function requireRuntime(
         array $state
     ): void {
-        if (
-            ! isset(
-                $state['graph_runtime']
-            )
-            ||
-            ($state['graph_runtime']['status'] ?? null)
-            !==
-            'RUNNING'
-        ) {
+        $estado = $state['graph_runtime']['status'] ?? null;
+
+        if ($estado === 'RUNNING') {
+            return;
+        }
+
+        /*
+         * Un recorrido parado esperando una decision no es un recorrido
+         * roto, y decir «no esta en ejecucion» lo hacia parecer uno.
+         *
+         * Pasa cuando una fase se configuro a mano -grupos manuales, orden
+         * manual, BYEs elegidos-: el motor la deja quieta a proposito hasta
+         * que alguien decide. Ahora se dice cual y que hay que hacer.
+         */
+        if ($estado === 'AWAITING_DECISION') {
+
+            $nombres = [];
+
+            foreach (($state['nodes'] ?? []) as $nodo) {
+                if (isset($nodo['runtime']['manual_decision'])) {
+                    $nombres[] = $nodo['name'] ?? 'una fase';
+                }
+            }
+
             $this->fail(
-                'El Tournament Graph Runtime no está en ejecución.'
+                $nombres === []
+                    ? 'El recorrido está esperando una decisión manual antes de continuar.'
+                    : 'El recorrido está esperando tu decisión en '
+                        . implode(' y ', $nombres)
+                        . '. Esa fase se configuró a mano, así que el motor '
+                        . 'no reparte solo: resuélvela y la fase se abrirá.'
             );
         }
+
+        $this->fail(
+            'El Tournament Graph Runtime no está en ejecución.'
+        );
     }
 
     private function fail(

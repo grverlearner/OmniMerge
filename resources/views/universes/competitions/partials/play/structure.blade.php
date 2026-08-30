@@ -115,10 +115,27 @@
 <div class="p-5">
 
     {{-- ============================================ --}}
-    {{-- LA FASE TODAVÍA NO ESTÁ ABIERTA --}}
+    {{-- EL MOTOR ESTÁ ESPERANDO UNA DECISIÓN --}}
     {{-- ============================================ --}}
 
-    @if ($needsOpening)
+    {{--
+        Va ANTES que todo lo demás, y sustituye a «abrir la fase».
+
+        Una fase configurada a mano —grupos manuales, orden manual, BYEs
+        elegidos— no arranca sola: el motor la deja parada y espera. Eso
+        siempre funcionó, pero esta pantalla no lo enseñaba, ofrecía «abrir
+        la fase», y abrir exige un recorrido en marcha. De ahí el «el
+        Tournament Graph Runtime no está en ejecución»: cierto, y sin
+        ninguna pista de qué hacer.
+    --}}
+
+    @if (! $readonly && ! empty($pendingDecisions ?? []))
+
+        @foreach ($pendingDecisions as $pendiente)
+            @include('universes.competitions.partials.play.decision', ['pendiente' => $pendiente])
+        @endforeach
+
+    @elseif ($needsOpening)
 
         <div class="flex min-h-[70vh] items-center justify-center">
 

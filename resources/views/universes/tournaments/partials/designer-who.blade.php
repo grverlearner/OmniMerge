@@ -366,6 +366,60 @@
             </template>
         </div>
 
+
+        {{-- ============ LO QUE DECIDISTE A MANO ============ --}}
+
+        {{--
+            Fuera del selector, y por eso: al cerrarlo desaparecía todo
+            rastro de lo marcado y solo quedaba un número en un botón. Ver
+            las caras es lo que confirma que la elección se guardó.
+        --}}
+
+        <div x-show="handCount" x-cloak class="mt-3 space-y-2">
+
+            <template x-for="bloque in [
+                { lista: handInRoster, titulo: 'Entran pase lo que pase', tono: 'emerald' },
+                { lista: handOutRoster, titulo: 'Fuera pase lo que pase', tono: 'rose' },
+            ]" :key="bloque.titulo">
+
+                <div x-show="bloque.lista.length">
+
+                    <p class="mb-1 text-[9px] font-black uppercase tracking-wider"
+                        :class="bloque.tono === 'emerald' ? 'text-emerald-400' : 'text-rose-400'">
+                        <span x-text="bloque.titulo"></span>
+                        <span class="font-mono text-slate-600" x-text="'· ' + bloque.lista.length"></span>
+                    </p>
+
+                    <div class="flex flex-wrap gap-1.5">
+                        <template x-for="c in bloque.lista" :key="bloque.titulo + c.id">
+                            <span class="flex items-center gap-1.5 rounded-lg border bg-slate-950 py-0.5 pl-0.5 pr-2"
+                                :class="bloque.tono === 'emerald' ? 'border-emerald-500/40' : 'border-rose-500/40'">
+
+                                <span class="relative block h-6 w-6 shrink-0 overflow-hidden rounded bg-slate-900">
+                                    <template x-if="c.image_url">
+                                        <img :src="c.image_url" alt="" loading="lazy"
+                                            class="h-full w-full object-cover"
+                                            :class="bloque.tono === 'rose' ? 'opacity-40 grayscale' : ''">
+                                    </template>
+                                    <template x-if="!c.image_url">
+                                        <span class="flex h-full w-full items-center justify-center font-mono text-[8px] font-black text-slate-700"
+                                            x-text="c.name.slice(0, 2).toUpperCase()"></span>
+                                    </template>
+                                </span>
+
+                                <span class="max-w-[130px] truncate text-[10px] font-bold text-slate-200" x-text="c.name"></span>
+
+                                {{-- Deshacerlo sin abrir el selector --}}
+                                <button type="button" @click="unsetHand(c.id)"
+                                    title="Quitar esta decisión"
+                                    class="-mr-1 shrink-0 px-0.5 text-[11px] leading-none text-slate-600 transition hover:text-slate-200">×</button>
+                            </span>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+
     </div>
 
 
