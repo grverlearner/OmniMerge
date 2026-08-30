@@ -39,6 +39,20 @@
 
         @include('tournaments.phase-templates.super.partials.header')
 
+        {{--
+            La Super Edición es donde de verdad cambia la forma de una fase
+            —estructura, puertas, salidas—, así que es donde más falta hace
+            saber que hay torneos montados encima. No estorba: si la fase no
+            la usa nadie, no se dibuja nada.
+        --}}
+
+        <div class="shrink-0 px-4 pt-3">
+            @include('tournaments.phase-templates.partials.in-use-notice', [
+                'phaseTemplate' => $phaseTemplate,
+                'dark' => true,
+            ])
+        </div>
+
 
         {{-- TRES ZONAS: en columna si no caben, en fila si caben --}}
 

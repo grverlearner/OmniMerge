@@ -312,3 +312,16 @@
         </div>
     </nav>
 </section>
+
+{{--
+    Y el aviso de que esta fase ya la usa un torneo.
+
+    Va aquí, en la navegación común, porque desde aquí se llega a las trece
+    pantallas donde se edita una fase: ponerlo en cada una sería trece
+    sitios donde olvidarse de ponerlo.
+--}}
+
+@include('tournaments.phase-templates.partials.in-use-notice', [
+    'phaseTemplate' => $phaseTemplate,
+    'dark' => $dark ?? false,
+])
