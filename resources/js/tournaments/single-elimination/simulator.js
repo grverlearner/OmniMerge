@@ -155,8 +155,14 @@ export default function singleEliminationSimulator(config) {
             await this.execute('PREPARE_PHASE');
         },
 
-        newSimulation() {
-            if (!confirm('¿Descartar esta simulación y volver a elegir participantes?')) {
+        async newSimulation() {
+            if (! await window.OmniConfirm.request({
+                variant: 'warning',
+                icon: '↺',
+                title: 'Descartar la simulación',
+                message: 'Volverás a elegir participantes desde cero.',
+                actionLabel: 'Sí, descartar',
+            })) {
                 return;
             }
 

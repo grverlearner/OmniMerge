@@ -220,7 +220,12 @@
                             @if (!$competition->isClosed())
                                 <form method="POST"
                                     action="{{ route('universes.competitions.cancel', [$universe, $competition]) }}"
-                                    onsubmit="return confirm('¿Cancelar esta competición? Se conservará su historial, pero no podrá continuar.');">
+                                    data-omni-confirm data-confirm-variant="danger" data-confirm-icon="⨯"
+                                    data-confirm-title="Cancelar la competición"
+                                    data-confirm-message="Se conservará su historial, pero no podrá continuar."
+                                    data-confirm-subject="{{ $competition->name }}"
+                                    data-confirm-detail="Lo ya jugado se queda como está. Lo que falte no se jugará nunca."
+                                    data-confirm-action="Sí, cancelarla">
                                     @csrf
                                     @method('PATCH')
 
@@ -711,7 +716,12 @@
 
                         <form method="POST"
                             action="{{ route('universes.competitions.destroy', [$universe, $competition]) }}"
-                            onsubmit="return confirm('¿Eliminar esta competición preparada?');">
+                            data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                            data-confirm-title="Eliminar la edición"
+                            data-confirm-message="Todavía no ha empezado, así que no se pierde nada jugado."
+                            data-confirm-subject="{{ $competition->name }}"
+                            data-confirm-detail="Se van con ella sus participantes y su reparto por puertas."
+                            data-confirm-action="Sí, eliminarla">
                             @csrf
                             @method('DELETE')
 

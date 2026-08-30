@@ -690,7 +690,14 @@
 
                                 @unless ($readonly)
                                     <button type="button"
-                                        @click="if (confirm('Se resolverán automáticamente TODAS las batallas que faltan en la competición, no solo las de esta fase. ¿Continuar?')) { execute('RUN_TOURNAMENT').then(() => window.location.reload()) }"
+                                        @click="window.OmniConfirm.request({
+                                            variant: 'danger',
+                                            icon: '⚡',
+                                            title: 'Resolver todo sin jugar',
+                                            message: 'El motor decidirá TODAS las batallas que faltan, no solo las de esta fase.',
+                                            detail: 'No se puede deshacer: los resultados quedan como si se hubieran jugado.',
+                                            actionLabel: 'Sí, resolver todo',
+                                        }).then(ok => ok && execute('RUN_TOURNAMENT').then(() => window.location.reload()))"
                                         :disabled="loading"
                                         class="shrink-0 rounded-xl border border-slate-800 px-4 py-2 text-[11px] font-black text-slate-500 transition hover:border-slate-600 hover:text-slate-300 disabled:opacity-50">
                                         Resolver todo sin jugar

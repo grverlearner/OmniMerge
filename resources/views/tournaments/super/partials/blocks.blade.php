@@ -290,7 +290,11 @@
                         @include('tournaments.super.forms.connection', ['link' => 'alpine'])
 
                         <form method="POST" :action="link.delete_url"
-                            @submit="confirm('¿Eliminar esta ruta?') || $event.preventDefault()">
+                            data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                            data-confirm-title="Eliminar la ruta"
+                            data-confirm-message="Los participantes dejarán de pasar por aquí."
+                            :data-confirm-subject="link.label ?? "Ruta""
+                            data-confirm-action="Sí, eliminar la ruta">
                             @csrf
                             @method('DELETE')
                             <button class="w-full rounded-md border border-slate-800 px-2 py-1 text-[9px] font-black text-slate-500 transition hover:border-rose-500 hover:text-rose-400">

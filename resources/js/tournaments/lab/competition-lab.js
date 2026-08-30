@@ -395,11 +395,16 @@ export default function competitionLab(config) {
         },
 
         async resetLab() {
-            if (
-                !confirm(
-                    '¿Reiniciar completamente el Competition Lab? Se eliminarán todos los resultados temporales.'
-                )
-            ) {
+            const seguro = await window.OmniConfirm.request({
+                variant: 'danger',
+                icon: '↺',
+                title: 'Reiniciar el Competition Lab',
+                message: 'Se eliminarán todos los resultados temporales.',
+                detail: 'El diseño del recorrido no se toca: solo se borra lo simulado.',
+                actionLabel: 'Sí, reiniciar',
+            });
+
+            if (!seguro) {
                 return;
             }
 

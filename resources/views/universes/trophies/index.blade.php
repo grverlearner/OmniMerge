@@ -171,7 +171,12 @@
                             @if ($trophy->awards_count === 0)
                                 <form method="POST"
                                     action="{{ route('universes.trophies.destroy', [$universe, $trophy]) }}"
-                                    onsubmit="return confirm('¿Eliminar este trofeo?')">
+                                    data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                    data-confirm-title="Eliminar trofeo"
+                                    data-confirm-message="Este trofeo dejará de estar disponible para los torneos de este universo."
+                                    data-confirm-subject="{{ $trophy->name }}"
+                                    data-confirm-image="{{ $trophy->image_url ?? '' }}"
+                                    data-confirm-action="Sí, eliminar trofeo">
                                     @csrf
                                     @method('DELETE')
 

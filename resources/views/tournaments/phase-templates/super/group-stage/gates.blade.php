@@ -131,7 +131,11 @@
 
                                 <form method="POST"
                                     :action="@js(route('tournaments.phase-templates.super.groups.destroy', [$phaseTemplate, '__ID__'])).replace('__ID__', group.definition_id)"
-                                    @submit="confirm('¿Eliminar este grupo?') || $event.preventDefault()">
+                                    data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                    data-confirm-title="Eliminar el grupo"
+                                    data-confirm-message="Sus plazas dejan de existir y la fase repartirá entre los que queden."
+                                    :data-confirm-subject="group.name"
+                                    data-confirm-action="Sí, eliminar el grupo">
                                     @csrf
                                     @include('tournaments.phase-templates.super.partials.preview-state')
                                     @method('DELETE')
@@ -205,7 +209,12 @@
 
                         <form method="POST" class="shrink-0"
                             :action="@js(route('tournaments.phase-templates.super.gates.destroy', [$phaseTemplate, '__ID__'])).replace('__ID__', gate.id)"
-                            @submit="confirm('¿Eliminar esta puerta?') || $event.preventDefault()">
+                            data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                            data-confirm-title="Eliminar la puerta de entrada"
+                            data-confirm-message="La fase dejará de recibir participantes por aquí."
+                            :data-confirm-subject="gate.name"
+                            data-confirm-detail="Si alguna ruta del torneo apuntaba a esta puerta, quedará sin destino."
+                            data-confirm-action="Sí, eliminar la puerta">
                             @csrf
                             @include('tournaments.phase-templates.super.partials.preview-state')
                             @method('DELETE')
@@ -316,7 +325,12 @@
 
                         <form method="POST" class="shrink-0"
                             :action="@js(route('tournaments.phase-templates.super.exits.destroy', [$phaseTemplate, '__ID__'])).replace('__ID__', exit.id)"
-                            @submit="confirm('¿Eliminar esta salida y sus criterios?') || $event.preventDefault()">
+                            data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                            data-confirm-title="Eliminar la salida"
+                            data-confirm-message="Por aquí ya no saldrá nadie, y se van con ella sus criterios de avance."
+                            :data-confirm-subject="exit.name"
+                            data-confirm-detail="Si alguna ruta del torneo salía de aquí, quedará sin origen."
+                            data-confirm-action="Sí, eliminar la salida">
                             @csrf
                             @include('tournaments.phase-templates.super.partials.preview-state')
                             @method('DELETE')
@@ -390,7 +404,10 @@
 
                                     <form method="POST" class="shrink-0"
                                         :action="@js(route('tournaments.group-stage.advancement-rules.destroy', [$phaseTemplate, '__ID__'])).replace('__ID__', rule.id)"
-                                        @submit="confirm('¿Quitar este criterio?') || $event.preventDefault()">
+                                      data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                      data-confirm-title="Quitar el criterio de avance"
+                                      data-confirm-message="La salida dejará de usarlo para decidir quién pasa."
+                                      data-confirm-action="Sí, quitarlo">
                                         @csrf
                                         @include('tournaments.phase-templates.super.partials.preview-state')
                                         @method('DELETE')

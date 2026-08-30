@@ -272,13 +272,14 @@
 
                 <button type="button"
                     @click="
-                if (
-                    confirm(
-                        '¿Cerrar y eliminar el Lab temporal de esta pestaña?'
-                    )
-                ) {
-                    removeLocalState()
-                }
+                window.OmniConfirm.request({
+                    variant: 'danger',
+                    icon: '×',
+                    title: 'Cerrar el Competition Lab',
+                    message: 'Se elimina el Lab temporal de esta pestaña.',
+                    detail: 'Es una simulación: no toca ninguna plantilla ni ninguna competición real.',
+                    actionLabel: 'Sí, cerrarlo',
+                }).then(ok => ok && removeLocalState())
             "
                     class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-black text-red-600">
 

@@ -58,7 +58,12 @@
 
                         <form method="POST" class="shrink-0"
                             :action="@js(route('tournaments.phase-templates.super.gates.destroy', [$phaseTemplate, '__ID__'])).replace('__ID__', gate.id)"
-                            @submit="confirm('¿Eliminar esta puerta?') || $event.preventDefault()">
+                            data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                            data-confirm-title="Eliminar la puerta de entrada"
+                            data-confirm-message="La fase dejará de recibir participantes por aquí."
+                            :data-confirm-subject="gate.name"
+                            data-confirm-detail="Si alguna ruta del torneo apuntaba a esta puerta, quedará sin destino."
+                            data-confirm-action="Sí, eliminar la puerta">
                             @csrf
                             @include('tournaments.phase-templates.super.partials.preview-state')
                             @method('DELETE')
@@ -147,7 +152,12 @@
 
                         <form method="POST" class="shrink-0"
                             :action="@js(route('tournaments.phase-templates.super.exits.destroy', [$phaseTemplate, '__ID__'])).replace('__ID__', exit.id)"
-                            @submit="confirm('¿Eliminar esta salida?') || $event.preventDefault()">
+                            data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                            data-confirm-title="Eliminar la salida"
+                            data-confirm-message="Por aquí ya no saldrá nadie hacia la fase siguiente."
+                            :data-confirm-subject="exit.name"
+                            data-confirm-detail="Si alguna ruta del torneo salía de aquí, quedará sin origen."
+                            data-confirm-action="Sí, eliminar la salida">
                             @csrf
                             @include('tournaments.phase-templates.super.partials.preview-state')
                             @method('DELETE')

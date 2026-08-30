@@ -347,10 +347,37 @@ export default function tournamentFlowBuilder(initialPayload) {
             return convergence?.incoming_routes ?? 0;
         },
 
+        /*
+         * El modal no puede responder a tiempo para un submit síncrono, así
+         * que se detiene SIEMPRE el envío y se relanza si el usuario acepta.
+         * `requestSubmit()` conserva la validación del navegador y vuelve a
+         * pasar por aquí, por eso se marca el formulario como ya aprobado.
+         */
         deleteWithConfirmation(event, message) {
-            if (!window.confirm(message)) {
-                event.preventDefault();
+            event.preventDefault();
+
+            const form = event.target;
+
+            if (form.dataset.omniApproved === '1') {
+                delete form.dataset.omniApproved;
+
+                form.submit();
+
+                return;
             }
+
+            window.OmniConfirm.request({
+                variant: 'danger',
+                icon: '×',
+                title: 'Eliminar del recorrido',
+                message: message,
+                actionLabel: 'Sí, eliminar',
+            }).then((seguro) => {
+                if (seguro) {
+                    form.dataset.omniApproved = '1';
+                    form.requestSubmit ? form.requestSubmit() : form.submit();
+                }
+            });
         },
     };
 }

@@ -179,7 +179,11 @@
                                     @include('tournaments.super.forms.entry-port', ['entry' => 'alpine'])
 
                                     <form method="POST" :action="entry.delete_url"
-                                        @submit="confirm('¿Eliminar esta puerta? Se irán también sus rutas.') || $event.preventDefault()">
+                                        data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                        data-confirm-title="Eliminar la puerta de entrada"
+                                        data-confirm-message="Se irán con ella todas las rutas que llegaban aquí."
+                                        :data-confirm-subject="entry.name"
+                                        data-confirm-action="Sí, eliminar la puerta">
                                         @csrf
                                         @method('DELETE')
                                         <button class="w-full rounded-md border border-slate-800 px-2 py-1 text-[9px] font-black text-slate-500 transition hover:border-rose-500 hover:text-rose-400">
@@ -236,7 +240,11 @@
                                                     title="Ajustar la ruta">✎</button>
 
                                                 <form method="POST" class="shrink-0" :action="link.delete_url"
-                                                    @submit="confirm('¿Eliminar esta ruta?') || $event.preventDefault()">
+                                                    data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                                    data-confirm-title="Eliminar la ruta"
+                                                    data-confirm-message="Los participantes dejarán de pasar por aquí."
+                                                    :data-confirm-subject="link.label ?? "Ruta""
+                                                    data-confirm-action="Sí, eliminar la ruta">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button class="text-[11px] text-slate-600 transition hover:text-rose-400"
@@ -510,7 +518,11 @@
                                                     title="Ajustar la ruta">✎</button>
 
                                                 <form method="POST" class="shrink-0" :action="link.delete_url"
-                                                    @submit="confirm('¿Eliminar esta ruta?') || $event.preventDefault()">
+                                                    data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                                    data-confirm-title="Eliminar la ruta"
+                                                    data-confirm-message="Los participantes dejarán de pasar por aquí."
+                                                    :data-confirm-subject="link.label ?? "Ruta""
+                                                    data-confirm-action="Sí, eliminar la ruta">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button class="text-[11px] text-slate-600 transition hover:text-rose-400"

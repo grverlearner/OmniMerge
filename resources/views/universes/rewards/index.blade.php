@@ -113,7 +113,12 @@
 
                             <form method="POST"
                                 action="{{ route('universes.tournaments.rewards.destroy', [$universe, $universeTournament, $reward]) }}"
-                                onsubmit="return confirm('¿Eliminar esta recompensa? Lo ya concedido no se revierte.')">
+                                data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                                data-confirm-title="Eliminar recompensa"
+                                data-confirm-message="Dejará de repartirse en las próximas ediciones."
+                                data-confirm-subject="{{ $reward->label ?: $reward->condition_label }}"
+                                data-confirm-detail="Lo ya concedido no se revierte: los trofeos y las stats que entregó se quedan."
+                                data-confirm-action="Sí, eliminarla">
                                 @csrf
                                 @method('DELETE')
 

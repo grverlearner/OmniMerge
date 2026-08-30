@@ -1758,11 +1758,16 @@
                     url,
                     message
                 ) {
-                    if (
-                        !confirm(
-                            message
-                        )
-                    ) {
+                    const seguro =
+                        await window.OmniConfirm.request({
+                            variant: 'danger',
+                            icon: '×',
+                            title: 'Eliminar del recorrido',
+                            message: message,
+                            actionLabel: 'Sí, eliminar',
+                        });
+
+                    if (!seguro) {
                         return;
                     }
 

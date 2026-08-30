@@ -28,6 +28,24 @@
 
     {{ $slot }}
 
+
+    {{-- ========================================================= --}}
+    {{-- CONFIRMACIÓN GLOBAL --}}
+    {{-- ========================================================= --}}
+
+    {{--
+        Faltaba aquí, y solo aquí.
+
+        La arena y la Super Edición viven en este layout, y sin el modal en
+        la página el interceptor detiene el envío del formulario y lanza un
+        evento que no escucha nadie: pulsar la × de una salida no hacía
+        absolutamente nada. Con confirm() del navegador no se notaba —el
+        cuadro del sistema no necesita estar en el DOM— y por eso el hueco
+        pasó desapercibido hasta que se sustituyó.
+    --}}
+
+    <x-omni-confirm-modal />
+
 </body>
 
 </html>

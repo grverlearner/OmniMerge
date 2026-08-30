@@ -157,8 +157,14 @@ export default function roundRobinSimulator(config) {
             await this.execute('PREPARE_PHASE');
         },
 
-        newSimulation() {
-            if (!confirm('¿Descartar esta simulación y volver a elegir participantes?')) {
+        async newSimulation() {
+            if (! await window.OmniConfirm.request({
+                variant: 'warning',
+                icon: '↺',
+                title: 'Descartar la simulación',
+                message: 'Volverás a elegir participantes desde cero.',
+                actionLabel: 'Sí, descartar',
+            })) {
                 return;
             }
 
@@ -361,7 +367,14 @@ export default function roundRobinSimulator(config) {
                 return;
             }
 
-            if (!confirm('Se simulara el ciclo ' + cycle + ' completo.')) {
+            if (! await window.OmniConfirm.request({
+                variant: 'primary',
+                icon: '🔄',
+                title: 'Simular el ciclo completo',
+                message: 'Se resolverán todos los enfrentamientos de este ciclo.',
+                subject: 'Ciclo ' + cycle,
+                actionLabel: 'Simular el ciclo',
+            })) {
                 return;
             }
 
@@ -375,7 +388,14 @@ export default function roundRobinSimulator(config) {
         },
 
         async simulateEverything() {
-            if (!confirm('Se simulara la fase entera. Podras reiniciarla despues.')) {
+            if (! await window.OmniConfirm.request({
+                variant: 'primary',
+                icon: '⚡',
+                title: 'Simular la fase entera',
+                message: 'Se resolverán todos los enfrentamientos de la liga.',
+                detail: 'Podrás reiniciarla después: esto no toca el diseño de la fase.',
+                actionLabel: 'Simular la fase',
+            })) {
                 return;
             }
 
