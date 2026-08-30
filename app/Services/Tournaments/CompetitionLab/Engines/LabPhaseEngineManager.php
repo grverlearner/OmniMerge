@@ -48,19 +48,41 @@ class LabPhaseEngineManager
         return false;
     }
 
+    /**
+     * @param  array<int,array<int,string>>  $byPort  quién llegó por cada
+     *         puerta de entrada, en el orden de las puertas. Lo usa una fase
+     *         de grupos manual para no volver a preguntar un reparto que el
+     *         recorrido ya trazó. Ver LabManualDecisionManager::orderingFromPorts().
+     */
     public function prepare(
         PhaseTemplate $phase,
         array $participantIds,
-        array $participants
+        array $participants,
+        array $byPort = []
     ): array {
-        $pending = $this->manualDecisions
-            ->preparationDecision($phase, $participantIds);
 
-        if ($pending !== null) {
-            return $pending;
+        $porPuertas = $this->manualDecisions
+            ->orderingFromPorts($phase, $participantIds, $byPort);
+
+        if ($porPuertas === null) {
+
+            $pending = $this->manualDecisions
+                ->preparationDecision($phase, $participantIds);
+
+            if ($pending !== null) {
+                return $pending;
+            }
+        } else {
+
+            /*
+             * El motor reparte en grupos siguiendo el orden de la lista, que
+             * es exactamente como se resuelve un reparto manual. Ordenarla
+             * por puertas es, por tanto, repartir por puertas.
+             */
+            $participantIds = $porPuertas['order'];
         }
 
-        return $this
+        $runtime = $this
             ->engine(
                 $phase->phase_type
             )
@@ -69,6 +91,13 @@ class LabPhaseEngineManager
                 $participantIds,
                 $participants
             );
+
+        /* Y se deja dicho de dónde salió el reparto, para poder enseñarlo */
+        if ($porPuertas !== null) {
+            $runtime['group_source'] = $porPuertas['map'];
+        }
+
+        return $runtime;
     }
 
     public function resolveDecision(

@@ -53,7 +53,12 @@
 
                 @php
                     $state = $rowState($row, $index, $total);
-                    $rowPoints = $points->get((int) $row->universe_entity_id);
+                    /* Ver la nota de view-rounds: las cifras que ordenan */
+                    $rowPoints = [
+                        'for' => (int) $row->score_for,
+                        'against' => (int) $row->score_against,
+                        'difference' => (int) $row->score_difference,
+                    ];
                     $place = $index + 1;
                 @endphp
 
@@ -160,7 +165,9 @@
 
 @if ($showPoints)
     <p class="border-t border-slate-800/60 px-3 py-2 text-[9px] leading-relaxed text-slate-500">
-        Con los mismos puntos manda la <strong class="font-black text-slate-400">diferencia</strong>,
-        y después lo <strong class="font-black text-slate-400">anotado a favor</strong>.
+        El orden lo decide <strong class="font-black text-slate-400">la fase</strong>.
+        <strong class="font-black text-slate-400">AF</strong> y
+        <strong class="font-black text-slate-400">EC</strong> son lo anotado y lo encajado, y se
+        enseñan al lado: no deciden el puesto.
     </p>
 @endif

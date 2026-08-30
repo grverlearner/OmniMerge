@@ -216,6 +216,13 @@ class BattleViewService
             GameEncounter::query()
             ->where('tournament_instance_id', $instance->id)
             ->where('battle_key', $match->runtime_match_id)
+
+            /*
+             * Y de la MISMA fase. El nombre de un enfrentamiento es local a
+             * su motor, asi que dos fases en paralelo lo repiten: sin esto,
+             * el detalle de una batalla podia mostrar los juegos de la otra.
+             */
+            ->where('node_id', $match->node_id)
             ->with('participants')
             ->orderBy('encounter_number')
             ->get()

@@ -242,7 +242,20 @@ class TournamentInstanceProjector
                 $instance->id
             )
             ->get()
-            ->keyBy('runtime_match_id');
+            /*
+             * Por FASE y por identificador, no solo por identificador.
+             *
+             * Cada motor numera sus enfrentamientos con su propia cuenta, asi
+             * que dos ligas jugandose a la vez llaman «RR-R1-M1» a la primera
+             * batalla de las dos. Con el mapa indexado solo por ese nombre,
+             * la segunda fase encontraba la fila de la primera y la
+             * SOBRESCRIBIA: 45 filas en vez de 90, y una fase entera que
+             * parecia no tener enfrentamientos.
+             */
+            ->keyBy(
+                fn ($fila) =>
+                (int) $fila->node_id . '|' . $fila->runtime_match_id
+            );
 
         $names =
             $this->participantNames(
@@ -634,9 +647,10 @@ class TournamentInstanceProjector
          * correcto por si alguien lo llama suelto.
          */
         $row =
-            $existing?->get($key)
+            $existing?->get($nodeId . '|' . $key)
             ?? TournamentInstanceMatch::query()
             ->where('tournament_instance_id', $instance->id)
+            ->where('node_id', $nodeId)
             ->where('runtime_match_id', $key)
             ->first();
 

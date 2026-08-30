@@ -13,6 +13,112 @@ final class LabManualDecisionManager
         private readonly GroupStageAllocator $groupStageAllocator
     ) {}
 
+    /*
+    |--------------------------------------------------------------------------
+    | El reparto que ya trazó el grafo
+    |--------------------------------------------------------------------------
+    |
+    | Una fase de grupos «manual» pregunta quién va a cada grupo. Tiene
+    | sentido cuando los participantes llegan en montón: alguien tiene que
+    | decidir.
+    |
+    | No lo tiene cuando el recorrido YA lo decidió. Si la fase tiene cuatro
+    | puertas de entrada y cuatro grupos, y el grafo mandó tres competidores
+    | por cada puerta, el reparto está hecho: lo dibujó el usuario al conectar
+    | las fases anteriores. Volver a preguntárselo es pedirle dos veces lo
+    | mismo —y la segunda vez sin las flechas delante—.
+    |
+    | La correspondencia es por ORDEN: la primera puerta llena el primer
+    | grupo, la segunda el segundo. Es lo que se ve al dibujarlo, y no hay
+    | ninguna otra pista en el modelo: una puerta no sabe a qué grupo va.
+    |
+    | Solo se aplica cuando encaja EXACTO —tantas puertas con gente como
+    | grupos, y en cada puerta justo los que caben en su grupo—. En cuanto
+    | algo no cuadra se vuelve a preguntar, porque colocar a alguien en un
+    | grupo por aproximación es peor que preguntar.
+    |
+    | @param  array<int,array<int,string>>  $byPort  en el orden de las puertas
+    | @return array{order: array<int,string>, map: array<int,array<string,mixed>>}|null
+    */
+    public function orderingFromPorts(
+        PhaseTemplate $phase,
+        array $participantIds,
+        array $byPort
+    ): ?array {
+
+        if ($phase->phase_type !== 'GROUP_STAGE' || $byPort === []) {
+            return null;
+        }
+
+        $phase->loadMissing(['groupStageSetting', 'groupStageGroups']);
+
+        $settings = $phase->groupStageSetting;
+
+        if (! $settings || $settings->distribution_mode !== 'MANUAL') {
+            return null;
+        }
+
+        /* Las puertas por las que de verdad llegó alguien */
+        $llenas = array_values(array_filter(
+            array_map(
+                fn ($ids) => array_values(array_unique(array_filter((array) $ids))),
+                $byPort
+            ),
+            fn ($ids) => $ids !== []
+        ));
+
+        $allocation = $this->groupStageAllocator->allocate(
+            $phase,
+            $settings,
+            $phase->groupStageGroups,
+            count($participantIds)
+        );
+
+        if (! ($allocation['valid'] ?? false)) {
+            return null;
+        }
+
+        $grupos = array_values($allocation['groups']);
+
+        if (count($llenas) !== count($grupos)) {
+            return null;
+        }
+
+        $orden = [];
+        $mapa = [];
+
+        foreach ($grupos as $indice => $grupo) {
+
+            $delPuerto = $llenas[$indice];
+
+            if (count($delPuerto) !== (int) $grupo['size']) {
+                return null;
+            }
+
+            foreach ($delPuerto as $participantId) {
+
+                if (! in_array($participantId, $participantIds, true)) {
+                    return null;
+                }
+
+                $orden[] = $participantId;
+            }
+
+            $mapa[] = [
+                'group_name' => $grupo['name'],
+                'port_index' => $indice,
+                'participant_ids' => $delPuerto,
+            ];
+        }
+
+        /* Y que no falte ni sobre nadie */
+        if (count($orden) !== count($participantIds)) {
+            return null;
+        }
+
+        return ['order' => $orden, 'map' => $mapa];
+    }
+
     public function preparationDecision(
         PhaseTemplate $phase,
         array $participantIds

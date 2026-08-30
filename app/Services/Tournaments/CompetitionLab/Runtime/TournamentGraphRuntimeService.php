@@ -605,7 +605,21 @@ class TournamentGraphRuntimeService
             ->prepare(
                 $nodeModel->phaseTemplate,
                 $participantIds,
-                $state['participants']
+                $state['participants'],
+
+                /*
+                 * Quién llegó por CADA puerta, en el orden de las puertas.
+                 *
+                 * Arriba se aplanan para el motor, que solo quiere una lista.
+                 * Pero el reparto por puertas es informacion que el usuario
+                 * dibujo al conectar las fases, y aplanarla la perdia: una
+                 * fase de grupos manual volvia a preguntar un reparto que ya
+                 * estaba hecho.
+                 */
+                collect($node['entry_ports'])
+                    ->map(fn($port) => array_values($port['participant_ids'] ?? []))
+                    ->values()
+                    ->all()
             );
 
         $node['participant_ids'] =
@@ -1633,8 +1647,25 @@ class TournamentGraphRuntimeService
 
         for ($index = 0; $index < $maximumSteps; $index++) {
 
-            /* Ya hay una batalla esperando: no se toca nada mas */
-            if ($this->pendingEncounterTarget($state) !== null) {
+            /*
+             * Ya hay una batalla esperando Y no queda nada por repartir.
+             *
+             * La condicion de la cola es la que faltaba. Antes bastaba con
+             * encontrar UNA batalla jugable para parar, asi que en un
+             * recorrido con dos fases arrancando a la vez se preparaba la
+             * primera y la segunda se quedaba en la cola con cero
+             * enfrentamientos: parecia que solo se podia jugar una fase, y
+             * la otra aparecia mas tarde, cuando cualquier otra accion movia
+             * la cola.
+             *
+             * Drenar la cola no juega nada: solo reparte participantes y
+             * prepara las fases que ya pueden empezar, que es justo lo que
+             * hace falta para que las paralelas existan a la vez.
+             */
+            if (
+                $this->pendingEncounterTarget($state) !== null
+                && ($state['graph_runtime']['operation_queue'] ?? []) === []
+            ) {
                 return $state;
             }
 
@@ -1676,7 +1707,8 @@ class TournamentGraphRuntimeService
     public function prepareEncounter(
         array $state,
         TournamentTemplate $template,
-        ?string $matchId = null
+        ?string $matchId = null,
+        ?int $nodeId = null
     ): array {
 
         $this->requireRuntime($state);
@@ -1733,7 +1765,7 @@ class TournamentGraphRuntimeService
          * comportamiento que ya habia.
          */
         $target =
-            $this->pendingEncounterTarget($state, $matchId);
+            $this->pendingEncounterTarget($state, $matchId, $nodeId);
 
         if (! $target) {
             $this->fail(
@@ -1776,6 +1808,9 @@ class TournamentGraphRuntimeService
                 $template,
                 isset($payload['match_id'])
                     ? (string) $payload['match_id']
+                    : null,
+                isset($payload['node_id'])
+                    ? (int) $payload['node_id']
                     : null
             );
 
@@ -1820,7 +1855,8 @@ class TournamentGraphRuntimeService
     public function advanceEncounter(
         array $state,
         TournamentTemplate $template,
-        ?string $matchId = null
+        ?string $matchId = null,
+        ?int $nodeId = null
     ): array {
 
         $this->requireRuntime($state);
@@ -1833,6 +1869,15 @@ class TournamentGraphRuntimeService
                 'Este enfrentamiento todavía no ha terminado.'
             );
         }
+
+        /*
+         * De que fase venia la batalla que se acaba de jugar.
+         *
+         * Hace falta despues: en un recorrido con fases en paralelo, el
+         * motor puede dejar lista una batalla de OTRA fase, y saltar ahi
+         * solo porque el grafo pudo avanzar no es lo que nadie pidio.
+         */
+        $nodoAnterior = (int) ($state['encounter']['node_id'] ?? 0);
 
         unset($state['encounter']);
 
@@ -1849,7 +1894,7 @@ class TournamentGraphRuntimeService
             );
 
         $target =
-            $this->pendingEncounterTarget($state, $matchId);
+            $this->pendingEncounterTarget($state, $matchId, $nodeId);
 
         /*
          * Sin batalla que continuar no se abre otra por su cuenta: la
@@ -1861,6 +1906,23 @@ class TournamentGraphRuntimeService
         }
 
         [$nodeId, $match] = $target;
+
+        /*
+         * Y nunca se salta de fase por su cuenta.
+         *
+         * Con dos fases jugandose a la vez, terminar la ultima batalla de
+         * una metia directamente en una batalla de la otra: el recorrido
+         * avanzaba, encontraba algo jugable, y lo abria. Desde dentro
+         * parecia que la batalla se interponia sola.
+         *
+         * Continuar dentro de la MISMA fase si es lo pedido -es la serie
+         * que se estaba jugando-; cambiar de fase es una decision del
+         * usuario, y se toma desde la estructura, donde se ve el recorrido
+         * entero.
+         */
+        if ($nodoAnterior > 0 && (int) $nodeId !== $nodoAnterior) {
+            return $state;
+        }
 
         if (
             ! $this->encounterRuntime
@@ -2033,7 +2095,8 @@ class TournamentGraphRuntimeService
      */
     private function pendingEncounterTarget(
         array $state,
-        ?string $matchId = null
+        ?string $matchId = null,
+        ?int $nodeId = null
     ): ?array {
 
         $nodes =
@@ -2044,6 +2107,20 @@ class TournamentGraphRuntimeService
                     && $node['status'] === 'RUNNING'
                     && $node['runtime']['status'] === 'RUNNING'
             );
+
+        /*
+         * Con la fase dicha, solo esa.
+         *
+         * El identificador de un enfrentamiento es local a su motor, asi que
+         * dos fases en paralelo tienen batallas que se llaman igual. Buscar
+         * solo por nombre podia abrir la de la fase equivocada -y desde la
+         * pantalla parecia que la batalla se cambiaba sola-.
+         */
+        if ($nodeId !== null && $nodeId > 0) {
+            $nodes = $nodes->filter(
+                fn($node) => (int) $node['id'] === $nodeId
+            );
+        }
 
         /*
          * Con un encuentro elegido se busca en TODOS los nodos activos: en

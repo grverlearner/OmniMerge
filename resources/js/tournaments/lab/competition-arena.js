@@ -105,9 +105,20 @@ export default function competitionArena(config) {
                 return null;
             }
 
-            return encounter.battle_key === this.selectedBattle
-                ? encounter
-                : null;
+            /*
+             * El motor nombra su enfrentamiento con la clave LOCAL de la
+             * fase; la pantalla lo identifica con «fase:enfrentamiento».
+             * Comparar las dos formas directamente no casaba nunca, y el
+             * enfrentamiento en curso quedaba invisible.
+             */
+            const { nodeId, matchId } = this.battleParts(this.selectedBattle);
+
+            const mismaBatalla = encounter.battle_key === matchId;
+
+            const mismaFase = nodeId === null
+                || Number(encounter.node_id) === nodeId;
+
+            return mismaBatalla && mismaFase ? encounter : null;
         },
 
         get hasLiveEncounter() {
@@ -278,6 +289,22 @@ export default function competitionArena(config) {
          * Abrir una batalla. Si es jugable se le pide al motor que prepare
          * su enfrentamiento; si ya está jugada, solo se muestra.
          */
+        /*
+         * La clave de una batalla es «fase:enfrentamiento».
+         *
+         * El nombre que le pone el motor —«RR-R1-M1»— es local a su fase, y
+         * con dos fases en paralelo se repite. La pantalla usa la clave
+         * entera; el motor necesita las dos partes por separado.
+         */
+        battleParts(key) {
+            const texto = String(key ?? '');
+            const corte = texto.indexOf(':');
+
+            return corte === -1
+                ? { nodeId: null, matchId: texto }
+                : { nodeId: Number(texto.slice(0, corte)), matchId: texto.slice(corte + 1) };
+        },
+
         openBattle(key) {
             if (!this.battles[key]) {
                 return;
@@ -295,7 +322,12 @@ export default function competitionArena(config) {
                  * tener dos verdades que se pueden separar.
                  */
                 if (battle?.is_playable && !this.readonly) {
-                    return this.execute('PREPARE_ENCOUNTER', { match_id: key });
+                    const { nodeId, matchId } = this.battleParts(key);
+
+                    return this.execute('PREPARE_ENCOUNTER', {
+                        match_id: matchId,
+                        node_id: nodeId,
+                    });
                 }
             });
         },
@@ -363,16 +395,22 @@ export default function competitionArena(config) {
         },
 
         rollOne(participantId) {
+            const { nodeId, matchId } = this.battleParts(this.selectedBattle);
+
             return this.execute('ROLL_ENCOUNTER', {
                 participant_id: participantId,
-                match_id: this.selectedBattle,
+                match_id: matchId,
+                node_id: nodeId,
             }).then(() => this.rememberEncounter(this.liveEncounter));
         },
 
         rollAll() {
+            const { nodeId, matchId } = this.battleParts(this.selectedBattle);
+
             return this.execute('ROLL_ENCOUNTER', {
                 all: true,
-                match_id: this.selectedBattle,
+                match_id: matchId,
+                node_id: nodeId,
             }).then(() => this.rememberEncounter(this.liveEncounter));
         },
 
@@ -391,8 +429,11 @@ export default function competitionArena(config) {
              * pasaba a COMPLETED y ni el resultado ni los premios llegaban
              * a existir. La partida se ganaba y no se cerraba.
              */
+            const { nodeId, matchId } = this.battleParts(this.selectedBattle);
+
             return this.execute('ADVANCE_ENCOUNTER', {
-                match_id: this.selectedBattle,
+                match_id: matchId,
+                node_id: nodeId,
             }).then(() => {
                 /*
                  * Si el motor no dejo listo el siguiente enfrentamiento de

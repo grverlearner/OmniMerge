@@ -39,7 +39,24 @@
      */
     $points = ($pointsByPhase ?? collect())->get($nodeId) ?? collect();
 
-    $showPoints = ($tracksPoints ?? false) && $points->isNotEmpty();
+    /*
+     * Las cifras que enseña la tabla son las que USA la fase para ordenar.
+     *
+     * Antes venian de PhasePointsService, que suma game_encounters — solo
+     * los enfrentamientos que pasaron por el motor de juego—. En una fase
+     * de 45 batallas con 18 registradas, esa suma es parcial: alguien
+     * aparecia con «—» y otro con una diferencia que no era la suya.
+     *
+     * El resultado era una tabla que se contradecia sola: ordenada por el
+     * puesto real de la fase —puntos, diferencia, anotados— pero enseñando
+     * unos numeros con los que ese orden no cuadraba, y de ahi la sensacion
+     * de que la etiqueta «Clasificado» estaba puesta en la fila equivocada.
+     *
+     * La clasificacion de la fase ya trae score_for / score_against /
+     * score_difference, calculados sobre TODAS las batallas. Son los que
+     * deciden, asi que son los que se enseñan.
+     */
+    $showPoints = (bool) ($tracksPoints ?? false);
 
     /*
      * Cuántos pasan de cada grupo. En una fase de grupos el corte es por
@@ -69,24 +86,42 @@
         return $index < $groupCut ? 'in' : 'out';
     };
 
-    /* Orden de una tabla: puntos, diferencia, anotados, victorias */
-    $order = function ($rows) use ($showPoints, $points) {
+    /*
+     * El orden lo decide la FASE, no esta pantalla.
+     *
+     * Aquí se reordenaba por puntos y, en caso de empate, por la diferencia
+     * de los puntos ANOTADOS —las columnas A favor / En contra—. Y esos
+     * números son otra cosa: PhasePointsService los suma de game_encounters
+     * para enseñar el rendimiento bruto al lado de la tabla, y su propia
+     * documentación dice que no deciden nada.
+     *
+     * Quien decide es el motor de la fase, con los desempates que tenga
+     * configurados, y deja su veredicto en `position`. Al ordenar de otra
+     * manera salían dos verdades: la tabla ponía a uno por encima del corte
+     * y la etiqueta —que sí lee al motor— decía «Eliminado», mientras que
+     * abajo alguien aparecía «Clasificado». Ninguna de las dos estaba mal;
+     * estaban ordenadas por criterios distintos.
+     *
+     * Con `position` mandando, el orden, la línea de corte y las etiquetas
+     * salen todos de la misma fuente y no pueden contradecirse.
+     */
+    $order = function ($rows) {
 
-        if (! $showPoints) {
-            return $rows->sortBy('position')->values();
-        }
+        $conPuestos = $rows->isNotEmpty()
+            && $rows->every(fn($row) => $row->position !== null);
 
-        return $rows->sortBy([
-            fn($a, $b) => (int) $b->points <=> (int) $a->points,
+    /*
+     * Solo si el motor todavía no ha puesto puestos —una fase recién
+     * abierta— se ordena aquí, y entonces da igual porque nadie está
+     * clasificado ni eliminado.
+     */
 
-            fn($a, $b) => ($points->get((int) $b->universe_entity_id)['difference'] ?? 0)
-                <=> ($points->get((int) $a->universe_entity_id)['difference'] ?? 0),
-
-            fn($a, $b) => ($points->get((int) $b->universe_entity_id)['for'] ?? 0)
-                <=> ($points->get((int) $a->universe_entity_id)['for'] ?? 0),
-
-            fn($a, $b) => (int) $b->wins <=> (int) $a->wins,
-        ])->values();
+        return $conPuestos
+            ? $rows->sortBy(fn($row) => (int) $row->position)->values()
+            : $rows->sortBy([
+                fn($a, $b) => (int) $b->points <=> (int) $a->points,
+                fn($a, $b) => (int) $b->wins <=> (int) $a->wins,
+            ])->values();
     };
 
     /* La jornada por la que se entra: la primera sin terminar */

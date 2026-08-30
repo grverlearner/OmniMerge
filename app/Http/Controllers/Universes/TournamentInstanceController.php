@@ -701,9 +701,20 @@ class TournamentInstanceController extends Controller
          * detalle se pide a universes.competitions.battles.show. El coste
          * pasa de "todas las batallas siempre" a "la que estas mirando".
          */
+        /*
+         * La clave lleva la FASE delante.
+         *
+         * El identificador de un enfrentamiento es local a su motor: la
+         * primera jornada de una liga es «RR-R1-M1» venga de la fase que
+         * venga. Con dos ligas jugandose a la vez, este indice tenia 45
+         * entradas en vez de 90 y pulsar una batalla podia abrir la de la
+         * otra fase. La columna sigue guardando el nombre del motor; lo que
+         * viaja a la pantalla es «94:RR-R1-M1».
+         */
         $battles =
             $competition->matches()
             ->get([
+                'node_id',
                 'runtime_match_id',
                 'label',
                 'round_number',
@@ -713,7 +724,7 @@ class TournamentInstanceController extends Controller
             ->mapWithKeys(
                 fn($match) => [
 
-                    $match->runtime_match_id => [
+                    $match->node_id . ':' . $match->runtime_match_id => [
                         'label' => $match->label,
                         'round' => $match->round_number,
                         'group' => $match->group_label,
@@ -828,6 +839,53 @@ class TournamentInstanceController extends Controller
                 'pending' => $pendientes,
             ];
         }
+
+        /*
+         * De dónde salió el reparto en grupos de cada fase.
+         *
+         * Cuando el recorrido ya lo decidió —cada puerta de entrada llena su
+         * grupo— la fase no pregunta nada. Eso está bien, pero callarlo
+         * dejaría al usuario sin saber por qué unos acabaron en el Grupo A y
+         * otros en el B. Aquí se recupera para poder decirlo.
+         */
+        $groupSources = [];
+
+        foreach (($payload['state']['nodes'] ?? []) as $nodeId => $node) {
+
+            $fuente = $node['runtime']['group_source'] ?? null;
+
+            if (! is_array($fuente) || $fuente === []) {
+                continue;
+            }
+
+            $nombresDePuerta =
+                collect($node['entry_ports'] ?? [])
+                ->pluck('name')
+                ->values()
+                ->all();
+
+            $groupSources[(int) $nodeId] =
+                collect($fuente)
+                ->map(
+                    fn ($fila) => [
+                        'group_name' => $fila['group_name'] ?? '',
+                        'port_name' => $nombresDePuerta[$fila['port_index'] ?? -1]
+                            ?? ('Entrada ' . ((int) ($fila['port_index'] ?? 0) + 1)),
+                        'count' => count($fila['participant_ids'] ?? []),
+                    ]
+                )
+                ->values()
+                ->all();
+        }
+
+        /*
+         * La forma real del recorrido: qué fases van a la vez y cuáles
+         * esperan a cuáles. La arena la trataba como una fila, y un
+         * recorrido con dos fases en paralelo no lo es.
+         */
+        $phaseGraph =
+            app(\App\Services\Tournaments\Runtime\CompetitionPhaseGraph::class)
+            ->forCompetition($competition);
 
         /*
          * Las decisiones que el motor está esperando.
@@ -1005,6 +1063,8 @@ class TournamentInstanceController extends Controller
                 'unresolvedExits',
                 'placementPlan',
                 'pendingDecisions',
+                'phaseGraph',
+                'groupSources',
                 'championRoute',
                 'tracksPoints',
                 'pointsLabel',
@@ -1118,14 +1178,31 @@ class TournamentInstanceController extends Controller
 
         $this->authorize('view', $competition);
 
-        $match =
+        /*
+         * «94:RR-R1-M1» — la fase delante, porque el nombre del motor se
+         * repite entre fases paralelas. Se admite tambien la forma antigua,
+         * sin fase: las competiciones de una sola fase siguen funcionando
+         * y los enlaces guardados no se rompen.
+         */
+        $consulta =
             $competition->matches()
-            ->where('runtime_match_id', $battle)
             ->with([
                 'participantAEntity',
                 'participantBEntity',
-            ])
-            ->firstOrFail();
+            ]);
+
+        if (str_contains($battle, ':')) {
+
+            [$nodo, $clave] = explode(':', $battle, 2);
+
+            $consulta
+                ->where('node_id', (int) $nodo)
+                ->where('runtime_match_id', $clave);
+        } else {
+            $consulta->where('runtime_match_id', $battle);
+        }
+
+        $match = $consulta->firstOrFail();
 
         return response()->json(
             $this->battlePayload(

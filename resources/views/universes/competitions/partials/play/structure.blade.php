@@ -56,9 +56,15 @@
         ],
     ];
 
+    /*
+     * La forma del recorrido. Sin ella todo esto era una fila, y un torneo
+     * con dos fases a la vez no es una fila.
+     */
+    $forma = $phaseGraph ?? [];
+
     $phaseTabs = $phaseBlocks
         ->values()
-        ->map(function ($block, $index) use ($tones) {
+        ->map(function ($block, $index) use ($tones, $forma) {
 
             $phase = $block['phase'];
 
@@ -72,10 +78,24 @@
                 default => 'LOCKED',
             };
 
+            $nodo = $forma[$phase->node_id] ?? [
+                'level' => 1,
+                'depends_on' => [],
+                'feeds' => [],
+                'parallel_with' => [],
+                'waits_for_all' => false,
+            ];
+
             return [
                 'index' => $index,
                 'block' => $block,
                 'phase' => $phase,
+                'node_id' => (int) $phase->node_id,
+                'level' => (int) $nodo['level'],
+                'depends_on' => $nodo['depends_on'],
+                'feeds' => $nodo['feeds'],
+                'parallel_with' => $nodo['parallel_with'],
+                'waits_for_all' => (bool) $nodo['waits_for_all'],
                 'done' => $done,
                 'total' => $total,
                 'progress' => $total > 0 ? (int) round($done * 100 / $total) : 0,
@@ -110,6 +130,32 @@
         ?? ($phaseTabs->isNotEmpty() ? $phaseTabs->last()['index'] : 0);
 
     $tabStorageKey = 'omnimerge.arena.' . $competition->id . '.phase';
+
+    /*
+     * Las pestañas, agrupadas por nivel. Las de un mismo nivel se juegan a
+     * la vez: entre ellas se salta libremente, y ninguna espera a la otra
+     * salvo que una fase posterior las junte.
+     */
+    $porNivel = $phaseTabs->groupBy('level')->sortKeys();
+
+    $hayParalelas = $phaseTabs->contains(fn($t) => count($t['parallel_with']) > 0);
+
+    /* De nodo a pestaña, para poder nombrar dependencias */
+    $porNodo = $phaseTabs->keyBy('node_id');
+
+    /*
+     * Una fase está lista cuando todas las que la alimentan terminaron.
+     * Con varias entradas eso es lo que decide si se puede abrir o no, y
+     * es justo lo que la pantalla no sabía decir.
+     */
+    $pendientesDe = function (array $tab) use ($porNodo) {
+
+        return collect($tab['depends_on'])
+            ->map(fn($id) => $porNodo[$id] ?? null)
+            ->filter()
+            ->filter(fn($otro) => $otro['state'] !== 'DONE')
+            ->values();
+    };
 @endphp
 
 <div class="p-5">
@@ -195,14 +241,38 @@
 
                 <nav class="-mx-1 overflow-x-auto px-1 pb-1">
 
+                    {{--
+                        Las fases, agrupadas por nivel.
+
+                        Antes iban en una fila con flechas entre todas, lo que
+                        decía algo falso en cuanto dos fases arrancan a la vez:
+                        que una va después de la otra. Ahora las que se juegan
+                        simultáneamente van juntas bajo su nivel, y la flecha
+                        solo separa niveles —que es donde sí hay un «después»—.
+                    --}}
+
                     <div class="flex min-w-max items-stretch gap-2">
 
-                        @foreach ($phaseTabs as $tab)
+                        @foreach ($porNivel as $nivel => $delNivel)
 
-                            {{-- El torneo avanza de una fase a la siguiente --}}
                             @if (! $loop->first)
-                                <div class="flex items-center px-0.5 text-lg text-slate-700">→</div>
+                                <div class="flex items-center px-1 text-lg text-slate-700">→</div>
                             @endif
+
+                            <div @class([
+                                'rounded-2xl' => $hayParalelas,
+                                'border border-dashed border-slate-800 bg-slate-950/40 p-1.5' => $hayParalelas && $delNivel->count() > 1,
+                            ])>
+
+                                @if ($hayParalelas && $delNivel->count() > 1)
+                                    <p class="px-1.5 pb-1 text-[8px] font-black uppercase tracking-[0.2em] text-amber-400">
+                                        ⇉ {{ $delNivel->count() }} fases a la vez
+                                    </p>
+                                @endif
+
+                                <div class="flex items-stretch gap-2">
+
+                        @foreach ($delNivel as $tab)
 
                             <button type="button" @click="go({{ $tab['index'] }})"
                                 :class="phase === {{ $tab['index'] }}
@@ -238,6 +308,10 @@
                                 </div>
 
                             </button>
+                        @endforeach
+
+                                </div>
+                            </div>
                         @endforeach
 
                     </div>
@@ -291,6 +365,41 @@
                     </div>
 
 
+                    {{-- ============================================ --}}
+                    {{-- DE DÓNDE SALIÓ EL REPARTO EN GRUPOS --}}
+                    {{-- ============================================ --}}
+
+                    {{--
+                        Cuando el recorrido ya decidió los grupos —cada puerta
+                        de entrada llena el suyo—, la fase no pregunta nada.
+                        Callarlo del todo dejaría sin explicar por qué unos
+                        acabaron en el Grupo A y otros en el B.
+                    --}}
+
+                    @php $fuente = ($groupSources ?? [])[$tab['node_id']] ?? null; @endphp
+
+                    @if ($fuente)
+                        <div class="flex flex-wrap items-center gap-2 border-b border-slate-800 bg-emerald-500/5 px-5 py-2.5">
+
+                            <span class="text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                                ⇥ repartido por el recorrido
+                            </span>
+
+                            @foreach ($fuente as $fila)
+                                <span class="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[10px] text-slate-300">
+                                    <strong class="font-black text-slate-100">{{ $fila['group_name'] }}</strong>
+                                    ← {{ $fila['port_name'] }}
+                                    <span class="font-mono text-slate-600">· {{ $fila['count'] }}</span>
+                                </span>
+                            @endforeach
+
+                            <span class="text-[10px] text-slate-600">
+                                · no hizo falta repartir a mano
+                            </span>
+                        </div>
+                    @endif
+
+
                     {{-- CUERPO SEGÚN EL MOTOR --}}
 
                     @if ($block['view'] === 'bracket')
@@ -307,21 +416,87 @@
                     {{-- ============================================ --}}
 
                     @php
-                        $next = $phaseTabs[$tab['index'] + 1] ?? null;
+                        /*
+                         * A dónde va esta fase, según el RECORRIDO, no según
+                         * el orden de la lista.
+                         *
+                         * Antes era `$phaseTabs[$index + 1]`: la siguiente de
+                         * la fila. Con dos fases en paralelo eso señalaba a la
+                         * fase hermana —que no va después, va al lado— y
+                         * ofrecía abrirla como si esta la alimentara.
+                         */
+                        $siguientes =
+                            collect($tab['feeds'])
+                            ->map(fn($id) => $porNodo[$id] ?? null)
+                            ->filter()
+                            ->values();
+
+                        /* Las hermanas: se juegan a la vez que esta */
+                        $hermanas =
+                            collect($tab['parallel_with'])
+                            ->map(fn($id) => $porNodo[$id] ?? null)
+                            ->filter()
+                            ->values();
 
                         /*
-                         * "Abrir siguiente fase" estaba al final de la
-                         * pantalla, suelto y siempre visible, así que no
-                         * se sabía a qué fase se refería ni cuándo tocaba
-                         * pulsarlo. Aquí vive dentro de la fase que lo
-                         * habilita, y solo aparece cuando esa fase ha
-                         * terminado: pulsarlo es OFICIALIZAR el paso.
+                         * Una fase posterior solo se abre cuando TODAS las que
+                         * la alimentan terminaron. Aquí se mira una por una, y
+                         * se guarda qué falta para poder decirlo por su nombre
+                         * en vez de un «todavía no».
                          */
-                        $canOpenNext =
-                            $tab['state'] === 'DONE'
-                            && $next !== null
-                            && $next['total'] === 0;
+                        $abribles = $siguientes->filter(
+                            fn($n) => $n['total'] === 0 && $pendientesDe($n)->isEmpty()
+                        )->values();
+
+                        $bloqueadas = $siguientes->filter(
+                            fn($n) => $n['total'] === 0 && $pendientesDe($n)->isNotEmpty()
+                        )->values();
+
+                        $next = $abribles->first();
+
+                        $canOpenNext = $tab['state'] === 'DONE' && $next !== null;
                     @endphp
+
+                    {{--
+                        Lo que se juega a la vez que esta fase.
+
+                        Va arriba del pie y siempre visible: saber que hay otra
+                        fase abierta en paralelo es lo que permite ir a ella sin
+                        creer que hay que terminar esta primero.
+                    --}}
+
+                    @if ($hermanas->isNotEmpty())
+                        <div class="flex flex-wrap items-center gap-2 border-t border-slate-800 bg-slate-950/40 px-5 py-2.5">
+
+                            <span class="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                                ⇉ a la vez que esta
+                            </span>
+
+                            @foreach ($hermanas as $hermana)
+                                <button type="button" @click="go({{ $hermana['index'] }})"
+                                    class="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 transition hover:border-amber-400">
+
+                                    <span class="text-[11px]">{{ $hermana['icon'] }}</span>
+
+                                    <span class="max-w-[160px] truncate text-[10px] font-black text-slate-200">
+                                        {{ $hermana['phase']->node_name }}
+                                    </span>
+
+                                    <span class="rounded px-1 py-0.5 text-[8px] font-black uppercase {{ $hermana['tone']['chip'] }}">
+                                        {{ $hermana['tone']['badge'] }}
+                                    </span>
+
+                                    <span class="font-mono text-[9px] text-slate-500">
+                                        {{ $hermana['done'] }}/{{ $hermana['total'] }}
+                                    </span>
+                                </button>
+                            @endforeach
+
+                            <span class="text-[10px] text-slate-600">
+                                · puedes saltar entre ellas cuando quieras
+                            </span>
+                        </div>
+                    @endif
 
                     <div class="border-t border-slate-800 px-5 py-3.5">
 
@@ -352,7 +527,70 @@
 
                             </div>
 
-                        @elseif ($tab['state'] === 'DONE' && $next !== null)
+                        @elseif ($tab['state'] === 'DONE' && $bloqueadas->isNotEmpty())
+
+                            {{--
+                                Terminada, pero lo que viene después no puede
+                                empezar todavía porque lo alimentan varias
+                                fases y alguna sigue en juego.
+
+                                Se dice CUÁL falta, por su nombre y con un
+                                botón para ir a ella. Un «todavía no» a secas
+                                deja al usuario buscando qué hacer, que es
+                                exactamente el callejón del que venimos.
+                            --}}
+
+                            @foreach ($bloqueadas as $bloqueada)
+                                @php $faltan = $pendientesDe($bloqueada); @endphp
+
+                                <div class="flex flex-wrap items-center gap-3 {{ $loop->first ? '' : 'mt-3 border-t border-slate-800/60 pt-3' }}">
+
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-xs font-black text-emerald-300">
+                                            ✓ {{ $tab['phase']->node_name }} terminada
+                                        </p>
+
+                                        <p class="mt-0.5 text-[11px] leading-relaxed text-slate-400">
+                                            <strong class="font-black text-slate-200">{{ $bloqueada['phase']->node_name }}</strong>
+                                            se alimenta de
+                                            {{ count($bloqueada['depends_on']) }} fases
+                                            @if ($bloqueada['waits_for_all'])
+                                                y espera a que <span class="font-bold">todas</span> terminen.
+                                            @else
+                                                y todavía faltan participantes por llegar.
+                                            @endif
+                                            Falta
+                                            {{ $faltan->count() === 1 ? 'que termine' : 'que terminen' }}:
+                                        </p>
+                                    </div>
+
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        @foreach ($faltan as $pendiente)
+                                            <button type="button"
+                                                @click="go({{ $pendiente['index'] }}); $el.closest('.arena-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })"
+                                                class="flex items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 px-2.5 py-1.5 transition hover:bg-amber-500/20">
+
+                                                <span class="text-[11px]">{{ $pendiente['icon'] }}</span>
+
+                                                <span class="max-w-[150px] truncate text-[10px] font-black text-amber-200">
+                                                    {{ $pendiente['phase']->node_name }}
+                                                </span>
+
+                                                <span class="font-mono text-[9px] text-amber-400/70">
+                                                    {{ $pendiente['done'] }}/{{ $pendiente['total'] }}
+                                                </span>
+
+                                                <span class="text-[10px] text-amber-300">→</span>
+                                            </button>
+                                        @endforeach
+                                    </div>
+
+                                </div>
+                            @endforeach
+
+                        @elseif ($tab['state'] === 'DONE' && $siguientes->firstWhere('total', '>', 0))
+
+                            @php $yaAbierta = $siguientes->first(fn($n) => $n['total'] > 0); @endphp
 
                             <div class="flex flex-wrap items-center gap-3">
 
@@ -361,9 +599,9 @@
                                 </p>
 
                                 <button type="button"
-                                    @click="go({{ $next['index'] }}); $el.closest('.arena-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })"
+                                    @click="go({{ $yaAbierta['index'] }}); $el.closest('.arena-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })"
                                     class="shrink-0 rounded-xl border border-slate-700 px-4 py-2 text-[11px] font-black text-slate-300 transition hover:border-violet-400 hover:text-violet-300">
-                                    Ir a {{ $next['phase']->node_name }} →
+                                    Ir a {{ $yaAbierta['phase']->node_name }} →
                                 </button>
 
                             </div>
@@ -381,7 +619,41 @@
                                 solo decía "mira la etapa 4" y allí no había
                                 nada; ahora se puede cerrar desde aquí.
                             --}}
-                            @if (! $competition->isClosed() && ! $readonly)
+                            {{--
+                                «Se jugó todo» solo si de verdad se jugó todo.
+
+                                Sin esta comprobación, en un recorrido con
+                                fases en paralelo la primera que terminaba ya
+                                ofrecía cerrar la competición y repartir los
+                                premios, con la fase hermana a medias.
+                            --}}
+                            @php $faltanFases = $phaseTabs->filter(fn($o) => $o['state'] !== 'DONE')->values(); @endphp
+
+                            @if ($faltanFases->isNotEmpty())
+
+                                <div class="flex flex-wrap items-center gap-3">
+
+                                    <p class="min-w-0 flex-1 text-[11px] leading-relaxed text-slate-400">
+                                        ✓ <span class="font-black text-emerald-300">{{ $tab['phase']->node_name }}</span>
+                                        terminada. El recorrido sigue en
+                                        {{ $faltanFases->count() === 1 ? 'otra fase' : 'otras ' . $faltanFases->count() . ' fases' }}.
+                                    </p>
+
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        @foreach ($faltanFases as $otra)
+                                            <button type="button"
+                                                @click="go({{ $otra['index'] }}); $el.closest('.arena-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })"
+                                                class="flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-[10px] font-black text-slate-300 transition hover:border-violet-400 hover:text-violet-300">
+                                                <span>{{ $otra['icon'] }}</span>
+                                                <span class="max-w-[150px] truncate">{{ $otra['phase']->node_name }}</span>
+                                                <span>→</span>
+                                            </button>
+                                        @endforeach
+                                    </div>
+
+                                </div>
+
+                            @elseif (! $competition->isClosed() && ! $readonly)
 
                                 <div class="flex flex-wrap items-center gap-3">
 

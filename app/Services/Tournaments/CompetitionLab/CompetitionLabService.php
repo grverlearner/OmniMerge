@@ -271,6 +271,11 @@ class CompetitionLabService
                         $template
                     ),
 
+                /*
+                 * La fase viaja junto al enfrentamiento: su identificador es
+                 * local al motor, asi que dos fases en paralelo tienen
+                 * batallas que se llaman igual.
+                 */
                 'PREPARE_ENCOUNTER' =>
                 $this->graphRuntime
                     ->prepareEncounter(
@@ -278,6 +283,9 @@ class CompetitionLabService
                         $template,
                         isset($payload['match_id'])
                             ? (string) $payload['match_id']
+                            : null,
+                        isset($payload['node_id'])
+                            ? (int) $payload['node_id']
                             : null
                     ),
 
@@ -296,6 +304,9 @@ class CompetitionLabService
                         $template,
                         isset($payload['match_id'])
                             ? (string) $payload['match_id']
+                            : null,
+                        isset($payload['node_id'])
+                            ? (int) $payload['node_id']
                             : null
                     ),
 

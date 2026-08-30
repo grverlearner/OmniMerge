@@ -17,38 +17,67 @@
 
     $points = ($pointsByPhase ?? collect())->get($nodeId) ?? collect();
 
-    $showPoints = ($tracksPoints ?? false) && $points->isNotEmpty();
+    /*
+     * Las cifras que enseña la tabla son las que USA la fase para ordenar.
+     *
+     * Antes venian de PhasePointsService, que suma game_encounters — solo
+     * los enfrentamientos que pasaron por el motor de juego—. En una fase
+     * de 45 batallas con 18 registradas, esa suma es parcial: alguien
+     * aparecia con «—» y otro con una diferencia que no era la suya.
+     *
+     * El resultado era una tabla que se contradecia sola: ordenada por el
+     * puesto real de la fase —puntos, diferencia, anotados— pero enseñando
+     * unos numeros con los que ese orden no cuadraba, y de ahi la sensacion
+     * de que la etiqueta «Clasificado» estaba puesta en la fila equivocada.
+     *
+     * La clasificacion de la fase ya trae score_for / score_against /
+     * score_difference, calculados sobre TODAS las batallas. Son los que
+     * deciden, asi que son los que se enseñan.
+     */
+    $showPoints = (bool) ($tracksPoints ?? false);
+    $puntosDe = fn($row) => [
+        'for' => (int) $row->score_for,
+        'against' => (int) $row->score_against,
+        'difference' => (int) $row->score_difference,
+    ];
+
 
     /*
-     * Orden de la tabla.
+     * El orden lo decide la FASE, no esta pantalla.
      *
-     * Los puntos de clasificación los decide la fase. A partir de ahí se
-     * desempata como en cualquier liga: primero la DIFERENCIA, y solo si
-     * también coincide, los puntos ANOTADOS. Quien encaja menos va delante
-     * de quien encaja mucho y compensa anotando.
+     * Aquí se reordenaba por puntos y, en caso de empate, por la diferencia
+     * de los puntos ANOTADOS —las columnas A favor / En contra—. Y esos
+     * números son otra cosa: PhasePointsService los suma de game_encounters
+     * para enseñar el rendimiento bruto al lado de la tabla, y su propia
+     * documentación dice que no deciden nada.
      *
-     * Las victorias quedan al final, no antes: entre dos empatados a
-     * puntos las victorias ya casi siempre coinciden, y cuando no, es
-     * porque uno ganó menos partidos pero empató más — algo que los puntos
-     * ya recogieron.
+     * Quien decide es el motor de la fase, con los desempates que tenga
+     * configurados, y deja su veredicto en `position`. Al ordenar de otra
+     * manera salían dos verdades: la tabla ponía a uno por encima del corte
+     * y la etiqueta —que sí lee al motor— decía «Eliminado», mientras que
+     * abajo alguien aparecía «Clasificado». Ninguna de las dos estaba mal;
+     * estaban ordenadas por criterios distintos.
+     *
+     * Con `position` mandando, el orden, la línea de corte y las etiquetas
+     * salen todos de la misma fuente y no pueden contradecirse.
      */
-    $standings = $block['standings']
-        ->sortBy([
-            fn($a, $b) => (int) $b->points <=> (int) $a->points,
+    $conPuestos = $block['standings']->isNotEmpty()
+        && $block['standings']->every(fn($row) => $row->position !== null);
 
-            fn($a, $b) => $showPoints
-                ? ($points->get((int) $b->universe_entity_id)['difference'] ?? 0)
-                    <=> ($points->get((int) $a->universe_entity_id)['difference'] ?? 0)
-                : 0,
+    /*
+     * Solo si el motor todavía no ha puesto puestos —una fase recién
+     * abierta— se ordena aquí, y entonces da igual porque nadie está
+     * clasificado ni eliminado.
+     */
 
-            fn($a, $b) => $showPoints
-                ? ($points->get((int) $b->universe_entity_id)['for'] ?? 0)
-                    <=> ($points->get((int) $a->universe_entity_id)['for'] ?? 0)
-                : 0,
-
-            fn($a, $b) => (int) $b->wins <=> (int) $a->wins,
-        ])
-        ->values();
+    $standings = $conPuestos
+        ? $block['standings']->sortBy(fn($row) => (int) $row->position)->values()
+        : $block['standings']
+            ->sortBy([
+                fn($a, $b) => (int) $b->points <=> (int) $a->points,
+                fn($a, $b) => (int) $b->wins <=> (int) $a->wins,
+            ])
+            ->values();
 
     /*
      * Quien esta pasando y quien esta quedando fuera.
@@ -340,7 +369,7 @@
                 @foreach ($standings as $index => $row)
 
                     @php
-                        $rowPoints = $points->get((int) $row->universe_entity_id);
+                        $rowPoints = $puntosDe($row);
                         $state = $rowState($row, $index);
                     @endphp
 
@@ -490,7 +519,7 @@
                 @foreach ($standings as $index => $row)
 
                     @php
-                        $rowPoints = $points->get((int) $row->universe_entity_id);
+                        $rowPoints = $puntosDe($row);
                         $place = $index + 1;
                         $state = $rowState($row, $index);
                     @endphp
@@ -626,7 +655,7 @@
                     @foreach ($standings as $index => $row)
 
                         @php
-                            $rowPoints = $points->get((int) $row->universe_entity_id);
+                            $rowPoints = $puntosDe($row);
                             $place = $index + 1;
                             $state = $rowState($row, $index);
                         @endphp
@@ -740,10 +769,12 @@
 
         @if ($showPoints)
             <p class="mt-3 text-[10px] leading-relaxed text-slate-500">
+                El orden y el corte los decide <strong class="font-black text-slate-400">la
+                fase</strong>, con los desempates que tenga configurados.
                 <strong class="font-black text-slate-400">A favor</strong> y
-                <strong class="font-black text-slate-400">en contra</strong> suman lo que cada uno
-                sacó y lo que sacaron sus rivales en cada enfrentamiento. Entre dos con los mismos
-                puntos, va delante quien mejor diferencia tenga.
+                <strong class="font-black text-slate-400">en contra</strong> se enseñan al lado
+                como lo que son —lo que cada uno anotó y encajó— y no deciden el puesto: por eso
+                pueden no acompañar al orden.
             </p>
         @endif
 

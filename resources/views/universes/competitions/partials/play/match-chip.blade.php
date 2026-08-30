@@ -77,7 +77,7 @@
 @endphp
 
 <button type="button"
-    @click="openBattle('{{ $match->runtime_match_id }}')"
+    @click="openBattle('{{ $match->node_id }}:{{ $match->runtime_match_id }}')"
     @class([
         'group relative block w-full overflow-hidden rounded-xl border text-left transition',
         'border-emerald-500/40 bg-emerald-950/30 hover:border-emerald-400' => $isDone,
