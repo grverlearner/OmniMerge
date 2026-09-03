@@ -234,9 +234,41 @@ class EntityController extends Controller
                 'entityType',
                 'baseVersionSetting.entityVersion',
             )
+
+            /*
+            |--------------------------------------------------------------------------
+            | Lo que necesita el modo «a fondo»
+            |--------------------------------------------------------------------------
+            |
+            | El modo detalle de la lista abre, dentro de la propia ficha, las
+            | caracteristicas con su valor, las colecciones y las versiones.
+            | Todo eso se pide por adelantado: veinticuatro fichas no pueden
+            | ser doscientas consultas.
+            |
+            | Las relaciones se cargan siempre, aunque el modo activo sea otro,
+            | porque el modo vive en el cliente -se cambia sin recargar- y una
+            | ficha a la que le faltasen los datos al cambiar de modo tendria
+            | que ir a buscarlos entonces.
+            |
+            */
+            ->with([
+                'entityAttributes' => fn($relation) => $relation
+                    ->with([
+                        'attribute:id,name,data_type,icon',
+                        'values' => fn($values) => $values
+                            ->with('option:id,name,color')
+                            ->orderBy('sort_order')
+                            ->limit(4),
+                    ])
+                    ->limit(8),
+
+                'collections:id,name,image,color,icon',
+            ])
+
             ->withCount([
                 'entityAttributes',
                 'collections',
+                'entityVersions',
             ])
 
             ->when(

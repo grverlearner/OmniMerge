@@ -35,6 +35,12 @@
 
         'capas' => '<path d="M12 3 3 7.5 12 12l9-4.5L12 3Z"/><path d="m3 12.5 9 4.5 9-4.5"/><path d="m3 16.75 9 4.5 9-4.5"/>',
 
+        /* Un marco con su paisaje: el icono de «solo imágenes» */
+        'galeria' => '<rect x="3" y="4" width="18" height="16" rx="2.5"/>' .
+            '<circle cx="8.5" cy="9.5" r="1.6"/>' .
+            '<path d="m3.5 17.5 4.6-4.6a2 2 0 0 1 2.8 0l3.1 3.1"/>' .
+            '<path d="m12.8 14.3 2.1-2.1a2 2 0 0 1 2.8 0l2.8 2.8"/>',
+
         'grafo' => '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/>' .
             '<path d="M6 8.5v7"/><path d="M8.4 6.9A6.2 6.2 0 0 1 15.5 11"/><path d="M8.4 17.1a6.2 6.2 0 0 0 7.1-4.1"/>',
 

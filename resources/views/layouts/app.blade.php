@@ -25,16 +25,26 @@
     $sidebarCompacto = request()->cookie('omni_sidebar') === 'compact';
 @endphp
 
-<body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
+@php
+    /* Ver App\View\Components\AppLayout */
+    $dark = ($surface ?? 'light') === 'dark';
+@endphp
+
+<body class="min-h-screen antialiased {{ $dark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900' }}">
     <div x-data="omniSidebar({{ $sidebarCompacto ? 'true' : 'false' }})" class="min-h-screen">
         @include('partials.sidebar')
 
         <div :class="{ 'lg:pl-[4.5rem]': compact, 'lg:pl-72': ! compact }"
             class="transition-all duration-300 {{ $sidebarCompacto ? 'lg:pl-[4.5rem]' : 'lg:pl-72' }}">
-            @include('partials.header')
+            @include('partials.header', ['dark' => $dark])
 
-            <main class="px-4 py-6 sm:px-6 lg:px-8">
-                <div class="mx-auto max-w-7xl">
+            {{--
+                En oscuro la pagina respira menos y ocupa mas: lo que se
+                ensena ahi son fichas y tablas que quieren ancho, no una
+                columna de lectura centrada.
+            --}}
+            <main class="{{ $dark ? 'px-3 py-4 sm:px-4 lg:px-6' : 'px-4 py-6 sm:px-6 lg:px-8' }}">
+                <div class="mx-auto {{ $dark ? 'max-w-[1600px]' : 'max-w-7xl' }}">
                     <x-alert />
 
                     {{ $slot }}
