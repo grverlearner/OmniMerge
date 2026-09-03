@@ -342,6 +342,100 @@ class TournamentTemplate extends Model
     */
 
 
+    /*
+     * Cómo se reconoce una plantilla en la biblioteca.
+     *
+     * Icono, color, frase, categoría y etiquetas viven en `settings` y no en
+     * columnas propias porque no los lee ningún motor: solo la biblioteca,
+     * para poder recorrer cuarenta plantillas sin abrirlas una a una. Si no
+     * se elige ninguno, hay uno por defecto: una plantilla nunca se queda
+     * sin cara.
+     */
+
+    public const CATEGORIES = [
+        'CUP' => 'Copa',
+        'LEAGUE' => 'Liga',
+        'QUALIFIER' => 'Clasificatorio',
+        'FRIENDLY' => 'Amistoso',
+        'RANKING' => 'Ranking',
+        'SPECIAL' => 'Especial',
+    ];
+
+    public const ACCENTS = [
+        'amber', 'violet', 'cyan', 'emerald', 'rose', 'sky', 'slate',
+    ];
+
+    public function getDisplayIconAttribute(): string
+    {
+        $propio = trim((string) data_get($this->settings, 'icon', ''));
+
+        if ($propio !== '') {
+            return $propio;
+        }
+
+        return match ((string) data_get($this->settings, 'category', '')) {
+            'LEAGUE' => '≡',
+            'QUALIFIER' => '⇢',
+            'FRIENDLY' => '◇',
+            'RANKING' => '▲',
+            'SPECIAL' => '✦',
+            default => '🏆',
+        };
+    }
+
+    public function getAccentAttribute(): string
+    {
+        $propio = (string) data_get($this->settings, 'accent', '');
+
+        if (in_array($propio, self::ACCENTS, true)) {
+            return $propio;
+        }
+
+        return match ((string) data_get($this->settings, 'category', '')) {
+            'LEAGUE' => 'cyan',
+            'QUALIFIER' => 'sky',
+            'FRIENDLY' => 'emerald',
+            'RANKING' => 'violet',
+            'SPECIAL' => 'rose',
+            default => 'amber',
+        };
+    }
+
+    public function getSummaryAttribute(): ?string
+    {
+        $propio = trim((string) data_get($this->settings, 'summary', ''));
+
+        return $propio !== '' ? $propio : null;
+    }
+
+    public function getCategoryAttribute(): ?string
+    {
+        $propio = (string) data_get($this->settings, 'category', '');
+
+        return array_key_exists($propio, self::CATEGORIES) ? $propio : null;
+    }
+
+    public function getCategoryLabelAttribute(): ?string
+    {
+        return self::CATEGORIES[$this->category] ?? null;
+    }
+
+    /* @return array<int,string> */
+    public function getTagsAttribute(): array
+    {
+        $guardadas = data_get($this->settings, 'tags', []);
+
+        if (! is_array($guardadas)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn ($etiqueta) => trim((string) $etiqueta),
+            $guardadas
+        )));
+    }
+
+
     public function getStatusLabelAttribute(): string
     {
         return match ($this->status) {

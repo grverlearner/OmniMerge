@@ -78,6 +78,31 @@ class TournamentTemplateController extends Controller
             );
 
 
+        /*
+         * Dos filtros mas.
+         *
+         * La categoria organiza la biblioteca por lo que la plantilla ES
+         * -una copa, una liga, un clasificatorio-, y vive en `settings`,
+         * asi que se filtra por JSON. El de uso separa lo que ya sostiene
+         * torneos de lo que todavia no ha salido del taller, que es la
+         * pregunta que uno se hace antes de tocar nada.
+         */
+        $category =
+            (string)
+            $request->input(
+                'category',
+                ''
+            );
+
+
+        $use =
+            (string)
+            $request->input(
+                'use',
+                ''
+            );
+
+
         $base =
             TournamentTemplate::query()
             ->ownedBy(
@@ -110,6 +135,11 @@ class TournamentTemplateController extends Controller
                     'PUBLIC'
                 )
                 ->count(),
+
+            /* Cuantas ya sostienen algun torneo de algun universo */
+            'in_use' => (clone $base)
+                ->has('universeTournaments')
+                ->count(),
         ];
 
 
@@ -118,9 +148,26 @@ class TournamentTemplateController extends Controller
             ->ownedBy(
                 $user
             )
-            ->withCount(
-                'graphNodes'
-            )
+            /*
+             * Lo que la ficha cuenta sin abrir la plantilla: cuantas fases
+             * tiene, por donde entra la gente, cuantos finales hay y si
+             * algun torneo la esta usando. Se pide por adelantado para que
+             * dieciocho fichas no sean setenta consultas.
+             */
+            ->withCount([
+                'graphNodes',
+                'graphConnections',
+                'graphStarts',
+                'graphTerminals',
+                'universeTournaments',
+            ])
+
+            ->with([
+                'graphNodes:id,tournament_template_id,phase_template_id,name,sequence_number',
+                'graphNodes.phaseTemplate:id,name,phase_type,settings',
+                'graphStarts:id,tournament_template_id,name,source_type,expected_participants,sequence_number',
+                'graphTerminals:id,tournament_template_id,name,terminal_type,expected_participants,sequence_number',
+            ])
 
 
             ->when(
@@ -172,6 +219,33 @@ class TournamentTemplateController extends Controller
                     'visibility',
                     $visibility
                 )
+            )
+
+
+            ->when(
+                $category,
+
+                fn($query) =>
+                $query->where(
+                    'settings->category',
+                    $category
+                )
+            )
+
+
+            ->when(
+                $use === 'used',
+
+                fn($query) =>
+                $query->has('universeTournaments')
+            )
+
+
+            ->when(
+                $use === 'unused',
+
+                fn($query) =>
+                $query->doesntHave('universeTournaments')
             );
 
 
@@ -199,6 +273,21 @@ class TournamentTemplateController extends Controller
                 'graph_nodes_count'
             ),
 
+            'phases_asc' =>
+            $query->orderBy(
+                'graph_nodes_count'
+            ),
+
+            'used_desc' =>
+            $query->orderByDesc(
+                'universe_tournaments_count'
+            ),
+
+            'participants_desc' =>
+            $query->orderByDesc(
+                'min_participants'
+            ),
+
             default =>
             $query->orderByDesc(
                 'created_at'
@@ -220,7 +309,9 @@ class TournamentTemplateController extends Controller
                 'search',
                 'status',
                 'visibility',
-                'sort'
+                'sort',
+                'category',
+                'use'
             )
         );
     }

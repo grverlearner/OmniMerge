@@ -1,72 +1,53 @@
-<x-tournament-layout>
+@php
+    /*
+     * Crear una plantilla de torneo.
+     *
+     * Aquí solo nace: nombre, cara, tipo y cuánta gente admite. El recorrido
+     * —entradas, fases, enlaces, finales— se monta después en la Super
+     * Edición, porque hasta que la plantilla no existe no hay grafo que
+     * construir.
+     */
+@endphp
 
-    <x-slot name="header">
-        Nueva plantilla
-    </x-slot>
+<x-tournament-layout surface="dark">
 
+    <x-slot name="header">Nueva plantilla</x-slot>
 
-    <div class="
-            mx-auto
-            max-w-5xl
-        ">
+    <section class="rounded-2xl border border-slate-800 bg-slate-900/50 px-5 py-4">
 
-        <div class="
-                mb-7
-            ">
+        <div class="flex flex-wrap items-end gap-4">
 
-            <a href="{{ route('tournaments.templates.index') }}"
-                class="
-                    text-xs
-                    font-black
-                    text-slate-400
-                    hover:text-amber-600
-                ">
-                ← Mis plantillas
-            </a>
+            <div class="min-w-0 flex-1">
+                <a href="{{ route('tournaments.templates.index') }}"
+                    class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition hover:text-amber-400">
+                    ← Mis plantillas
+                </a>
 
+                <h1 class="mt-1.5 text-2xl font-black tracking-tight text-white">
+                    Nueva plantilla
+                </h1>
 
-            <p
-                class="
-                    mt-5
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-wider
-                    text-amber-600
-                ">
-                Tournament Designer
-            </p>
+                <p class="mt-1 max-w-2xl text-[11px] leading-4 text-slate-500">
+                    Una plantilla describe un recorrido reutilizable: por dónde entra la gente, qué
+                    fases atraviesa y en qué finales acaba. Define cómo funciona el torneo, no quién
+                    lo juega.
+                </p>
+            </div>
 
-
-            <h2
-                class="
-                    mt-2
-                    text-3xl
-                    font-black
-                    text-slate-900
-                ">
-                Nueva plantilla
-            </h2>
-
-
-            <p
-                class="
-                    mt-2
-                    max-w-2xl
-                    text-slate-500
-                ">
-                Primero define su identidad y límites generales.
-                Después construiremos las fases que forman el sistema.
-            </p>
+            <span
+                class="shrink-0 rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 font-mono text-[11px] font-black text-amber-300">
+                {{ $previewCode }}
+            </span>
 
         </div>
 
+    </section>
 
-        <form method="POST" action="{{ route('tournaments.templates.store') }}"
-            enctype="multipart/form-data">
+    <div class="mt-4">
+
+        <form method="POST" action="{{ route('tournaments.templates.store') }}" enctype="multipart/form-data">
 
             @csrf
-
 
             @include('tournaments.partials.template-form')
 

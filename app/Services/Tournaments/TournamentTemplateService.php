@@ -59,6 +59,9 @@ class TournamentTemplateService
         }
 
 
+        $data = $this->withPresentation($data);
+
+
         try {
 
             return DB::transaction(
@@ -143,6 +146,64 @@ class TournamentTemplateService
     */
 
 
+    /*
+     * Cómo se ve y cómo se clasifica una plantilla.
+     *
+     * Icono, color, frase, categoría y etiquetas van a `settings` y no a
+     * columnas propias porque no los lee ningún motor: solo la biblioteca.
+     * Un campo vacío se BORRA en vez de guardarse en blanco, así la vista
+     * puede preguntar «¿tiene icono?» sin comparar contra cadena vacía.
+     *
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $guardado
+     * @return array<string,mixed>
+     */
+    private function withPresentation(array $data, array $guardado = []): array
+    {
+        foreach (['icon', 'accent', 'summary', 'category'] as $campo) {
+
+            if (! array_key_exists($campo, $data)) {
+                continue;
+            }
+
+            $valor = trim((string) ($data[$campo] ?? ''));
+
+            if ($valor === '') {
+                unset($guardado[$campo]);
+            } else {
+                $guardado[$campo] = $valor;
+            }
+
+            unset($data[$campo]);
+        }
+
+        if (array_key_exists('tags', $data)) {
+
+            $etiquetas = collect((array) ($data['tags'] ?? []))
+                ->map(fn ($etiqueta) => trim((string) $etiqueta))
+                ->filter()
+                ->unique()
+                ->take(6)
+                ->values()
+                ->all();
+
+            if ($etiquetas === []) {
+                unset($guardado['tags']);
+            } else {
+                $guardado['tags'] = $etiquetas;
+            }
+
+            unset($data['tags']);
+        }
+
+        if ($guardado !== []) {
+            $data['settings'] = $guardado;
+        }
+
+        return $data;
+    }
+
+
     public function update(
         TournamentTemplate $template,
         array $data,
@@ -180,6 +241,12 @@ class TournamentTemplateService
 
         unset(
             $data['remove_image']
+        );
+
+
+        $data = $this->withPresentation(
+            $data,
+            (array) ($template->settings ?? [])
         );
 
 

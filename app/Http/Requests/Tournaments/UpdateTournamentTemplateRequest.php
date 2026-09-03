@@ -167,6 +167,46 @@ class UpdateTournamentTemplateRequest extends FormRequest
             'allow_cloning' => [
                 'boolean',
             ],
+
+            /*
+             * Cómo se reconoce la plantilla.
+             *
+             * No es estructura -no cambia el recorrido ni el reparto- y por
+             * eso vive aquí y no en el constructor del grafo: es lo que
+             * permite distinguir cuarenta plantillas de un vistazo.
+             */
+            'icon' => [
+                'nullable',
+                'string',
+                'max:8',
+            ],
+
+            'accent' => [
+                'nullable',
+                Rule::in(TournamentTemplate::ACCENTS),
+            ],
+
+            'summary' => [
+                'nullable',
+                'string',
+                'max:140',
+            ],
+
+            'category' => [
+                'nullable',
+                Rule::in(array_keys(TournamentTemplate::CATEGORIES)),
+            ],
+
+            'tags' => [
+                'nullable',
+                'array',
+                'max:6',
+            ],
+
+            'tags.*' => [
+                'string',
+                'max:24',
+            ],
         ];
     }
 

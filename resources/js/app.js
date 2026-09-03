@@ -19,6 +19,7 @@ import competitionDesigner from './universes/competition-designer';
 import competitionPrizes from './universes/competition-prizes';
 import entityBrowser from './universes/entity-browser';
 import exitCriterionFields from './tournaments/phase-templates/super/criterion-fields';
+import tournamentTemplateDesigner from './tournaments/templates/designer';
 import omniSidebar from './layout/sidebar';
 
 window.Alpine = Alpine;
@@ -38,6 +39,7 @@ window.competitionDesigner = competitionDesigner;
 window.competitionPrizes = competitionPrizes;
 window.entityBrowser = entityBrowser;
 window.exitCriterionFields = exitCriterionFields;
+window.tournamentTemplateDesigner = tournamentTemplateDesigner;
 window.omniSidebar = omniSidebar;
 
 
@@ -348,6 +350,10 @@ document.addEventListener(
         Alpine.data(
             'entityBrowser',
             entityBrowser
+        );
+        Alpine.data(
+            'tournamentTemplateDesigner',
+            tournamentTemplateDesigner
         );
         Alpine.data(
             'omniSidebar',
