@@ -1,6 +1,10 @@
 {{--
     El sidebar de Torneos. Ver el comentario de partials/sidebar.blade.php:
     el armazón es el mismo, aquí solo se dice qué hay.
+
+    El Laboratorio y las Recompensas ya no están: el laboratorio se abre desde
+    el taller, junto a la plantilla que se va a probar —que es cuando se
+    necesita—, y las recompensas no existen todavía como para ocupar sitio.
 --}}
 
 <x-omni-sidebar accent="amber">
@@ -12,14 +16,15 @@
 
 
     <x-omni-nav-section title="Principal">
-        <x-omni-nav-item accent="amber" :href="route('tournaments.dashboard')" icon="cuadricula" label="Dashboard"
+        <x-omni-nav-item accent="amber" :href="route('tournaments.dashboard')" icon="cuadricula" label="Taller"
             :active="request()->routeIs('tournaments.dashboard')" />
     </x-omni-nav-section>
 
 
     <x-omni-nav-section title="Diseño">
-        <x-omni-nav-item accent="amber" :href="route('tournaments.templates.index')" icon="trofeo" label="Torneos"
-            :active="request()->routeIs('tournaments.templates.*')" />
+        <x-omni-nav-item accent="amber" :href="route('tournaments.templates.index')" icon="trofeo" label="Torneos" :active="request()->routeIs('tournaments.templates.*') ||
+            request()->routeIs('tournaments.super.*') ||
+            request()->routeIs('tournaments.graph.*')" />
 
         <x-omni-nav-item accent="amber" :href="route('tournaments.phase-templates.index')" icon="grafo" label="Fases" :active="request()->routeIs('tournaments.phase-templates.*') ||
             request()->routeIs('tournaments.phase-exits.*') ||
@@ -30,20 +35,12 @@
     </x-omni-nav-section>
 
 
-    <x-omni-nav-section title="Pruebas">
-        <x-omni-nav-item accent="amber" :href="route('tournaments.lab.index')" icon="matraz" label="Laboratorio"
-            :active="request()->routeIs('tournaments.lab.*')" />
-    </x-omni-nav-section>
+    <x-omni-nav-section title="Comunidad">
+        <x-omni-nav-item accent="violet" :href="route('tournaments.community.index')" icon="globo" label="Explorar"
+            :active="request()->routeIs('tournaments.community.*')" />
 
-
-    <x-omni-nav-section title="Recursos">
-        <x-omni-nav-item icon="medalla" label="Recompensas" note="Próximo" muted />
-    </x-omni-nav-section>
-
-
-    <x-omni-nav-section title="Descubrir">
-        <x-omni-nav-item accent="violet" :href="route('community.index')" icon="globo" label="Comunidad"
-            :active="request()->routeIs('community.*')" />
+        <x-omni-nav-item accent="violet" :href="route('tournaments.creator.show')" icon="usuario" label="Creador"
+            :active="request()->routeIs('tournaments.creator.*')" />
     </x-omni-nav-section>
 
 

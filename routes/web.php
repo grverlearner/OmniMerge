@@ -28,6 +28,8 @@ use App\Http\Controllers\Attributes\AttributeStructureController;
 use App\Http\Controllers\Entities\EntityPresentationController;
 use App\Http\Controllers\Entities\EntityBaseVersionController;
 
+use App\Http\Controllers\Tournaments\CreatorPanelController;
+use App\Http\Controllers\Tournaments\TournamentCommunityController;
 use App\Http\Controllers\Tournaments\TournamentDashboardController;
 use App\Http\Controllers\Tournaments\TournamentTemplateController;
 use App\Http\Controllers\Tournaments\TournamentLabController;
@@ -921,6 +923,94 @@ Route::middleware('auth')->group(function () {
                     ->name(
                         'dashboard'
                     );
+
+
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Comunidad del taller
+                |--------------------------------------------------------------------------
+                |
+                | Propia, no la de la Biblioteca de entidades: aqui solo hay
+                | plantillas de torneo y de fase. Las rutas estaticas van
+                | antes de templates/{tournamentTemplate}.
+                |
+                */
+
+
+                Route::get(
+                    '/community',
+                    [
+                        TournamentCommunityController::class,
+                        'index',
+                    ]
+                )->name(
+                    'community.index'
+                );
+
+                Route::get(
+                    '/community/tournaments/{tournamentTemplate}',
+                    [
+                        TournamentCommunityController::class,
+                        'tournament',
+                    ]
+                )->name(
+                    'community.tournament'
+                );
+
+                Route::get(
+                    '/community/phases/{phaseTemplate}',
+                    [
+                        TournamentCommunityController::class,
+                        'phase',
+                    ]
+                )->name(
+                    'community.phase'
+                );
+
+                Route::get(
+                    '/community/creators/{user}',
+                    [
+                        TournamentCommunityController::class,
+                        'creator',
+                    ]
+                )->name(
+                    'community.creator'
+                );
+
+
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Panel de creador
+                |--------------------------------------------------------------------------
+                |
+                | Como te ven los demas, y que impide que te vean.
+                |
+                */
+
+
+                Route::get(
+                    '/creator',
+                    [
+                        CreatorPanelController::class,
+                        'show',
+                    ]
+                )->name(
+                    'creator.show'
+                );
+
+                Route::put(
+                    '/creator',
+                    [
+                        CreatorPanelController::class,
+                        'update',
+                    ]
+                )->name(
+                    'creator.update'
+                );
 
 
 
