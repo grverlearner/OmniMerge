@@ -42,6 +42,35 @@ class PhaseTemplateService
             $data['image'] = $imagePath;
         }
 
+        /*
+         * Un BO por defecto.
+         *
+         * `best_of` solo SIEMBRA la configuración del motor al crear la fase;
+         * quién decide de verdad cuántos juegos dura un enfrentamiento es la
+         * Super Edición —y en una competición real, la edición—. Por eso ya no
+         * se pregunta en el formulario, y por eso aquí hay un valor por defecto
+         * en vez de un campo obligatorio.
+         */
+        $data['best_of'] = (int) ($data['best_of'] ?? 0) ?: 3;
+
+        /* Icono, color y frase: solo para reconocerla en la biblioteca */
+        $presentacion = [];
+
+        foreach (['icon', 'accent', 'summary'] as $campo) {
+
+            $valor = trim((string) ($data[$campo] ?? ''));
+
+            if ($valor !== '') {
+                $presentacion[$campo] = $valor;
+            }
+
+            unset($data[$campo]);
+        }
+
+        if ($presentacion !== []) {
+            $data['settings'] = array_merge((array) ($data['settings'] ?? []), $presentacion);
+        }
+
         $data = $this->normalizeContract(
             $data
         );
@@ -102,6 +131,43 @@ class PhaseTemplateService
     |--------------------------------------------------------------------------
     */
 
+    /*
+     * Cómo se ve una fase: icono, color y frase corta.
+     *
+     * Va en `settings` y no en columnas propias porque no lo lee ningún
+     * motor: solo la biblioteca, para que una fase se reconozca sin abrirla.
+     * Un campo vacío se borra en vez de guardarse en blanco, así la vista
+     * puede preguntar «¿tiene icono?» sin comparar contra cadena vacía.
+     *
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function withPresentation(PhaseTemplate $phaseTemplate, array $data): array
+    {
+        $guardado = $phaseTemplate->settings ?? [];
+
+        foreach (['icon', 'accent', 'summary'] as $campo) {
+
+            if (! array_key_exists($campo, $data)) {
+                continue;
+            }
+
+            $valor = trim((string) ($data[$campo] ?? ''));
+
+            if ($valor === '') {
+                unset($guardado[$campo]);
+            } else {
+                $guardado[$campo] = $valor;
+            }
+
+            unset($data[$campo]);
+        }
+
+        $data['settings'] = $guardado;
+
+        return $data;
+    }
+
     public function update(
         PhaseTemplate $phaseTemplate,
         array $data,
@@ -148,6 +214,8 @@ class PhaseTemplateService
         */
         $data['phase_type'] =
             $phaseTemplate->phase_type;
+
+        $data = $this->withPresentation($phaseTemplate, $data);
 
         $data =
             $this->normalizeContract(

@@ -24,20 +24,20 @@
 @php
     /* Ver App\View\Components\UniverseLayout */
     $dark = ($surface ?? 'light') === 'dark';
+
+    /* Ver el comentario de layouts/app.blade.php */
+    $sidebarCompacto = request()->cookie('omni_sidebar') === 'compact';
 @endphp
 
 <body class="min-h-screen antialiased {{ $dark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900' }}">
 
-    <div x-data="{
-        sidebarOpen: false
-    }" class="
-            min-h-screen
-        ">
+    <div x-data="omniSidebar({{ $sidebarCompacto ? 'true' : 'false' }})" class="min-h-screen">
 
         @include('partials.universes.sidebar')
 
 
-        <div class="lg:pl-72">
+        <div :class="{ 'lg:pl-[4.5rem]': compact, 'lg:pl-72': ! compact }"
+            class="transition-all duration-300 {{ $sidebarCompacto ? 'lg:pl-[4.5rem]' : 'lg:pl-72' }}">
 
             @include('partials.universes.header', ['dark' => $dark])
 

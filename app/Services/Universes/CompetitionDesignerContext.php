@@ -78,6 +78,13 @@ class CompetitionDesignerContext
 
             'phaseSettings' => $this->phaseSettings($competition, $source),
 
+            /*
+             * Los modos con los que una fase de grupos puede ordenar su lista
+             * unica, con su explicacion. Solo se ofrecen en fases GROUP_STAGE.
+             */
+            'overallRankingModes' =>
+            \App\Services\Tournaments\GroupStage\GroupStageOverallRanking::MODES,
+
             'competitors' => $this->competitors($universe),
 
             'eligibilityCatalog' => $this->eligibility->catalog($universe),
@@ -146,7 +153,16 @@ class CompetitionDesignerContext
                     ->canReassign($competition),
 
             /* Quien entra hoy por cada puerta, para poder retocarlo */
-            'currentAssignments' => $this->currentAssignments($competition),
+            /*
+             * Y también el de la edición que se está copiando.
+             *
+             * Todo lo demás —fases, juego, batalla, reglas de entrada— usa
+             * `$competition ?? $source`; esto usaba solo `$competition`, así
+             * que al crear una edición nueva a partir de otra el reparto por
+             * puertas era lo único que NO se heredaba: aparecía vacío y había
+             * que rehacerlo a mano.
+             */
+            'currentAssignments' => $this->currentAssignments($competition ?? $source),
 
             'decisionModes' => CompetitionPhasePlan::DECISION_MODES,
         ];
@@ -438,6 +454,9 @@ class CompetitionDesignerContext
                     'battle_participants' => $phase->battle_participants,
                     'decision_mode' => $phase->decision_mode,
                     'allow_draws' => $phase->allow_draws,
+
+                    /* Solo lo usa una fase de grupos. Nulo = el de la plantilla */
+                    'overall_ranking_mode' => $phase->overall_ranking_mode,
                 ],
             ])
             ->all();

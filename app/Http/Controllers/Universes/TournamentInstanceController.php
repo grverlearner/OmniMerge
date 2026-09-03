@@ -878,6 +878,61 @@ class TournamentInstanceController extends Controller
                 ->all();
         }
 
+        $caras =
+            $participants
+            ->keyBy('runtime_key')
+            ->map(
+                fn($p) => [
+                    'key' => $p->runtime_key,
+                    'name' => $p->name ?: ($p->universeEntity?->name ?? $p->runtime_key),
+                    'image_url' => $p->universeEntity?->image_url,
+                    'seed' => (int) $p->seed,
+                ]
+            );
+
+        /*
+         * El orden general de cada fase de grupos.
+         *
+         * Una fase de grupos produce varias tablas, y la lista única —la que
+         * dice quién va primero de toda la fase— la calcula el motor con el
+         * modo que la plantilla tenga elegido. Aquí solo se le ponen las
+         * caras: leerla como «UC-000134» no sirve de nada.
+         */
+        $overallStandings = [];
+
+        foreach (($payload['state']['nodes'] ?? []) as $nodeId => $node) {
+
+            $lista = $node['runtime']['overall_standings'] ?? [];
+
+            if ($lista === []) {
+                continue;
+            }
+
+            $overallStandings[(int) $nodeId] = [
+
+                'mode' => $node['runtime']['overall_ranking_mode'] ?? 'GLOBAL',
+
+                'label' => \App\Services\Tournaments\GroupStage\GroupStageOverallRanking::label(
+                    $node['runtime']['overall_ranking_mode'] ?? null
+                ),
+
+                'rows' => collect($lista)
+                    ->map(
+                        fn ($fila) => [
+                            'position' => (int) ($fila['overall_position'] ?? 0),
+                            'group_name' => $fila['group_name'] ?? '',
+                            'group_position' => (int) ($fila['group_position'] ?? 0),
+                            'points' => $fila['points'] ?? 0,
+                            'name' => $caras[$fila['participant_id']]['name']
+                                ?? $fila['participant_id'],
+                            'image_url' => $caras[$fila['participant_id']]['image_url'] ?? null,
+                        ]
+                    )
+                    ->values()
+                    ->all(),
+            ];
+        }
+
         /*
          * La forma real del recorrido: qué fases van a la vez y cuáles
          * esperan a cuáles. La arena la trataba como una fila, y un
@@ -903,18 +958,6 @@ class TournamentInstanceController extends Controller
          * hace nadie.
          */
         $pendingDecisions = [];
-
-        $caras =
-            $participants
-            ->keyBy('runtime_key')
-            ->map(
-                fn($p) => [
-                    'key' => $p->runtime_key,
-                    'name' => $p->name ?: ($p->universeEntity?->name ?? $p->runtime_key),
-                    'image_url' => $p->universeEntity?->image_url,
-                    'seed' => (int) $p->seed,
-                ]
-            );
 
         foreach (($payload['state']['nodes'] ?? []) as $nodeId => $node) {
 
@@ -1064,6 +1107,7 @@ class TournamentInstanceController extends Controller
                 'placementPlan',
                 'pendingDecisions',
                 'phaseGraph',
+                'overallStandings',
                 'groupSources',
                 'championRoute',
                 'tracksPoints',

@@ -4,7 +4,7 @@
             <button type="button"
                 class="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
                 @click="sidebarOpen = true">
-                ☰
+                <x-omni-icon name="menu" size="h-5 w-5" />
             </button>
 
             <div>

@@ -221,6 +221,18 @@ class CompetitionConfigurationService
                     'battle_participants' => $row['battle_participants'] ?? null,
                     'decision_mode' => $row['decision_mode'] ?? null,
                     'allow_draws' => $row['allow_draws'] ?? null,
+
+                    /*
+                     * Solo tiene sentido en fase de grupos, y solo si es uno
+                     * de los modos que existen. Cualquier otra cosa se guarda
+                     * como nulo, que significa «lo que diga la plantilla».
+                     */
+                    'overall_ranking_mode' =>
+                    \App\Services\Tournaments\GroupStage\GroupStageOverallRanking::isValid(
+                        $row['overall_ranking_mode'] ?? null
+                    )
+                        ? $row['overall_ranking_mode']
+                        : null,
                 ]);
         }
 

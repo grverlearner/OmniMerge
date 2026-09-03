@@ -98,7 +98,17 @@ class PhaseTemplateController extends Controller
         $query =
             PhaseTemplate::query()
             ->ownedBy($user)
-            ->withCount('exits')
+
+            /*
+             * Lo que la biblioteca necesita para describir una fase sin
+             * abrirla: por dónde entra la gente, por dónde sale, y si algún
+             * torneo ya la está usando.
+             */
+            ->with([
+                'inputGates' => fn ($q) => $q->where('status', 'ACTIVE')->orderBy('sort_order'),
+                'exits' => fn ($q) => $q->where('status', 'ACTIVE')->orderBy('sort_order'),
+            ])
+            ->withCount(['exits', 'inputGates', 'tournamentPhaseNodes'])
 
             ->when(
                 $search,

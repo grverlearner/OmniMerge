@@ -113,6 +113,19 @@
 
 
         {{-- ============================================ --}}
+        {{-- RANKING --}}
+        {{-- ============================================ --}}
+
+        {{--
+            Fuera del lienzo, así que se ve en las cinco etapas: mientras
+            juegas, mirando la estructura o repartiendo premios. Es un
+            vistazo permanente, no una pantalla más.
+        --}}
+
+        @include('universes.competitions.partials.play.ranking-strip')
+
+
+        {{-- ============================================ --}}
         {{-- LIENZO --}}
         {{-- ============================================ --}}
 

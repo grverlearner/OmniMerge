@@ -87,6 +87,17 @@ trait ValidatesCompetitionConfiguration
 
             'phases.*.allow_draws' => ['nullable', 'boolean'],
 
+            /*
+             * Solo lo usa una fase de grupos: como se construye su lista
+             * unica. Nulo = lo que diga la plantilla.
+             */
+            'phases.*.overall_ranking_mode' => [
+                'nullable',
+                Rule::in(array_keys(
+                    \App\Services\Tournaments\GroupStage\GroupStageOverallRanking::MODES
+                )),
+            ],
+
 
             /*
             |------------------------------------------------------------------

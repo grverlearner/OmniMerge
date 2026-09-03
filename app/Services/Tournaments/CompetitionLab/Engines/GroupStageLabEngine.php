@@ -2,6 +2,7 @@
 
 namespace App\Services\Tournaments\CompetitionLab\Engines;
 
+use App\Services\Tournaments\GroupStage\GroupStageOverallRanking;
 use App\Models\PhaseTemplate;
 use App\Services\Tournaments\CompetitionLab\Runtime\CutoffPolicyResolver;
 use App\Services\Tournaments\GroupStage\GroupStageAllocator;
@@ -316,6 +317,22 @@ implements LabPhaseEngine, SupportsManualDecision
 
             'cross_group_normalization' =>
             $settings->cross_group_normalization,
+
+            /*
+             * Como se construye la lista unica de la fase.
+             *
+             * Una fase de grupos produce varias tablas, no una, y casi siempre
+             * hace falta UNA para repartir plazas o sembrar el cuadro que
+             * viene. Que el 1.o de un grupo flojo vaya por delante del 2.o de
+             * uno fuerte -o al reves- es una decision, no un hecho, y por eso
+             * se elige. Ver GroupStageOverallRanking.
+             */
+            'overall_ranking_mode' =>
+            GroupStageOverallRanking::isValid(
+                data_get($settings->settings, 'overall_ranking_mode')
+            )
+                ? data_get($settings->settings, 'overall_ranking_mode')
+                : GroupStageOverallRanking::DEFAULT,
 
             'cutoff_tie_policy' =>
             $settings->cutoff_tie_policy,
@@ -727,6 +744,17 @@ implements LabPhaseEngine, SupportsManualDecision
             ->values()
             ->all();
 
+        /*
+         * Y la lista unica, con el orden que la fase tenga elegido.
+         *
+         * Se guarda en el runtime para que la vea todo el mundo igual: la
+         * pantalla de la competicion, el reparto de premios por puesto y
+         * cualquier fase posterior que siembre con ella. Calcularla en cada
+         * sitio seria tener tres listas que pueden discrepar.
+         */
+        $runtime['overall_standings'] =
+            $this->overallStandings($runtime);
+
         $pendingRound =
             collect(
                 $runtime['rounds']
@@ -746,6 +774,47 @@ implements LabPhaseEngine, SupportsManualDecision
             );
 
         return $runtime;
+    }
+
+    /*
+     * La clasificacion general de la fase, como una sola lista.
+     *
+     * El desempate no se decide aqui: se le presta al servicio la misma
+     * comparacion que usa el motor para todo lo demas -con los criterios
+     * que la plantilla tenga configurados-, y el servicio solo decide en
+     * que ORDEN se aplica. Asi la lista general nunca puede contradecir a
+     * las tablas de cada grupo.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function overallStandings(array $runtime): array
+    {
+        $grupos = array_values(array_map(
+            fn ($group) => [
+                'name' => $group['name'] ?? '',
+                'standings' => $group['standings'] ?? [],
+            ],
+            $runtime['groups'] ?? []
+        ));
+
+        if ($grupos === []) {
+            return [];
+        }
+
+        return app(GroupStageOverallRanking::class)->build(
+            $grupos,
+
+            (string) ($runtime['overall_ranking_mode'] ?? GroupStageOverallRanking::DEFAULT),
+
+            fn (array $izquierda, array $derecha) =>
+            $this->compareRows(
+                $izquierda,
+                $derecha,
+                $runtime['tiebreakers'],
+                true,
+                $runtime['cross_group_normalization'] ?? 'RAW'
+            )
+        );
     }
 
     private function complete(

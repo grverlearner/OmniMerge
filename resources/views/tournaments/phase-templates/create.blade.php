@@ -1,52 +1,52 @@
-<x-tournament-layout>
+@php
+    /*
+     * Crear una fase.
+     *
+     * Aquí solo nace la pieza: nombre, cara, motor y cuánta gente admite.
+     * Lo que decide cómo se juega —emparejamientos, calendario, salidas—
+     * se configura después, en la Super Edición, porque hasta que la fase
+     * no existe no hay nada que configurar.
+     *
+     * Va dentro del layout del módulo, con su sidebar: es una pantalla de
+     * trabajo, no una arena. La pantalla completa sin navegación se reserva
+     * para lo que se juega.
+     */
+@endphp
 
-    <x-slot name="header">
-        Nueva Fase
-    </x-slot>
+<x-tournament-layout surface="dark">
 
-    <div class="mx-auto max-w-7xl">
+    <x-slot name="header">Nueva fase</x-slot>
 
-        <a href="{{ route('tournaments.phase-templates.index') }}"
-            class="text-xs font-black text-slate-400 transition hover:text-amber-600">
-            ← Biblioteca de Fases
-        </a>
+    <section class="rounded-2xl border border-slate-800 bg-slate-900/50 px-5 py-4">
 
-        <section
-            class="mb-7 mt-5 overflow-hidden rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50">
+        <div class="flex flex-wrap items-end gap-4">
 
-            <div class="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-center lg:p-8">
+            <div class="min-w-0 flex-1">
+                <a href="{{ route('tournaments.phase-templates.index') }}"
+                    class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition hover:text-amber-400">
+                    ← Biblioteca de fases
+                </a>
 
-                <div>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span
-                            class="rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">
-                            Nueva definición de fase
-                        </span>
+                <h1 class="mt-1.5 text-2xl font-black tracking-tight text-white">
+                    Nueva fase
+                </h1>
 
-                        <span
-                            class="rounded-full border border-slate-200 bg-white px-3 py-1 font-mono text-[10px] font-black text-slate-500">
-                            {{ $previewCode }}
-                        </span>
-                    </div>
-
-                    <h1 class="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-                        Diseña una nueva Fase
-                    </h1>
-
-                    <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-                        Define su identidad, entrada y comportamiento base. La configuración
-                        avanzada se realizará después dentro del Engine correspondiente.
-                    </p>
-                </div>
-
-                <div
-                    class="flex h-20 w-20 items-center justify-center rounded-3xl bg-amber-500 text-4xl text-white shadow-xl shadow-amber-500/20">
-                    ◇
-                </div>
-
+                <p class="mt-1 max-w-2xl text-[11px] leading-4 text-slate-500">
+                    Una fase es una pieza reutilizable: define por dónde entra la gente, qué se
+                    hace con ella y por dónde sale. Los torneos se montan encajándolas.
+                </p>
             </div>
 
-        </section>
+            <span
+                class="shrink-0 rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 font-mono text-[11px] font-black text-amber-300">
+                {{ $previewCode }}
+            </span>
+
+        </div>
+
+    </section>
+
+    <div class="mt-4">
 
         <form method="POST" action="{{ route('tournaments.phase-templates.store') }}" enctype="multipart/form-data">
 

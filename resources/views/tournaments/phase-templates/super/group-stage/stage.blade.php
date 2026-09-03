@@ -22,6 +22,81 @@
 
 <div class="p-3">
 
+    {{-- ============================================================= --}}
+    {{-- EL ORDEN GENERAL DE LA FASE --}}
+    {{-- ============================================================= --}}
+
+    {{--
+        Va arriba del todo porque es la pregunta que se hace cualquiera al
+        mirar una fase de grupos: «entonces, ¿quién va primero?».
+
+        Las tablas de abajo dicen quién manda EN SU GRUPO. Esto dice quién
+        manda en la fase, que no es lo mismo y depende del modo elegido en el
+        panel de la izquierda. Cambiarlo ahí reordena esta lista al momento.
+    --}}
+
+    <div class="mb-3 overflow-hidden rounded-xl border border-cyan-500/30 bg-slate-900/30">
+
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-800 px-3 py-1.5">
+
+            <p class="text-[9px] font-black uppercase tracking-[0.16em] text-cyan-400">
+                ≡ Orden general
+            </p>
+
+            <span class="rounded bg-slate-800 px-1.5 text-[9px] font-black text-slate-300"
+                x-text="overallModes[overallMode]?.short ?? overallMode"></span>
+
+            <p class="ml-auto text-[9px] text-slate-600">
+                <span x-show="!hasResults">previsión sobre la parrilla</span>
+                <span x-show="hasResults" x-cloak>según lo simulado</span>
+            </p>
+
+        </div>
+
+        <template x-if="!overallRanking.length">
+            <p class="px-3 py-3 text-[10px] text-slate-600">
+                Todavía no hay grupos formados: en cuanto los haya, aquí sale la
+                lista completa de la fase.
+            </p>
+        </template>
+
+        <div class="flex flex-wrap gap-1 p-2">
+
+            <template x-for="fila in overallRanking" :key="'ov' + fila.seed">
+                <span class="flex items-center gap-1 rounded-lg border bg-slate-950/70 py-0.5 pl-1 pr-1.5"
+                    :class="fila.group.color.border"
+                    :title="atSeed(fila.seed)?.name
+                        + ' · ' + fila.group.name
+                        + ' · ' + fila.group_position + 'º de su grupo'
+                        + ' · ' + (fila.POINTS ?? 0) + ' pts'">
+
+                    {{-- El puesto general, que es lo que se viene a leer --}}
+                    <span class="w-4 shrink-0 text-center font-mono text-[9px] font-black"
+                        :class="fila.overall_position <= 3 ? 'text-cyan-300' : 'text-slate-500'"
+                        x-text="fila.overall_position"></span>
+
+                    <span class="h-4 w-4 shrink-0 overflow-hidden rounded-sm bg-slate-800 ring-1"
+                        :class="fila.group.color.ring">
+                        <template x-if="atSeed(fila.seed)?.image_url">
+                            <img :src="atSeed(fila.seed).image_url" alt=""
+                                class="h-full w-full object-cover">
+                        </template>
+                    </span>
+
+                    <span class="max-w-[92px] truncate text-[9px] font-bold text-slate-200"
+                        x-text="atSeed(fila.seed)?.name ?? ('#' + fila.seed)"></span>
+
+                    {{-- De qué grupo viene y en qué puesto quedó ahí --}}
+                    <span class="font-mono text-[8px]" :class="fila.group.color.text"
+                        x-text="fila.group.name.replace('Grupo ', '').slice(0, 1) + fila.group_position"></span>
+                </span>
+            </template>
+
+        </div>
+
+    </div>
+
+
     {{-- ============ SALIDAS: QUIÉN AVANZA ============ --}}
 
     <div class="mb-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/30">

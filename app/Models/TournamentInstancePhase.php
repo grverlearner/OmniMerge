@@ -39,6 +39,12 @@ class TournamentInstancePhase extends Model
          * decision a las fases; si no, manda el de la competicion.
          */
         'game_key',
+
+        /*
+         * Como se ordena la lista unica de una fase de grupos, si esta
+         * edicion decidio otra cosa. Nulo = lo que diga la plantilla.
+         */
+        'overall_ranking_mode',
     ];
 
     protected function casts(): array

@@ -28,7 +28,7 @@
                 class="rounded-xl border p-2 transition lg:hidden {{ $dark
                     ? 'border-slate-800 text-slate-400 hover:bg-slate-800'
                     : 'border-slate-200 text-slate-600 hover:bg-slate-100' }}">
-                ☰
+                <x-omni-icon name="menu" size="h-5 w-5" />
             </button>
 
 

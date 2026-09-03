@@ -252,6 +252,13 @@
     </div>
 
 
+    {{--
+        La lista única de la fase ya se enseña arriba, en la tira «Cómo va
+        esta fase», que es la misma para todos los motores. Tenerla aquí
+        además era enseñarla dos veces: dos listas del mismo orden, una
+        encima de la otra, y ninguna de las dos completa.
+    --}}
+
     {{-- ============================================ --}}
     {{-- MODO GRUPOS · cada grupo con su tabla y sus batallas --}}
     {{-- ============================================ --}}

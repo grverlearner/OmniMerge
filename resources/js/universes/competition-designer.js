@@ -48,6 +48,43 @@ export default function competitionDesigner(config) {
 
         /* ------------------------------------------------ por fase */
         phases: config.phaseSettings ?? {},
+
+        /*
+         * Como puede ordenar sus grupos una fase de grupos. Solo se ofrece en
+         * esas: en un cuadro o en una liga la pregunta no existe.
+         */
+        overallRankingModes: config.overallRankingModes ?? {},
+
+        /*
+         * Las fases de grupos que van a repartir por su cuenta.
+         *
+         * Repartir a mano por puertas dice QUIÉN entra. En qué grupo cae cada
+         * uno lo decide la fase, con el modo que tenga configurado: con
+         * «snake», «aleatorio» o «bombos» el reparto de aquí se vuelve a
+         * barajar, y descubrirlo al pulsar «empezar» es tarde.
+         *
+         * Los dos que sí respetan la puerta son INPUT_ORDER —entra por orden
+         * de llegada, y la llegada son las puertas— y MANUAL.
+         */
+        get reshufflingPhases() {
+            const respetan = ['INPUT_ORDER', 'MANUAL'];
+
+            return (this.templatePhases ?? []).filter(
+                (ph) => ph.phase_type === 'GROUP_STAGE'
+                    && ph.distribution_mode
+                    && ! respetan.includes(ph.distribution_mode)
+            );
+        },
+
+        distributionLabel(mode) {
+            return {
+                SNAKE_SEEDED: 'serpiente por siembra',
+                RANDOM: 'aleatorio',
+                POT_DRAW: 'sorteo por bombos',
+                INPUT_ORDER: 'orden de llegada',
+                MANUAL: 'a mano',
+            }[mode] ?? mode;
+        },
         openPhase: null,
 
         /* ------------------------------------------------ las puertas */
@@ -285,6 +322,7 @@ export default function competitionDesigner(config) {
                     battle_participants: '',
                     decision_mode: '',
                     allow_draws: '',
+                    overall_ranking_mode: '',
                 };
             }
 

@@ -50,8 +50,26 @@ export default function phaseTemplateDesigner(
         allowByes:
             Boolean(config.allowByes),
 
-        bestOf:
-            Number(config.bestOf || 1),
+        /*
+         * Como se reconoce la fase en la biblioteca.
+         *
+         * No es configuracion del motor -no cambia como se juega nada- y por
+         * eso vive aqui y no en la Super Edicion: es lo unico que permite
+         * distinguir cuarenta fases de un vistazo. El BEST OF que habia aqui
+         * se retiro: cuantos juegos tiene un enfrentamiento se decide en el
+         * torneo real, no en la plantilla.
+         */
+        icon:
+            config.icon || '',
+
+        accent:
+            config.accent || '',
+
+        summary:
+            config.summary || '',
+
+        tones:
+            config.tones || {},
 
         status:
             config.status || 'DRAFT',
@@ -162,6 +180,57 @@ export default function phaseTemplateDesigner(
             }
 
             this.markDirty();
+        },
+
+
+        /*
+         * Icono y color EFECTIVOS.
+         *
+         * Si el usuario no elige ninguno, la fase no se queda sin cara:
+         * hereda el de su motor. Las tablas repiten a proposito lo que
+         * PhaseTemplate::display_icon y ::accent devuelven en PHP, porque la
+         * vista previa tiene que ensenar exactamente lo que despues se vera
+         * en la biblioteca; si divergen, la vista previa miente.
+         */
+        effectiveIcon() {
+            if (this.icon) {
+                return this.icon;
+            }
+
+            return {
+                SINGLE_ELIMINATION: '🏆',
+                ROUND_ROBIN: '🔄',
+                GROUP_STAGE: '▦',
+                SWISS: '⇄',
+            }[this.phaseType] || '◇';
+        },
+
+
+        effectiveAccent() {
+            if (this.accent) {
+                return this.accent;
+            }
+
+            return {
+                SINGLE_ELIMINATION: 'amber',
+                ROUND_ROBIN: 'cyan',
+                GROUP_STAGE: 'violet',
+                SWISS: 'emerald',
+            }[this.phaseType] || 'slate';
+        },
+
+
+        /*
+         * Las clases de Tailwind no se componen aqui: llegan ya escritas
+         * desde Blade -donde Tailwind puede leerlas- y esto solo elige cual.
+         */
+        tone(part) {
+            const tono =
+                this.tones[this.effectiveAccent()]
+                || this.tones.slate
+                || {};
+
+            return tono[part] || '';
         },
 
 

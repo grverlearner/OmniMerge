@@ -359,6 +359,59 @@ class PhaseTemplate extends Model
     |--------------------------------------------------------------------------
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Cómo se ve
+    |--------------------------------------------------------------------------
+    |
+    | Icono, color y frase corta. No los lee ningún motor: sirven para
+    | reconocer una fase de un vistazo en una biblioteca de cuarenta, sin
+    | abrirla. Cuando no se ha elegido nada, el icono sale del tipo de fase,
+    | que ya dice bastante.
+    |
+    */
+
+    public function getDisplayIconAttribute(): string
+    {
+        $propio = trim((string) data_get($this->settings, 'icon', ''));
+
+        if ($propio !== '') {
+            return $propio;
+        }
+
+        return match ($this->phase_type) {
+            'SINGLE_ELIMINATION' => '🏆',
+            'ROUND_ROBIN' => '🔄',
+            'GROUP_STAGE' => '▦',
+            'SWISS' => '⇄',
+            default => '◇',
+        };
+    }
+
+    public function getAccentAttribute(): string
+    {
+        $propio = (string) data_get($this->settings, 'accent', '');
+
+        if (in_array($propio, ['amber', 'violet', 'cyan', 'emerald', 'rose', 'sky', 'slate'], true)) {
+            return $propio;
+        }
+
+        return match ($this->phase_type) {
+            'SINGLE_ELIMINATION' => 'amber',
+            'ROUND_ROBIN' => 'cyan',
+            'GROUP_STAGE' => 'violet',
+            'SWISS' => 'emerald',
+            default => 'slate',
+        };
+    }
+
+    public function getSummaryAttribute(): ?string
+    {
+        $propio = trim((string) data_get($this->settings, 'summary', ''));
+
+        return $propio !== '' ? $propio : null;
+    }
+
     public function isPublished(): bool
     {
         return $this->visibility === 'PUBLIC'

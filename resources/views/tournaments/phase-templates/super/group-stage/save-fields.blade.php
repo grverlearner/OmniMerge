@@ -12,5 +12,8 @@
 <input type="hidden" name="draw_points" :value="points.draw">
 <input type="hidden" name="loss_points" :value="points.loss">
 
+{{-- Cómo se construye la lista única de la fase --}}
+<input type="hidden" name="overall_ranking_mode" :value="overallMode">
+
 {{-- Hasta que jornada se juega, si se ha recortado --}}
 <input type="hidden" name="round_limit" :value="isTrimmed ? roundLimit : ''">

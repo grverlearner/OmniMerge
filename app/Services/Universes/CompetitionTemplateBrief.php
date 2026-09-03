@@ -149,6 +149,33 @@ class CompetitionTemplateBrief
             'phase_type' => $phase?->phase_type,
             'phase_type_label' => $phase?->type_label ?? 'Sin fase',
 
+            /*
+             * Como ordena sus grupos esta fase, segun la PLANTILLA. La
+             * edicion puede cambiarlo, y para poder decir «heredado: X» hay
+             * que saber cual es X.
+             */
+            /*
+             * Como reparte en grupos. Hace falta para poder avisar: si la fase
+             * reparte con su propia regla —snake, aleatorio, bombos— el
+             * reparto por puertas de la edicion decide quien ENTRA, no en que
+             * grupo cae, y eso hay que decirlo antes de que sorprenda.
+             */
+            'distribution_mode' =>
+            $phase?->phase_type === 'GROUP_STAGE'
+                ? $phase->groupStageSetting?->distribution_mode
+                : null,
+
+            'overall_ranking_mode' =>
+            $phase?->phase_type === 'GROUP_STAGE'
+                ? (
+                    \App\Services\Tournaments\GroupStage\GroupStageOverallRanking::isValid(
+                        data_get($phase->groupStageSetting?->settings, 'overall_ranking_mode')
+                    )
+                        ? data_get($phase->groupStageSetting->settings, 'overall_ranking_mode')
+                        : \App\Services\Tournaments\GroupStage\GroupStageOverallRanking::DEFAULT
+                )
+                : null,
+
             'min' => $phase?->min_participants,
             'max' => $phase?->max_participants,
 

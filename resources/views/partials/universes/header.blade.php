@@ -38,7 +38,7 @@
                     hover:bg-slate-100
                     lg:hidden
                 ">
-                ☰
+                <x-omni-icon name="menu" size="h-5 w-5" />
             </button>
 
 

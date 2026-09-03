@@ -270,6 +270,24 @@ class CompetitionPhasePlan
                 $state['nodes'][$nodeId]['runtime']['competition'] = $resumen;
 
                 /*
+                 * Como ordena sus grupos esta fase.
+                 *
+                 * La plantilla lo decide y la EDICION puede cambiarlo, igual
+                 * que ya cambia el juego o el formato de batalla. Se escribe
+                 * en cada accion —no solo al preparar— para que retocarlo con
+                 * la competicion ya empezada se note en cuanto el motor
+                 * recalcule.
+                 *
+                 * Sin excepcion propia no se toca nada: manda lo que el motor
+                 * leyo de la plantilla.
+                 */
+                $propio = $this->phaseOf($competition, (int) $nodeId)?->overall_ranking_mode;
+
+                if (\App\Services\Tournaments\GroupStage\GroupStageOverallRanking::isValid($propio)) {
+                    $state['nodes'][$nodeId]['runtime']['overall_ranking_mode'] = $propio;
+                }
+
+                /*
                  * Que puestos tiene que decidir esta fase.
                  *
                  * Se reescribe en CADA accion, no solo al preparar la fase,

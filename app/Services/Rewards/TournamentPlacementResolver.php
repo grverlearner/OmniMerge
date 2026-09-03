@@ -95,14 +95,23 @@ class TournamentPlacementResolver
                 ($a->runtime_key === $runnerUpKey ? 0 : 1)
                     <=> ($b->runtime_key === $runnerUpKey ? 0 : 1),
 
-                /* Lo lejos que llegó */
-                fn($a, $b) =>
-                (int) $b->round_reached <=> (int) $a->round_reached,
-
-                /* Y lo que se jugó para separar a los que llegaron igual */
+                /*
+                 * El puesto que se GANÓ en la última fase.
+                 *
+                 * Va antes que la profundidad, y no después, porque es un
+                 * hecho y la profundidad es una aproximación. En una fase de
+                 * grupos «hasta dónde llegó» mide cuántas jornadas tuvo tu
+                 * grupo, no lo bien que jugaste: con grupos de tres y de
+                 * cuatro, quien ganó su grupo de tres aparecía por debajo de
+                 * quien fue último en uno de cuatro.
+                 */
                 fn($a, $b) =>
                 ($jugado[$a->runtime_key] ?? PHP_INT_MAX)
                     <=> ($jugado[$b->runtime_key] ?? PHP_INT_MAX),
+
+                /* Y, para quien no tenga puesto de fase, lo lejos que llegó */
+                fn($a, $b) =>
+                (int) $b->round_reached <=> (int) $a->round_reached,
 
                 fn($a, $b) =>
                 (int) $b->points <=> (int) $a->points,
@@ -115,16 +124,36 @@ class TournamentPlacementResolver
             ])
             ->values();
 
+        /*
+         * Y ahora sí: el campeón es el primero de este orden.
+         *
+         * El proyector deja a varios como FINALIST cuando el terminal de
+         * campeón recibe a más de uno, porque él no sabe compararlos. Aquí
+         * sí, así que aquí se cierra: uno campeón y el resto, colocados.
+         */
+        $terminado = $instance->isClosed()
+            || $instance->status === 'COMPLETED';
+
         foreach ($ordered as $index => $participant) {
 
             $placement = $index + 1;
 
-            if ((int) $participant->placement === $placement) {
+            $outcome = $participant->outcome;
+
+            if ($terminado && $outcome === 'FINALIST') {
+                $outcome = $placement === 1 ? 'CHAMPION' : 'ELIMINATED';
+            }
+
+            if (
+                (int) $participant->placement === $placement
+                && $participant->outcome === $outcome
+            ) {
                 continue;
             }
 
             $participant->forceFill([
                 'placement' => $placement,
+                'outcome' => $outcome,
             ])->save();
         }
 
@@ -150,6 +179,38 @@ class TournamentPlacementResolver
 
         if (! $ultima) {
             return [];
+        }
+
+        /*
+         * Si esa fase produjo una lista ÚNICA, manda ella.
+         *
+         * Es el caso de una fase de grupos: sus posiciones son de cada grupo
+         * —1, 1, 1, 1, 2, 2…— y como orden de la fase no dicen nada. El motor
+         * ya construyó la lista buena con el modo que la fase tenga elegido
+         * (ver GroupStageOverallRanking), así que el puesto final del torneo
+         * respeta esa elección en vez de contradecirla.
+         */
+        $general = data_get(
+            $instance->state?->state,
+            'nodes.' . $ultima->node_id . '.runtime.overall_standings'
+        );
+
+        if (is_array($general) && $general !== []) {
+
+            $mapa = [];
+
+            foreach ($general as $fila) {
+
+                $clave = $fila['participant_id'] ?? null;
+
+                if ($clave !== null) {
+                    $mapa[(string) $clave] = (int) ($fila['overall_position'] ?? 0);
+                }
+            }
+
+            if ($mapa !== []) {
+                return $mapa;
+            }
         }
 
         return TournamentInstancePhaseParticipant::query()

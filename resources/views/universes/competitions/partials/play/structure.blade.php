@@ -400,6 +400,84 @@
                     @endif
 
 
+                    {{-- ============================================ --}}
+                    {{-- CÓMO VA ESTA FASE --}}
+                    {{-- ============================================ --}}
+
+                    {{--
+                        Cada fase tiene su propio orden, y no es ninguno de los
+                        dos de la tira de arriba: un cuadro de dieciséis y una
+                        liga de diez van cada uno por su cuenta.
+
+                        De dónde salen las filas depende del motor, y por eso se
+                        decide aquí y no dentro del trozo que las pinta:
+
+                          fase de grupos   la lista ÚNICA que calcula el motor;
+                                           las posiciones de sus tablas se
+                                           repiten por grupo (1,1,1,2,2,2…) y
+                                           como ranking de la fase no dicen nada
+                          las demás        sus propias posiciones, que ya son
+                                           el orden de la fase
+                    --}}
+
+                    @php
+                        $general = ($overallStandings ?? [])[$tab['node_id']] ?? null;
+
+                        if ($phase->phase_type === 'GROUP_STAGE') {
+
+                            /*
+                             * Sin lista única no se enseña nada.
+                             *
+                             * Las posiciones de una fase de grupos son de cada
+                             * grupo: 1, 1, 1, 1, 2, 2, 2, 2… Pintadas en fila
+                             * parecen un ranking y no lo son, y cuatro primeros
+                             * seguidos confunden más que la ausencia. La lista
+                             * de verdad aparece en cuanto el motor recalcule.
+                             */
+                            $filasFase = $general
+                                ? collect($general['rows'])
+                                    ->map(fn($fila) => [
+                                        'position' => $fila['position'],
+                                        'name' => $fila['name'],
+                                        'image_url' => $fila['image_url'],
+                                        'points' => $fila['points'],
+
+                                        /* «B1»: su grupo y su puesto dentro de él */
+                                        'origin' => mb_substr(
+                                            str_replace('Grupo ', '', $fila['group_name']), 0, 1
+                                        ) . $fila['group_position'],
+                                    ])
+                                    ->all()
+                                : [];
+
+                            $notaFase = $general['label'] ?? null;
+
+                        } else {
+
+                            $filasFase = $block['standings']
+                                ->sortBy(fn($fila) => $fila->position ?? PHP_INT_MAX)
+                                ->map(fn($fila) => [
+                                    'position' => $fila->position,
+                                    'name' => $fila->participant_name,
+                                    'image_url' => $fila->universeEntity?->image_url,
+                                    'points' => $fila->points,
+                                    'origin' => $fila->group_label
+                                        ? mb_substr(str_replace('Grupo ', '', $fila->group_label), 0, 1)
+                                        : null,
+                                ])
+                                ->values()
+                                ->all();
+
+                            $notaFase = $tab['engine'];
+                        }
+                    @endphp
+
+                    @include('universes.competitions.partials.play.phase-ranking', [
+                        'rows' => $filasFase,
+                        'note' => $notaFase,
+                    ])
+
+
                     {{-- CUERPO SEGÚN EL MOTOR --}}
 
                     @if ($block['view'] === 'bracket')

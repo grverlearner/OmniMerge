@@ -631,5 +631,89 @@ export function groupStageEditor(config) {
         bestOfPosition(position) {
             return this.crossTable.filter((row) => row.position === position);
         },
+
+        /*
+        |----------------------------------------------------------------------
+        | La lista unica de la fase
+        |----------------------------------------------------------------------
+        |
+        | Una fase de grupos produce varias tablas, y casi siempre hace falta
+        | UNA sola: para repartir plazas, para sembrar el cuadro que viene,
+        | para entregar premios por puesto.
+        |
+        | Que el 1.o de un grupo flojo vaya por delante del 2.o de uno fuerte
+        | -o al reves- es una decision, no un hecho. Aqui se elige, y se ve al
+        | momento que lista produce esa eleccion.
+        |
+        | El mismo calculo lo hace el servidor al jugar de verdad; ver
+        | GroupStageOverallRanking. Esto es la vista previa.
+        */
+
+        overallMode: config.payload.settings.overall_ranking_mode ?? 'GLOBAL',
+
+        get overallModes() {
+            return config.payload.overall_ranking_modes ?? {};
+        },
+
+        setOverallMode(mode) {
+            this.overallMode = mode;
+        },
+
+        get overallRanking() {
+            /* Todas las filas, con el puesto que ocupan en su grupo */
+            const filas = [];
+
+            this.groups.forEach((group, indice) => {
+                this.standingsOf(group).forEach((row, puesto) => {
+                    filas.push({
+                        ...row,
+                        group,
+                        group_order: indice,
+                        group_position: puesto + 1,
+                    });
+                });
+            });
+
+            if (!filas.length) {
+                return [];
+            }
+
+            /*
+             * Por bloques de puesto, o todos juntos. El desempate dentro de
+             * cada caso es SIEMPRE el de la fase -this.rank()-, para que la
+             * lista general no pueda contradecir a las tablas.
+             */
+            let ordenadas;
+
+            if (this.overallMode === 'BY_POSITION' || this.overallMode === 'BY_POSITION_GROUP_ORDER') {
+
+                const bloques = new Map();
+
+                filas.forEach((fila) => {
+                    if (!bloques.has(fila.group_position)) {
+                        bloques.set(fila.group_position, []);
+                    }
+                    bloques.get(fila.group_position).push(fila);
+                });
+
+                ordenadas = [];
+
+                [...bloques.keys()].sort((a, b) => a - b).forEach((puesto) => {
+                    const bloque = bloques.get(puesto);
+
+                    ordenadas.push(...(this.overallMode === 'BY_POSITION_GROUP_ORDER'
+                        ? [...bloque].sort((a, b) => a.group_order - b.group_order)
+                        : this.rank(bloque)));
+                });
+
+            } else {
+                ordenadas = this.rank(filas);
+            }
+
+            return ordenadas.map((fila, indice) => ({
+                ...fila,
+                overall_position: indice + 1,
+            }));
+        },
     };
 }

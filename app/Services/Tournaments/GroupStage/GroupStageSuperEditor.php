@@ -8,6 +8,7 @@ use App\Models\PhaseInputGate;
 use App\Models\PhaseTemplate;
 use App\Models\User;
 use App\Services\Tournaments\PhaseEditor\PhaseSuperEditorContract;
+use App\Services\Tournaments\GroupStage\GroupStageOverallRanking;
 use App\Services\Tournaments\PhaseEditor\SupportsEditableGroups;
 use App\Services\Tournaments\PhaseExitService;
 use App\Services\Tournaments\Preview\PreviewCastService;
@@ -258,7 +259,22 @@ class GroupStageSuperEditor implements PhaseSuperEditorContract, SupportsEditabl
                 'cross_group_normalization' => $preview->cross_group_normalization,
 
                 'round_limit' => $this->roundLimit($settings, $overrides, $groups),
+
+                /*
+                 * Como se construye la lista unica de la fase. El editor la
+                 * calcula en la pantalla con esto, y el motor la calcula igual
+                 * al jugar: la misma eleccion manda en los dos sitios.
+                 */
+                'overall_ranking_mode' =>
+                GroupStageOverallRanking::isValid(
+                    data_get($settings->settings, 'overall_ranking_mode')
+                )
+                    ? data_get($settings->settings, 'overall_ranking_mode')
+                    : GroupStageOverallRanking::DEFAULT,
             ],
+
+            /* Los modos y su explicacion, para no repetirlos en la vista */
+            'overall_ranking_modes' => GroupStageOverallRanking::MODES,
 
             'structure' => $this->structureSummary($allocation, $groups),
 
@@ -1022,6 +1038,17 @@ class GroupStageSuperEditor implements PhaseSuperEditorContract, SupportsEditabl
 
             'round_limit' => ['nullable', 'integer', 'min:1', 'max:5000'],
 
+            /*
+             * Como se construye la lista unica de la fase. Ver
+             * GroupStageOverallRanking: hay mas de una forma legitima de
+             * ordenar varios grupos en una sola lista, y cada una da un
+             * ganador distinto.
+             */
+            'overall_ranking_mode' => [
+                'nullable',
+                Rule::in(array_keys(GroupStageOverallRanking::MODES)),
+            ],
+
             'pin_participants' => ['boolean'],
             'participants' => ['nullable', 'integer', 'min:2', 'max:512'],
         ];
@@ -1046,6 +1073,11 @@ class GroupStageSuperEditor implements PhaseSuperEditorContract, SupportsEditabl
         } else {
             unset($stored['round_limit']);
         }
+
+        $stored['overall_ranking_mode'] =
+            GroupStageOverallRanking::isValid($data['overall_ranking_mode'] ?? null)
+                ? $data['overall_ranking_mode']
+                : GroupStageOverallRanking::DEFAULT;
 
         $settings->fill([
             'group_count_mode' => $data['group_count_mode'],

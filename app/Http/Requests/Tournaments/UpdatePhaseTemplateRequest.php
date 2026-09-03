@@ -210,7 +210,7 @@ class UpdatePhaseTemplateRequest extends FormRequest
             ],
 
             'best_of' => [
-                'required',
+                'nullable',
                 Rule::in([
                     1,
                     3,
@@ -218,6 +218,34 @@ class UpdatePhaseTemplateRequest extends FormRequest
                     7,
                     9,
                 ]),
+            ],
+
+            /*
+             * Cómo se ve la fase.
+             *
+             * No es configuración del motor y por eso vive aquí y no en la
+             * Super Edición: es lo que permite reconocerla de un vistazo en
+             * una biblioteca de cuarenta fases —un icono, un color y una
+             * frase—. La Super Edición decide cómo FUNCIONA; esto, cómo se
+             * encuentra.
+             */
+            'icon' => [
+                'nullable',
+                'string',
+                'max:8',
+            ],
+
+            'accent' => [
+                'nullable',
+                Rule::in([
+                    'amber', 'violet', 'cyan', 'emerald', 'rose', 'sky', 'slate',
+                ]),
+            ],
+
+            'summary' => [
+                'nullable',
+                'string',
+                'max:120',
             ],
 
             'status' => [

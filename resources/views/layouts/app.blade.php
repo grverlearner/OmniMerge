@@ -15,11 +15,22 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
+@php
+    /*
+     * El margen del contenido tiene que coincidir con el ancho del sidebar,
+     * y el sidebar se pliega. Blade lee la misma cookie que Alpine para
+     * pintar ya el margen correcto: si no, la pagina nacería ancha y daría
+     * un salto en cuanto arrancase Alpine.
+     */
+    $sidebarCompacto = request()->cookie('omni_sidebar') === 'compact';
+@endphp
+
 <body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
-    <div x-data="{ sidebarOpen: false }" class="min-h-screen">
+    <div x-data="omniSidebar({{ $sidebarCompacto ? 'true' : 'false' }})" class="min-h-screen">
         @include('partials.sidebar')
 
-        <div class="lg:pl-72">
+        <div :class="{ 'lg:pl-[4.5rem]': compact, 'lg:pl-72': ! compact }"
+            class="transition-all duration-300 {{ $sidebarCompacto ? 'lg:pl-[4.5rem]' : 'lg:pl-72' }}">
             @include('partials.header')
 
             <main class="px-4 py-6 sm:px-6 lg:px-8">

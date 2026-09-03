@@ -35,6 +35,7 @@
         templates: @js($templateBriefs),
         games: @js($games),
         phaseSettings: @js((object) $phaseSettings),
+        overallRankingModes: @js($overallRankingModes ?? []),
         competitors: @js($competitors),
         catalog: @js($eligibilityCatalog),
         startRules: @js(array_values((array) $designerValues['start_rules'])),

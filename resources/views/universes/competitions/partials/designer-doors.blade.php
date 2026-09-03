@@ -155,6 +155,46 @@
         </div>
 
 
+        {{-- ============ LO QUE LA FASE VA A REHACER ============ --}}
+
+        {{--
+            Repartir por puertas dice QUIÉN entra. En qué grupo cae cada uno lo
+            decide la fase de grupos, con el modo que tenga configurado.
+
+            Con «serpiente», «aleatorio» o «bombos» el reparto de aquí se vuelve
+            a barajar, y descubrirlo al pulsar «empezar la competición» —cuando
+            ya no se puede tocar— es tarde. Se dice antes, con el nombre de la
+            fase y del modo, y con lo que hay que cambiar para que se respete.
+        --}}
+
+        <template x-if="reshufflingPhases.length">
+            <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5">
+
+                <p class="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                    ⚠ El reparto por puertas no decidirá los grupos
+                </p>
+
+                <template x-for="ph in reshufflingPhases" :key="'rs' + ph.id">
+                    <p class="mt-1 text-[10px] leading-relaxed text-slate-300">
+                        <strong class="font-black text-slate-100" x-text="ph.name"></strong>
+                        reparte en grupos con
+                        <strong class="font-black text-amber-200"
+                            x-text="distributionLabel(ph.distribution_mode)"></strong>,
+                        así que decidirá por su cuenta quién cae en cada grupo.
+                        Lo que marques aquí decide <span class="font-bold">quién entra</span>,
+                        no en qué grupo acaba.
+                    </p>
+                </template>
+
+                <p class="mt-1.5 text-[9px] leading-relaxed text-slate-500">
+                    Para que cada puerta llene su grupo, cambia el reparto de esa fase
+                    a <span class="font-bold text-slate-400">orden de llegada</span> o
+                    <span class="font-bold text-slate-400">a mano</span> en su Super Edición.
+                </p>
+            </div>
+        </template>
+
+
         {{-- ============ LAS PUERTAS ============ --}}
 
         <template x-if="templateStarts.length === 0">
@@ -836,9 +876,23 @@
                                 </template>
                             </div>
 
-                            {{-- Lo que de verdad se envía --}}
-                            <template x-for="id in (manual[st.id] ?? [])" :key="'h' + st.id + '-' + id">
-                                <input type="hidden" :name="'assignments[' + st.id + '][]'" :value="id">
+                            {{--
+                                Lo que de verdad se envía.
+
+                                x-if y no x-show, al contrario que en casi toda
+                                la aplicación: aquí lo que se quiere es que NO
+                                viajen. El servidor prefiere el reparto a mano
+                                sobre las reglas cuando llega relleno, así que
+                                dejarlo en el DOM en modo «con una regla» haría
+                                ganar siempre a un reparto que el usuario ya no
+                                quiere.
+                            --}}
+                            <template x-if="assignMode === 'MANUAL'">
+                                <span>
+                                    <template x-for="id in (manual[st.id] ?? [])" :key="'h' + st.id + '-' + id">
+                                        <input type="hidden" :name="'assignments[' + st.id + '][]'" :value="id">
+                                    </template>
+                                </span>
                             </template>
                         </div>
 

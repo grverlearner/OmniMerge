@@ -127,6 +127,74 @@
                             </div>
 
 
+                            {{-- ============================================ --}}
+                            {{-- SU ORDEN GENERAL · solo fase de grupos --}}
+                            {{-- ============================================ --}}
+
+                            {{--
+                                Una fase de grupos produce varias tablas, y hace
+                                falta una sola lista para repartir plazas y
+                                premios por puesto. Cómo se construye lo decide
+                                la plantilla, pero es exactamente el tipo de cosa
+                                que una edición quiere cambiar sin tocarla —igual
+                                que ya cambia el juego o el formato—.
+
+                                Solo aparece en GROUP_STAGE: en un cuadro o en una
+                                liga la pregunta no existe, y ofrecerla sería
+                                ofrecer un control que no hace nada.
+                            --}}
+
+                            <div x-show="ph.phase_type === 'GROUP_STAGE'" x-cloak
+                                class="rounded-lg border border-cyan-500/25 bg-cyan-500/5 p-2.5">
+
+                                <div class="flex flex-wrap items-center gap-2">
+
+                                    <p class="text-[9px] font-black uppercase tracking-wider text-cyan-300">
+                                        ≡ Orden general de la fase
+                                    </p>
+
+                                    {{-- En qué estado está ahora mismo --}}
+                                    <span class="rounded px-1.5 py-0.5 text-[8px] font-black"
+                                        :class="phaseOf(ph.id).overall_ranking_mode
+                                            ? 'bg-cyan-500/25 text-cyan-200'
+                                            : 'bg-slate-800 text-slate-400'"
+                                        x-text="phaseOf(ph.id).overall_ranking_mode
+                                            ? 'esta edición'
+                                            : 'heredado de la plantilla'"></span>
+
+                                    <span class="text-[9px] text-slate-400"
+                                        x-text="overallRankingModes[
+                                            phaseOf(ph.id).overall_ranking_mode || ph.overall_ranking_mode
+                                        ]?.label ?? '—'"></span>
+                                </div>
+
+                                <select :name="'phases[' + ph.id + '][overall_ranking_mode]'"
+                                    x-model="phaseOf(ph.id).overall_ranking_mode"
+                                    x-keep-selected="phaseOf(ph.id).overall_ranking_mode"
+                                    class="mt-1.5 w-full rounded-lg border-slate-700 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 focus:border-cyan-500 focus:ring-cyan-500">
+
+                                    <option value="">
+                                        — heredar de la plantilla —
+                                    </option>
+
+                                    <template x-for="(modo, clave) in overallRankingModes" :key="'orm' + ph.id + clave">
+                                        <option :value="clave" x-text="modo.label"></option>
+                                    </template>
+                                </select>
+
+                                <p class="mt-1.5 text-[9px] leading-relaxed text-slate-500"
+                                    x-text="overallRankingModes[
+                                        phaseOf(ph.id).overall_ranking_mode || ph.overall_ranking_mode
+                                    ]?.help ?? ''"></p>
+
+                                <p class="mt-1 text-[9px] leading-relaxed text-slate-600">
+                                    Decide quién va primero de toda la fase, no dentro de
+                                    su grupo. De esa lista salen las plazas y los premios
+                                    por puesto.
+                                </p>
+                            </div>
+
+
                             {{-- Su batalla --}}
 
                             <div x-show="battleScope === 'PHASE'" class="space-y-2">

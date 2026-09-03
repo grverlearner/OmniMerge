@@ -1,378 +1,102 @@
 @php
-
     /*
-     * El sidebar es contextual: si estamos dentro de un Universo
-     * concreto muestra su navegación interna; si no, la del módulo.
+     * El sidebar de Universos es contextual: dentro de un Universo concreto
+     * enseña su navegación interna; fuera, la del módulo. El armazón es el
+     * mismo de los otros dos (ver partials/sidebar.blade.php).
      */
-    $currentUniverse = $universe ?? null;
 
-    if ($currentUniverse) {
-        $currentUniverse->loadCount([
-            'entities',
-            'seasons',
-            'universeTournaments',
-            'tournamentInstances',
-        ]);
+    $universoActual = $universe ?? null;
 
-        $currentSeason = $currentUniverse->activeSeason();
+    if ($universoActual) {
+        $universoActual->loadCount(['entities', 'seasons', 'universeTournaments', 'tournamentInstances']);
+
+        $temporadaActual = $universoActual->activeSeason();
     }
-
-    $itemBase = 'flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition';
-
-    $itemActive = 'bg-violet-500 text-white shadow-lg shadow-violet-950/30';
-
-    $itemIdle = 'text-slate-300 hover:bg-slate-900 hover:text-white';
-
 @endphp
 
+<x-omni-sidebar accent="violet">
 
-{{-- OVERLAY MÓVIL --}}
-
-<div x-show="sidebarOpen" x-transition.opacity @click="sidebarOpen = false"
-    class="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden">
-</div>
-
-
-{{-- SIDEBAR --}}
-
-<aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
-    class="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-slate-950 text-slate-100 transition-transform duration-300 lg:translate-x-0">
-
-    {{-- CABECERA --}}
-
-    <div class="border-b border-slate-800 px-5 pb-5 pt-5">
-
-        @if ($currentUniverse)
-
-            <a href="{{ route('universes.index') }}"
-                class="mb-4 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2.5 text-xs font-bold text-slate-400 transition hover:border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-300">
-                ← Todos los Universos
-            </a>
-
-
-            <a href="{{ route('universes.show', $currentUniverse) }}"
-                class="flex items-center gap-3 rounded-xl px-1 py-1">
-
-                <div
-                    class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-xl shadow-lg shadow-violet-950/30">
-
-                    @if ($currentUniverse->image_url)
-                        <img src="{{ $currentUniverse->image_url }}" alt="{{ $currentUniverse->name }}"
-                            class="h-full w-full object-cover">
-                    @else
-                        🌌
-                    @endif
-
-                </div>
-
-
-                <div class="min-w-0">
-                    <p class="truncate text-base font-black tracking-tight text-white">
-                        {{ $currentUniverse->name }}
-                    </p>
-
-                    <div class="mt-0.5 flex items-center gap-2">
-                        <span class="font-mono text-[10px] text-slate-500">
-                            {{ $currentUniverse->code }}
-                        </span>
-
-                        @if ($currentSeason)
-                            <span class="h-1 w-1 rounded-full bg-slate-600"></span>
-
-                            <span class="truncate text-[10px] font-bold text-violet-400">
-                                Temporada {{ $currentSeason->number }}
-                            </span>
-                        @endif
-                    </div>
-                </div>
-
-            </a>
+    <x-slot:brand>
+        @if ($universoActual)
+            <x-omni-sidebar-brand accent="violet" :href="route('universes.show', $universoActual)" :back="route('universes.index')"
+                back-label="Todos los Universos" :title="$universoActual->name" :subtitle="$universoActual->code" :meta="$temporadaActual ? 'Temporada ' . $temporadaActual->number : null" :image="$universoActual->image_url"
+                icon="orbita" />
         @else
-
-            <a href="{{ route('hub') }}"
-                class="mb-4 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2.5 text-xs font-bold text-slate-400 transition hover:border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-300">
-                ← Centro OmniMerge
-            </a>
-
-
-            <a href="{{ route('universes.dashboard') }}" class="flex items-center gap-3 rounded-xl px-1 py-1">
-
-                <div
-                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-xl shadow-lg shadow-violet-950/30">
-                    🌌
-                </div>
-
-                <div class="min-w-0">
-                    <p class="truncate text-lg font-black tracking-tight text-white">
-                        OmniMerge
-                    </p>
-
-                    <div class="mt-0.5 flex items-center gap-2">
-                        <span class="text-xs font-bold uppercase tracking-wider text-violet-400">
-                            Universos
-                        </span>
-                    </div>
-                </div>
-
-            </a>
+            <x-omni-sidebar-brand accent="violet" :href="route('universes.dashboard')" :back="route('hub')" back-label="Centro OmniMerge"
+                title="Universos" subtitle="Mundos" icon="orbita" />
         @endif
+    </x-slot:brand>
 
-    </div>
 
+    @if ($universoActual)
 
-    {{-- NAVEGACIÓN --}}
+        <x-omni-nav-section title="Universo">
+            <x-omni-nav-item accent="violet" :href="route('universes.show', $universoActual)" icon="cuadricula" label="Resumen"
+                :active="request()->routeIs('universes.show')" />
+        </x-omni-nav-section>
 
-    <nav class="flex-1 space-y-6 overflow-y-auto px-4 py-6">
 
-        @if ($currentUniverse)
+        <x-omni-nav-section title="Contenido">
+            <x-omni-nav-item accent="violet" :href="route('universes.explorer', $universoActual)" icon="brujula" label="Explorar"
+                :active="request()->routeIs('universes.explorer')" />
 
-            {{-- ============================================ --}}
-            {{-- NAVEGACIÓN DENTRO DE UN UNIVERSO --}}
-            {{-- ============================================ --}}
+            <x-omni-nav-item accent="violet" :href="route('universes.games.index', $universoActual)" icon="dado" label="Juegos"
+                :active="request()->routeIs('universes.games.*')" />
 
-            <div>
-                <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Universo
-                </p>
+            <x-omni-nav-item accent="violet" :href="route('universes.entities.index', $universoActual)" icon="chispa"
+                label="Entidades" :badge="$universoActual->entities_count" :active="request()->routeIs('universes.entities.*')" />
 
-                <a href="{{ route('universes.show', $currentUniverse) }}"
-                    class="{{ request()->routeIs('universes.show') ? $itemActive : $itemIdle }} {{ $itemBase }}">
+            <x-omni-nav-item accent="violet" :href="route('universes.seasons.index', $universoActual)" icon="calendario"
+                label="Temporadas" :badge="$universoActual->seasons_count" :active="request()->routeIs('universes.seasons.*')" />
 
-                    <span class="text-lg">▦</span>
+            <x-omni-nav-item accent="violet" :href="route('universes.tournaments.index', $universoActual)" icon="trofeo"
+                label="Torneos" :badge="$universoActual->universe_tournaments_count" :active="request()->routeIs('universes.tournaments.*')" />
 
-                    Resumen
-                </a>
-            </div>
+            {{-- Competiciones reales, no plantillas --}}
+            <x-omni-nav-item accent="violet" :href="route('universes.competitions.index', $universoActual)" icon="espadas"
+                label="Competiciones" :badge="$universoActual->tournament_instances_count" :active="request()->routeIs('universes.competitions.*')" />
+        </x-omni-nav-section>
 
 
-            <div>
-                <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Contenido
-                </p>
+        <x-omni-nav-section title="Historia">
+            <x-omni-nav-item accent="violet" :href="route('universes.history', $universoActual)" icon="historial" label="Historial"
+                :active="request()->routeIs('universes.history')" />
 
-                <div class="space-y-1">
+            <x-omni-nav-item accent="violet" :href="route('universes.trophies.index', $universoActual)" icon="medalla"
+                label="Trofeos" :active="request()->routeIs('universes.trophies.*')" />
 
-                    <a href="{{ route('universes.explorer', $currentUniverse) }}"
-                        class="{{ request()->routeIs('universes.explorer') ? $itemActive : $itemIdle }} {{ $itemBase }}">
+            <x-omni-nav-item accent="violet" :href="route('universes.ranking', $universoActual)" icon="barras"
+                label="Clasificación" :active="request()->routeIs('universes.ranking*')" />
+        </x-omni-nav-section>
 
-                        <span class="text-lg">🧭</span>
 
-                        Explorar
-                    </a>
+        <x-omni-nav-section title="Ajustes">
+            <x-omni-nav-item accent="violet" :href="route('universes.edit', $universoActual)" icon="engranaje"
+                label="Configuración" :active="request()->routeIs('universes.edit')" />
+        </x-omni-nav-section>
 
+    @else
 
-                    <a href="{{ route('universes.games.index', $currentUniverse) }}"
-                        class="{{ request()->routeIs('universes.games.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
+        <x-omni-nav-section title="Principal">
+            <x-omni-nav-item accent="violet" :href="route('universes.dashboard')" icon="cuadricula" label="Dashboard"
+                :active="request()->routeIs('universes.dashboard')" />
 
-                        <span class="text-lg">⚄</span>
+            <x-omni-nav-item accent="violet" :href="route('universes.index')" icon="orbita" label="Mis Universos"
+                :active="request()->routeIs('universes.index')" />
 
-                        Juegos
-                    </a>
+            <x-omni-nav-item accent="violet" :href="route('universes.create')" icon="mas" label="Nuevo Universo"
+                :active="request()->routeIs('universes.create')" />
+        </x-omni-nav-section>
 
+    @endif
 
-                    <a href="{{ route('universes.entities.index', $currentUniverse) }}"
-                        class="{{ request()->routeIs('universes.entities.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
 
-                        <span class="text-lg">✦</span>
+    <x-slot:footer>
+        <x-omni-sidebar-user>
+            <x-omni-nav-item accent="amber" :href="route('tournaments.dashboard')" icon="trofeo" label="Ir a Torneos" />
 
-                        <span class="flex-1">
-                            Entidades
-                        </span>
+            <x-omni-nav-item accent="indigo" :href="route('dashboard')" icon="libro" label="Ir a Biblioteca" />
+        </x-omni-sidebar-user>
+    </x-slot:footer>
 
-                        <span
-                            class="{{ request()->routeIs('universes.entities.*') ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400' }} rounded-full px-2 py-0.5 text-[10px] font-black">
-                            {{ $currentUniverse->entities_count }}
-                        </span>
-                    </a>
-
-
-                    <a href="{{ route('universes.seasons.index', $currentUniverse) }}"
-                        class="{{ request()->routeIs('universes.seasons.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
-
-                        <span class="text-lg">◷</span>
-
-                        <span class="flex-1">
-                            Temporadas
-                        </span>
-
-                        <span
-                            class="{{ request()->routeIs('universes.seasons.*') ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400' }} rounded-full px-2 py-0.5 text-[10px] font-black">
-                            {{ $currentUniverse->seasons_count }}
-                        </span>
-                    </a>
-
-
-                    <a href="{{ route('universes.tournaments.index', $currentUniverse) }}"
-                        class="{{ request()->routeIs('universes.tournaments.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
-
-                        <span class="text-lg">🏆</span>
-
-                        <span class="flex-1">
-                            Torneos
-                        </span>
-
-                        <span
-                            class="{{ request()->routeIs('universes.tournaments.*') ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400' }} rounded-full px-2 py-0.5 text-[10px] font-black">
-                            {{ $currentUniverse->universe_tournaments_count }}
-                        </span>
-                    </a>
-
-
-                    {{-- Competiciones reales, no plantillas --}}
-
-                    <a href="{{ route('universes.competitions.index', $currentUniverse) }}"
-                        class="{{ request()->routeIs('universes.competitions.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
-
-                        <span class="text-lg">⚔</span>
-
-                        <span class="flex-1">
-                            Competiciones
-                        </span>
-
-                        <span
-                            class="{{ request()->routeIs('universes.competitions.*') ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400' }} rounded-full px-2 py-0.5 text-[10px] font-black">
-                            {{ $currentUniverse->tournament_instances_count }}
-                        </span>
-                    </a>
-
-                </div>
-            </div>
-
-
-            {{-- Dependen de competiciones jugadas: Fase 6 en adelante. --}}
-
-            <div>
-                <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Historia
-                </p>
-
-                <div class="space-y-1">
-
-                    <a href="{{ route('universes.history', $currentUniverse) }}"
-                        class="{{ request()->routeIs('universes.history') ? $itemActive : $itemIdle }} {{ $itemBase }}">
-
-                        <span class="text-lg">◷</span>
-
-                        Historial
-                    </a>
-
-
-                    <a href="{{ route('universes.trophies.index', $currentUniverse) }}"
-                        class="{{ request()->routeIs('universes.trophies.*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
-
-                        <span class="text-lg">🏆</span>
-
-                        Trofeos
-                    </a>
-
-
-                    <a href="{{ route('universes.ranking', $currentUniverse) }}"
-                        class="{{ request()->routeIs('universes.ranking*') ? $itemActive : $itemIdle }} {{ $itemBase }}">
-
-                        <span class="text-lg">📊</span>
-
-                        Clasificación
-                    </a>
-
-                </div>
-            </div>
-
-
-            <div>
-                <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Ajustes
-                </p>
-
-                <a href="{{ route('universes.edit', $currentUniverse) }}"
-                    class="{{ request()->routeIs('universes.edit') ? $itemActive : $itemIdle }} {{ $itemBase }}">
-
-                    <span class="text-lg">⚙</span>
-
-                    Configuración
-                </a>
-            </div>
-        @else
-
-            {{-- ============================================ --}}
-            {{-- NAVEGACIÓN DEL MÓDULO --}}
-            {{-- ============================================ --}}
-
-            <div>
-                <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Principal
-                </p>
-
-                <div class="space-y-1">
-
-                    <a href="{{ route('universes.dashboard') }}"
-                        class="{{ request()->routeIs('universes.dashboard') ? $itemActive : $itemIdle }} {{ $itemBase }}">
-
-                        <span class="text-lg">▦</span>
-
-                        Dashboard
-                    </a>
-
-
-                    <a href="{{ route('universes.index') }}"
-                        class="{{ request()->routeIs('universes.index') ? $itemActive : $itemIdle }} {{ $itemBase }}">
-
-                        <span class="text-lg">🌌</span>
-
-                        Mis Universos
-                    </a>
-
-
-                    <a href="{{ route('universes.create') }}"
-                        class="{{ request()->routeIs('universes.create') ? $itemActive : $itemIdle }} {{ $itemBase }}">
-
-                        <span class="text-lg">+</span>
-
-                        Nuevo Universo
-                    </a>
-
-                </div>
-            </div>
-        @endif
-
-    </nav>
-
-
-    {{-- USUARIO --}}
-
-    <div class="border-t border-slate-800 p-4">
-
-        <a href="{{ route('profile.edit') }}"
-            class="flex items-center gap-3 rounded-xl p-3 transition hover:bg-slate-900">
-
-            <x-user-avatar :user="auth()->user()" size="md" />
-
-            <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-semibold text-white">
-                    {{ auth()->user()->name }}
-                </p>
-
-                <p class="truncate text-xs text-slate-400">
-                    {{ '@' . auth()->user()->username }}
-                </p>
-            </div>
-
-            <span class="text-xs text-slate-600">→</span>
-        </a>
-
-
-        <div class="mt-2 space-y-1">
-
-            <a href="{{ route('tournaments.dashboard') }}"
-                class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-900 hover:text-amber-300">
-                🏆 Ir a Torneos
-            </a>
-
-            <a href="{{ route('dashboard') }}"
-                class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-900 hover:text-indigo-300">
-                📚 Ir a Biblioteca
-            </a>
-
-        </div>
-    </div>
-
-</aside>
+</x-omni-sidebar>

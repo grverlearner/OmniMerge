@@ -411,4 +411,60 @@
 
     </section>
 
+
+    {{-- ============================================================= --}}
+    {{-- LA LISTA ÚNICA DE LA FASE --}}
+    {{-- ============================================================= --}}
+
+    {{--
+        Una fase de grupos produce varias tablas, y casi siempre hace falta
+        UNA sola: para repartir plazas, para sembrar el cuadro que viene,
+        para entregar premios por puesto.
+
+        Cuál es «la primera» de esa lista no es un hecho, es una decisión —el
+        1.º de un grupo flojo puede haber hecho menos puntos que el 2.º de
+        uno fuerte—. Por eso se elige aquí, y se ve arriba, en el centro, qué
+        lista produce la elección.
+    --}}
+
+    <section class="border-t border-slate-800 p-3">
+
+        <p class="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
+            Orden general de la fase
+        </p>
+
+        <div class="mt-2 space-y-1.5">
+
+            <template x-for="(modo, clave) in overallModes" :key="clave">
+                <button type="button" @click="setOverallMode(clave)"
+                    class="w-full rounded-lg border p-2 text-left transition"
+                    :class="overallMode === clave
+                        ? 'border-cyan-400/60 bg-cyan-500/10'
+                        : 'border-slate-800 bg-slate-950/40 hover:border-slate-600'">
+
+                    <span class="flex items-center gap-1.5">
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full border transition"
+                            :class="overallMode === clave
+                                ? 'border-cyan-400 bg-cyan-400'
+                                : 'border-slate-600'"></span>
+
+                        <span class="text-[10px] font-black"
+                            :class="overallMode === clave ? 'text-cyan-300' : 'text-slate-300'"
+                            x-text="modo.label"></span>
+                    </span>
+
+                    <span class="mt-1 block text-[9px] leading-relaxed text-slate-500"
+                        x-text="modo.help"></span>
+                </button>
+            </template>
+
+        </div>
+
+        <p class="mt-2 text-[9px] leading-relaxed text-slate-600">
+            El desempate dentro de cada caso es siempre el de arriba, así que
+            esta lista nunca puede contradecir a las tablas de cada grupo.
+        </p>
+
+    </section>
+
 </div>

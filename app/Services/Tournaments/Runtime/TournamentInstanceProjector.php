@@ -1335,6 +1335,37 @@ class TournamentInstanceProjector
 
         $champions = [];
 
+        /*
+         * Cuantos acabaron en un terminal de tipo CHAMPION.
+         *
+         * Normalmente uno. Pero una salida puede mandar a OCHO al mismo
+         * terminal -«los clasificados van a Mejor de todos»-, y entonces
+         * marcarlos a todos campeones no es cumplir la configuracion, es
+         * romper el resultado: la pantalla proclama a uno al azar, los
+         * premios de campeon se reparten ocho veces y el palmares registra
+         * ocho titulos por un torneo.
+         *
+         * Un campeon es UNO. Cuando el terminal trae varios, aqui no se
+         * decide cual: se les deja sin desenlace firme y lo decide quien
+         * sabe ordenarlos -TournamentPlacementResolver-, que compara con los
+         * criterios de la fase y ademas escribe el puesto de cada uno.
+         */
+        $enTerminalDeCampeon = 0;
+
+        foreach (($state['participants'] ?? []) as $participant) {
+
+            $donde = $participant['current_location'] ?? [];
+
+            if (
+                ($donde['type'] ?? null) === 'TERMINAL'
+                && ($terminalTypes[(string) ($donde['name'] ?? '')] ?? null) === 'CHAMPION'
+            ) {
+                $enTerminalDeCampeon++;
+            }
+        }
+
+        $campeonUnico = $enTerminalDeCampeon === 1;
+
         foreach (
             ($state['participants'] ?? [])
             as
@@ -1357,9 +1388,15 @@ class TournamentInstanceProjector
 
                     /*
                      * Llegó a un terminal: ahí sí hay desenlace firme.
+                     *
+                     * Con varios en el terminal de campeón no lo hay: son
+                     * finalistas, no campeones. Ver la nota de arriba.
                      */
-                    $terminalType === 'CHAMPION' =>
+                    $terminalType === 'CHAMPION' && $campeonUnico =>
                     'CHAMPION',
+
+                    $terminalType === 'CHAMPION' =>
+                    'FINALIST',
 
                     $terminalType !== null
                         && $terminalType !== '' =>
