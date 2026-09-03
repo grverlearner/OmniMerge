@@ -705,7 +705,7 @@
                     mt-2
                     text-xl
                     font-black
-                    text-slate-900
+                    text-white
                 ">
                 Construye la entidad
             </h3>
@@ -730,7 +730,7 @@
         <span
             class="
                 rounded-full
-                bg-indigo-50
+                bg-indigo-500/10
                 px-3
                 py-1.5
                 text-xs
@@ -795,8 +795,8 @@
                     overflow-hidden
                     rounded-2xl
                     border
-                    border-slate-200
-                    bg-white
+                    border-slate-800
+                    bg-slate-900/50
                 ">
 
                 {{-- ============================================= --}}
@@ -809,8 +809,8 @@
                         flex-col
                         gap-4
                         border-b
-                        border-slate-100
-                        bg-slate-50
+                        border-slate-800
+                        bg-slate-950
                         p-4
                         sm:flex-row
                         sm:items-center
@@ -823,7 +823,7 @@
                             shrink-0
                             overflow-hidden
                             rounded-xl
-                            bg-white
+                            bg-slate-900/50
                         ">
 
                         @if ($attribute->image_url)
@@ -869,7 +869,7 @@
                             <h4
                                 class="
                                     font-black
-                                    text-slate-900
+                                    text-white
                                 ">
                                 {{ $attribute->name }}
                             </h4>
@@ -958,7 +958,7 @@
                                         py-1
                                         text-[9px]
                                         font-black
-                                        text-red-700
+                                        text-rose-300
                                     ">
                                     Requiere valor
                                 </span>
@@ -972,7 +972,7 @@
                                 mt-1
                                 font-mono
                                 text-[10px]
-                                text-slate-400
+                                text-slate-500
                             ">
                             {{ $attribute->code }}
                         </p>
@@ -1003,13 +1003,13 @@
                             rounded-lg
                             border
                             border-red-100
-                            bg-white
+                            bg-slate-900/50
                             px-3
                             py-2
                             text-xs
                             font-bold
-                            text-red-600
-                            hover:bg-red-50
+                            text-rose-300
+                            hover:bg-rose-500/10
                         ">
                         Quitar
                     </button>
@@ -1046,7 +1046,7 @@
                                         class="
                                             text-sm
                                             font-black
-                                            text-slate-800
+                                            text-slate-100
                                         ">
                                         Elementos del Catálogo
                                     </p>
@@ -1073,11 +1073,11 @@
                                     placeholder="Buscar elemento..."
                                     class="
                                         rounded-xl
-                                        border-slate-300
-                                        bg-white
+                                        border-slate-800
+                                        bg-slate-900/50
                                         text-sm
-                                        text-slate-900
-                                        placeholder:text-slate-400
+                                        text-white
+                                        placeholder:text-slate-500
                                     ">
 
                             </div>
@@ -1125,12 +1125,12 @@
                                                 overflow-hidden
                                                 rounded-xl
                                                 border-2
-                                                border-slate-200
-                                                bg-white
+                                                border-slate-800
+                                                bg-slate-900/50
                                                 transition
                                                 hover:border-indigo-300
                                                 has-[:checked]:border-indigo-500
-                                                has-[:checked]:bg-indigo-50
+                                                has-[:checked]:bg-indigo-500/10
                                                 has-[:checked]:ring-2
                                                 has-[:checked]:ring-indigo-100
                                             ">
@@ -1149,7 +1149,7 @@
                                                     right-2
                                                     top-2
                                                     z-10
-                                                    border-slate-300
+                                                    border-slate-800
                                                     text-indigo-600
                                                 ">
 
@@ -1157,7 +1157,7 @@
                                             <div
                                                 class="
                                                     aspect-square
-                                                    bg-slate-100
+                                                    bg-slate-900
                                                 ">
 
                                                 @if ($option->image_url)
@@ -1196,7 +1196,7 @@
                                                         truncate
                                                         text-xs
                                                         font-black
-                                                        text-slate-800
+                                                        text-slate-100
                                                     ">
                                                     {{ $option->name }}
                                                 </p>
@@ -1208,7 +1208,7 @@
                                                         truncate
                                                         font-mono
                                                         text-[9px]
-                                                        text-slate-400
+                                                        text-slate-500
                                                     ">
                                                     {{ $option->code }}
                                                 </p>
@@ -1220,7 +1220,7 @@
                                                             mt-1
                                                             truncate
                                                             text-[9px]
-                                                            text-slate-400
+                                                            text-slate-500
                                                         ">
                                                         ↳ {{ $option->parent->name }}
                                                     </p>
@@ -1239,8 +1239,8 @@
                                         rounded-xl
                                         border
                                         border-dashed
-                                        border-slate-300
-                                        bg-slate-50
+                                        border-slate-800
+                                        bg-slate-950
                                         p-5
                                         text-sm
                                         text-slate-500
@@ -1286,13 +1286,13 @@
                                         cursor-pointer
                                         rounded-xl
                                         border
-                                        border-slate-200
+                                        border-slate-800
                                         p-4
                                         text-center
                                         font-bold
-                                        text-slate-700
+                                        text-slate-600
                                         has-[:checked]:border-indigo-500
-                                        has-[:checked]:bg-indigo-50
+                                        has-[:checked]:bg-indigo-500/10
                                         has-[:checked]:text-indigo-700
                                     ">
 
@@ -1331,10 +1331,10 @@
                             class="
                                 w-full
                                 rounded-xl
-                                border-slate-300
-                                bg-white
-                                text-slate-900
-                                placeholder:text-slate-400
+                                border-slate-800
+                                bg-slate-900/50
+                                text-white
+                                placeholder:text-slate-500
                             ">
 
 
@@ -1362,9 +1362,9 @@
                             class="
                                 w-full
                                 rounded-xl
-                                border-slate-300
-                                bg-white
-                                text-slate-900
+                                border-slate-800
+                                bg-slate-900/50
+                                text-white
                             ">
 
 
@@ -1385,8 +1385,8 @@
                                     w-20
                                     rounded-xl
                                     border
-                                    border-slate-300
-                                    bg-white
+                                    border-slate-800
+                                    bg-slate-900/50
                                     p-1
                                 ">
 
@@ -1402,10 +1402,10 @@
                             class="
                                 w-full
                                 rounded-xl
-                                border-slate-300
-                                bg-white
-                                text-slate-900
-                                placeholder:text-slate-400
+                                border-slate-800
+                                bg-slate-900/50
+                                text-white
+                                placeholder:text-slate-500
                             ">{{ old("attributes.{$attribute->id}", $firstValue?->text_value) }}</textarea>
 
 
@@ -1419,10 +1419,10 @@
                             class="
                                 w-full
                                 rounded-xl
-                                border-slate-300
-                                bg-white
-                                text-slate-900
-                                placeholder:text-slate-400
+                                border-slate-800
+                                bg-slate-900/50
+                                text-white
+                                placeholder:text-slate-500
                             ">
                     @endif
 
@@ -1433,7 +1433,7 @@
                                 mt-3
                                 text-sm
                                 font-bold
-                                text-red-600
+                                text-rose-300
                             ">
                             {{ $message }}
                         </p>
@@ -1458,8 +1458,8 @@
             rounded-2xl
             border
             border-dashed
-            border-slate-300
-            bg-slate-50
+            border-slate-800
+            bg-slate-950
             p-5
         ">
 
@@ -1478,7 +1478,7 @@
                 <h4
                     class="
                         font-black
-                        text-slate-900
+                        text-white
                     ">
                     + Añadir característica
                 </h4>
@@ -1512,11 +1512,11 @@
                     placeholder="Buscar atributo..."
                     class="
                         rounded-xl
-                        border-slate-300
-                        bg-white
+                        border-slate-800
+                        bg-slate-900/50
                         text-sm
-                        text-slate-900
-                        placeholder:text-slate-400
+                        text-white
+                        placeholder:text-slate-500
                     ">
 
 
@@ -1525,10 +1525,10 @@
                     "
                     class="
                         rounded-xl
-                        border-slate-300
-                        bg-white
+                        border-slate-800
+                        bg-slate-900/50
                         text-sm
-                        text-slate-900
+                        text-white
                     ">
 
                     <option value="ALL">
@@ -1575,10 +1575,10 @@
                     "
                     class="
                         rounded-xl
-                        border-slate-300
-                        bg-white
+                        border-slate-800
+                        bg-slate-900/50
                         text-sm
-                        text-slate-900
+                        text-white
                     ">
 
                     <option value="ALL">
@@ -1646,13 +1646,13 @@
                         gap-3
                         rounded-xl
                         border
-                        border-slate-200
-                        bg-white
+                        border-slate-800
+                        bg-slate-900/50
                         p-3
                         text-left
                         transition
                         hover:border-indigo-300
-                        hover:bg-indigo-50
+                        hover:bg-indigo-500/10
                     ">
 
                     <div
@@ -1662,7 +1662,7 @@
                             shrink-0
                             overflow-hidden
                             rounded-xl
-                            bg-slate-100
+                            bg-slate-900
                         ">
 
                         @if ($attribute->image_url)
@@ -1698,7 +1698,7 @@
                                 truncate
                                 text-sm
                                 font-black
-                                text-slate-800
+                                text-slate-100
                             ">
                             {{ $attribute->name }}
                         </p>
@@ -1709,7 +1709,7 @@
                                 mt-1
                                 text-[10px]
                                 font-bold
-                                text-slate-400
+                                text-slate-500
                             ">
                             {{ $attribute->data_type_label }}
 

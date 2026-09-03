@@ -22,10 +22,11 @@
      * la biblioteca. Lo que vive en el cliente es la forma de mirar.
      */
 
+    /* Los tres que existen de verdad: ver el comentario del formulario */
     $estados = [
         '' => 'Cualquier estado',
         'ACTIVE' => 'Activa',
-        'DRAFT' => 'Borrador',
+        'INACTIVE' => 'Inactiva',
         'ARCHIVED' => 'Archivada',
     ];
 
@@ -75,7 +76,7 @@
 
     $estadoTono = [
         'ACTIVE' => 'bg-emerald-500/15 text-emerald-300',
-        'DRAFT' => 'bg-amber-500/15 text-amber-300',
+        'INACTIVE' => 'bg-amber-500/15 text-amber-300',
         'ARCHIVED' => 'bg-slate-800 text-slate-500',
     ];
 

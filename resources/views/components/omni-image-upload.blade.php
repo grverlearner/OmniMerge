@@ -5,11 +5,23 @@
     'maxMb' => 4,
     'removeName' => null,
     'help' => null,
+
+    /*
+     * Sobre que fondo se dibuja.
+     *
+     * El componente nacio para paginas claras y se usa en ocho sitios; por
+     * eso 'light' sigue siendo el valor por defecto y nada de lo existente
+     * cambia. 'dark' existe para las pantallas rehechas, donde una tarjeta
+     * blanca en medio de un formulario oscuro se ve como un agujero.
+     */
+    'surface' => 'light',
 ])
 
 @php
 
     $inputId = 'omni-image-' . \Illuminate\Support\Str::uuid();
+
+    $oscuro = $surface === 'dark';
 
 @endphp
 
@@ -287,22 +299,27 @@
                 $event
             )
         "
-        class="
-            overflow-hidden
-            rounded-2xl
-            border-2
-            border-dashed
-            bg-white
-            transition
-        "
-        :class="dragging
-            ?
-            'border-violet-500 bg-violet-50 ring-4 ring-violet-100' :
-            (
-                preview ?
-                'border-slate-200' :
-                'border-slate-300 hover:border-violet-300'
-            )">
+        class="overflow-hidden rounded-2xl border-2 border-dashed transition {{ $oscuro ? 'bg-slate-950' : 'bg-white' }}"
+        @if ($oscuro)
+            :class="dragging
+                ?
+                'border-violet-500 bg-violet-500/10 ring-4 ring-violet-500/20' :
+                (
+                    preview ?
+                    'border-slate-800' :
+                    'border-slate-700 hover:border-violet-500/60'
+                )"
+        @else
+            :class="dragging
+                ?
+                'border-violet-500 bg-violet-50 ring-4 ring-violet-100' :
+                (
+                    preview ?
+                    'border-slate-200' :
+                    'border-slate-300 hover:border-violet-300'
+                )"
+        @endif
+        >
 
         {{-- PREVIEW --}}
         <div x-show="preview" class="
@@ -315,7 +332,7 @@
                     relative
                     aspect-[16/9]
                     overflow-hidden
-                    bg-slate-100
+                    {{ $oscuro ? 'bg-slate-900' : 'bg-slate-100' }}
                 ">
 
                 <img :src="preview" alt=""
@@ -424,7 +441,7 @@
                     "
                     class="
                         rounded-xl
-                        bg-slate-100
+                        {{ $oscuro ? 'bg-slate-900' : 'bg-slate-100' }}
                         px-3
                         py-2
                         text-[10px]
@@ -466,10 +483,9 @@
                     justify-center
                     rounded-2xl
                     bg-gradient-to-br
-                    from-violet-100
-                    to-indigo-100
+                    {{ $oscuro ? 'from-violet-500/20 to-indigo-500/20' : 'from-violet-100 to-indigo-100' }}
                     text-3xl
-                    text-violet-500
+                    {{ $oscuro ? 'text-violet-300' : 'text-violet-500' }}
                 ">
                 ↑
             </div>
@@ -480,7 +496,7 @@
                     mt-4
                     text-sm
                     font-black
-                    text-slate-700
+                    {{ $oscuro ? 'text-slate-200' : 'text-slate-700' }}
                 ">
                 {{ $label }}
             </p>
@@ -490,7 +506,7 @@
                 class="
                     mt-2
                     text-xs
-                    text-slate-400
+                    {{ $oscuro ? 'text-slate-500' : 'text-slate-400' }}
                 ">
                 Arrastra una imagen aquí
                 o haz clic para elegirla.
@@ -521,7 +537,7 @@
                     font-bold
                     uppercase
                     tracking-wider
-                    text-slate-300
+                    {{ $oscuro ? 'text-slate-600' : 'text-slate-300' }}
                 ">
                 JPG · PNG · WEBP · máx.
                 {{ $maxMb }} MB

@@ -1,9 +1,8 @@
 # La biblioteca de entidades
 
-**Fecha:** 2 de septiembre de 2026
-**Alcance:** el índice de entidades y la superficie oscura del módulo
-Biblioteca. Las pantallas de crear, ver y editar una entidad quedan
-pendientes; el porqué está en la sección 6.
+**Fecha:** 3 de septiembre de 2026
+**Alcance:** el índice de entidades, la ficha de una entidad, crear y editar,
+y la superficie oscura del módulo Biblioteca.
 
 ---
 
@@ -99,25 +98,93 @@ La cabecera del módulo acompaña a la superficie con la misma bandera `$dark`.
 
 ---
 
-## 6. Lo que queda pendiente, y por qué
+## 6. Ver una entidad
 
-Faltan las otras tres pantallas que se pidieron: **crear**, **ver** y **editar**
-una entidad.
+Una entidad es la suma de cuatro cosas, y la ficha las enseña las cuatro con
+su cara: **qué es** (su tipo), **cómo es** (sus características), **dónde
+vive** (sus colecciones) y **en qué se convierte** (sus versiones).
 
-No es un olvido. Esas tres viven sobre `partials/form.blade.php` (1.242
-líneas), `partials/characteristics-builder.blade.php` (1.740) y
-`show.blade.php` (1.502): unas 4.500 líneas de Blade y Alpine entrelazadas,
-donde el constructor de características ya rompió una vez por dos llaves mal
-puestas —y cuando un `x-data` se rompe, se cae el componente entero y todos sus
-campos dejan de existir sin decir nada—.
+### 6.1 El interruptor de las dos caras
 
-Rehacerlas de golpe sin verificar cada una una por una tiene bastantes
-probabilidades de dejar formularios que parecen funcionar y no guardan. Van en
-el siguiente paso, una a una y comprobadas.
+Lo que más confunde de este modelo es que una entidad tiene dos caras: la
+**original** —la que se escribió el primer día— y la de su **Base activa**,
+que es la que ve el resto de la aplicación. `?view=original` ya existía; lo
+que faltaba era **decirlo**.
+
+Ahora hay un interruptor arriba, siempre visible, que dice cuál se está
+mirando y salta a la otra, con la frase que lo explica: *«esto es lo que ve el
+resto de la aplicación»* frente a *«lo que escribiste el primer día»*. Los
+botones de acción cambian con él: sobre la base activa se edita la versión,
+sobre la original se edita la entidad.
+
+### 6.2 Todo con su imagen
+
+- El **tipo** lleva su imagen o su icono, en su color, y enlaza a su ficha.
+- Cada **valor de catálogo** lleva su propia imagen, icono o color, y enlaza
+  al elemento del catálogo: no es un texto, es una cosa con cara.
+- Las **colecciones** llevan su imagen y su color.
+- Las **versiones** se enseñan como una galería, con la que hace de base
+  marcada con ★.
+
+Las características se agrupan por su grupo de atributos, y cuando se mira la
+base activa llegan ya resueltas por el resolver —con la herencia aplicada—; la
+vista las normaliza para no tener que saberlo.
 
 ---
 
-## 7. Archivos
+## 7. Crear y editar
+
+La misma pantalla para las dos cosas, en cinco bloques que responden en orden
+a **quién es**, **qué es**, **cómo es**, **dónde vive** y **publicación**.
+
+Lo que cambió:
+
+- **El tipo se elige en tarjetas** con la imagen, el icono y el color reales
+  de cada tipo, y la elegida se tiñe de su propio color. Antes era una lista.
+- **Las colecciones igual**, con su imagen y una marca de selección que toma
+  el color de la colección. La casilla real sigue viajando escondida dentro de
+  la etiqueta: el cuadro entero es el área de clic, pero lo que se envía sigue
+  siendo un `checkbox` con su `name` de siempre.
+- **Visibilidad y estado** pasan de desplegable a tarjetas que explican en una
+  línea qué significa cada opción.
+- **La vista previa en vivo** a la derecha enseña la ficha tal y como quedará
+  en la biblioteca: imagen, tipo con su color, nombre, descripción,
+  visibilidad y cuántas colecciones.
+- La **subida de imagen** aceptó una superficie oscura (`surface="dark"`). Es
+  un componente compartido por ocho pantallas, así que `light` sigue siendo lo
+  que hace por defecto y nada de lo existente cambia.
+- La **barra de guardar** se queda pegada abajo y avisa de cambios sin
+  guardar.
+
+### 7.1 Lo que se respetó
+
+El **constructor de características** se incluye tal cual, sin tocar su
+componente de Alpine: solo cambiaron sus clases de color para que no fuera una
+tarjeta blanca en medio de un formulario oscuro. La sustitución se limitó a
+tokens de color, y todos ellos viven en el marcado —el objeto `x-data` termina
+antes de la primera etiqueta con `class=`—, así que la parte frágil no se
+tocó.
+
+Y los nombres de los campos son exactamente los que espera el controlador:
+`name`, `entity_type_id`, `image`, `remove_image`, `description`,
+`collection_ids[]`, `visibility`, `allow_cloning` y `status`. El rediseño
+cambia cómo se ven, no cómo se llaman.
+
+### 7.2 Un fallo que el rediseño introdujo, y se corrigió
+
+Al rehacer el formulario le puse a **estado** los tres valores de las
+plantillas de torneo —Activa, **Borrador**, Archivada—. Pero una entidad no
+tiene borrador: sus estados son **ACTIVE, INACTIVE y ARCHIVED**. La pantalla
+habría ofrecido un valor que la validación rechaza, y guardar habría fallado
+sin explicar por qué.
+
+Está corregido en las tres pantallas donde había copiado la lista mal (el
+formulario, el índice y la ficha), y la verificación lo comprueba
+explícitamente.
+
+---
+
+## 8. Archivos
 
 | archivo | qué cambió |
 |---|---|
@@ -130,6 +197,11 @@ el siguiente paso, una a una y comprobadas.
 | `app/View/Components/AppLayout.php` | acepta `title` y `surface` |
 | `resources/views/layouts/app.blade.php` | superficie clara u oscura |
 | `resources/views/partials/header.blade.php` | acompaña a la superficie |
+| `resources/views/entities/show.blade.php` | reescrita: las cuatro caras de una entidad y el interruptor |
+| `resources/views/entities/partials/form.blade.php` | reescrito: cinco bloques, tarjetas visuales y vista previa |
+| `resources/views/entities/{create,edit}.blade.php` | cabeceras oscuras; editar avisa de la Base activa |
+| `resources/views/entities/partials/characteristics-builder.blade.php` | solo sus colores; su Alpine intacto |
+| `resources/views/components/omni-image-upload.blade.php` | acepta `surface="dark"`, sin cambiar lo existente |
 
 Los partials antiguos (`index-card`, `index-gallery-card`, `index-list-item`)
 siguen en su sitio: los usa la vista anterior en otros puntos del módulo y
@@ -137,7 +209,7 @@ retirarlos sin comprobarlo sería romper algo por limpiar.
 
 ---
 
-## 8. Verificación
+## 9. Verificación
 
 - El índice responde **200** con datos reales: 22 fichas en cuadrícula, 22
   filas en lista y 22 en tabla, y con filtro aplicado
@@ -152,5 +224,20 @@ retirarlos sin comprobarlo sería romper algo por limpiar.
 - La fila de la lista enseña la característica con su valor:
   `Ishiki · PÚBLICA · ENT000022 · Personaje · Anime Boruto: Naruto Next
   Generation · 1☷ 0◈ 0★`.
+- La ficha, crear y editar responden **200**, también la ficha con
+  `?view=original` y la edición de una entidad con Base activa.
+- Los dos componentes de Alpine del formulario arrancan y cargan sus datos: el
+  del formulario y **el constructor de características**, con sus 2
+  características existentes.
+- Pulsando los controles reales (no el estado), lo que se enviaría queda
+  correcto: `entity_type_id=5`, `visibility=PUBLIC`, `status=DRAFT`
+  seleccionado por radio, `allow_cloning` con su `0` oculto delante del `1`
+  marcado, y la vista previa reflejando todo.
+- Sonda en memoria contra la petición real —con su `prepareForValidation`, sin
+  escribir nada—: lo que envía el formulario **se acepta**, los tres estados
+  reales se aceptan, «sin tipo» se acepta, y el `DRAFT` que había puesto por
+  error **se rechaza**. Esa es la comprobación que encontró el fallo.
+- El constructor de características ya no tiene ningún fondo blanco (0 de 63
+  bloques) y sus títulos se leen en claro sobre oscuro.
 - La batería de pruebas se mantiene en 88 pasadas y 99 fallos —los mismos
   fallos de SQLite que ya existían—.

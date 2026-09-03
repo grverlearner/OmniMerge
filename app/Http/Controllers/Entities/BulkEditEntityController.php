@@ -1404,6 +1404,17 @@ class BulkEditEntityController extends Controller
                 ?->name
                 ?? 'Sin tipo',
 
+            /*
+             * El color del tipo viaja con la entidad para que la pantalla
+             * pueda pintar cada una con el suyo sin volver al servidor. Es un
+             * dato del usuario, no un token del diseño.
+             */
+            'entity_type_color' =>
+            $entity
+                ->entityType
+                ?->color
+                ?: '#64748b',
+
             'status' =>
             $entity->status,
 
