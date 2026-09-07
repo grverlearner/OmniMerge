@@ -44,6 +44,46 @@ class StoreCollectionRequest extends FormRequest
         ]);
     }
 
+    public function messages(): array
+    {
+        return [
+
+            'name.required' =>
+            'Ponle nombre a la colección.',
+
+            'name.max' =>
+            'El nombre no puede pasar de 150 caracteres.',
+
+            'description.max' =>
+            'La descripción no puede pasar de 5000 caracteres.',
+
+            'image.max' =>
+            'La portada no puede pasar de 4 MB.',
+
+            'image.mimes' =>
+            'La portada tiene que ser JPG, PNG o WEBP.',
+
+            'color.regex' =>
+            'El color tiene que ser un hexadecimal como #8b5cf6.',
+
+            'visibility.required' =>
+            'Falta decir quién puede verla.',
+
+            'visibility.in' =>
+            'Esa visibilidad no existe.',
+
+            'status.required' =>
+            'Falta el estado.',
+
+            'status.in' =>
+            'Ese estado no existe.',
+
+            'entity_ids.*.exists' =>
+            'Alguna de las entidades elegidas ya no existe o no es tuya.',
+        ];
+    }
+
+
     public function rules(): array
     {
         return [

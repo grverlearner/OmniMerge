@@ -3214,6 +3214,59 @@ Route::middleware('auth')->group(function () {
         [EntityAttributeController::class, 'update']
     )->name('entities.attributes.update');
 
+    /*
+|--------------------------------------------------------------------------
+| Cambio rapido de una coleccion
+|--------------------------------------------------------------------------
+|
+| Un campo suelto —visibilidad, estado, si se puede copiar— desde el propio
+| indice, sin abrir el formulario de edicion entero.
+|
+*/
+
+    /*
+|--------------------------------------------------------------------------
+| Miembros de una coleccion
+|--------------------------------------------------------------------------
+|
+| Meter y sacar entidades desde la propia ficha. Antes habia que abrir el
+| formulario de edicion entero y buscar la entidad en una rejilla.
+|
+*/
+
+    Route::post(
+        'collections/{collection}/entities',
+        [
+            CollectionController::class,
+            'attachEntities',
+        ]
+    )->name(
+        'collections.entities.attach'
+    );
+
+
+    Route::delete(
+        'collections/{collection}/entities/{entity}',
+        [
+            CollectionController::class,
+            'detachEntity',
+        ]
+    )->name(
+        'collections.entities.detach'
+    );
+
+
+    Route::patch(
+        'collections/{collection}/quick',
+        [
+            CollectionController::class,
+            'quickUpdate',
+        ]
+    )->name(
+        'collections.quick-update'
+    );
+
+
     Route::resource(
         'collections',
         CollectionController::class
