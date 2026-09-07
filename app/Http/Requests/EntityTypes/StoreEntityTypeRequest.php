@@ -83,6 +83,20 @@ class StoreEntityTypeRequest extends FormRequest
                     'ARCHIVED',
                 ]),
             ],
+
+            /*
+             * En que orden aparece el tipo en las listas.
+             *
+             * La columna ya existia y era rellenable, pero no se preguntaba
+             * en ninguna parte: los tipos se ordenaban por ella y nadie podia
+             * cambiarla.
+             */
+            'sort_order' => [
+                'nullable',
+                'integer',
+                'min:0',
+                'max:9999',
+            ],
         ];
     }
 

@@ -22,6 +22,8 @@ use App\Http\Controllers\Versions\VersionController;
 use App\Http\Controllers\Versions\EntityVersionController;
 use App\Http\Controllers\Versions\EntityVersionAttributeController;
 use App\Http\Controllers\Versions\BulkEntityVersionController;
+use App\Http\Controllers\Versions\VersionCatalogLinkController;
+use App\Http\Controllers\Versions\VersionEntityLinkController;
 use App\Http\Controllers\Versions\VersionWorkspaceController;
 
 use App\Http\Controllers\Attributes\AttributeStructureController;
@@ -2759,17 +2761,6 @@ Route::middleware('auth')->group(function () {
     );
 
 
-    Route::get(
-        'versions/resolver',
-        [
-            VersionWorkspaceController::class,
-            'resolver',
-        ]
-    )->name(
-        'versions.resolver'
-    );
-
-
     /*
 |--------------------------------------------------------------------------
 | ASOCIACIÓN MASIVA
@@ -2795,6 +2786,66 @@ Route::middleware('auth')->group(function () {
         ]
     )->name(
         'versions.entities.bulk.store'
+    );
+
+
+    /*
+|--------------------------------------------------------------------------
+| REGLAS DE CATALOGO DE UNA DEFINICION
+|--------------------------------------------------------------------------
+|
+| Antes solo se podian tocar desde el formulario completo, que borra todas y
+| las vuelve a crear. Aqui cada una va por su cuenta, desde la propia ficha.
+|
+*/
+
+    Route::post(
+        'versions/{version}/catalog-links',
+        [
+            VersionCatalogLinkController::class,
+            'store',
+        ]
+    )->name(
+        'versions.catalog-links.store'
+    );
+
+
+    Route::patch(
+        'versions/{version}/catalog-links/{link}',
+        [
+            VersionCatalogLinkController::class,
+            'update',
+        ]
+    )->name(
+        'versions.catalog-links.update'
+    );
+
+
+    Route::delete(
+        'versions/{version}/catalog-links/{link}',
+        [
+            VersionCatalogLinkController::class,
+            'destroy',
+        ]
+    )->name(
+        'versions.catalog-links.destroy'
+    );
+
+
+    /*
+|--------------------------------------------------------------------------
+| ASOCIAR ENTIDADES DESDE LA FICHA
+|--------------------------------------------------------------------------
+*/
+
+    Route::post(
+        'versions/{version}/entities',
+        [
+            VersionEntityLinkController::class,
+            'store',
+        ]
+    )->name(
+        'versions.entities.store'
     );
 
 

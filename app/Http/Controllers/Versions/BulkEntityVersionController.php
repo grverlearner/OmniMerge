@@ -128,12 +128,63 @@ class BulkEntityVersionController extends Controller
             ->get();
 
 
+        /*
+         * Quien cumple las reglas de catalogo del molde.
+         *
+         * Un molde con reglas ACTIVATES no es para cualquiera: esta esperando a
+         * las entidades que tienen esos valores. Marcarlas cambia el trabajo de
+         * «elegir entre doscientas» a «confirmar estas dieciseis».
+         */
+
+        $optionIds =
+            $version
+            ->catalogLinks()
+            ->where('relation_type', 'ACTIVATES')
+            ->pluck('attribute_option_id')
+            ->unique();
+
+
+        $eligibleIds =
+            $optionIds->isEmpty()
+            ? collect()
+            : Entity::query()
+            ->ownedBy($user)
+            ->whereHas(
+                'entityAttributes.values',
+                fn($query) =>
+                $query->whereIn(
+                    'attribute_option_id',
+                    $optionIds
+                )
+            )
+            ->pluck('id');
+
+
+        /*
+         * Cuantas quedan fuera de la pagina: el limite de 200 existe, y
+         * callarselo hace creer que la biblioteca es mas pequena de lo que es.
+         */
+
+        $totalDisponibles =
+            Entity::query()
+            ->ownedBy($user)
+            ->whereNotIn('id', $usedEntityIds)
+            ->count();
+
+
+        $yaAplicada =
+            $usedEntityIds->count();
+
+
         return view(
             'versions.bulk-entities',
             compact(
                 'version',
                 'entities',
                 'entityTypes',
+                'eligibleIds',
+                'totalDisponibles',
+                'yaAplicada',
                 'search',
                 'typeId'
             )
@@ -302,6 +353,70 @@ class BulkEntityVersionController extends Controller
 
             /*
             |--------------------------------------------------------------------------
+            | Copiar la cara de la entidad
+            |--------------------------------------------------------------------------
+            |
+            | Para las que lo pidan y sigan sin imagen. Es lo que se quiere de
+            | partida cuando la version todavia no tiene cara propia, y se dice
+            | en el mensaje de exito para que nadie crea que subio algo.
+            |
+            */
+
+            $disk =
+                Storage::disk('public');
+
+
+            $copiarDeEntidad =
+                collect(
+                    $data['use_entity_image']
+                        ?? []
+                )
+                ->map(fn($id) => (int) $id);
+
+
+            $copiadas = 0;
+
+
+            foreach (
+                $entities
+                as $entity
+            ) {
+
+                if (
+                    isset($images[$entity->id])
+                    || ! $copiarDeEntidad->contains($entity->id)
+                    || ! $entity->image
+                    || ! $disk->exists($entity->image)
+                ) {
+                    continue;
+                }
+
+
+                $destino =
+                    'entity-versions/'
+                    . uniqid('ev-', true)
+                    . '.'
+                    . (pathinfo($entity->image, PATHINFO_EXTENSION) ?: 'jpg');
+
+
+                $disk->copy(
+                    $entity->image,
+                    $destino
+                );
+
+
+                $images[$entity->id] =
+                    $destino;
+
+                $storedPaths[] =
+                    $destino;
+
+                $copiadas++;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
             | Todas deben tener imagen
             |--------------------------------------------------------------------------
             */
@@ -330,21 +445,13 @@ class BulkEntityVersionController extends Controller
 
                 throw ValidationException::withMessages([
                     'bulk_images' =>
-                    'Falta imagen para: '
+                    'Cada versión necesita una imagen y estas se han quedado sin ninguna: '
                         . implode(
                             ', ',
-                            array_slice(
-                                $missing,
-                                0,
-                                10
-                            )
+                            array_slice($missing, 0, 10)
                         )
-                        . (
-                            count($missing)
-                            > 10
-                            ? '...'
-                            : ''
-                        ),
+                        . (count($missing) > 10 ? '…' : '')
+                        . '. Súbeles un archivo, o marca «usar la imagen de la entidad».',
                 ]);
             }
 
@@ -403,6 +510,27 @@ class BulkEntityVersionController extends Controller
                 );
 
 
+            $creadas =
+                count($result['created']);
+
+
+            $mensaje =
+                $creadas === 1
+                ? '1 versión creada.'
+                : $creadas . ' versiones creadas.';
+
+
+            if ($copiadas > 0) {
+
+                $mensaje .=
+                    ' '
+                    . ($copiadas === 1
+                        ? 'A una se le copió la imagen de su entidad'
+                        : 'A ' . $copiadas . ' se les copió la imagen de su entidad')
+                    . ': cámbiala cuando quieras.';
+            }
+
+
             return redirect()
                 ->route(
                     'versions.show',
@@ -410,10 +538,7 @@ class BulkEntityVersionController extends Controller
                 )
                 ->with(
                     'success',
-                    count(
-                        $result['created']
-                    )
-                        . ' versiones de Entidad creadas.'
+                    $mensaje
                 );
         } catch (Throwable $exception) {
 

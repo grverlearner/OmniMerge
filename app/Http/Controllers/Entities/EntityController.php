@@ -10,6 +10,7 @@ use App\Models\AttributeGroup;
 use App\Models\Collection;
 use App\Models\Entity;
 use App\Models\EntityType;
+use App\Models\Version;
 use App\Models\User;
 use App\Services\Entities\EntityBuilderService;
 use App\Services\Attributes\AttributeContextService;
@@ -564,6 +565,21 @@ class EntityController extends Controller
             ->orderBy('name')
             ->get();
 
+        /*
+         * Las definiciones de version, para la tira de arriba.
+         *
+         * No filtran la lista -una entidad no «es» de una version, la aplica-
+         * asi que aqui solo sirven de acceso: cuantas entidades han aplicado
+         * cada molde, y el enlace a su ficha.
+         */
+        $versionDefinitions = Version::query()
+            ->ownedBy($user)
+            ->withCount('entityVersions')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->limit(12)
+            ->get();
+
         $filterAttributes = Attribute::query()
             ->ownedBy($user)
             ->active()
@@ -590,6 +606,7 @@ class EntityController extends Controller
                 'entities',
                 'entityTypes',
                 'collections',
+                'versionDefinitions',
                 'filterAttributes',
                 'stats',
 

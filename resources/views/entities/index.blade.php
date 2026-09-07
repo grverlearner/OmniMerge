@@ -229,6 +229,213 @@
 
 
         {{-- ===================================================== --}}
+        {{-- LOS TIPOS --}}
+        {{-- ===================================================== --}}
+
+        {{--
+            Los tipos viven aquí y no en el sidebar.
+
+            Aquí es donde se usan: cada uno filtra la lista de un clic, y de
+            paso se ve cuántas entidades tiene y de qué color es. Como tira
+            horizontal caben muchos sin robarle sitio a las entidades, que es
+            lo que se viene a mirar.
+        --}}
+
+        <section x-data="{
+            rail: 'types',
+
+            init() {
+                try {
+                    const g = localStorage.getItem('omnimerge.entities.rail');
+                    if (['types', 'versions'].includes(g)) this.rail = g;
+                } catch (e) {}
+
+                this.$watch('rail', (v) => {
+                    try { localStorage.setItem('omnimerge.entities.rail', v); } catch (e) {}
+                });
+            },
+        }" class="rounded-2xl border border-slate-800 bg-slate-900/50">
+
+            {{--
+                Dos maneras de entrar a lo que organiza una entidad.
+
+                Los tipos FILTRAN —una entidad es de un tipo—; las versiones
+                solo ABREN —una entidad no «es» de una versión, la aplica, y
+                puede aplicar varias—. Están juntas porque se buscan en el
+                mismo sitio, y separadas en pestañas porque no hacen lo mismo:
+                mezclarlas haría creer que las versiones también filtran.
+            --}}
+
+            <div class="flex flex-wrap items-center gap-2 border-b border-slate-800 px-4 py-2.5">
+
+                <span class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
+                    <button type="button" @click="rail = 'types'"
+                        :class="rail === 'types' ? 'bg-indigo-500 text-white' :
+                            'text-slate-500 hover:text-slate-200'"
+                        class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-black transition">
+                        <x-omni-icon name="galeria" size="h-3.5 w-3.5" />
+                        Por tipo
+                    </button>
+
+                    <button type="button" @click="rail = 'versions'"
+                        :class="rail === 'versions' ? 'bg-violet-500 text-white' :
+                            'text-slate-500 hover:text-slate-200'"
+                        class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-black transition">
+                        <x-omni-icon name="capas" size="h-3.5 w-3.5" />
+                        Versiones
+                    </button>
+                </span>
+
+                <p class="min-w-0 flex-1 text-[10px] text-slate-500">
+                    <span x-show="rail === 'types'">
+                        Un clic filtra la lista. Los tipos son etiquetas para organizarte.
+                    </span>
+                    <span x-show="rail === 'versions'" x-cloak>
+                        Los moldes que tus entidades pueden aplicar. Aquí no filtran: abren su ficha.
+                    </span>
+                </p>
+
+                <a x-show="rail === 'types'" href="{{ route('entity-types.index') }}"
+                    class="shrink-0 rounded-lg border border-slate-800 px-2.5 py-1.5 text-[10px] font-black text-slate-400 transition hover:border-indigo-500 hover:text-indigo-300">
+                    Gestionar tipos →
+                </a>
+
+                <a x-show="rail === 'versions'" x-cloak href="{{ route('versions.index') }}"
+                    class="shrink-0 rounded-lg border border-slate-800 px-2.5 py-1.5 text-[10px] font-black text-slate-400 transition hover:border-violet-500 hover:text-violet-300">
+                    Taller de versiones →
+                </a>
+            </div>
+
+
+            {{-- ============ VERSIONES ============ --}}
+
+            <div x-show="rail === 'versions'" x-cloak class="flex gap-2 overflow-x-auto px-4 py-3">
+
+                @forelse ($versionDefinitions as $definicion)
+                    <a href="{{ route('versions.show', $definicion) }}" title="{{ $definicion->name }}"
+                        class="group flex w-32 shrink-0 flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-950 transition hover:-translate-y-0.5 hover:border-violet-500/50">
+
+                        <span class="relative block aspect-[16/10] overflow-hidden bg-slate-900">
+                            @if ($definicion->image_url)
+                                <img src="{{ $definicion->image_url }}" alt="" loading="lazy"
+                                    class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                            @else
+                                <span class="flex h-full w-full items-center justify-center text-xl text-violet-500/30">◈</span>
+                            @endif
+                        </span>
+
+                        <span class="block p-1.5 text-center">
+                            <span class="block truncate text-[10px] font-black text-white">
+                                {{ $definicion->name }}
+                            </span>
+                            <span class="font-mono text-[9px] {{ $definicion->entity_versions_count > 0 ? 'text-violet-300' : 'text-slate-700' }}">
+                                {{ $definicion->entity_versions_count }}
+                                {{ $definicion->entity_versions_count === 1 ? 'entidad' : 'entidades' }}
+                            </span>
+                        </span>
+                    </a>
+                @empty
+                    <p class="px-2 py-4 text-[11px] text-slate-600">
+                        Todavía no hay definiciones de versión. Sirven para tener a la misma entidad
+                        en dos estados sin duplicarla.
+                    </p>
+                @endforelse
+
+                @can('create', App\Models\Version::class)
+                    <a href="{{ route('versions.create') }}"
+                        class="flex w-32 shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-700 p-2.5 text-center transition hover:border-violet-500/60">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600">
+                            <x-omni-icon name="mas" size="h-5 w-5" />
+                        </span>
+
+                        <span class="block text-[10px] font-black text-slate-400">Nueva definición</span>
+                    </a>
+                @endcan
+
+            </div>
+
+
+            {{-- ============ TIPOS ============ --}}
+
+            <div x-show="rail === 'types'" class="flex gap-2 overflow-x-auto px-4 py-3">
+
+                {{-- Todas --}}
+                <a href="{{ route('entities.index', request()->except(['type', 'page'])) }}"
+                    class="flex w-28 shrink-0 flex-col items-center gap-1.5 rounded-xl border p-2.5 text-center transition {{ $type ? 'border-slate-800 bg-slate-950 hover:border-slate-700' : 'border-indigo-500/50 bg-indigo-500/10' }}">
+
+                    <span class="flex h-10 w-10 items-center justify-center rounded-lg border border-dashed border-slate-700 text-slate-500">
+                        <x-omni-icon name="cuadricula" size="h-4 w-4" />
+                    </span>
+
+                    <span class="block truncate text-[10px] font-black text-white">Todas</span>
+                    <span class="font-mono text-[10px] text-slate-600">{{ $stats['total'] }}</span>
+                </a>
+
+                @foreach ($entityTypes as $tipoTira)
+                    @php
+                        $colorTira = $tipoTira->color ?: '#6366f1';
+                        $activo = (string) $type === (string) $tipoTira->id;
+                    @endphp
+
+                    <a href="{{ route('entities.index', array_merge(request()->except(['type', 'page']), ['type' => $tipoTira->id])) }}"
+                        title="{{ $tipoTira->name }}"
+                        style="border-color: {{ $activo ? $colorTira : '#1e293b' }}; background-color: {{ $activo ? $colorTira . '1a' : 'transparent' }}"
+                        class="flex w-28 shrink-0 flex-col items-center gap-1.5 rounded-xl border p-2.5 text-center transition hover:-translate-y-0.5">
+
+                        <span class="h-10 w-10 overflow-hidden rounded-lg border bg-slate-950"
+                            style="border-color: {{ $colorTira }}55">
+                            @if ($tipoTira->image_url)
+                                <img src="{{ $tipoTira->image_url }}" alt="" loading="lazy"
+                                    class="h-full w-full object-cover">
+                            @else
+                                <span class="flex h-full w-full items-center justify-center text-lg"
+                                    style="color: {{ $colorTira }}">{{ $tipoTira->icon ?: '◇' }}</span>
+                            @endif
+                        </span>
+
+                        <span class="block w-full truncate text-[10px] font-black text-white">
+                            {{ $tipoTira->name }}
+                        </span>
+
+                        <span class="font-mono text-[10px]"
+                            style="color: {{ $tipoTira->entities_count > 0 ? $colorTira : '#475569' }}">
+                            {{ $tipoTira->entities_count }}
+                        </span>
+                    </a>
+                @endforeach
+
+                {{-- Sin tipo, solo si hay alguna --}}
+                @if ($stats['untyped'] > 0)
+                    <a href="{{ route('entities.index', array_merge(request()->except(['type', 'page']), ['type' => 'none'])) }}"
+                        class="flex w-28 shrink-0 flex-col items-center gap-1.5 rounded-xl border p-2.5 text-center transition hover:-translate-y-0.5 {{ $type === 'none' ? 'border-amber-500/50 bg-amber-500/10' : 'border-slate-800 bg-slate-950 hover:border-slate-700' }}">
+
+                        <span class="flex h-10 w-10 items-center justify-center rounded-lg border border-dashed border-amber-500/40 text-lg text-amber-400">
+                            ◇
+                        </span>
+
+                        <span class="block truncate text-[10px] font-black text-amber-300">Sin tipo</span>
+                        <span class="font-mono text-[10px] text-amber-400">{{ $stats['untyped'] }}</span>
+                    </a>
+                @endif
+
+                {{-- Y crear uno nuevo, al final de la tira --}}
+                @can('create', App\Models\EntityType::class)
+                    <a href="{{ route('entity-types.create') }}"
+                        class="flex w-28 shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-700 p-2.5 text-center transition hover:border-emerald-500/60">
+                        <span class="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600">
+                            <x-omni-icon name="mas" size="h-5 w-5" />
+                        </span>
+
+                        <span class="block text-[10px] font-black text-slate-400">Nuevo tipo</span>
+                    </a>
+                @endcan
+
+            </div>
+
+        </section>
+
+
+        {{-- ===================================================== --}}
         {{-- FILTROS Y FORMA DE MIRAR --}}
         {{-- ===================================================== --}}
 

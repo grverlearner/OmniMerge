@@ -3,7 +3,21 @@
     'label' => 'Añadir imágenes',
     'maxMb' => 2,
     'maxFiles' => 20,
+    'surface' => 'light',
 ])
+
+@php
+    /*
+     * El componente nacio para fondo claro y se usa en ocho sitios. En vez de
+     * oscurecerlo entero —que romperia esos ocho—, `surface="dark"` conmuta
+     * solo los tonos que chocan.
+     */
+    $oscuro = $surface === 'dark';
+
+    $tonoCaja = $oscuro ? 'border-fuchsia-500/30 bg-slate-950' : 'border-fuchsia-200 bg-white';
+    $tonoEtiqueta = $oscuro ? 'text-slate-300' : 'text-slate-700';
+    $tonoFicha = $oscuro ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-slate-50';
+@endphp
 
 
 <div x-data="{
@@ -228,7 +242,7 @@
         :class="dragging
             ?
             'border-fuchsia-500 bg-fuchsia-100' :
-            'border-fuchsia-200 bg-white'">
+            '{{ $tonoCaja }}'">
 
         <button type="button" @click="
                 choose()
@@ -266,7 +280,7 @@
                 class="
                     mt-3
                     text-xs
-                    text-slate-700
+                    {{ $tonoEtiqueta }}
                 ">
                 {{ $label }}
             </strong>
@@ -349,8 +363,7 @@
                             overflow-hidden
                             rounded-xl
                             border
-                            border-slate-200
-                            bg-slate-50
+                            {{ $tonoFicha }}
                         ">
 
                         <div

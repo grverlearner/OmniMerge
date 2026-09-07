@@ -21,10 +21,16 @@
     </x-omni-nav-section>
 
 
+    {{--
+        Los tipos no tienen entrada propia: se llega a ellos desde el índice de
+        Entidades, que es donde se usan. El sidebar enseña los sitios donde uno
+        trabaja, no todas las tablas que existen.
+    --}}
     <x-omni-nav-section title="Creaciones">
-        <x-omni-nav-item accent="indigo" :href="route('entities.index')" icon="chispa" label="Entidades" :active="request()->routeIs('entities.*') ||
-            request()->routeIs('entity-types.*') ||
-            request()->routeIs('collections.*')" />
+        <x-omni-nav-item accent="indigo" :href="route('entities.index')" icon="chispa" label="Entidades" :active="request()->routeIs('entities.*') || request()->routeIs('entity-types.*')" />
+
+        <x-omni-nav-item accent="indigo" :href="route('collections.index')" icon="capas" label="Colecciones"
+            :active="request()->routeIs('collections.*')" />
     </x-omni-nav-section>
 
 
@@ -47,8 +53,6 @@
             <x-omni-nav-item accent="amber" :href="route('tournaments.dashboard')" icon="trofeo" label="Ir a Torneos" />
 
             <x-omni-nav-item accent="violet" :href="route('universes.dashboard')" icon="orbita" label="Ir a Universos" />
-
-            <x-omni-nav-item accent="indigo" :href="route('home')" icon="casa" label="Página pública" />
         </x-omni-sidebar-user>
     </x-slot:footer>
 

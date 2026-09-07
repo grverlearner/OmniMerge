@@ -539,6 +539,58 @@ class StoreEntityVersionRequest extends FormRequest
     }
 
 
+    public function messages(): array
+    {
+        return [
+
+            'version_id.required' =>
+            'Elige el molde que se aplica, o crea uno nuevo.',
+
+            'version_id.exists' =>
+            'Ese molde no existe o no está activo.',
+
+            'new_version_name.required' =>
+            'Ponle nombre al molde nuevo: «Shippuden», «Modo Sabio»…',
+
+            'new_version_name.max' =>
+            'El nombre del molde no puede pasar de 150 caracteres.',
+
+            'new_version_image.required' =>
+            'Has elegido subir una imagen distinta para el molde, así que hace falta el archivo.',
+
+            'new_version_image.image' =>
+            'La imagen del molde tiene que ser JPG, PNG o WEBP.',
+
+            'new_version_image.max' =>
+            'La imagen del molde no puede pasar de 2 MB.',
+
+            'image.required' =>
+            'Falta la imagen de la versión: súbela, o copia la de la entidad.',
+
+            'image.image' =>
+            'La imagen tiene que ser JPG, PNG o WEBP.',
+
+            'image.max' =>
+            'La imagen no puede pasar de 2 MB.',
+
+            'source_entity_version_id.required' =>
+            'Has elegido copiar la imagen de otra versión: elige de cuál.',
+
+            'name.max' =>
+            'El nombre de la versión no puede pasar de 150 caracteres.',
+
+            'description.max' =>
+            'La descripción no puede pasar de 5000 caracteres.',
+
+            'priority.integer' =>
+            'La prioridad tiene que ser un número entero.',
+
+            'sort_order.integer' =>
+            'El orden tiene que ser un número entero.',
+        ];
+    }
+
+
     public function withValidator(
         Validator $validator
     ): void {

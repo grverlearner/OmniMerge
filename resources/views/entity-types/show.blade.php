@@ -1,728 +1,637 @@
-<x-app-layout>
-
-    <x-slot name="header">
-        Entidades
-    </x-slot>
-
-
-    @include('entities.partials.section-navigation')
-
-
-    {{-- ========================================================= --}}
-    {{-- VOLVER --}}
-    {{-- ========================================================= --}}
-
-    <div class="
-            mb-5
-        ">
-
-        <a href="{{ route('entity-types.index') }}"
-            class="
-                text-sm
-                font-bold
-                text-slate-400
-                transition
-                hover:text-indigo-600
-            ">
-            ← Tipos de entidad
-        </a>
-
-    </div>
-
-
-    {{-- ========================================================= --}}
-    {{-- CABECERA PRINCIPAL --}}
-    {{-- ========================================================= --}}
-
-    <section
-        class="
-            overflow-hidden
-            rounded-3xl
-            border
-            border-slate-200
-            bg-white
-            shadow-sm
-        ">
-
-        <div class="
-                grid
-                lg:grid-cols-[340px_minmax(0,1fr)]
-            ">
-
-            {{-- ================================================= --}}
-            {{-- REPRESENTACIÓN --}}
-            {{-- ================================================= --}}
-
-            <div class="
-                    min-h-[280px]
-                    bg-slate-100
-                ">
-
-                @if ($entityType->image_url)
-                    <img src="{{ $entityType->image_url }}" alt="{{ $entityType->name }}"
-                        class="
-                            h-full
-                            min-h-[280px]
-                            w-full
-                            object-cover
-                        ">
-                @else
-                    <div class="
-                            flex
-                            h-full
-                            min-h-[280px]
-                            items-center
-                            justify-center
-                            text-7xl
-                            font-black
-                        "
-                        style="
-                            background-color:
-                                {{ $entityType->color ?? '#6366F1' }}20;
-
-                            color:
-                                {{ $entityType->color ?? '#6366F1' }};
-                        ">
-                        {{ $entityType->icon ?: '◇' }}
-                    </div>
-                @endif
-
-            </div>
-
-
-            {{-- ================================================= --}}
-            {{-- INFORMACIÓN --}}
-            {{-- ================================================= --}}
-
-            <div
-                class="
-                    flex
-                    flex-col
-                    justify-between
-                    p-6
-                    sm:p-8
-                ">
-
-                <div>
-
-                    <div
-                        class="
-                            flex
-                            flex-wrap
-                            items-center
-                            gap-3
-                        ">
-
-                        <span
-                            class="
-                                rounded-full
-                                bg-indigo-50
-                                px-3
-                                py-1
-                                font-mono
-                                text-[10px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-indigo-600
-                            ">
-                            {{ $entityType->code }}
-                        </span>
-
-
-                        <x-status-badge :status="$entityType->status" />
-
-                    </div>
-
-
-                    <h1
-                        class="
-                            mt-5
-                            text-3xl
-                            font-black
-                            tracking-tight
-                            text-slate-900
-                            sm:text-4xl
-                        ">
-                        {{ $entityType->name }}
-                    </h1>
-
-
-                    <p
-                        class="
-                            mt-5
-                            max-w-3xl
-                            leading-7
-                            text-slate-600
-                        ">
-                        {{ $entityType->description ?: 'Este tipo todavía no tiene una descripción.' }}
-                    </p>
-
-                </div>
-
-
-                <div
-                    class="
-                        mt-8
-                        flex
-                        flex-wrap
-                        gap-3
-                    ">
-
-                    <a href="{{ route('entities.create', [
-                        'type' => $entityType->id,
-                    ]) }}"
-                        class="
-                            rounded-xl
-                            bg-indigo-600
-                            px-5
-                            py-3
-                            text-sm
-                            font-black
-                            text-white
-                            shadow-lg
-                            shadow-indigo-600/20
-                            transition
-                            hover:bg-indigo-700
-                        ">
-                        + Crear entidad de este tipo
-                    </a>
-
-
-                    <a href="{{ route('entity-types.edit', $entityType) }}"
-                        class="
-                            rounded-xl
-                            border
-                            border-slate-300
-                            px-5
-                            py-3
-                            text-sm
-                            font-bold
-                            text-slate-700
-                            hover:bg-slate-50
-                        ">
-                        Editar tipo
-                    </a>
-
-
-                    @if ($entityType->entities_count === 0)
-                        <form method="POST"
-                            action="{{ route('entity-types.destroy', $entityType) }}"
-                            data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
-                            data-confirm-title="Eliminar Tipo de Entidad"
-                            data-confirm-message="
-        Este Tipo dejará de estar
-        disponible en tu Biblioteca.
-    "
-                            data-confirm-subject="{{ $entityType->name }}"
-                            data-confirm-detail="
-        Solo puede eliminarse cuando
-        no tiene Entidades asociadas.
-    "
-                            data-confirm-action="Eliminar Tipo"
-                            data-confirm-image="{{ $entityType->image_url ?? '' }}">
-
-                            @csrf
-                            @method('DELETE')
-
-
-                            <button type="submit"
-                                class="
-                                    rounded-xl
-                                    border
-                                    border-red-200
-                                    px-5
-                                    py-3
-                                    text-sm
-                                    font-bold
-                                    text-red-600
-                                    hover:bg-red-50
-                                ">
-                                Eliminar
-                            </button>
-
-                        </form>
-                    @else
-                        <span title="No puede eliminarse mientras tenga entidades asociadas."
-                            class="
-                                cursor-not-allowed
-                                rounded-xl
-                                border
-                                border-slate-200
-                                bg-slate-50
-                                px-5
-                                py-3
-                                text-sm
-                                font-bold
-                                text-slate-300
-                            ">
-                            Eliminar
-                        </span>
-                    @endif
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-    {{-- ========================================================= --}}
-    {{-- INFORMACIÓN DEL TIPO --}}
-    {{-- ========================================================= --}}
-
-    <section
-        class="
-            mt-6
-            grid
-            gap-4
-            sm:grid-cols-2
-            xl:grid-cols-4
-        ">
-
-        {{-- ENTIDADES --}}
-        <article
-            class="
-                rounded-2xl
-                border
-                border-slate-200
-                bg-white
-                p-5
-                shadow-sm
-            ">
-
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-wider
-                    text-slate-400
-                ">
-                Entidades
-            </p>
-
-
-            <p
-                class="
-                    mt-2
-                    text-3xl
-                    font-black
-                    text-slate-900
-                ">
-                {{ $entityType->entities_count }}
-            </p>
-
-        </article>
-
-
-        {{-- NÚMERO CREACIÓN --}}
-        <article
-            class="
-                rounded-2xl
-                border
-                border-slate-200
-                bg-white
-                p-5
-                shadow-sm
-            ">
-
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-wider
-                    text-slate-400
-                ">
-                N.º de creación
-            </p>
-
-
-            <p
-                class="
-                    mt-2
-                    text-3xl
-                    font-black
-                    text-slate-900
-                ">
-                #{{ $entityType->sequence_number }}
-            </p>
-
-        </article>
-
-
-        {{-- CÓDIGO --}}
-        <article
-            class="
-                rounded-2xl
-                border
-                border-slate-200
-                bg-white
-                p-5
-                shadow-sm
-            ">
-
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-wider
-                    text-slate-400
-                ">
-                Código
-            </p>
-
-
-            <p
-                class="
-                    mt-3
-                    font-mono
-                    text-lg
-                    font-black
-                    text-indigo-700
-                ">
-                {{ $entityType->code }}
-            </p>
-
-        </article>
-
-
-        {{-- FECHA --}}
-        <article
-            class="
-                rounded-2xl
-                border
-                border-slate-200
-                bg-white
-                p-5
-                shadow-sm
-            ">
-
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-wider
-                    text-slate-400
-                ">
-                Creado
-            </p>
-
-
-            <p
-                class="
-                    mt-3
-                    text-lg
-                    font-black
-                    text-slate-900
-                ">
-                {{ $entityType->created_at->format('d/m/Y') }}
-            </p>
-
-        </article>
-
-    </section>
-
-
-    {{-- ========================================================= --}}
-    {{-- ENTIDADES ASOCIADAS --}}
-    {{-- ========================================================= --}}
-
-    <section class="mt-10">
-
-        <div
-            class="
-                flex
-                flex-col
-                justify-between
-                gap-4
-                sm:flex-row
-                sm:items-end
-            ">
-
-            <div>
-
-                <p
-                    class="
-                        text-xs
-                        font-black
-                        uppercase
-                        tracking-[0.15em]
-                        text-indigo-600
-                    ">
-                    Contenido relacionado
-                </p>
-
-
-                <h2
-                    class="
-                        mt-2
-                        text-2xl
-                        font-black
-                        text-slate-900
-                    ">
-                    Entidades de este tipo
-                </h2>
-
-
-                <p
-                    class="
-                        mt-2
-                        text-sm
-                        text-slate-500
-                    ">
-                    Las últimas entidades creadas
-                    utilizando {{ $entityType->name }}.
-                </p>
-
-            </div>
-
-
-            <div
-                class="
-                    flex
-                    flex-wrap
-                    gap-3
-                ">
-
-                @if ($entityType->entities_count > 12)
-                    <a href="{{ route('entities.index', [
-                        'type' => $entityType->id,
-                    ]) }}"
-                        class="
-                            rounded-xl
-                            border
-                            border-slate-300
-                            bg-white
-                            px-4
-                            py-2.5
-                            text-sm
-                            font-bold
-                            text-slate-700
-                            hover:bg-slate-50
-                        ">
-                        Ver todas
-                    </a>
-                @endif
-
-
-                <a href="{{ route('entities.create', [
-                    'type' => $entityType->id,
-                ]) }}"
-                    class="
-                        rounded-xl
-                        bg-indigo-600
-                        px-4
-                        py-2.5
-                        text-sm
-                        font-bold
-                        text-white
-                        hover:bg-indigo-700
-                    ">
-                    + Nueva entidad
-                </a>
-
-            </div>
-
-        </div>
-
+@php
+    /*
+     * La ficha de un tipo de entidad.
+     *
+     * Un tipo no es un nombre con un color: es todo lo que lo lleva puesto.
+     * Por eso esta pantalla enseña la colección entera —filtrable, ordenable
+     * y en cuatro modos de vista— y responde además a las dos preguntas que
+     * uno se hace al abrirlo: qué características suelen tener sus entidades,
+     * y en qué colecciones acaban.
+     *
+     * El color del tipo es un dato del usuario, así que se usa en `style` y
+     * como variable CSS, no como clase de Tailwind: una clase compuesta con
+     * 'border-' . $color no existiría en el CSS.
+     */
+
+    $color = $entityType->color ?: '#6366f1';
+
+    $estados = [
+        '' => 'Cualquier estado',
+        'ACTIVE' => 'Activa',
+        'INACTIVE' => 'Inactiva',
+        'ARCHIVED' => 'Archivada',
+    ];
+
+    $ordenes = [
+        'newest' => 'Más recientes',
+        'oldest' => 'Más antiguas',
+        'name_asc' => 'Nombre A → Z',
+        'name_desc' => 'Nombre Z → A',
+        'attributes_desc' => 'Más características',
+    ];
+
+    $estadoTono = [
+        'ACTIVE' => 'bg-emerald-500/15 text-emerald-300',
+        'INACTIVE' => 'bg-amber-500/15 text-amber-300',
+        'ARCHIVED' => 'bg-slate-800 text-slate-500',
+    ];
+
+    $filtrando = $search !== '' || $status !== '';
+@endphp
+
+<x-app-layout :title="$entityType->name" surface="dark">
+
+    <x-slot name="header">{{ $entityType->name }}</x-slot>
+
+    <div x-data="{
+        view: 'gallery',
+        size: 4,
+
+        init() {
+            try {
+                const g = JSON.parse(localStorage.getItem('omnimerge.entity-type.view') ?? '{}');
+                if (['gallery', 'grid', 'list', 'table'].includes(g.view)) this.view = g.view;
+                if ([2, 3, 4, 5, 6].includes(g.size)) this.size = g.size;
+            } catch (e) { /* modo privado, sin memoria */ }
+
+            this.$watch('view', () => this.remember());
+            this.$watch('size', () => this.remember());
+        },
+
+        remember() {
+            try {
+                localStorage.setItem('omnimerge.entity-type.view',
+                    JSON.stringify({ view: this.view, size: this.size }));
+            } catch (e) {}
+        },
+
+        get columns() {
+            if (this.view === 'gallery') {
+                return {
+                    2: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
+                    3: 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-5',
+                    4: 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6',
+                    5: 'grid-cols-3 sm:grid-cols-5 lg:grid-cols-8',
+                    6: 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-10',
+                }[this.size];
+            }
+
+            return {
+                2: 'sm:grid-cols-2',
+                3: 'sm:grid-cols-2 lg:grid-cols-3',
+                4: 'sm:grid-cols-3 lg:grid-cols-4',
+                5: 'sm:grid-cols-3 lg:grid-cols-5',
+                6: 'sm:grid-cols-4 lg:grid-cols-6',
+            }[this.size];
+        },
+    }" style="--tipo: {{ $color }}" class="space-y-4">
 
         {{-- ===================================================== --}}
-        {{-- TARJETAS --}}
+        {{-- LA PORTADA --}}
         {{-- ===================================================== --}}
 
-        <div
-            class="
-                mt-6
-                grid
-                gap-4
-                sm:grid-cols-2
-                lg:grid-cols-3
-                xl:grid-cols-4
-            ">
+        <header class="overflow-hidden rounded-2xl border bg-slate-900/50"
+            style="border-color: {{ $color }}44">
 
-            @forelse ($entities
-                as $entity)
-                <a href="{{ route('entities.show', $entity) }}"
-                    class="
-                        group
-                        overflow-hidden
-                        rounded-2xl
-                        border
-                        border-slate-200
-                        bg-white
-                        shadow-sm
-                        transition
-                        hover:-translate-y-0.5
-                        hover:border-indigo-200
-                        hover:shadow-lg
-                    ">
+            <div class="relative">
 
-                    {{-- IMAGEN --}}
-                    <div
-                        class="
-                            relative
-                            aspect-[16/10]
-                            bg-gradient-to-br
-                            from-indigo-50
-                            to-violet-100
-                        ">
+                {{-- El color del tipo, de fondo --}}
+                <span class="pointer-events-none absolute inset-0"
+                    style="background: radial-gradient(70% 120% at 15% 0%, {{ $color }}26, transparent 65%)"></span>
 
-                        @if ($entity->base_display_image_url)
-                            <img src="{{ $entity->base_display_image_url }}" alt="{{ $entity->name }}"
-                                class="
-                                    h-full
-                                    w-full
-                                    object-cover
-                                    transition
-                                    duration-300
-                                    group-hover:scale-[1.02]
-                                ">
+                <div class="relative flex flex-wrap items-start gap-5 p-5">
+
+                    {{-- Su cara --}}
+                    <span class="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border bg-slate-950"
+                        style="border-color: {{ $color }}55">
+                        @if ($entityType->image_url)
+                            <img src="{{ $entityType->image_url }}" alt="{{ $entityType->name }}"
+                                class="h-full w-full object-cover">
                         @else
-                            <div
-                                class="
-                                    flex
-                                    h-full
-                                    items-center
-                                    justify-center
-                                    text-4xl
-                                    font-black
-                                    text-indigo-300
-                                ">
-                                {{ strtoupper(substr($entity->name, 0, 1)) }}
-                            </div>
+                            <span class="flex h-full w-full items-center justify-center text-4xl"
+                                style="color: {{ $color }}">{{ $entityType->icon ?: '◇' }}</span>
                         @endif
+                    </span>
 
+                    <div class="min-w-0 flex-1">
 
-                        <div
-                            class="
-                                absolute
-                                left-3
-                                top-3
-                            ">
-                            <x-status-badge :status="$entity->status" />
+                        <a href="{{ route('entity-types.index') }}"
+                            class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition hover:text-indigo-400">
+                            ← Tipos de entidad
+                        </a>
+
+                        <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                            <h1 class="text-3xl font-black tracking-tight text-white">{{ $entityType->name }}</h1>
+
+                            <span class="rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider {{ $estadoTono[$entityType->status] ?? 'bg-slate-800 text-slate-500' }}">
+                                {{ $entityType->status }}
+                            </span>
+
+                            <span class="font-mono text-[10px] text-slate-600">{{ $entityType->code }}</span>
+
+                            <span class="flex items-center gap-1.5 rounded-lg border px-2 py-1"
+                                style="border-color: {{ $color }}44">
+                                <span class="h-2.5 w-2.5 rounded-full" style="background-color: {{ $color }}"></span>
+                                <span class="font-mono text-[9px] text-slate-500">{{ $color }}</span>
+                            </span>
+                        </div>
+
+                        <p class="mt-2 max-w-2xl text-[12px] leading-relaxed text-slate-400">
+                            {{ $entityType->description ?: 'Sin descripción. Un tipo es una etiqueta para organizarte: no limita qué características puede tener una entidad.' }}
+                        </p>
+
+                        {{-- Sus cifras --}}
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            @foreach ([['Entidades', $stats['total'], 'text-white'], ['Con imagen', $stats['with_image'], 'text-cyan-300'], ['Activas', $stats['active'], 'text-emerald-300'], ['Públicas', $stats['public'], 'text-sky-300']] as [$etiqueta, $valor, $tono])
+                                <span class="flex items-baseline gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2">
+                                    <span class="font-mono text-lg font-black {{ $valor > 0 ? $tono : 'text-slate-700' }}">
+                                        {{ $valor }}
+                                    </span>
+                                    <span class="text-[9px] font-black uppercase tracking-wider text-slate-600">
+                                        {{ $etiqueta }}
+                                    </span>
+                                </span>
+                            @endforeach
+                        </div>
+
+                        {{-- Qué se puede hacer --}}
+                        <div class="mt-4 flex flex-wrap gap-2">
+
+                            @can('create', App\Models\Entity::class)
+                                <a href="{{ route('entities.create', ['type' => $entityType->id]) }}"
+                                    class="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black text-slate-950 transition hover:opacity-90"
+                                    style="background-color: {{ $color }}">
+                                    <x-omni-icon name="mas" size="h-4 w-4" />
+                                    {{-- Sin concordar con el nombre del tipo: «Nueva Personaje» chirría --}}
+                                    Nueva entidad de este tipo
+                                </a>
+                            @endcan
+
+                            <a href="{{ route('entities.index', ['type' => $entityType->id]) }}"
+                                class="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-2.5 text-xs font-black text-slate-200 transition hover:border-indigo-500/60 hover:text-indigo-300">
+                                <x-omni-icon name="cuadricula" size="h-4 w-4" />
+                                Verlas en la biblioteca
+                            </a>
+
+                            @can('update', $entityType)
+                                <a href="{{ route('entity-types.edit', $entityType) }}"
+                                    class="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-2.5 text-xs font-black text-slate-200 transition hover:border-amber-500/60 hover:text-amber-300">
+                                    <x-omni-icon name="controles" size="h-4 w-4" />
+                                    Editar el tipo
+                                </a>
+                            @endcan
+
+                            @can('create', App\Models\EntityType::class)
+                                <a href="{{ route('entity-types.create') }}"
+                                    class="flex items-center gap-2 rounded-xl border border-dashed border-slate-700 px-4 py-2.5 text-xs font-black text-slate-400 transition hover:border-emerald-500/60 hover:text-emerald-300">
+                                    <x-omni-icon name="mas" size="h-4 w-4" />
+                                    Otro tipo
+                                </a>
+                            @endcan
+
                         </div>
 
                     </div>
 
+                </div>
 
-                    {{-- INFO --}}
-                    <div class="p-4">
+            </div>
 
-                        <h3
-                            class="
-                                truncate
-                                font-black
-                                text-slate-900
-                                group-hover:text-indigo-700
-                            ">
-                            {{ $entity->name }}
-                        </h3>
+        </header>
 
 
-                        @if ($entity->code)
-                            <p
-                                class="
-                                    mt-1
-                                    truncate
-                                    font-mono
-                                    text-[10px]
-                                    font-bold
-                                    uppercase
-                                    tracking-wider
-                                    text-slate-400
-                                ">
-                                {{ $entity->code }}
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
+
+            {{-- ============================================================= --}}
+            {{-- SUS ENTIDADES --}}
+            {{-- ============================================================= --}}
+
+            <div class="space-y-4">
+
+                <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
+
+                    <header class="flex flex-wrap items-center gap-3 border-b border-slate-800 px-5 py-3">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-lg"
+                            style="background-color: {{ $color }}26; color: {{ $color }}">
+                            <x-omni-icon name="chispa" size="h-4 w-4" />
+                        </span>
+
+                        <div class="min-w-0 flex-1">
+                            <h2 class="text-sm font-black text-white">Lo que es de este tipo</h2>
+                            <p class="text-[10px] text-slate-500">
+                                {{ $entities->total() }}
+                                {{ $entities->total() === 1 ? 'entidad' : 'entidades' }}
+                                @if ($filtrando)
+                                    tras los filtros
+                                @endif
                             </p>
+                        </div>
+
+                        {{-- Cuatro maneras de mirarlas --}}
+                        <span class="flex shrink-0 items-center gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
+                            @foreach ([['gallery', 'galeria', 'Galería: solo la cara y el nombre'], ['grid', 'cuadricula', 'Cuadrícula: con sus cifras'], ['list', 'controles', 'Lista: una línea por entidad'], ['table', 'grafo', 'Tabla: para comparar']] as [$modo, $icono, $ayuda])
+                                <button type="button" @click="view = '{{ $modo }}'" title="{{ $ayuda }}"
+                                    :aria-pressed="view === '{{ $modo }}'"
+                                    :style="view === '{{ $modo }}' ? 'background-color: {{ $color }}; color: #0f172a' : ''"
+                                    :class="view === '{{ $modo }}' ? '' : 'text-slate-500 hover:text-slate-200'"
+                                    class="rounded-lg px-2 py-1.5 transition">
+                                    <x-omni-icon :name="$icono" size="h-4 w-4" />
+                                </button>
+                            @endforeach
+                        </span>
+
+                        <span x-show="view !== 'list' && view !== 'table'" x-cloak
+                            class="flex shrink-0 items-center gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
+                            <button type="button" @click="size = Math.max(2, size - 1)" :disabled="size === 2"
+                                title="Más grandes"
+                                class="rounded-lg px-2 py-1.5 text-slate-500 transition hover:text-slate-200 disabled:opacity-30">
+                                <x-omni-icon name="chevron-izquierda" size="h-3.5 w-3.5" />
+                            </button>
+
+                            <span class="w-3 text-center font-mono text-[10px] font-black text-slate-500"
+                                x-text="size"></span>
+
+                            <button type="button" @click="size = Math.min(6, size + 1)" :disabled="size === 6"
+                                title="Más pequeñas"
+                                class="rounded-lg px-2 py-1.5 text-slate-500 transition hover:text-slate-200 disabled:opacity-30">
+                                <x-omni-icon name="chevron-derecha" size="h-3.5 w-3.5" />
+                            </button>
+                        </span>
+                    </header>
+
+
+                    {{-- ============ BUSCAR Y ORDENAR ============ --}}
+
+                    <form method="GET" action="{{ route('entity-types.show', $entityType) }}"
+                        class="flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-950/60 px-4 py-2.5">
+
+                        <label class="relative min-w-[180px] flex-1">
+                            <span class="sr-only">Buscar</span>
+
+                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600">
+                                <x-omni-icon name="brujula" size="h-3.5 w-3.5" />
+                            </span>
+
+                            <input type="search" name="search" value="{{ $search }}"
+                                placeholder="Buscar entre las de este tipo..."
+                                class="w-full rounded-xl border-slate-800 bg-slate-900 pl-9 text-xs text-slate-200 placeholder:text-slate-600 focus:border-indigo-500 focus:ring-indigo-500">
+                        </label>
+
+                        @foreach ([['status', $estados, $status], ['sort', $ordenes, $sort]] as [$campo, $opciones, $actual])
+                            <select name="{{ $campo }}" onchange="this.form.submit()"
+                                class="rounded-xl border-slate-800 bg-slate-900 py-2 text-[11px] font-bold text-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                @foreach ($opciones as $valor => $etiqueta)
+                                    <option value="{{ $valor }}" @selected((string) $actual === (string) $valor)>
+                                        {{ $etiqueta }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endforeach
+
+                        <button type="submit"
+                            class="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-[11px] font-black text-slate-300 transition hover:border-indigo-500 hover:text-indigo-300">
+                            Buscar
+                        </button>
+
+                        @if ($filtrando)
+                            <a href="{{ route('entity-types.show', $entityType) }}"
+                                class="rounded-xl border border-rose-500/30 px-3 py-2 text-[11px] font-black text-rose-300 transition hover:bg-rose-500/10">
+                                Quitar filtros
+                            </a>
                         @endif
+                    </form>
 
 
-                        <p
-                            class="
-                                mt-2
-                                line-clamp-2
-                                text-xs
-                                leading-5
-                                text-slate-500
-                            ">
-                            {{ $entity->description ?: 'Sin descripción.' }}
+                    {{-- ============ LAS ENTIDADES ============ --}}
+
+                    @if ($entities->isEmpty())
+
+                        <div class="px-5 py-14 text-center">
+                            <span class="inline-flex" style="color: {{ $color }}44">
+                                <x-omni-icon name="chispa" size="h-10 w-10" />
+                            </span>
+
+                            <p class="mt-2 text-sm font-black text-white">
+                                {{ $filtrando ? 'Ninguna encaja con eso' : 'Todavía no hay nada de este tipo' }}
+                            </p>
+
+                            <p class="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-slate-500">
+                                {{ $filtrando
+                                    ? 'Prueba a quitar el filtro de estado o a buscar otra cosa.'
+                                    : 'Un tipo vacío no molesta, pero tampoco sirve de nada hasta que algo lo lleva puesto.' }}
+                            </p>
+
+                            @can('create', App\Models\Entity::class)
+                                @unless ($filtrando)
+                                    <a href="{{ route('entities.create', ['type' => $entityType->id]) }}"
+                                        class="mt-4 inline-block rounded-xl px-4 py-2 text-[11px] font-black text-slate-950"
+                                        style="background-color: {{ $color }}">
+                                        + Crear la primera
+                                    </a>
+                                @endunless
+                            @endcan
+                        </div>
+
+                    @else
+
+                        {{-- GALERÍA --}}
+                        <div x-show="view === 'gallery'" class="grid gap-2 p-4" :class="columns">
+                            @foreach ($entities as $entity)
+                                @include('entities.partials.library-poster', ['entidad' => $entity])
+                            @endforeach
+                        </div>
+
+                        {{-- CUADRÍCULA --}}
+                        <div x-show="view === 'grid'" x-cloak class="grid gap-3 p-4" :class="columns">
+                            @foreach ($entities as $entity)
+                                @include('entities.partials.library-card', [
+                                    'entidad' => $entity,
+                                    'estadoTono' => $estadoTono,
+                                ])
+                            @endforeach
+                        </div>
+
+                        {{-- LISTA --}}
+                        <div x-show="view === 'list'" x-cloak class="space-y-2 p-4">
+                            @foreach ($entities as $entity)
+                                @include('entities.partials.library-row', [
+                                    'entidad' => $entity,
+                                    'estadoTono' => $estadoTono,
+                                ])
+                            @endforeach
+                        </div>
+
+                        {{-- TABLA --}}
+                        <div x-show="view === 'table'" x-cloak class="overflow-x-auto">
+                            <table class="w-full min-w-[720px]">
+
+                                <thead class="border-b border-slate-800 bg-slate-950/40 text-left">
+                                    <tr class="text-[9px] font-black uppercase tracking-wider text-slate-600">
+                                        <th class="px-3 py-2.5">Entidad</th>
+                                        <th class="px-3 py-2.5">Estado</th>
+                                        <th class="px-3 py-2.5">Visibilidad</th>
+                                        <th class="px-3 py-2.5 text-right">Rasgos</th>
+                                        <th class="px-3 py-2.5 text-right">Colecciones</th>
+                                        <th class="px-3 py-2.5 text-right">Versiones</th>
+                                        <th class="px-3 py-2.5"></th>
+                                    </tr>
+                                </thead>
+
+                                <tbody class="divide-y divide-slate-800/70">
+                                    @foreach ($entities as $entity)
+                                        <tr class="transition hover:bg-slate-900/60">
+                                            <td class="px-3 py-2">
+                                                <a href="{{ route('entities.show', $entity) }}"
+                                                    class="flex items-center gap-2">
+                                                    <span class="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+                                                        @if ($entity->base_display_image_url)
+                                                            <img src="{{ $entity->base_display_image_url }}" alt=""
+                                                                loading="lazy" class="h-full w-full object-cover">
+                                                        @else
+                                                            <span class="flex h-full w-full items-center justify-center text-[11px]"
+                                                                style="color: {{ $color }}">{{ $entityType->icon ?: '◇' }}</span>
+                                                        @endif
+                                                    </span>
+
+                                                    <span class="min-w-0">
+                                                        <span class="block truncate text-[12px] font-black text-white">
+                                                            {{ $entity->name }}
+                                                        </span>
+                                                        <span class="block font-mono text-[9px] text-slate-600">
+                                                            {{ $entity->code }}
+                                                        </span>
+                                                    </span>
+                                                </a>
+                                            </td>
+
+                                            <td class="px-3 py-2">
+                                                <span class="rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider {{ $estadoTono[$entity->status] ?? 'bg-slate-800 text-slate-500' }}">
+                                                    {{ $entity->status_label }}
+                                                </span>
+                                            </td>
+
+                                            <td class="px-3 py-2 text-[11px] text-slate-400">
+                                                {{ $entity->visibility_label }}</td>
+
+                                            <td class="px-3 py-2 text-right font-mono text-[11px] text-violet-300">
+                                                {{ $entity->entity_attributes_count }}</td>
+
+                                            <td class="px-3 py-2 text-right font-mono text-[11px] text-cyan-300">
+                                                {{ $entity->collections_count }}</td>
+
+                                            <td class="px-3 py-2 text-right font-mono text-[11px] text-amber-300">
+                                                {{ $entity->entity_versions_count }}</td>
+
+                                            <td class="px-3 py-2 text-right">
+                                                <a href="{{ route('entities.show', $entity) }}"
+                                                    class="text-[10px] font-black text-slate-400 transition hover:text-indigo-300">
+                                                    Ver →
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+
+                            </table>
+                        </div>
+
+                        <div class="border-t border-slate-800 px-4 py-3">
+                            {{ $entities->links() }}
+                        </div>
+
+                    @endif
+
+                </section>
+
+            </div>
+
+
+            {{-- ============================================================= --}}
+            {{-- LO QUE DESCRIBE AL TIPO --}}
+            {{-- ============================================================= --}}
+
+            <aside class="space-y-4">
+
+                {{-- Qué características lleva lo de este tipo --}}
+                <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+
+                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                        Qué suelen llevar
+                    </p>
+
+                    @if ($rasgos->isEmpty())
+                        <p class="mt-2 text-[11px] leading-4 text-slate-600">
+                            Ninguna de sus entidades tiene características todavía.
+                        </p>
+                    @else
+                        <p class="mt-1 text-[10px] leading-4 text-slate-600">
+                            Si casi todas llevan una característica, esa describe al tipo tanto
+                            como su nombre.
                         </p>
 
-                    </div>
+                        <div class="mt-2.5 space-y-2">
+                            @foreach ($rasgos as $rasgo)
+                                @php $colorRasgo = $rasgo['attribute']->color ?: '#64748b'; @endphp
 
-                </a>
+                                <a href="{{ route('attributes.show', $rasgo['attribute']) }}" class="group block">
+                                    <span class="flex items-baseline justify-between gap-2">
+                                        <span class="flex min-w-0 items-center gap-1.5">
+                                            <span class="text-[11px]"
+                                                style="color: {{ $colorRasgo }}">{{ $rasgo['attribute']->icon ?: '◆' }}</span>
+                                            <span class="truncate text-[11px] font-bold text-slate-400 transition group-hover:text-slate-200">
+                                                {{ $rasgo['attribute']->name }}
+                                            </span>
+                                        </span>
 
-            @empty
+                                        <span class="shrink-0 font-mono text-[11px] font-black"
+                                            style="color: {{ $colorRasgo }}">{{ $rasgo['share'] }}%</span>
+                                    </span>
 
-                <div
-                    class="
-                        sm:col-span-2
-                        lg:col-span-3
-                        xl:col-span-4
-                        rounded-3xl
-                        border
-                        border-dashed
-                        border-slate-300
-                        bg-white
-                        py-14
-                        text-center
-                    ">
+                                    <span class="mt-1 block h-1.5 overflow-hidden rounded-full bg-slate-950">
+                                        <span class="block h-full rounded-full transition-all"
+                                            style="width: {{ max(3, $rasgo['share']) }}%; background-color: {{ $colorRasgo }}"></span>
+                                    </span>
+                                </a>
+                            @endforeach
+                        </div>
+                    @endif
 
-                    <div class="
-                            text-4xl
-                        ">
-                        ◇
-                    </div>
+                </section>
 
 
-                    <p
-                        class="
-                            mt-4
-                            font-black
-                            text-slate-700
-                        ">
-                        Todavía no hay entidades
+                {{-- Dónde acaban --}}
+                <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+
+                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                        Dónde acaban
                     </p>
 
+                    @if ($colecciones->isEmpty())
+                        <p class="mt-2 text-[11px] leading-4 text-slate-600">
+                            Ninguna de sus entidades está en una colección todavía.
+                        </p>
+                    @else
+                        <ul class="mt-2.5 space-y-1.5">
+                            @foreach ($colecciones as $coleccion)
+                                <li>
+                                    <a href="{{ route('collections.show', $coleccion) }}"
+                                        class="flex items-center gap-2.5 rounded-xl border bg-slate-950/60 p-2 transition hover:bg-slate-900"
+                                        style="border-color: {{ $coleccion->color ?: '#1e293b' }}66">
 
-                    <p
-                        class="
-                            mt-2
-                            text-sm
-                            text-slate-500
-                        ">
-                        Crea la primera entidad
-                        perteneciente a este tipo.
-                    </p>
+                                        <span class="h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-slate-900">
+                                            @if ($coleccion->image_url)
+                                                <img src="{{ $coleccion->image_url }}" alt="" loading="lazy"
+                                                    class="h-full w-full object-cover">
+                                            @else
+                                                <span class="flex h-full w-full items-center justify-center text-sm"
+                                                    style="color: {{ $coleccion->color ?: '#64748b' }}">
+                                                    {{ $coleccion->icon ?: '◈' }}
+                                                </span>
+                                            @endif
+                                        </span>
+
+                                        <span class="min-w-0 flex-1 truncate text-[11px] font-black text-slate-200">
+                                            {{ $coleccion->name }}
+                                        </span>
+
+                                        <span class="shrink-0 font-mono text-[10px] text-slate-500">
+                                            {{ $coleccion->typed_count }}
+                                        </span>
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+
+                </section>
 
 
-                    <a href="{{ route('entities.create', [
-                        'type' => $entityType->id,
-                    ]) }}"
-                        class="
-                            mt-5
-                            inline-flex
-                            rounded-xl
-                            bg-indigo-600
-                            px-5
-                            py-3
-                            text-sm
-                            font-black
-                            text-white
-                        ">
-                        + Crear entidad
-                    </a>
+                {{-- Los demás tipos, para saltar sin volver al índice --}}
+                @if ($hermanos->isNotEmpty())
+                    <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
 
-                </div>
-            @endforelse
+                        <p class="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                            Tus otros tipos
+                            <span class="h-px flex-1 bg-slate-800"></span>
+                            <a href="{{ route('entity-types.index') }}"
+                                class="text-slate-600 transition hover:text-indigo-300">todos →</a>
+                        </p>
+
+                        <div class="mt-2.5 flex flex-wrap gap-1.5">
+                            @foreach ($hermanos as $hermano)
+                                @php $colorHermano = $hermano->color ?: '#64748b'; @endphp
+
+                                <a href="{{ route('entity-types.show', $hermano) }}"
+                                    class="flex items-center gap-1.5 rounded-lg border bg-slate-950 px-2 py-1.5 transition hover:bg-slate-900"
+                                    style="border-color: {{ $colorHermano }}44">
+
+                                    @if ($hermano->image_url)
+                                        <img src="{{ $hermano->image_url }}" alt="" loading="lazy"
+                                            class="h-4 w-4 rounded object-cover">
+                                    @else
+                                        <span class="text-[11px]"
+                                            style="color: {{ $colorHermano }}">{{ $hermano->icon ?: '◇' }}</span>
+                                    @endif
+
+                                    <span class="text-[10px] font-bold text-slate-300">{{ $hermano->name }}</span>
+                                    <span class="font-mono text-[9px] text-slate-600">{{ $hermano->entities_count }}</span>
+                                </a>
+                            @endforeach
+                        </div>
+
+                        @can('create', App\Models\EntityType::class)
+                            <a href="{{ route('entity-types.create') }}"
+                                class="mt-2.5 flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-700 px-3 py-2 text-[11px] font-black text-slate-400 transition hover:border-emerald-500/60 hover:text-emerald-300">
+                                <x-omni-icon name="mas" size="h-3.5 w-3.5" />
+                                Crear otro tipo
+                            </a>
+                        @endcan
+
+                    </section>
+                @endif
+
+
+                {{-- Lo que no se deshace --}}
+                @can('delete', $entityType)
+                    <section class="rounded-2xl border border-rose-500/25 bg-rose-500/5 p-4">
+
+                        <p class="text-[9px] font-black uppercase tracking-wider text-rose-300">
+                            Lo que no se deshace
+                        </p>
+
+                        <p class="mt-2 text-[11px] leading-4 text-slate-500">
+                            @if ($stats['total'] > 0)
+                                Lo llevan puesto <strong class="text-slate-300">{{ $stats['total'] }}</strong>
+                                {{ $stats['total'] === 1 ? 'entidad' : 'entidades' }}. Al borrarlo se quedan
+                                sin tipo; no se borran con él.
+                            @else
+                                No lo lleva ninguna entidad, así que borrarlo no arrastra nada.
+                            @endif
+                        </p>
+
+                        <form method="POST" action="{{ route('entity-types.destroy', $entityType) }}" class="mt-3"
+                            data-omni-confirm data-confirm-variant="danger" data-confirm-icon="×"
+                            data-confirm-title="Borrar este tipo"
+                            data-confirm-subject="{{ $entityType->name }}"
+                            data-confirm-message="Las entidades que lo llevan se quedarán sin tipo."
+                            data-confirm-detail="Esto no se puede deshacer."
+                            data-confirm-action="Borrarlo">
+                            @csrf
+                            @method('DELETE')
+
+                            <button type="submit"
+                                class="w-full rounded-xl border border-rose-500/40 px-3 py-2 text-[11px] font-black text-rose-300 transition hover:bg-rose-500/15">
+                                Borrar este tipo
+                            </button>
+                        </form>
+
+                    </section>
+                @endcan
+
+            </aside>
 
         </div>
 
-    </section>
+    </div>
 
 </x-app-layout>

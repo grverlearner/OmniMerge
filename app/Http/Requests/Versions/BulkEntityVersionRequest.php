@@ -37,6 +37,31 @@ class BulkEntityVersionRequest extends FormRequest
     }
 
 
+    public function messages(): array
+    {
+        return [
+
+            'entity_ids.required' =>
+            'No has elegido ninguna entidad.',
+
+            'entity_ids.max' =>
+            'De una vez se pueden aplicar 200 como mucho.',
+
+            'images.*.image' =>
+            'Las imágenes tienen que ser JPG, PNG o WEBP.',
+
+            'images.*.max' =>
+            'Ninguna imagen puede pasar de 2 MB.',
+
+            'bulk_images.*.image' =>
+            'Las imágenes en masa tienen que ser JPG, PNG o WEBP.',
+
+            'bulk_images.*.max' =>
+            'Ninguna imagen puede pasar de 2 MB.',
+        ];
+    }
+
+
     public function rules(): array
     {
         $userId =
@@ -121,6 +146,22 @@ class BulkEntityVersionRequest extends FormRequest
                 'image',
                 'mimes:jpg,jpeg,png,webp',
                 'max:2048',
+            ],
+
+
+            /*
+             * Las entidades cuya imagen propia se copia cuando no traen
+             * archivo. Antes no habia forma de decirlo y el envio entero se
+             * rechazaba por una imagen que faltaba.
+             */
+
+            'use_entity_image' => [
+                'nullable',
+                'array',
+            ],
+
+            'use_entity_image.*' => [
+                'integer',
             ],
         ];
     }

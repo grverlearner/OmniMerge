@@ -1,120 +1,52 @@
 @php
+    /*
+     * La navegación del taller de versiones.
+     *
+     * Cuatro pantallas, cuatro palabras. La explicación de cada una vivía
+     * aquí debajo del nombre y hacía la barra el doble de alta en todas las
+     * pantallas: una barra de navegación se lee cien veces y solo hace falta
+     * entenderla una. Lo que cada pestaña significa se explica dentro de su
+     * propia pantalla, no en el camino hacia ella.
+     *
+     * El concepto que sostiene el taller: una DEFINICIÓN («Shippuden») no es
+     * la versión de nadie; es el molde que muchas entidades aplican, y cada
+     * aplicación es una VERSIÓN DE ENTIDAD.
+     */
 
-    $currentRoute = request()->route()?->getName();
+    $actual = request()->route()?->getName();
 
-    $definitionsActive = in_array(
-        $currentRoute,
+    $enDefiniciones = in_array(
+        $actual,
         ['versions.index', 'versions.create', 'versions.store', 'versions.show', 'versions.edit', 'versions.update'],
         true,
     );
 
-    $entitiesActive =
-        $currentRoute === 'versions.entities.index' || str_starts_with((string) $currentRoute, 'entity-versions.');
+    $enEntidades =
+        $actual === 'versions.entities.index' ||
+        str_starts_with((string) $actual, 'entity-versions.') ||
+        str_starts_with((string) $actual, 'versions.entities.');
+
+    $pestanas = [
+        ['definiciones', $enDefiniciones, route('versions.index'), 'capas', 'Definiciones'],
+        ['entidades', $enEntidades, route('versions.entities.index'), 'chispa', 'Aplicadas'],
+        ['cobertura', $actual === 'versions.coverage', route('versions.coverage'), 'barras', 'Cobertura'],
+        ['multimedia', $actual === 'versions.media', route('versions.media'), 'galeria', 'Imágenes'],
+    ];
 @endphp
 
+<nav aria-label="Taller de versiones"
+    class="flex items-center gap-1 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/50 p-1.5">
 
-<nav
-    class="
-        mb-6
-        overflow-x-auto
-        rounded-2xl
-        border
-        border-slate-200
-        bg-white
-        p-2
-        shadow-sm
-    ">
+    @foreach ($pestanas as [$clave, $activa, $url, $icono, $titulo])
+        <a href="{{ $url }}" @if ($activa) aria-current="page" @endif
+            class="group flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-[12px] font-black transition
+                {{ $activa
+                    ? 'bg-violet-500/15 text-violet-200 ring-1 ring-inset ring-violet-500/40'
+                    : 'text-slate-500 hover:bg-slate-950 hover:text-slate-200' }}">
 
-    <div class="
-            inline-flex
-            min-w-max
-            gap-1
-        ">
-
-        <a href="{{ route('versions.index') }}"
-            class="
-                rounded-xl
-                px-4
-                py-2.5
-                text-xs
-                font-black
-                transition
-
-                {{ $definitionsActive
-                    ? 'bg-violet-600 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900' }}
-            ">
-            ◈ Definiciones
+            <x-omni-icon :name="$icono" size="h-4 w-4" />
+            {{ $titulo }}
         </a>
-
-
-        <a href="{{ route('versions.entities.index') }}"
-            class="
-                rounded-xl
-                px-4
-                py-2.5
-                text-xs
-                font-black
-                transition
-
-                {{ $entitiesActive
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900' }}
-            ">
-            ✦ Versiones de Entidades
-        </a>
-
-
-        <a href="{{ route('versions.coverage') }}"
-            class="
-                rounded-xl
-                px-4
-                py-2.5
-                text-xs
-                font-black
-                transition
-
-                {{ $currentRoute === 'versions.coverage'
-                    ? 'bg-cyan-600 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900' }}
-            ">
-            ◉ Cobertura
-        </a>
-
-
-        <a href="{{ route('versions.media') }}"
-            class="
-                rounded-xl
-                px-4
-                py-2.5
-                text-xs
-                font-black
-                transition
-
-                {{ $currentRoute === 'versions.media'
-                    ? 'bg-fuchsia-600 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900' }}
-            ">
-            ▣ Multimedia
-        </a>
-
-
-        <a href="{{ route('versions.resolver') }}"
-            class="
-                rounded-xl
-                px-4
-                py-2.5
-                text-xs
-                font-black
-                transition
-
-                {{ $currentRoute === 'versions.resolver'
-                    ? 'bg-amber-500 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900' }}
-            ">
-            ⚡ Probar Resolver
-        </a>
-
-    </div>
+    @endforeach
 
 </nav>

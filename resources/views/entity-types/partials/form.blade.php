@@ -1,4 +1,16 @@
 @php
+    /*
+     * Crear y editar un tipo de entidad.
+     *
+     * Un tipo es poca cosa —un nombre, un icono, un color— pero es lo que se
+     * ve en cada ficha, en cada lista y en cada filtro de la biblioteca. Por
+     * eso esta pantalla es sobre todo una VISTA PREVIA: a la derecha se ve, en
+     * vivo, cómo va a quedar en los cuatro sitios donde aparece.
+     *
+     * Los nombres de los campos son los que espera el controlador y no se
+     * tocan: `name`, `description`, `image`, `remove_image`, `icon`, `color`,
+     * `status` y `sort_order`.
+     */
 
     $editing = isset($entityType) && $entityType->exists;
 
@@ -8,6 +20,33 @@
 
     $initialColor = old('color', $entityType->color ?? '#6366F1');
 
+    $initialDescription = old('description', $entityType->description ?? '');
+
+    $initialStatus = old('status', $entityType->status ?? 'ACTIVE');
+
+    $initialOrder = old('sort_order', $entityType->sort_order ?? 0);
+
+    /*
+     * Iconos sugeridos: atajo, no jaula. El campo admite cualquier cosa, y
+     * quien quiera pegar un emoji puede.
+     */
+    $iconosSugeridos = ['◇', '◆', '★', '✦', '▲', '●', '■', '☷', '⚔', '🧍', '🌍', '🏛', '🐾', '🎭', '⚙', '🎬'];
+
+    /*
+     * Una paleta de arranque. El selector de color sigue estando: esto solo
+     * evita tener que elegir un hexadecimal a pulso para el caso normal.
+     */
+    $coloresSugeridos = [
+        '#6366F1', '#8B5CF6', '#EC4899', '#EF4444',
+        '#F59E0B', '#10B981', '#06B6D4', '#3B82F6',
+        '#84CC16', '#F97316', '#14B8A6', '#64748B',
+    ];
+
+    $estados = [
+        ['ACTIVE', 'Activo', 'Se puede usar y aparece en los desplegables.'],
+        ['INACTIVE', 'Inactivo', 'Existe, pero no quieres que se use por ahora.'],
+        ['ARCHIVED', 'Archivado', 'Fuera de circulación, sin borrarlo.'],
+    ];
 @endphp
 
 
@@ -19,340 +58,249 @@
 
     color: @js($initialColor),
 
+    description: @js($initialDescription),
+
+    status: @js($initialStatus),
+
     imagePreview: @js($editing ? $entityType->image_url : null),
 
     removeImage: false,
 
-
-    previewImage(event) {
-
-        const file =
-            event.target.files[0];
+    dirty: false,
 
 
-        if (!file) {
-            return;
-        }
+    /*
+     * La subida de imagen es un componente aparte y avisa por eventos: se
+     * escuchan para que la vista previa enseñe lo que acaba de elegirse, sin
+     * duplicar su lógica.
+     */
+    onImageSelected(event) {
 
+        this.imagePreview =
+            event.detail?.url
+            ?? null;
 
         this.removeImage = false;
 
-
-        const reader =
-            new FileReader();
-
-
-        reader.onload = (event) => {
-
-            this.imagePreview =
-                event.target.result;
-
-        };
-
-
-        reader.readAsDataURL(file);
+        this.dirty = true;
     },
 
 
-    clearImage() {
+    onImageCleared() {
 
         this.imagePreview = null;
 
         this.removeImage = true;
 
+        this.dirty = true;
+    },
 
-        if (
-            this.$refs.imageInput
-        ) {
-            this.$refs.imageInput.value = '';
-        }
+
+    onImageRestored(event) {
+
+        this.imagePreview =
+            event.detail?.url
+            ?? null;
+
+        this.removeImage = false;
+
+        this.dirty = true;
+    },
+
+
+    statusLabel() {
+
+        return {
+            ACTIVE: 'Activo',
+            INACTIVE: 'Inactivo',
+            ARCHIVED: 'Archivado',
+        }[this.status] ?? this.status;
+    },
+
+
+    /* Con qué se ve el tipo cuando no tiene imagen */
+    get mark() {
+
+        return this.icon || '◇';
     }
-}" class="
-        grid
-        gap-8
-        xl:grid-cols-[minmax(0,1fr)_320px]
-    ">
-
-    {{-- ========================================================= --}}
-    {{-- FORMULARIO PRINCIPAL --}}
-    {{-- ========================================================= --}}
-
-    <div class="space-y-8">
-
-        {{-- ===================================================== --}}
-        {{-- REPRESENTACIÓN VISUAL --}}
-        {{-- ===================================================== --}}
-
-        <section>
-
-            <div>
-
-                <p
-                    class="
-                        text-xs
-                        font-black
-                        uppercase
-                        tracking-[0.15em]
-                        text-indigo-600
-                    ">
-                    Representación visual
-                </p>
+}" @omni-image-selected="onImageSelected($event)" @omni-image-cleared="onImageCleared()"
+    @omni-image-restored="onImageRestored($event)" @input="dirty = true" @change="dirty = true"
+    :style="'--tipo: ' + color" class="grid gap-4 pb-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
 
 
-                <h3
-                    class="
-                        mt-2
-                        text-lg
-                        font-black
-                        text-slate-900
-                    ">
-                    Imagen del tipo
-                </h3>
+    {{-- ============================================================= --}}
+    {{-- LO QUE SE DEFINE --}}
+    {{-- ============================================================= --}}
 
+    <div class="space-y-4">
 
-                <p
-                    class="
-                        mt-2
-                        max-w-2xl
-                        text-sm
-                        leading-6
-                        text-slate-500
-                    ">
-                    Utiliza una imagen que permita reconocer
-                    rápidamente esta categoría. Si no seleccionas
-                    ninguna, OmniMerge utilizará el icono y el color.
-                </p>
+        @if ($errors->any())
+            <section class="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4" role="alert">
+                <p class="text-xs font-black uppercase tracking-wider text-rose-300">No se pudo guardar</p>
 
-            </div>
-
-
-            <div
-                class="
-                    mt-5
-                    flex
-                    flex-col
-                    gap-5
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-slate-50
-                    p-5
-                    sm:flex-row
-                    sm:items-center
-                ">
-                <div class="
-        mt-5
-        max-w-2xl
-    "
-                    @omni-image-selected="
-        imagePreview =
-            $event.detail.url;
-
-        removeImage =
-            false;
-    "
-                    @omni-image-cleared="
-        imagePreview =
-            null;
-
-        removeImage =
-            true;
-    "
-                    @omni-image-restored="
-        imagePreview =
-            $event.detail.url;
-
-        removeImage =
-            false;
-    ">
-
-                    <x-omni-image-upload name="image" label="Imagen del Tipo de Entidad" :current-url="$editing ? $entityType->image_url : null"
-                        :max-mb="4" :remove-name="$editing ? 'remove_image' : null" />
-
-                </div>
-
-            </div>
-
-        </section>
+                <ul class="mt-2 list-disc space-y-1 pl-5 text-[11px] font-bold text-rose-200/80">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
 
 
         {{-- ===================================================== --}}
-        {{-- IDENTIFICACIÓN --}}
+        {{-- 01 · QUÉ ES --}}
         {{-- ===================================================== --}}
 
-        <section class="
-                border-t
-                border-slate-200
-                pt-8
-            ">
+        <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
 
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-[0.15em]
-                    text-indigo-600
-                ">
-                Identificación
-            </p>
-
-
-            <div
-                class="
-                    mt-5
-                    grid
-                    gap-6
-                    lg:grid-cols-2
-                ">
-
-                {{-- NOMBRE --}}
+            <header class="flex items-center gap-3 border-b border-slate-800 px-5 py-3">
+                <span
+                    class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/15 text-[11px] font-black text-indigo-300">
+                    01
+                </span>
                 <div>
+                    <h2 class="text-sm font-black text-white">Qué es</h2>
+                    <p class="text-[10px] text-slate-500">
+                        Cómo se llama y para qué lo vas a usar.
+                    </p>
+                </div>
+            </header>
 
-                    <label for="name"
-                        class="
-                            mb-2
-                            block
-                            text-sm
-                            font-semibold
-                            text-slate-700
-                        ">
+            <div class="space-y-4 p-5">
+
+                <div>
+                    <label for="name" class="text-[9px] font-black uppercase tracking-wider text-slate-500">
                         Nombre *
                     </label>
 
-
-                    <input id="name" name="name" type="text" x-model="name"
-                        value="{{ old('name', $entityType->name ?? '') }}" required placeholder="Ejemplo: Personaje"
-                        class="
-                            w-full
-                            rounded-xl
-                            border-slate-300
-                            bg-white
-                            text-slate-900
-                            placeholder:text-slate-400
-                            focus:border-indigo-500
-                            focus:text-slate-900
-                            focus:ring-indigo-500
-                        ">
-
+                    <input id="name" name="name" type="text" x-model="name" required maxlength="100"
+                        placeholder="Ej. Personaje, País, Equipo, Objeto…"
+                        class="mt-1.5 w-full rounded-xl border-slate-800 bg-slate-950 text-sm font-bold text-white placeholder:text-slate-700 focus:border-indigo-500 focus:ring-indigo-500">
 
                     @error('name')
-                        <p
-                            class="
-                                mt-2
-                                text-sm
-                                text-red-600
-                            ">
-                            {{ $message }}
-                        </p>
+                        <p class="mt-1.5 text-[11px] font-bold text-rose-300">{{ $message }}</p>
                     @enderror
-
                 </div>
 
-
-                {{-- CÓDIGO --}}
                 <div>
-
-                    <label
-                        class="
-                            mb-2
-                            block
-                            text-sm
-                            font-semibold
-                            text-slate-700
-                        ">
-                        Código OmniMerge
+                    <label for="description" class="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                        Descripción
                     </label>
 
+                    <textarea id="description" name="description" x-model="description" rows="3" maxlength="1000"
+                        placeholder="Qué clase de cosas van a llevar este tipo, y qué las distingue de las demás."
+                        class="mt-1.5 w-full rounded-xl border-slate-800 bg-slate-950 text-xs leading-relaxed text-slate-300 placeholder:text-slate-700 focus:border-indigo-500 focus:ring-indigo-500"></textarea>
 
-                    <div
-                        class="
-                            flex
-                            h-[42px]
-                            items-center
-                            rounded-xl
-                            border
-                            border-slate-200
-                            bg-slate-100
-                            px-4
-                        ">
-
-                        <span
-                            class="
-                                font-mono
-                                text-sm
-                                font-black
-                                tracking-wider
-                                text-slate-700
-                            ">
-                            {{ $editing ? $entityType->code : $previewCode }}
-                        </span>
-
-
-                        <span
-                            class="
-                                ml-auto
-                                rounded-full
-                                bg-slate-200
-                                px-2
-                                py-1
-                                text-[9px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-slate-500
-                            ">
-                            Automático
-                        </span>
-
-                    </div>
-
-
-                    <p
-                        class="
-                            mt-2
-                            text-xs
-                            text-slate-500
-                        ">
-                        Identificador permanente.
-                        No puede modificarse manualmente.
+                    <p class="mt-1.5 text-[10px] leading-4 text-slate-600">
+                        Un tipo es una <strong class="text-slate-500">etiqueta para organizarte</strong>: no limita
+                        qué características puede tener una entidad. Cualquier entidad puede llevar
+                        cualquier característica, tenga el tipo que tenga.
                     </p>
 
+                    @error('description')
+                        <p class="mt-1.5 text-[11px] font-bold text-rose-300">{{ $message }}</p>
+                    @enderror
                 </div>
 
+                @if ($editing)
+                    <div class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2">
+                        <span class="text-[9px] font-black uppercase tracking-wider text-slate-600">Código</span>
+                        <span class="font-mono text-xs font-black text-indigo-300">{{ $entityType->code }}</span>
+                        <span class="text-[9px] text-slate-600">se genera solo</span>
+                    </div>
+                @endif
 
-                {{-- NÚMERO CREACIÓN --}}
-                <div class="
-                        lg:col-span-2
-                    ">
+            </div>
 
-                    <div
-                        class="
-                            rounded-xl
-                            border
-                            border-indigo-100
-                            bg-indigo-50
-                            px-4
-                            py-3
-                        ">
+        </section>
 
-                        <p
-                            class="
-                                text-xs
-                                font-semibold
-                                text-indigo-800
-                            ">
-                            Número histórico de creación:
 
-                            <strong>
-                                #{{ $editing ? $entityType->sequence_number : $nextSequence }}
-                            </strong>
+        {{-- ===================================================== --}}
+        {{-- 02 · CÓMO SE VE --}}
+        {{-- ===================================================== --}}
 
-                            · Este número nunca cambiará,
-                            aunque posteriormente reorganices
-                            visualmente los tipos.
-                        </p>
+        <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
 
+            <header class="flex items-center gap-3 border-b border-slate-800 px-5 py-3">
+                <span
+                    class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 text-[11px] font-black text-violet-300">
+                    02
+                </span>
+                <div>
+                    <h2 class="text-sm font-black text-white">Cómo se ve</h2>
+                    <p class="text-[10px] text-slate-500">
+                        Esto sale en cada entidad que lo lleve, en cada lista y en cada filtro.
+                    </p>
+                </div>
+            </header>
+
+            <div class="grid gap-5 p-5 lg:grid-cols-[240px_1fr]">
+
+                <div>
+                    <x-omni-image-upload name="image" label="Su imagen" surface="dark" :current-url="$editing ? $entityType->image_url : null"
+                        :max-mb="4" :remove-name="$editing ? 'remove_image' : null" />
+
+                    <p class="mt-2 text-[10px] leading-4 text-slate-600">
+                        Opcional. Si no la pones se usa el icono sobre su color.
+                    </p>
+                </div>
+
+                <div class="space-y-4">
+
+                    {{-- El icono --}}
+                    <div>
+                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">Icono</p>
+
+                        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                            @foreach ($iconosSugeridos as $sugerido)
+                                <button type="button" @click="icon = '{{ $sugerido }}'; dirty = true"
+                                    :style="icon === '{{ $sugerido }}' ?
+                                        ('border-color: ' + color + '; background-color: ' + color + '26') : ''"
+                                    :class="icon === '{{ $sugerido }}' ? '' :
+                                        'border-slate-800 bg-slate-950 hover:border-slate-600'"
+                                    class="h-9 w-9 rounded-lg border text-base transition">
+                                    {{ $sugerido }}
+                                </button>
+                            @endforeach
+
+                            <input id="icon" name="icon" type="text" x-model="icon" maxlength="100"
+                                placeholder="otro"
+                                class="h-9 w-20 rounded-lg border-slate-800 bg-slate-950 text-center text-base text-white placeholder:text-[10px] placeholder:text-slate-700 focus:border-violet-500 focus:ring-violet-500">
+                        </div>
+
+                        @error('icon')
+                            <p class="mt-1.5 text-[11px] font-bold text-rose-300">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- El color --}}
+                    <div>
+                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">Color</p>
+
+                        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                            @foreach ($coloresSugeridos as $sugerido)
+                                <button type="button" @click="color = '{{ $sugerido }}'; dirty = true"
+                                    title="{{ $sugerido }}"
+                                    :class="color.toUpperCase() === '{{ $sugerido }}' ?
+                                        'border-white/50 ring-2 ring-white/20' :
+                                        'border-slate-800 hover:border-slate-600'"
+                                    class="flex h-9 w-9 items-center justify-center rounded-lg border bg-slate-950 transition">
+                                    <span class="h-4 w-4 rounded-full"
+                                        style="background-color: {{ $sugerido }}"></span>
+                                </button>
+                            @endforeach
+
+                            <span class="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-1.5 py-1">
+                                <input id="color" name="color" type="color" x-model="color"
+                                    class="h-6 w-7 cursor-pointer rounded border-0 bg-transparent p-0">
+
+                                <span class="font-mono text-[10px] text-slate-500" x-text="color.toUpperCase()"></span>
+                            </span>
+                        </div>
+
+                        @error('color')
+                            <p class="mt-1.5 text-[11px] font-bold text-rose-300">{{ $message }}</p>
+                        @enderror
                     </div>
 
                 </div>
@@ -363,489 +311,260 @@
 
 
         {{-- ===================================================== --}}
-        {{-- DESCRIPCIÓN --}}
+        {{-- 03 · CÓMO SE ORDENA --}}
         {{-- ===================================================== --}}
 
-        <section class="
-                border-t
-                border-slate-200
-                pt-8
-            ">
+        <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
 
-            <label for="description"
-                class="
-                    mb-2
-                    block
-                    text-sm
-                    font-semibold
-                    text-slate-700
-                ">
-                Descripción
-            </label>
-
-
-            <textarea id="description" name="description" rows="6"
-                placeholder="Explica qué clase de entidades pertenecerán a este tipo."
-                class="
-                    w-full
-                    rounded-xl
-                    border-slate-300
-                    bg-white
-                    text-slate-900
-                    placeholder:text-slate-400
-                    focus:border-indigo-500
-                    focus:text-slate-900
-                    focus:ring-indigo-500
-                ">{{ old('description', $entityType->description ?? '') }}</textarea>
-
-
-            @error('description')
-                <p
-                    class="
-                        mt-2
-                        text-sm
-                        text-red-600
-                    ">
-                    {{ $message }}
-                </p>
-            @enderror
-
-        </section>
-
-
-        {{-- ===================================================== --}}
-        {{-- APARIENCIA --}}
-        {{-- ===================================================== --}}
-
-        <section class="
-                border-t
-                border-slate-200
-                pt-8
-            ">
-
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-[0.15em]
-                    text-indigo-600
-                ">
-                Apariencia alternativa
-            </p>
-
-
-            <div
-                class="
-                    mt-5
-                    grid
-                    gap-6
-                    lg:grid-cols-2
-                ">
-
-                {{-- ICONO --}}
+            <header class="flex items-center gap-3 border-b border-slate-800 px-5 py-3">
+                <span
+                    class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-[11px] font-black text-emerald-300">
+                    03
+                </span>
                 <div>
-
-                    <label for="icon"
-                        class="
-                            mb-2
-                            block
-                            text-sm
-                            font-semibold
-                            text-slate-700
-                        ">
-                        Icono o símbolo
-                    </label>
-
-
-                    <input id="icon" name="icon" type="text" x-model="icon"
-                        value="{{ old('icon', $entityType->icon ?? '') }}" placeholder="Ejemplo: 👤, 🐉, 🌍"
-                        class="
-                            w-full
-                            rounded-xl
-                            border-slate-300
-                            bg-white
-                            text-slate-900
-                            placeholder:text-slate-400
-                            focus:border-indigo-500
-                            focus:text-slate-900
-                            focus:ring-indigo-500
-                        ">
-
-
-                    <p
-                        class="
-                            mt-2
-                            text-xs
-                            text-slate-500
-                        ">
-                        Se utilizará cuando el tipo
-                        no tenga una imagen.
-                    </p>
-
+                    <h2 class="text-sm font-black text-white">Su sitio</h2>
+                    <p class="text-[10px] text-slate-500">Si se puede usar, y dónde aparece en las listas.</p>
                 </div>
+            </header>
 
+            <div class="space-y-4 p-5">
 
-                {{-- COLOR --}}
                 <div>
+                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">Estado</p>
 
-                    <label for="color"
-                        class="
-                            mb-2
-                            block
-                            text-sm
-                            font-semibold
-                            text-slate-700
-                        ">
-                        Color representativo
-                    </label>
+                    <input type="hidden" name="status" :value="status">
 
-
-                    <div
-                        class="
-                            flex
-                            gap-3
-                        ">
-
-                        <input id="color" name="color" type="color" x-model="color"
-                            value="{{ old('color', $entityType->color ?? '#6366F1') }}"
-                            class="
-                                h-11
-                                w-16
-                                rounded-xl
-                                border
-                                border-slate-300
-                                bg-white
-                                p-1
-                            ">
-
-
-                        <input type="text" x-model="color" readonly
-                            class="
-                                flex-1
-                                rounded-xl
-                                border-slate-300
-                                bg-slate-50
-                                font-mono
-                                text-sm
-                                uppercase
-                                text-slate-900
-                            ">
-
-                    </div>
-
-                </div>
-
-
-                {{-- ESTADO --}}
-                <div class="
-                        lg:col-span-2
-                    ">
-
-                    <label for="status"
-                        class="
-                            mb-2
-                            block
-                            text-sm
-                            font-semibold
-                            text-slate-700
-                        ">
-                        Estado *
-                    </label>
-
-
-                    <select id="status" name="status" required
-                        class="
-                            w-full
-                            rounded-xl
-                            border-slate-300
-                            bg-white
-                            text-slate-900
-                            focus:border-indigo-500
-                            focus:ring-indigo-500
-                        ">
-
-                        @foreach ([
-        'ACTIVE' => 'Activo',
-
-        'INACTIVE' => 'Inactivo',
-
-        'ARCHIVED' => 'Archivado',
-    ] as $value => $label)
-                            <option value="{{ $value }}" @selected(old('status', $entityType->status ?? 'ACTIVE') === $value)>
-                                {{ $label }}
-                            </option>
+                    <div class="mt-2 grid gap-2 sm:grid-cols-3">
+                        @foreach ($estados as [$valor, $titulo, $texto])
+                            <button type="button" @click="status = '{{ $valor }}'; dirty = true"
+                                :aria-pressed="status === '{{ $valor }}'"
+                                :class="status === '{{ $valor }}' ?
+                                    'border-emerald-500/50 bg-emerald-500/10' :
+                                    'border-slate-800 bg-slate-950 hover:border-slate-700'"
+                                class="rounded-xl border p-3 text-left transition">
+                                <span class="block text-xs font-black text-white">{{ $titulo }}</span>
+                                <span class="mt-0.5 block text-[10px] leading-4 text-slate-500">{{ $texto }}</span>
+                            </button>
                         @endforeach
-
-                    </select>
-
-
-                    <div
-                        class="
-                            mt-3
-                            grid
-                            gap-2
-                            text-xs
-                            text-slate-500
-                            sm:grid-cols-3
-                        ">
-
-                        <p>
-                            <strong class="text-emerald-600">
-                                Activo:
-                            </strong>
-                            disponible al crear entidades.
-                        </p>
-
-                        <p>
-                            <strong class="text-amber-600">
-                                Inactivo:
-                            </strong>
-                            temporalmente no seleccionable.
-                        </p>
-
-                        <p>
-                            <strong class="text-slate-600">
-                                Archivado:
-                            </strong>
-                            conservado para historial.
-                        </p>
-
                     </div>
 
+                    @error('status')
+                        <p class="mt-1.5 text-[11px] font-bold text-rose-300">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                {{--
+                    El orden ya existía en la base y se usaba para ordenar los
+                    tipos, pero no se preguntaba en ninguna parte: se ordenaban
+                    por un número que nadie podía cambiar.
+                --}}
+                <div>
+                    <label for="sort_order" class="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                        Orden en las listas
+                    </label>
+
+                    <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                        <input id="sort_order" name="sort_order" type="number" min="0" max="9999"
+                            value="{{ $initialOrder }}"
+                            class="w-28 rounded-xl border-slate-800 bg-slate-950 text-sm font-black text-white focus:border-emerald-500 focus:ring-emerald-500">
+
+                        <span class="text-[10px] leading-4 text-slate-600">
+                            Cuanto más bajo, más arriba sale. Los que empatan se ordenan por nombre.
+                        </span>
+                    </div>
+
+                    @error('sort_order')
+                        <p class="mt-1.5 text-[11px] font-bold text-rose-300">{{ $message }}</p>
+                    @enderror
                 </div>
 
             </div>
 
         </section>
-
-
-        {{-- ===================================================== --}}
-        {{-- BOTONES --}}
-        {{-- ===================================================== --}}
-
-        <div
-            class="
-                flex
-                flex-wrap
-                justify-end
-                gap-3
-                border-t
-                border-slate-200
-                pt-7
-            ">
-
-            <a href="{{ route('entity-types.index') }}"
-                class="
-                    rounded-xl
-                    border
-                    border-slate-300
-                    px-5
-                    py-3
-                    text-sm
-                    font-semibold
-                    text-slate-700
-                    transition
-                    hover:bg-slate-50
-                ">
-                Cancelar
-            </a>
-
-
-            <button type="submit"
-                class="
-                    rounded-xl
-                    bg-indigo-600
-                    px-6
-                    py-3
-                    text-sm
-                    font-black
-                    text-white
-                    shadow-lg
-                    shadow-indigo-600/20
-                    transition
-                    hover:bg-indigo-700
-                ">
-                {{ $editing ? 'Guardar cambios' : 'Crear tipo' }}
-            </button>
-
-        </div>
 
     </div>
 
 
-    {{-- ========================================================= --}}
-    {{-- VISTA PREVIA --}}
-    {{-- ========================================================= --}}
+    {{-- ============================================================= --}}
+    {{-- DÓNDE VA A SALIR --}}
+    {{-- ============================================================= --}}
 
-    <aside class="
-            xl:sticky
-            xl:top-24
-            xl:self-start
-        ">
+    {{--
+        Un tipo no se mira en su propia ficha: se mira en los sitios donde
+        aparece. Por eso la vista previa enseña los cuatro, y no una tarjeta
+        genérica.
+    --}}
 
-        <div
-            class="
-                rounded-3xl
-                border
-                border-slate-200
-                bg-slate-50
-                p-5
-            ">
+    <aside class="space-y-4 xl:sticky xl:top-4">
 
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-[0.15em]
-                    text-slate-400
-                ">
-                Vista previa
+        <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+
+            <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                Dónde va a salir
             </p>
 
+            <div class="mt-3 space-y-3">
 
-            <div
-                class="
-                    mt-4
-                    overflow-hidden
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-white
-                    shadow-sm
-                ">
+                {{-- 1 · Su propia ficha --}}
+                <div>
+                    <p class="mb-1 text-[9px] font-bold text-slate-600">Su ficha</p>
 
-                {{-- IMAGEN --}}
-                <div class="
-                        h-44
-                        bg-slate-100
-                    ">
+                    <div class="overflow-hidden rounded-xl border bg-slate-950"
+                        :style="'border-color: ' + color + '44'">
+                        <div class="relative flex items-center gap-3 p-3">
+                            <span class="pointer-events-none absolute inset-0"
+                                :style="'background: radial-gradient(70% 120% at 15% 0%, ' + color + '26, transparent 65%)'"></span>
 
-                    <template x-if="imagePreview">
+                            <span class="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border bg-slate-950"
+                                :style="'border-color: ' + color + '55'">
+                                <template x-if="imagePreview">
+                                    <img :src="imagePreview" alt="" class="h-full w-full object-cover">
+                                </template>
 
-                        <img :src="imagePreview" alt=""
-                            class="
-                                h-full
-                                w-full
-                                object-cover
-                            ">
+                                <template x-if="!imagePreview">
+                                    <span class="flex h-full w-full items-center justify-center text-2xl"
+                                        :style="'color: ' + color" x-text="mark"></span>
+                                </template>
+                            </span>
 
-                    </template>
-
-
-                    <template x-if="! imagePreview">
-
-                        <div class="
-                                flex
-                                h-full
-                                w-full
-                                items-center
-                                justify-center
-                                text-5xl
-                                font-black
-                            "
-                            :style="`
-                                                                                        background-color:
-                                                                                            ${color}20;
-                                                        
-                                                                                        color:
-                                                                                            ${color};
-                                                                                    `">
-                            <span
-                                x-text="
-                                    icon
-                                    || '◇'
-                                "></span>
+                            <span class="relative min-w-0 flex-1">
+                                <span class="block truncate text-[13px] font-black text-white"
+                                    x-text="name || 'Tipo sin nombre'"></span>
+                                <span class="block truncate text-[10px] text-slate-500"
+                                    x-text="description || 'Sin descripción.'"></span>
+                            </span>
                         </div>
-
-                    </template>
-
+                    </div>
                 </div>
 
+                {{-- 2 · En una entidad --}}
+                <div>
+                    <p class="mb-1 text-[9px] font-bold text-slate-600">En la ficha de una entidad</p>
 
-                {{-- INFO --}}
-                <div class="p-5">
+                    <div class="rounded-xl border border-slate-800 bg-slate-950 p-2.5">
+                        <span class="inline-flex items-center gap-2 rounded-lg border px-2 py-1"
+                            :style="'border-color: ' + color + '55'">
+                            <template x-if="imagePreview">
+                                <img :src="imagePreview" alt="" class="h-4 w-4 rounded object-cover">
+                            </template>
 
-                    <p
-                        class="
-                            font-mono
-                            text-[10px]
-                            font-black
-                            uppercase
-                            tracking-wider
-                            text-slate-400
-                        ">
-                        {{ $editing ? $entityType->code : $previewCode }}
-                    </p>
+                            <template x-if="!imagePreview">
+                                <span class="text-[11px]" x-text="mark"></span>
+                            </template>
 
+                            <span class="text-[9px] font-black uppercase tracking-wider" :style="'color: ' + color"
+                                x-text="name || 'Sin nombre'"></span>
+                        </span>
+                    </div>
+                </div>
 
-                    <h4 class="
-                            mt-2
-                            text-lg
-                            font-black
-                            text-slate-900
-                        "
-                        x-text="
-                            name
-                            || 'Nuevo tipo'
-                        ">
-                    </h4>
+                {{-- 3 · En la galería --}}
+                <div>
+                    <p class="mb-1 text-[9px] font-bold text-slate-600">En la galería de entidades</p>
 
+                    <div class="grid grid-cols-3 gap-1.5">
+                        @foreach ([1, 2, 3] as $i)
+                            <span class="relative block aspect-[3/4] overflow-hidden rounded-lg bg-slate-900 ring-1 ring-slate-800">
+                                <span class="flex h-full w-full items-center justify-center text-2xl font-black"
+                                    :style="'color: ' + color + '55; background: radial-gradient(120% 90% at 50% 0%, ' + color + '22, transparent 70%)'"
+                                    x-text="mark"></span>
 
-                    <p
-                        class="
-                            mt-2
-                            text-xs
-                            leading-5
-                            text-slate-500
-                        ">
-                        Esta es una aproximación
-                        de cómo se verá el tipo
-                        dentro de OmniMerge.
-                    </p>
+                                <span
+                                    class="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-slate-950 to-transparent"></span>
 
+                                <span class="absolute inset-x-0 bottom-0 p-1">
+                                    <span class="block truncate text-[8px] font-black text-white">Entidad</span>
+                                    <span class="block truncate text-[7px] font-black uppercase tracking-wider"
+                                        :style="'color: ' + color" x-text="name || '—'"></span>
+                                </span>
+                            </span>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- 4 · En un filtro --}}
+                <div>
+                    <p class="mb-1 text-[9px] font-bold text-slate-600">En los filtros</p>
+
+                    <div class="rounded-xl border border-slate-800 bg-slate-950 p-2">
+                        <span class="flex items-center gap-2 text-[11px] text-slate-300">
+                            <span class="h-2 w-2 rounded-full" :style="'background-color: ' + color"></span>
+                            <span x-text="mark"></span>
+                            <span x-text="name || 'Tipo sin nombre'"></span>
+                            <span class="ml-auto font-mono text-[10px] text-slate-600">
+                                {{ $editing ? $entityType->entities()->count() : 0 }}
+                            </span>
+                        </span>
+                    </div>
                 </div>
 
             </div>
 
-        </div>
+            <p class="mt-3 flex items-center gap-2 border-t border-slate-800 pt-2.5 text-[10px] text-slate-600">
+                <span class="rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider"
+                    :class="status === 'ACTIVE' ?
+                        'bg-emerald-500/15 text-emerald-300' :
+                        (status === 'INACTIVE' ? 'bg-amber-500/15 text-amber-300' : 'bg-slate-800 text-slate-500')"
+                    x-text="statusLabel()"></span>
 
-
-        <div
-            class="
-                mt-4
-                rounded-2xl
-                border
-                border-indigo-100
-                bg-indigo-50
-                p-5
-            ">
-
-            <p
-                class="
-                    text-sm
-                    font-black
-                    text-indigo-900
-                ">
-                💡 ¿Qué es un tipo?
+                <span x-show="status !== 'ACTIVE'" x-cloak>No aparecerá en los desplegables.</span>
+                <span x-show="status === 'ACTIVE'">Se podrá elegir al crear entidades.</span>
             </p>
 
+        </section>
 
-            <p
-                class="
-                    mt-2
-                    text-xs
-                    leading-6
-                    text-indigo-700
-                ">
-                Es una categoría reutilizable que permite
-                organizar entidades similares. Por ejemplo,
-                Personaje, País, Criatura, Objeto o Planeta.
-            </p>
 
-        </div>
+        @if ($editing && $entityType->entities()->count() > 0)
+            <section class="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+                <p class="text-[9px] font-black uppercase tracking-wider text-amber-300">Ya está en uso</p>
+
+                <p class="mt-2 text-[11px] leading-4 text-slate-400">
+                    Lo llevan <strong class="text-white">{{ $entityType->entities()->count() }}</strong>
+                    entidades. Cambiar su color o su icono cambia cómo se ven todas ellas, en todas
+                    las pantallas.
+                </p>
+
+                <a href="{{ route('entity-types.show', $entityType) }}"
+                    class="mt-3 block rounded-xl border border-amber-500/40 bg-slate-950 px-3 py-2 text-center text-[11px] font-black text-amber-300 transition hover:bg-slate-900">
+                    Ver cuáles →
+                </a>
+            </section>
+        @endif
 
     </aside>
+
+
+    {{-- ============================================================= --}}
+    {{-- LA BARRA DE GUARDAR --}}
+    {{-- ============================================================= --}}
+
+    <div
+        class="sticky bottom-4 z-30 rounded-2xl border border-slate-800 bg-slate-950/95 shadow-2xl shadow-slate-950/60 backdrop-blur xl:col-span-2">
+
+        <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+
+            <div class="min-h-4 text-[11px] font-bold">
+                <span x-show="dirty" x-cloak class="text-amber-300">● Hay cambios sin guardar</span>
+                <span x-show="!dirty" class="text-slate-600">
+                    {{ $editing ? 'Sin cambios pendientes' : 'Rellena el nombre y créalo' }}
+                </span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <a href="{{ $editing ? route('entity-types.show', $entityType) : route('entity-types.index') }}"
+                    class="rounded-xl border border-slate-800 px-4 py-2.5 text-[11px] font-black text-slate-400 transition hover:border-slate-600 hover:text-slate-200">
+                    Cancelar
+                </a>
+
+                <button type="submit"
+                    class="rounded-xl px-5 py-2.5 text-[11px] font-black text-slate-950 transition hover:opacity-90"
+                    :style="'background-color: ' + color">
+                    {{ $editing ? 'Guardar cambios' : 'Crear el tipo' }}
+                </button>
+            </div>
+
+        </div>
+
+    </div>
 
 </div>

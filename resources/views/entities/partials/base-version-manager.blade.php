@@ -1,773 +1,372 @@
 @php
+    /*
+     * La Base activa de una entidad.
+     *
+     * «Cambiar base» era un botón sin explicación al lado de un nombre. La
+     * pregunta que nadie podía responder mirándolo era la única que importa:
+     * ¿qué le pasa a lo demás si la cambio?
+     *
+     * Respuesta, y ahora está dibujada: nada. La base activa es solo la CARA
+     * que el resto de la aplicación enseña de esta entidad. No borra, no
+     * sustituye y no toca ninguna versión: cambia a cuál apunta.
+     *
+     * El modal elige por la cara, no por un desplegable de nombres, y deja
+     * ver de dónde vienes y a dónde vas antes de confirmar.
+     */
 
     $currentBase = $activeBaseEntityVersion ?? $entity->baseVersionSetting?->entityVersion;
 
     $availableBaseVersions = $entity->entityVersions->where('status', 'ACTIVE');
-
 @endphp
 
-
 <section x-data="{
-    open: false
-}"
-    class="
-        mt-6
-        overflow-hidden
-        rounded-3xl
-        border
-        border-slate-200
-        bg-white
-        shadow-sm
-    ">
+    open: false,
+    elegida: {{ $currentBase?->id ?? 'null' }},
+    elegidaNombre: @js($currentBase?->name ?? $entity->name),
+    elegidaImagen: @js($currentBase?->image_url ?? $entity->image_url),
+    elegidaMolde: @js($currentBase?->version?->name ?? 'La entidad original'),
+}" @keydown.escape.window="open = false"
+    class="overflow-hidden rounded-2xl border border-amber-500/25 bg-slate-900/50">
 
     {{-- ===================================================== --}}
-    {{-- CURRENT --}}
+    {{-- LA CARA DE AHORA --}}
     {{-- ===================================================== --}}
 
-    <div
-        class="
-            flex
-            flex-col
-            gap-5
-            p-5
-            sm:p-6
-            lg:flex-row
-            lg:items-center
-            lg:justify-between
-        ">
+    <div class="flex flex-wrap items-center gap-3 p-4">
 
-        <div
-            class="
-                flex
-                min-w-0
-                items-center
-                gap-4
-            ">
+        <span class="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-amber-500/40 bg-slate-950">
+            @if ($currentBase?->image_url)
+                <img src="{{ $currentBase->image_url }}" alt="" class="h-full w-full object-cover">
+            @elseif ($entity->image_url)
+                <img src="{{ $entity->image_url }}" alt="" class="h-full w-full object-cover">
+            @else
+                <span class="flex h-full w-full items-center justify-center text-slate-700">◍</span>
+            @endif
+        </span>
 
-            <div
-                class="
-                    relative
-                    h-20
-                    w-20
-                    shrink-0
-                    overflow-hidden
-                    rounded-2xl
-                    bg-gradient-to-br
-                    from-violet-100
-                    to-indigo-100
-                    ring-4
-                    ring-violet-50
-                ">
+        <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-1.5">
+                <span class="rounded bg-amber-400 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-950">
+                    ★ Base activa
+                </span>
 
-                @if ($currentBase?->image_url)
-                    <img src="{{ $currentBase->image_url }}" alt="{{ $currentBase->name }}"
-                        class="
-                            h-full
-                            w-full
-                            object-cover
-                        ">
-                @elseif ($entity->image_url)
-                    <img src="{{ $entity->image_url }}" alt="{{ $entity->name }}"
-                        class="
-                            h-full
-                            w-full
-                            object-cover
-                        ">
+                <span class="text-[10px] text-slate-500">
+                    la cara que el resto de la aplicación enseña de {{ $entity->name }}
+                </span>
+            </div>
+
+            <p class="mt-0.5 truncate text-[14px] font-black text-white">
+                {{ $currentBase?->name ?? $entity->name }}
+            </p>
+
+            <p class="truncate text-[10px] text-slate-500">
+                @if ($currentBase)
+                    Molde: <span class="text-violet-300">{{ $currentBase->version?->name }}</span>
                 @else
-                    <div
-                        class="
-                            flex
-                            h-full
-                            items-center
-                            justify-center
-                            text-3xl
-                            text-violet-300
-                        ">
-                        ✦
+                    Sin ninguna versión encima: se enseña la entidad tal como la creaste.
+                @endif
+            </p>
+        </div>
+
+        @can('update', $entity)
+            <button type="button" @click="open = true"
+                class="shrink-0 rounded-xl bg-amber-500/15 px-3 py-2 text-[11px] font-black text-amber-300 transition hover:bg-amber-400 hover:text-amber-950">
+                ⇄ Cambiar la base
+            </button>
+        @endcan
+    </div>
+
+
+    {{-- ===================================================== --}}
+    {{-- QUÉ SIGNIFICA, DIBUJADO --}}
+    {{-- ===================================================== --}}
+
+    <div x-data="{ abierto: false }" class="border-t border-slate-800">
+
+        <button type="button" @click="abierto = !abierto"
+            class="flex w-full items-center gap-2 px-4 py-2 text-left transition hover:bg-slate-950/50">
+            <span class="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                ¿Qué pasa si la cambio?
+            </span>
+            <span class="ml-auto text-slate-600 transition" :class="abierto ? 'rotate-90' : ''">
+                <x-omni-icon name="chevron-derecha" size="h-3.5 w-3.5" />
+            </span>
+        </button>
+
+        <div x-show="abierto" x-cloak x-collapse class="border-t border-slate-800 bg-slate-950/40 p-4">
+            <div class="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+
+                <svg viewBox="0 0 250 108" class="h-auto w-full text-amber-400" fill="none"
+                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+
+                    {{-- Las versiones, todas intactas --}}
+                    <rect x="6" y="8" width="52" height="26" rx="4" opacity=".45" />
+                    <circle cx="20" cy="21" r="6" opacity=".4" />
+                    <path d="M32 17h18M32 25h12" opacity=".25" />
+
+                    <rect x="6" y="41" width="52" height="26" rx="4" />
+                    <circle cx="20" cy="54" r="6" opacity=".8" />
+                    <path d="M32 50h18M32 58h12" opacity=".45" />
+                    <path d="M50 39l2.4 4.8 5.3.8-3.8 3.7.9 5.3-4.8-2.5-4.8 2.5.9-5.3-3.8-3.7 5.3-.8z"
+                        fill="currentColor" stroke="none" />
+
+                    <rect x="6" y="74" width="52" height="26" rx="4" opacity=".45" />
+                    <circle cx="20" cy="87" r="6" opacity=".4" />
+                    <path d="M32 83h18M32 91h12" opacity=".25" />
+
+                    {{-- La flecha, que es lo único que se mueve --}}
+                    <path d="M66 54h26M92 54l-7-4M92 54l-7 4" opacity=".9" />
+                    <path d="M66 54 66 21M66 21h20" stroke-dasharray="3 3" opacity=".3" />
+                    <path d="M66 54 66 87M66 87h20" stroke-dasharray="3 3" opacity=".3" />
+
+                    {{-- Lo que ve el resto de la aplicación --}}
+                    <rect x="100" y="30" width="66" height="48" rx="5" />
+                    <circle cx="122" cy="54" r="10" opacity=".7" />
+                    <path d="M140 46h18M140 60h12" opacity=".4" />
+                    <text x="133" y="24" text-anchor="middle" fill="currentColor" stroke="none"
+                        font-size="8" font-weight="700">El resto la ve así</text>
+
+                    <path d="M174 54h20M194 54l-6-4M194 54l-6 4" opacity=".5" />
+                    <rect x="200" y="34" width="20" height="16" rx="2" opacity=".55" />
+                    <rect x="226" y="34" width="20" height="16" rx="2" opacity=".55" />
+                    <rect x="200" y="58" width="20" height="16" rx="2" opacity=".55" />
+                    <rect x="226" y="58" width="20" height="16" rx="2" opacity=".55" />
+                </svg>
+
+                <div class="space-y-2 text-[11px] leading-relaxed text-slate-400">
+                    <p>
+                        <strong class="text-white">No pasa nada malo.</strong> Cambiar la base activa no
+                        borra ni sustituye ninguna versión: las tres del dibujo siguen exactamente donde
+                        estaban. Lo único que se mueve es <strong class="text-amber-300">la flecha</strong>.
+                    </p>
+
+                    <p>
+                        La base activa es la cara que verán los listados, las fichas y todo lo que enseñe
+                        a <strong class="text-slate-200">{{ $entity->name }}</strong> sin pedir una versión
+                        concreta.
+                    </p>
+
+                    <p class="border-t border-slate-800 pt-2 text-[10px] text-slate-500">
+                        Puedes volver a la <strong class="text-slate-300">entidad original</strong> cuando
+                        quieras: es la opción de arriba del todo en el selector, y también deja intactas
+                        todas las versiones.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+
+    {{-- ===================================================== --}}
+    {{-- EL SELECTOR --}}
+    {{-- ===================================================== --}}
+
+    @can('update', $entity)
+        <div x-show="open" x-cloak
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm"
+            @click.self="open = false">
+
+            <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+
+                {{-- Cabecera --}}
+                <div class="flex items-center gap-3 border-b border-slate-800 px-4 py-3">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 text-amber-300">
+                        <x-omni-icon name="medalla" size="h-4 w-4" />
+                    </span>
+
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[13px] font-black text-white">
+                            ¿Qué cara enseña {{ $entity->name }}?
+                        </p>
+                        <p class="text-[10px] text-slate-500">
+                            Elige una. Ninguna versión se borra ni se modifica.
+                        </p>
                     </div>
+
+                    <button type="button" @click="open = false"
+                        class="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-800 hover:text-white">
+                        <x-omni-icon name="cerrar" size="h-4 w-4" />
+                    </button>
+                </div>
+
+
+                {{-- De dónde vienes, a dónde vas --}}
+                <div class="flex flex-wrap items-center gap-3 border-b border-slate-800 bg-slate-950/50 px-4 py-3">
+
+                    <span class="flex items-center gap-2">
+                        <span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+                            @if ($currentBase?->image_url)
+                                <img src="{{ $currentBase->image_url }}" alt="" class="h-full w-full object-cover">
+                            @elseif ($entity->image_url)
+                                <img src="{{ $entity->image_url }}" alt="" class="h-full w-full object-cover">
+                            @endif
+                        </span>
+                        <span class="min-w-0">
+                            <span class="block text-[9px] font-black uppercase tracking-wider text-slate-600">Ahora</span>
+                            <span class="block truncate text-[11px] font-black text-slate-300">
+                                {{ $currentBase?->name ?? $entity->name }}
+                            </span>
+                        </span>
+                    </span>
+
+                    <span class="text-slate-700">→</span>
+
+                    <span class="flex min-w-0 flex-1 items-center gap-2">
+                        <span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-amber-500/40 bg-slate-950">
+                            <template x-if="elegidaImagen">
+                                <img :src="elegidaImagen" alt="" class="h-full w-full object-cover">
+                            </template>
+                            <template x-if="! elegidaImagen">
+                                <span class="flex h-full w-full items-center justify-center text-slate-700">◍</span>
+                            </template>
+                        </span>
+                        <span class="min-w-0">
+                            <span class="block text-[9px] font-black uppercase tracking-wider text-amber-400/70">Quedaría</span>
+                            <span class="block truncate text-[11px] font-black text-white" x-text="elegidaNombre"></span>
+                            <span class="block truncate text-[9px] text-violet-300" x-text="elegidaMolde"></span>
+                        </span>
+                    </span>
+                </div>
+
+
+                {{-- Las opciones --}}
+                <div class="grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
+
+                    {{-- La entidad original --}}
+                    <button type="button"
+                        @click="elegida = null;
+                                elegidaNombre = @js($entity->name);
+                                elegidaImagen = @js($entity->image_url);
+                                elegidaMolde = 'La entidad original'"
+                        :class="elegida === null
+                            ? 'border-amber-500 ring-1 ring-amber-500'
+                            : 'border-slate-800 hover:border-slate-600'"
+                        class="group overflow-hidden rounded-xl border bg-slate-950 text-left transition">
+
+                        <span class="relative block aspect-square overflow-hidden bg-slate-900">
+                            @if ($entity->image_url)
+                                <img src="{{ $entity->image_url }}" alt="" loading="lazy"
+                                    class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                            @else
+                                <span class="flex h-full w-full items-center justify-center text-2xl text-slate-800">◍</span>
+                            @endif
+
+                            <span class="absolute left-1 top-1 rounded bg-slate-950/85 px-1 text-[8px] font-black uppercase tracking-wider text-slate-400">
+                                Original
+                            </span>
+
+                            @unless ($currentBase)
+                                <span class="absolute right-1 top-1 rounded bg-amber-400 px-1 text-[8px] font-black text-amber-950">★ AHORA</span>
+                            @endunless
+
+                            <span x-show="elegida === null" x-cloak
+                                class="absolute inset-0 flex items-center justify-center bg-amber-500/30 text-lg font-black text-white">✓</span>
+                        </span>
+
+                        <span class="block px-1.5 py-1">
+                            <span class="block truncate text-[10px] font-black text-white">{{ $entity->name }}</span>
+                            <span class="block truncate text-[9px] text-slate-600">Sin versión encima</span>
+                        </span>
+                    </button>
+
+                    {{-- Sus versiones --}}
+                    @foreach ($availableBaseVersions as $opcion)
+                        <button type="button"
+                            @click="elegida = {{ $opcion->id }};
+                                    elegidaNombre = @js($opcion->name);
+                                    elegidaImagen = @js($opcion->image_url);
+                                    elegidaMolde = @js('Molde: ' . ($opcion->version?->name ?? '—'))"
+                            :class="elegida === {{ $opcion->id }}
+                                ? 'border-amber-500 ring-1 ring-amber-500'
+                                : 'border-slate-800 hover:border-slate-600'"
+                            class="group overflow-hidden rounded-xl border bg-slate-950 text-left transition">
+
+                            <span class="relative block aspect-square overflow-hidden bg-slate-900">
+                                @if ($opcion->image_url)
+                                    <img src="{{ $opcion->image_url }}" alt="" loading="lazy"
+                                        class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                                @else
+                                    <span class="flex h-full w-full items-center justify-center text-2xl text-slate-800">◈</span>
+                                @endif
+
+                                <span class="absolute left-1 top-1 rounded bg-slate-950/85 px-1 text-[8px] font-black uppercase tracking-wider text-violet-300">
+                                    {{ $opcion->version?->name }}
+                                </span>
+
+                                @if ($currentBase && $currentBase->id === $opcion->id)
+                                    <span class="absolute right-1 top-1 rounded bg-amber-400 px-1 text-[8px] font-black text-amber-950">★ AHORA</span>
+                                @endif
+
+                                <span x-show="elegida === {{ $opcion->id }}" x-cloak
+                                    class="absolute inset-0 flex items-center justify-center bg-amber-500/30 text-lg font-black text-white">✓</span>
+                            </span>
+
+                            <span class="block px-1.5 py-1">
+                                <span class="block truncate text-[10px] font-black text-white">{{ $opcion->name }}</span>
+                                <span class="block truncate text-[9px] text-slate-600">
+                                    {{ $opcion->version_attributes_count ?? 0 }} cambios ·
+                                    {{ $opcion->images_count ?? 0 }} imágenes
+                                </span>
+                            </span>
+                        </button>
+                    @endforeach
+
+                </div>
+
+                @if ($availableBaseVersions->isEmpty())
+                    <p class="px-4 pb-4 text-[11px] text-slate-500">
+                        {{ $entity->name }} no tiene ninguna versión activa todavía, así que la única cara
+                        posible es la de la entidad original.
+                    </p>
                 @endif
 
 
-                <span
-                    class="
-                        absolute
-                        bottom-1
-                        right-1
-                        flex
-                        h-6
-                        w-6
-                        items-center
-                        justify-center
-                        rounded-full
-                        bg-violet-600
-                        text-[10px]
-                        font-black
-                        text-white
-                        shadow
-                    ">
-                    ★
-                </span>
+                {{-- Confirmar --}}
+                <div class="flex flex-wrap items-center gap-2 border-t border-slate-800 px-4 py-3">
 
-            </div>
+                    <p class="min-w-0 flex-1 text-[10px] leading-relaxed text-slate-500">
+                        Se cambia solo a qué apunta la entidad.
+                        <strong class="text-slate-300">Ninguna versión se borra ni se modifica.</strong>
+                    </p>
 
-
-            <div class="min-w-0">
-
-                <p
-                    class="
-                        text-[9px]
-                        font-black
-                        uppercase
-                        tracking-[0.18em]
-                        text-violet-500
-                    ">
-                    Base activa de la Entidad
-                </p>
-
-
-                <h2
-                    class="
-                        mt-1
-                        truncate
-                        text-xl
-                        font-black
-                        text-slate-900
-                    ">
-                    {{ $currentBase ? $currentBase->name : $entity->name }}
-                </h2>
-
-
-                <div
-                    class="
-                        mt-2
-                        flex
-                        flex-wrap
-                        gap-2
-                    ">
-
-                    @if ($currentBase)
-                        <span
-                            class="
-                                rounded-full
-                                bg-violet-100
-                                px-2.5
-                                py-1
-                                text-[8px]
-                                font-black
-                                text-violet-700
-                            ">
-                            ★ VERSION COMO BASE
-                        </span>
-
-
-                        <span
-                            class="
-                                rounded-full
-                                bg-slate-100
-                                px-2.5
-                                py-1
-                                text-[8px]
-                                font-black
-                                text-slate-500
-                            ">
-                            {{ $currentBase->version?->name }}
-                        </span>
-                    @else
-                        <span
-                            class="
-                                rounded-full
-                                bg-indigo-50
-                                px-2.5
-                                py-1
-                                text-[8px]
-                                font-black
-                                text-indigo-600
-                            ">
-                            BASE ORIGINAL
-                        </span>
-                    @endif
-
-                </div>
-
-
-                <p
-                    class="
-                        mt-2
-                        max-w-2xl
-                        text-[10px]
-                        leading-5
-                        text-slate-400
-                    ">
-                    Cambiar la Base activa no elimina ni sobrescribe
-                    la Entidad original y tampoco modifica el fallback
-                    del Resolver.
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <div
-            class="
-                flex
-                shrink-0
-                flex-wrap
-                gap-2
-            ">
-
-            @if ($currentBase)
-                <a href="{{ route('entity-versions.show', [$entity, $currentBase]) }}"
-                    class="
-                        rounded-xl
-                        border
-                        border-violet-200
-                        bg-violet-50
-                        px-4
-                        py-2.5
-                        text-xs
-                        font-black
-                        text-violet-700
-                    ">
-                    Abrir Base
-                </a>
-            @endif
-
-
-            <button type="button" @click="
-                    open = true
-                "
-                class="
-                    rounded-xl
-                    bg-violet-600
-                    px-4
-                    py-2.5
-                    text-xs
-                    font-black
-                    text-white
-                    shadow-lg
-                    shadow-violet-600/20
-                    transition
-                    hover:bg-violet-700
-                ">
-                ⇄ Cambiar Base
-            </button>
-
-        </div>
-
-    </div>
-
-
-    {{-- ===================================================== --}}
-    {{-- MODAL --}}
-    {{-- ===================================================== --}}
-
-    <div x-show="open" x-cloak @keydown.escape.window="
-            open = false
-        "
-        class="
-            fixed
-            inset-0
-            z-[100]
-            overflow-y-auto
-            bg-slate-950/70
-            p-4
-            backdrop-blur-sm
-        ">
-
-        <div
-            class="
-                flex
-                min-h-full
-                items-center
-                justify-center
-            ">
-
-            <div @click.outside="
-                    open = false
-                "
-                class="
-                    w-full
-                    max-w-5xl
-                    overflow-hidden
-                    rounded-3xl
-                    bg-slate-50
-                    shadow-2xl
-                ">
-
-                {{-- HEADER --}}
-                <header
-                    class="
-                        flex
-                        items-start
-                        justify-between
-                        gap-5
-                        bg-gradient-to-br
-                        from-slate-950
-                        via-indigo-950
-                        to-violet-950
-                        p-6
-                        text-white
-                    ">
-
-                    <div>
-
-                        <p
-                            class="
-                                text-[9px]
-                                font-black
-                                uppercase
-                                tracking-[0.18em]
-                                text-violet-300
-                            ">
-                            Configuración
-                        </p>
-
-
-                        <h2
-                            class="
-                                mt-2
-                                text-2xl
-                                font-black
-                            ">
-                            Cambiar Base activa
-                        </h2>
-
-
-                        <p
-                            class="
-                                mt-2
-                                max-w-2xl
-                                text-xs
-                                leading-5
-                                text-white/55
-                            ">
-                            Elige qué representación debe funcionar
-                            como la Base principal de {{ $entity->name }}.
-                            La Base original siempre seguirá disponible.
-                        </p>
-
-                    </div>
-
-
-                    <button type="button" @click="
-                            open = false
-                        "
-                        class="
-                            flex
-                            h-10
-                            w-10
-                            shrink-0
-                            items-center
-                            justify-center
-                            rounded-full
-                            bg-white/10
-                            text-xl
-                            font-black
-                            text-white
-                            hover:bg-white/20
-                        ">
-                        ×
+                    <button type="button" @click="open = false"
+                        class="rounded-xl border border-slate-800 px-3 py-2 text-[11px] font-black text-slate-400 transition hover:text-white">
+                        Cancelar
                     </button>
 
-                </header>
+                    {{-- Volver a la entidad original --}}
+                    <form method="POST" action="{{ route('entities.base-version.destroy', $entity) }}"
+                        x-show="elegida === null" x-cloak>
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" @disabled(! $currentBase)
+                            class="rounded-xl bg-amber-500 px-4 py-2 text-[11px] font-black text-amber-950 transition hover:bg-amber-400 disabled:opacity-40">
+                            {{ $currentBase ? 'Volver a la entidad original' : 'Ya es la que está puesta' }}
+                        </button>
+                    </form>
 
+                    {{-- Poner una versión --}}
+                    <form method="POST" action="{{ route('entities.base-version.update', $entity) }}"
+                        x-show="elegida !== null" x-cloak>
+                        @csrf
+                        @method('PUT')
+                        <input type="hidden" name="entity_version_id" :value="elegida">
 
-                {{-- BODY --}}
-                <div
-                    class="
-                        max-h-[72vh]
-                        overflow-y-auto
-                        p-5
-                        sm:p-6
-                    ">
-
-                    <div
-                        class="
-                            grid
-                            gap-4
-                            sm:grid-cols-2
-                            lg:grid-cols-3
-                        ">
-
-                        {{-- ================================================= --}}
-                        {{-- ORIGINAL --}}
-                        {{-- ================================================= --}}
-
-                        <article
-                            class="
-                                overflow-hidden
-                                rounded-3xl
-                                border-2
-                                bg-white
-                                shadow-sm
-
-                                {{ !$currentBase ? 'border-indigo-500 ring-4 ring-indigo-100' : 'border-slate-200' }}
-                            ">
-
-                            <div
-                                class="
-                                    relative
-                                    aspect-[4/3]
-                                    overflow-hidden
-                                    bg-slate-100
-                                ">
-
-                                @if ($entity->image_url)
-                                    <img src="{{ $entity->image_url }}" alt="{{ $entity->name }}"
-                                        class="
-                                            h-full
-                                            w-full
-                                            object-cover
-                                        ">
-                                @endif
-
-
-                                <span
-                                    class="
-                                        absolute
-                                        left-3
-                                        top-3
-                                        rounded-full
-                                        bg-indigo-600
-                                        px-2.5
-                                        py-1
-                                        text-[8px]
-                                        font-black
-                                        text-white
-                                    ">
-                                    ORIGINAL
-                                </span>
-
-
-                                @if (!$currentBase)
-                                    <span
-                                        class="
-                                            absolute
-                                            right-3
-                                            top-3
-                                            rounded-full
-                                            bg-emerald-400
-                                            px-2.5
-                                            py-1
-                                            text-[8px]
-                                            font-black
-                                            text-emerald-950
-                                        ">
-                                        ✓ ACTUAL
-                                    </span>
-                                @endif
-
-                            </div>
-
-
-                            <div class="p-4">
-
-                                <p
-                                    class="
-                                        truncate
-                                        text-sm
-                                        font-black
-                                        text-slate-900
-                                    ">
-                                    {{ $entity->name }}
-                                </p>
-
-
-                                <p
-                                    class="
-                                        mt-1
-                                        text-[9px]
-                                        text-slate-400
-                                    ">
-                                    Información original almacenada
-                                    directamente en la Entidad.
-                                </p>
-
-
-                                @if ($currentBase)
-                                    <form method="POST" action="{{ route('entities.base-version.destroy', $entity) }}"
-                                        data-omni-confirm data-confirm-variant="primary" data-confirm-icon="◇"
-                                        data-confirm-title="Volver a la Base original"
-                                        data-confirm-message="
-                                            La Entidad volverá a utilizar su
-                                            representación original como Base.
-                                        "
-                                        data-confirm-subject="{{ $entity->name }}"
-                                        data-confirm-detail="
-                                            La Version que utilizas actualmente
-                                            no será eliminada. Podrás volver a
-                                            seleccionarla cuando quieras.
-                                        "
-                                        data-confirm-action="Usar Base original"
-                                        data-confirm-image="{{ $entity->image_url ?? '' }}">
-
-                                        @csrf
-                                        @method('DELETE')
-
-
-                                        <button type="submit"
-                                            class="
-                                                mt-4
-                                                w-full
-                                                rounded-xl
-                                                bg-indigo-600
-                                                px-4
-                                                py-2.5
-                                                text-xs
-                                                font-black
-                                                text-white
-                                            ">
-                                            Usar Base original
-                                        </button>
-
-                                    </form>
-                                @else
-                                    <div
-                                        class="
-                                            mt-4
-                                            rounded-xl
-                                            bg-emerald-50
-                                            px-4
-                                            py-2.5
-                                            text-center
-                                            text-xs
-                                            font-black
-                                            text-emerald-700
-                                        ">
-                                        ✓ Es la Base actual
-                                    </div>
-                                @endif
-
-                            </div>
-
-                        </article>
-
-
-                        {{-- ================================================= --}}
-                        {{-- VERSIONES --}}
-                        {{-- ================================================= --}}
-
-                        @foreach ($availableBaseVersions as $versionItem)
-                            @php
-
-                                $isCurrent = $currentBase && $currentBase->id === $versionItem->id;
-
-                            @endphp
-
-
-                            <article
-                                class="
-                                    overflow-hidden
-                                    rounded-3xl
-                                    border-2
-                                    bg-white
-                                    shadow-sm
-                                    transition
-                                    hover:-translate-y-1
-                                    hover:shadow-lg
-
-                                    {{ $isCurrent ? 'border-violet-500 ring-4 ring-violet-100' : 'border-slate-200 hover:border-violet-300' }}
-                                ">
-
-                                <div
-                                    class="
-                                        relative
-                                        aspect-[4/3]
-                                        overflow-hidden
-                                        bg-slate-100
-                                    ">
-
-                                    @if ($versionItem->image_url)
-                                        <img src="{{ $versionItem->image_url }}" alt="{{ $versionItem->name }}"
-                                            class="
-                                                h-full
-                                                w-full
-                                                object-cover
-                                            ">
-                                    @endif
-
-
-                                    @if ($isCurrent)
-                                        <span
-                                            class="
-                                                absolute
-                                                right-3
-                                                top-3
-                                                rounded-full
-                                                bg-violet-600
-                                                px-2.5
-                                                py-1
-                                                text-[8px]
-                                                font-black
-                                                text-white
-                                            ">
-                                            ★ BASE ACTIVA
-                                        </span>
-                                    @endif
-
-
-                                    @if ($versionItem->is_default)
-                                        <span
-                                            class="
-                                                absolute
-                                                bottom-3
-                                                left-3
-                                                rounded-full
-                                                bg-amber-400
-                                                px-2.5
-                                                py-1
-                                                text-[8px]
-                                                font-black
-                                                text-amber-950
-                                            ">
-                                            ⚡ RESOLVER
-                                        </span>
-                                    @endif
-
-                                </div>
-
-
-                                <div class="p-4">
-
-                                    <p
-                                        class="
-                                            truncate
-                                            text-sm
-                                            font-black
-                                            text-slate-900
-                                        ">
-                                        {{ $versionItem->name }}
-                                    </p>
-
-
-                                    <p
-                                        class="
-                                            mt-1
-                                            truncate
-                                            text-[9px]
-                                            font-bold
-                                            text-violet-500
-                                        ">
-                                        {{ $versionItem->version?->name }}
-                                        ·
-                                        {{ $versionItem->version?->kind_label }}
-                                    </p>
-
-
-                                    @if ($isCurrent)
-                                        <div
-                                            class="
-                                                mt-4
-                                                rounded-xl
-                                                bg-violet-50
-                                                px-4
-                                                py-2.5
-                                                text-center
-                                                text-xs
-                                                font-black
-                                                text-violet-700
-                                            ">
-                                            ✓ Es la Base actual
-                                        </div>
-                                    @else
-                                        <form method="POST"
-                                            action="{{ route('entities.base-version.update', $entity) }}"
-                                            data-omni-confirm data-confirm-variant="violet" data-confirm-icon="★"
-                                            data-confirm-title="Cambiar Base activa"
-                                            data-confirm-message="
-        Esta Version pasará a ser la
-        representación principal de la Entidad.
-    "
-                                            data-confirm-subject="{{ $versionItem->name }}"
-                                            data-confirm-detail="
-        La Base original no se elimina
-        y el Default del Resolver no cambiará.
-    "
-                                            data-confirm-action="Sí, usar como Base"
-                                            data-confirm-image="{{ $versionItem->image_url ?? '' }}">
-
-                                            @csrf
-                                            @method('PUT')
-
-
-                                            <input type="hidden" name="entity_version_id"
-                                                value="{{ $versionItem->id }}">
-
-
-                                            <button type="submit"
-                                                class="
-                                                    mt-4
-                                                    w-full
-                                                    rounded-xl
-                                                    bg-violet-600
-                                                    px-4
-                                                    py-2.5
-                                                    text-xs
-                                                    font-black
-                                                    text-white
-                                                ">
-                                                ★ Usar como Base
-                                            </button>
-
-                                        </form>
-                                    @endif
-
-                                </div>
-
-                            </article>
-                        @endforeach
-
-                    </div>
-
-
-                    @if ($availableBaseVersions->isEmpty())
-                        <div
-                            class="
-                                mt-5
-                                rounded-2xl
-                                border
-                                border-dashed
-                                border-violet-200
-                                bg-violet-50
-                                p-8
-                                text-center
-                            ">
-
-                            <p
-                                class="
-                                    text-sm
-                                    font-black
-                                    text-violet-800
-                                ">
-                                Todavía no existen Versiones activas.
-                            </p>
-
-
-                            <a href="{{ route('entity-versions.create', $entity) }}"
-                                class="
-                                    mt-3
-                                    inline-flex
-                                    rounded-xl
-                                    bg-violet-600
-                                    px-4
-                                    py-2.5
-                                    text-xs
-                                    font-black
-                                    text-white
-                                ">
-                                + Crear Version
-                            </a>
-
-                        </div>
-                    @endif
+                        <button type="submit"
+                            :disabled="elegida === {{ $currentBase?->id ?? 'null' }}"
+                            class="rounded-xl bg-amber-500 px-4 py-2 text-[11px] font-black text-amber-950 transition hover:bg-amber-400 disabled:opacity-40">
+                            <span x-show="elegida !== {{ $currentBase?->id ?? 'null' }}">Poner esta como base</span>
+                            <span x-show="elegida === {{ $currentBase?->id ?? 'null' }}" x-cloak>Ya es la que está puesta</span>
+                        </button>
+                    </form>
 
                 </div>
 
             </div>
 
         </div>
-
-    </div>
+    @endcan
 
 </section>

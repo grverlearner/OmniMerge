@@ -5,6 +5,8 @@ namespace App\Http\Controllers\EntityTypes;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\EntityTypes\StoreEntityTypeRequest;
 use App\Http\Requests\EntityTypes\UpdateEntityTypeRequest;
+use App\Models\Collection;
+use App\Models\EntityAttribute;
 use App\Models\EntityType;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -149,6 +151,24 @@ class EntityTypeController extends Controller
                 $request->user()
             )
             ->withCount('entities')
+
+            /*
+            |--------------------------------------------------------------------------
+            | Unas cuantas caras por tipo
+            |--------------------------------------------------------------------------
+            |
+            | Un tipo se reconoce por lo que lleva puesto, no por su nombre.
+            | Cada ficha del indice ensena las seis ultimas entidades que lo
+            | llevan, y para eso hacen falta por adelantado: veinticuatro
+            | fichas no pueden ser veinticuatro consultas.
+            |
+            */
+            ->with([
+                'entities' => fn($relation) => $relation
+                    ->select(['id', 'entity_type_id', 'name', 'image'])
+                    ->latest('id')
+                    ->limit(6),
+            ])
             ->when(
                 $search,
                 fn($query) =>
@@ -493,7 +513,17 @@ class EntityTypeController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /*
+     * La ficha de un tipo de entidad.
+     *
+     * Un tipo no es solo un nombre con un color: es el conjunto de todo lo que
+     * lo lleva puesto. Por eso esta pantalla no enseña «las 12 ultimas» sino
+     * la coleccion entera, filtrable y ordenable, y ademas responde a lo que
+     * de verdad se pregunta uno al abrirlo: que caracteristicas suelen tener
+     * las entidades de este tipo, y en que colecciones acaban.
+     */
     public function show(
+        Request $request,
         EntityType $entityType
     ): View {
 
@@ -502,30 +532,110 @@ class EntityTypeController extends Controller
             $entityType
         );
 
+        $user = $request->user();
 
-        $entityType->loadCount(
-            'entities'
-        );
+        $entityType->loadCount('entities');
 
+        $search = trim((string) $request->input('search'));
+
+        $status = (string) $request->input('status', '');
+
+        $sort = (string) $request->input('sort', 'newest');
+
+        $base = $entityType->entities();
+
+        /* Las cifras se calculan sobre TODAS, no sobre lo filtrado */
+        $stats = [
+            'total' => (clone $base)->count(),
+
+            'with_image' => (clone $base)->whereNotNull('image')->count(),
+
+            'public' => (clone $base)->where('visibility', 'PUBLIC')->count(),
+
+            'active' => (clone $base)->where('status', 'ACTIVE')->count(),
+        ];
+
+        $query = $entityType
+            ->entities()
+            ->with(['baseVersionSetting.entityVersion', 'collections:id,name,color,icon,image'])
+            ->withCount(['entityAttributes', 'collections', 'entityVersions'])
+            ->when(
+                $search,
+                fn ($q) => $q->where(
+                    fn ($sub) => $sub
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                )
+            )
+            ->when($status, fn ($q) => $q->where('status', $status));
+
+        match ($sort) {
+            'oldest' => $query->orderBy('created_at'),
+            'name_asc' => $query->orderBy('name'),
+            'name_desc' => $query->orderByDesc('name'),
+            'attributes_desc' => $query->orderByDesc('entity_attributes_count'),
+            default => $query->orderByDesc('created_at'),
+        };
+
+        $entities = $query->paginate(24)->withQueryString();
 
         /*
-         * No necesitamos una consulta especial para la imagen:
-         * Entity ya posee image_url.
+         * Que caracteristicas llevan las entidades de este tipo.
+         *
+         * Es la pregunta que contesta si el tipo esta bien definido: si el
+         * 90% de sus entidades tiene «aldea», esa caracteristica describe al
+         * tipo tanto como su nombre.
          */
+        $rasgos = EntityAttribute::query()
+            ->whereHas('entity', fn ($q) => $q->where('entity_type_id', $entityType->id))
+            ->with('attribute:id,name,icon,color,data_type')
+            ->get()
+            ->groupBy('attribute_id')
+            ->map(fn ($grupo) => [
+                'attribute' => $grupo->first()->attribute,
+                'count' => $grupo->count(),
+                'share' => $stats['total'] > 0
+                    ? (int) round($grupo->count() / $stats['total'] * 100)
+                    : 0,
+            ])
+            ->filter(fn ($fila) => $fila['attribute'] !== null)
+            ->sortByDesc('count')
+            ->values()
+            ->take(8);
 
-        $entities =
-            $entityType
-            ->entities()
-            ->latest()
-            ->limit(12)
+        /* Y en que colecciones acaban */
+        $colecciones = Collection::query()
+            ->ownedBy($user)
+            ->whereHas('entities', fn ($q) => $q->where('entity_type_id', $entityType->id))
+            ->withCount([
+                'entities as typed_count' => fn ($q) => $q->where('entity_type_id', $entityType->id),
+            ])
+            ->orderByDesc('typed_count')
+            ->limit(6)
             ->get();
 
+        /* Los demas tipos, para poder saltar entre ellos sin volver al indice */
+        $hermanos = EntityType::query()
+            ->ownedBy($user)
+            ->whereKeyNot($entityType->id)
+            ->withCount('entities')
+            ->orderByDesc('entities_count')
+            ->limit(8)
+            ->get();
 
         return view(
             'entity-types.show',
             compact(
                 'entityType',
-                'entities'
+                'entities',
+                'stats',
+                'rasgos',
+                'colecciones',
+                'hermanos',
+                'search',
+                'status',
+                'sort'
             )
         );
     }

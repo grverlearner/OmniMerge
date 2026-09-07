@@ -47,6 +47,9 @@ class EntityVersionController extends Controller
 
 
         $entity->load([
+            'entityType',
+
+
             /*
         |--------------------------------------------------------------------------
         | Base activa
@@ -492,6 +495,9 @@ class EntityVersionController extends Controller
 
 
         $entityVersion->load([
+            'entity.entityType',
+            'entity.entityAttributes.attribute',
+            'entity.entityAttributes.values.option',
             'entity.baseVersionSetting.entityVersion',
 
             'baseSetting',
@@ -501,6 +507,7 @@ class EntityVersionController extends Controller
 
             'parent.version',
             'children.version',
+            'children.baseSetting',
 
             'versionAttributes.attribute.groups',
             'versionAttributes.values.option',
@@ -511,6 +518,13 @@ class EntityVersionController extends Controller
         ]);
 
 
+        $entityVersion->loadCount([
+            'images',
+            'versionAttributes',
+            'children',
+        ]);
+
+
         $effectiveAttributes =
             $resolver
             ->effectiveAttributes(
@@ -518,12 +532,68 @@ class EntityVersionController extends Controller
             );
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | Las caras de cada caracteristica
+        |--------------------------------------------------------------------------
+        |
+        | El resolver devuelve el valor ya resuelto en texto —«Uzumaki»— pero no
+        | el objeto de catalogo, asi que la ficha no podia ensenar su imagen.
+        | Aqui se junta cada caracteristica con las opciones de las que sale,
+        | segun venga de la entidad base o de la propia version.
+        |
+        */
+
+        $caracteristicas =
+            $effectiveAttributes
+            ->map(
+                function (array $fila) use ($entity, $entityVersion) {
+
+                    $attributeId =
+                        $fila['attribute']->id;
+
+
+                    $asignacion =
+                        $fila['source'] === 'VERSION'
+                        ? $entityVersion
+                        ->versionAttributes
+                        ->firstWhere('attribute_id', $attributeId)
+                        : $entity
+                        ->entityAttributes
+                        ->firstWhere('attribute_id', $attributeId);
+
+
+                    $fila['options'] =
+                        $asignacion
+                        ? $asignacion
+                        ->values
+                        ->map(fn($valor) => $valor->option)
+                        ->filter()
+                        ->values()
+                        : collect();
+
+
+                    return $fila;
+                }
+            )
+            ->sortBy(
+                fn(array $fila) =>
+                [
+                    $fila['is_featured'] ? 0 : 1,
+                    $fila['sort_order'] ?? 0,
+                    $fila['attribute']->name,
+                ]
+            )
+            ->values();
+
+
         return view(
             'entity-versions.show',
             compact(
                 'entity',
                 'entityVersion',
-                'effectiveAttributes'
+                'effectiveAttributes',
+                'caracteristicas'
             )
         );
     }
@@ -1389,6 +1459,9 @@ class EntityVersionController extends Controller
                     'name' =>
                     $attribute->name,
 
+                    'image_url' =>
+                    $attribute->image_url,
+
                     'options' =>
                     $attribute
                         ->options
@@ -1399,6 +1472,9 @@ class EntityVersionController extends Controller
 
                                 'name' =>
                                 $option->name,
+
+                                'image_url' =>
+                                $option->image_url,
                             ]
                         )
                         ->values()

@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Versions;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Versions\VersionRequest;
 use App\Models\Attribute;
+use App\Models\AttributeOption;
 use App\Models\Entity;
 use App\Models\Version;
 use App\Services\Versions\VersionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Throwable;
@@ -199,8 +201,17 @@ class VersionController extends Controller
             ->whereNull(
                 'parent_version_id'
             )
+            /*
+             * Las hijas tambien necesitan su cuenta: el arbol ensena en cada
+             * rama en cuantas entidades se ha aplicado ese molde, y sin esto
+             * las de segundo y tercer nivel salian a cero siempre.
+             */
             ->with([
-                'children.children',
+                'children' => fn($relation) => $relation
+                    ->withCount('entityVersions')
+                    ->with([
+                        'children' => fn($nieta) => $nieta->withCount('entityVersions'),
+                    ]),
             ])
             ->withCount(
                 'entityVersions'
@@ -366,14 +377,26 @@ class VersionController extends Controller
         );
 
 
+        $user =
+            $request->user();
+
+
         $version->load([
-            'parent',
-            'children',
+            'parent.parent',
+
+            'children' => fn($q) => $q
+                ->withCount('entityVersions')
+                ->orderBy('sort_order')
+                ->orderBy('name'),
 
             'catalogLinks.attribute',
-            'catalogLinks.option',
+            'catalogLinks.option.attribute',
 
-            'entityVersions.entity',
+            'entityVersions' => fn($q) => $q
+                ->with(['entity.entityType'])
+                ->withCount(['versionAttributes', 'images'])
+                ->orderByDesc('is_default')
+                ->orderBy('name'),
         ]);
 
 
@@ -386,77 +409,355 @@ class VersionController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Cobertura
+        | Las reglas, agrupadas
         |--------------------------------------------------------------------------
+        |
+        | Solo los enlaces ACTIVATES deciden algo: el resolver agrupa por
+        | condition_group —los grupos son alternativas OR entre si— y dentro de
+        | cada grupo encadena con el operador de cada enlace. Los de CONTEXT y
+        | RELATED son documentacion: se guardan, se ensenan, y el motor no los
+        | mira. Eso se dice en la pantalla en vez de dejarlo adivinar.
+        |
         */
 
-        $activationOptionIds =
+        $activationGroups =
             $version
             ->catalogLinks
-            ->where(
-                'relation_type',
-                'ACTIVATES'
-            )
-            ->pluck(
-                'attribute_option_id'
-            )
+            ->where('relation_type', 'ACTIVATES')
+            ->sortBy('id')
+            ->groupBy('condition_group');
+
+
+        $contextLinks =
+            $version
+            ->catalogLinks
+            ->where('relation_type', '!=', 'ACTIVATES')
+            ->sortBy('id')
+            ->values();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Cuantas entidades tiene cada opcion enlazada
+        |--------------------------------------------------------------------------
+        |
+        | Una regla que apunta a una opcion que nadie usa no activa nada nunca,
+        | y eso es invisible hasta que se cuenta.
+        |
+        */
+
+        $linkedOptionIds =
+            $version
+            ->catalogLinks
+            ->pluck('attribute_option_id')
             ->unique()
             ->values();
 
 
-        $eligibleEntities =
-            collect();
+        $optionUsage =
+            DB::table('entity_attribute_values')
+            ->join(
+                'entity_attributes',
+                'entity_attributes.id',
+                '=',
+                'entity_attribute_values.entity_attribute_id'
+            )
+            ->join(
+                'entities',
+                'entities.id',
+                '=',
+                'entity_attributes.entity_id'
+            )
+            ->where('entities.user_id', $user->id)
+            ->whereNull('entities.deleted_at')
+            ->whereNotNull('entity_attribute_values.attribute_option_id')
+            ->groupBy('entity_attribute_values.attribute_option_id')
+            ->selectRaw(
+                'entity_attribute_values.attribute_option_id as option_id,
+                 COUNT(DISTINCT entities.id) as total'
+            )
+            ->pluck('total', 'option_id');
 
 
-        if (
-            $activationOptionIds
-            ->isNotEmpty()
-        ) {
+        /*
+        |--------------------------------------------------------------------------
+        | Lo que ya comparten las que la llevan
+        |--------------------------------------------------------------------------
+        |
+        | El reves de una regla. Una regla dice «activa con esto»; esto dice
+        | «las que ya la llevan tienen esto en comun», que es justo de donde
+        | sale la regla que habria que escribir. Si las tres que llevan
+        | «Shippuden» tienen las tres Anime = Naruto: Shippuden, la regla se
+        | escribe sola.
+        |
+        */
+
+        $sharedTraits = collect();
+
+
+        if ($assignedIdsParaRasgos = $version->entityVersions->pluck('entity_id')->unique()) {
+
+            $conteos =
+                $assignedIdsParaRasgos->isEmpty()
+                ? collect()
+                : DB::table('entity_attribute_values')
+                ->join(
+                    'entity_attributes',
+                    'entity_attributes.id',
+                    '=',
+                    'entity_attribute_values.entity_attribute_id'
+                )
+                ->whereIn(
+                    'entity_attributes.entity_id',
+                    $assignedIdsParaRasgos
+                )
+                ->whereNotNull('entity_attribute_values.attribute_option_id')
+                ->groupBy('entity_attribute_values.attribute_option_id')
+                ->selectRaw(
+                    'entity_attribute_values.attribute_option_id as option_id,
+                     COUNT(DISTINCT entity_attributes.entity_id) as total'
+                )
+                ->pluck('total', 'option_id');
+
+
+            if ($conteos->isNotEmpty()) {
+
+                $sharedTraits =
+                    AttributeOption::query()
+                    ->whereIn('id', $conteos->keys())
+                    ->with('attribute')
+                    ->get()
+                    ->map(
+                        function (AttributeOption $opcion) use ($conteos, $assignedIdsParaRasgos) {
+
+                            $cuantas = (int) $conteos[$opcion->id];
+
+                            $opcion->setAttribute('cuantas', $cuantas);
+
+                            $opcion->setAttribute(
+                                'todas',
+                                $cuantas === $assignedIdsParaRasgos->count()
+                            );
+
+                            return $opcion;
+                        }
+                    )
+                    ->sortByDesc('cuantas')
+                    ->values();
+            }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Cobertura
+        |--------------------------------------------------------------------------
+        |
+        | Las mismas tres medidas que la pantalla de Cobertura, para que un
+        | mismo molde no diga aqui una cosa y alli otra.
+        |
+        */
+
+        $assignedIds =
+            $version
+            ->entityVersions
+            ->pluck('entity_id');
+
+
+        $activationOptionIds =
+            $version
+            ->catalogLinks
+            ->where('relation_type', 'ACTIVATES')
+            ->pluck('attribute_option_id')
+            ->unique()
+            ->values();
+
+
+        if ($version->isExclusive()) {
+
+            $coverageMode = 'EXCLUSIVE';
+
+            $eligibleEntities = collect();
+
+        } elseif ($activationOptionIds->isNotEmpty()) {
+
+            $coverageMode = 'AUTO';
 
             $eligibleEntities =
                 Entity::query()
-                ->ownedBy(
-                    $request->user()
-                )
+                ->ownedBy($user)
                 ->whereHas(
                     'entityAttributes.values',
-
                     fn($query) =>
                     $query->whereIn(
                         'attribute_option_id',
                         $activationOptionIds
                     )
                 )
-                ->orderBy(
-                    'name'
-                )
+                ->with('entityType')
+                ->orderBy('name')
+                ->get();
+
+        } else {
+
+            $coverageMode = 'MANUAL';
+
+            $eligibleEntities =
+                Entity::query()
+                ->ownedBy($user)
+                ->active()
+                ->with('entityType')
+                ->orderBy('name')
                 ->get();
         }
 
 
-        $assignedIds =
-            $version
-            ->entityVersions
-            ->pluck(
-                'entity_id'
+        $missingEntities =
+            $eligibleEntities
+            ->whereNotIn('id', $assignedIds)
+            ->values();
+
+
+        $coveragePercentage =
+            $eligibleEntities->isEmpty()
+            ? null
+            : (int) round(
+                (
+                    $eligibleEntities->count()
+                    - $missingEntities->count()
+                )
+                    / $eligibleEntities->count()
+                    * 100
             );
 
 
-        $missingEntities =
-            $eligibleEntities
-            ->whereNotIn(
-                'id',
-                $assignedIds
+        /*
+        |--------------------------------------------------------------------------
+        | Para el formulario de reglas
+        |--------------------------------------------------------------------------
+        */
+
+        $catalogAttributes =
+            Attribute::query()
+            ->ownedBy($user)
+            ->active()
+            ->where('data_type', 'OPTION')
+            ->with([
+                'options' => fn($q) => $q
+                    ->where('status', 'ACTIVE')
+                    ->orderBy('sort_order')
+                    ->orderBy('name'),
+            ])
+            ->orderBy('name')
+            ->get()
+            ->sortByDesc(
+                fn($atributo) =>
+                $atributo->options->count()
             )
             ->values();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Candidatas a asociar
+        |--------------------------------------------------------------------------
+        |
+        | Las que aun no la llevan. Van primero las que cumplen las reglas,
+        | porque son las que el molde estaba esperando.
+        |
+        */
+
+        $eligibleIds =
+            $eligibleEntities->pluck('id');
+
+
+        $candidateEntities =
+            Entity::query()
+            ->ownedBy($user)
+            ->active()
+            ->whereNotIn('id', $assignedIds)
+            ->with('entityType')
+            ->orderBy('name')
+            ->get()
+            ->map(
+                function (Entity $entidad) use ($eligibleIds, $coverageMode) {
+
+                    $entidad->setAttribute(
+                        'cumple_reglas',
+                        $coverageMode === 'AUTO'
+                            && $eligibleIds->contains($entidad->id)
+                    );
+
+                    return $entidad;
+                }
+            )
+            ->sortByDesc('cumple_reglas')
+            ->values();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Cifras de las entidades vinculadas
+        |--------------------------------------------------------------------------
+        */
+
+        $appliedStats = [
+            'total' => $version->entityVersions->count(),
+
+            'default' => $version->entityVersions
+                ->where('is_default', true)
+                ->count(),
+
+            'with_overrides' => $version->entityVersions
+                ->where('version_attributes_count', '>', 0)
+                ->count(),
+
+            'with_media' => $version->entityVersions
+                ->where('images_count', '>', 0)
+                ->count(),
+
+            'types' => $version->entityVersions
+                ->pluck('entity.entity_type_id')
+                ->filter()
+                ->unique()
+                ->count(),
+        ];
+
+
+        /*
+         * La ruta de jerarquia, de la raiz hasta esta.
+         */
+
+        $ancestros = collect();
+
+        $nodo = $version->parent;
+
+        while ($nodo && $ancestros->count() < 5) {
+            $ancestros->prepend($nodo);
+            $nodo = $nodo->relationLoaded('parent') ? $nodo->parent : null;
+        }
 
 
         return view(
             'versions.show',
             compact(
                 'version',
+
+                'activationGroups',
+                'contextLinks',
+                'optionUsage',
+                'linkedOptionIds',
+                'sharedTraits',
+                'catalogAttributes',
+
+                'coverageMode',
                 'eligibleEntities',
-                'missingEntities'
+                'missingEntities',
+                'coveragePercentage',
+
+                'candidateEntities',
+                'appliedStats',
+                'ancestros'
             )
         );
     }

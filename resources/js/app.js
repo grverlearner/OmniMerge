@@ -1,5 +1,6 @@
 import './bootstrap';
 import Alpine from 'alpinejs';
+import collapse from '@alpinejs/collapse';
 import tournamentFlowBuilder from './tournaments/graph/flow-builder';
 import competitionLab from './tournaments/lab/competition-lab';
 import competitionArena from './tournaments/lab/competition-arena';
@@ -1101,5 +1102,7 @@ document.addEventListener(
     true
 );
 
+
+Alpine.plugin(collapse);
 
 Alpine.start();
