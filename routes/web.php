@@ -317,6 +317,15 @@ Route::middleware('auth')->group(function () {
                                             ]
                                         )->name('store');
 
+                                        /* Varias de golpe */
+                                        Route::post(
+                                            '/bulk',
+                                            [
+                                                UniverseSeasonController::class,
+                                                'storeMany',
+                                            ]
+                                        )->name('bulk');
+
                                         Route::get(
                                             '/{season}/edit',
                                             [
