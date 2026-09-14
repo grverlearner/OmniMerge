@@ -73,12 +73,41 @@ class UniverseGameController extends Controller
                     $universe->gameEncounters()
                         ->where('game_key', $game->game_key)
                         ->count(),
+
+                    /*
+                     * Y cuantas competiciones lo han elegido. Enfrentamientos
+                     * altos con cero competiciones significa que todo se ha
+                     * jugado en el simulador, que es otra cosa.
+                     */
+                    'competitions' =>
+                    $universe->tournamentInstances()
+                        ->where('game_key', $game->game_key)
+                        ->count(),
+
+                    /*
+                     * Con que valores entra un competidor nuevo en este
+                     * Universo. La tarjeta del juego lo ensena sin obligar a
+                     * abrir su ficha.
+                     */
+                    'configuration' =>
+                    $this->games->configuration(
+                        $universe,
+                        $game->game_key
+                    ),
                 ]
             );
 
+
+        /*
+         * Cuantos competidores hay en el mundo. Sin esto, «0 partidas» no se
+         * distingue de «todavia no hay con quien jugar».
+         */
+        $competidores =
+            $universe->entities()->count();
+
         return view(
             'universes.games.index',
-            compact('universe', 'games')
+            compact('universe', 'games', 'competidores')
         );
     }
 
@@ -119,7 +148,7 @@ class UniverseGameController extends Controller
             ->where('universe_id', $universe->id)
             ->where('game_key', $key)
             ->with([
-                'participants',
+                'participants.universeEntity',
                 'tournamentInstance:id,name,code',
             ])
             ->latest('id')
@@ -162,14 +191,97 @@ class UniverseGameController extends Controller
         $configuration =
             $this->games->configuration($universe, $key);
 
-        /* Cuantos competidores siguen con los valores de partida */
-        $sinTocar =
+        /*
+         * Cuantos competidores tienen ya estadisticas de este juego. Es a
+         * quienes afectaria reajustar la configuracion, asi que el nombre
+         * dice eso y no otra cosa.
+         */
+        $conEstadisticas =
             $universe->entities()
             ->whereHas(
                 'gameStats',
                 fn($query) => $query->where('game_key', $key)
             )
             ->count();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Los competidores, con sus numeros de ESTE juego
+        |--------------------------------------------------------------------------
+        |
+        | Era lo que le faltaba a esta ficha. Un juego se entiende leyendo sus
+        | reglas, pero se entiende de verdad viendo con que numeros lo juega
+        | cada uno: quien es fiable, quien es una loteria, y quien todavia
+        | esta con los valores de partida.
+        |
+        */
+
+        $iniciales =
+            $configuration->initialStats();
+
+        $competidores =
+            $universe->entities()
+            ->with([
+                'gameStats' => fn($query) => $query->where('game_key', $key),
+            ])
+            ->withCount([
+                'encounterResults as jugados' =>
+                fn($query) =>
+                $query->whereHas(
+                    'encounter',
+                    fn($sub) => $sub->where('game_key', $key)
+                ),
+
+                'encounterResults as ganados' =>
+                fn($query) =>
+                $query
+                    ->where('is_winner', true)
+                    ->whereHas(
+                        'encounter',
+                        fn($sub) => $sub->where('game_key', $key)
+                    ),
+            ])
+            ->orderBy('name')
+            ->get()
+            ->map(
+                function ($entidad) use ($iniciales, $configuration) {
+
+                    $suyas = $entidad->gameStats->first()?->stats;
+
+                    return [
+                        'entidad' => $entidad,
+
+                        /* Sin fila propia, juega con los valores de partida */
+                        'stats' =>
+                        $configuration->clampStats(
+                            is_array($suyas) && $suyas !== []
+                                ? $suyas
+                                : $iniciales
+                        ),
+
+                        'propias' =>
+                        is_array($suyas) && $suyas !== [],
+
+                        'jugados' => (int) $entidad->jugados,
+                        'ganados' => (int) $entidad->ganados,
+                    ];
+                }
+            );
+
+
+        /*
+         * El techo de todos, para poder dibujar los rangos a la misma escala.
+         * Sin esto cada barra usaria su propia regla y no se podrian comparar.
+         */
+        $techo =
+            max(
+                1.0,
+                $competidores
+                    ->flatMap(fn($fila) => array_values($fila['stats']))
+                    ->max() ?? 1.0
+            );
+
 
         return view(
             'universes.games.show',
@@ -180,7 +292,9 @@ class UniverseGameController extends Controller
                 'recentEncounters',
                 'leaders',
                 'configuration',
-                'sinTocar'
+                'conEstadisticas',
+                'competidores',
+                'techo'
             )
         );
     }

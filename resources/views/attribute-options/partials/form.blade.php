@@ -1,1203 +1,778 @@
 @php
+    /*
+     * El formulario de un valor de catálogo, compartido entre crear y editar.
+     *
+     * Lo que hacía antes: cinco secciones numeradas en blanco, un desplegable
+     * para el padre y una vista previa lateral. Correcto y mudo sobre las tres
+     * cosas que de verdad se preguntan al rellenarlo:
+     *
+     *   · ¿ya existe algo así?      → nada lo decía hasta guardar
+     *   · ¿de qué cuelga?           → un desplegable de nombres, sin caras
+     *   · ¿cómo se verá al elegirlo? → la vista previa era otra cosa distinta
+     *
+     * Ahora se contestan las tres: aviso de nombre repetido mientras se escribe,
+     * el padre se elige por su cara con un dibujo de dónde quedará el valor, y
+     * la vista previa es literalmente la ficha que verá quien lo elija.
+     */
 
-    $editing = isset($attributeOption) && $attributeOption->exists;
+    $editando = isset($attributeOption) && $attributeOption->exists;
 
-    $catalog = $editing ? $attributeOption->attribute : $selectedAttribute;
+    $catalogo = $editando ? $attributeOption->attribute : $selectedAttribute;
 
-    $currentName = old('name', $attributeOption->name ?? '');
+    $acento = $catalogo?->color ?: '#6366f1';
 
-    $currentIcon = old('icon', $attributeOption->icon ?? '◆');
+    $nombreActual = old('name', $attributeOption->name ?? '');
+    $iconoActual = old('icon', $attributeOption->icon ?? '');
+    $colorActual = old('color', $attributeOption->color ?? $acento);
+    $descripcionActual = old('description', $attributeOption->description ?? '');
+    $numeroActual = old('numeric_value', $attributeOption->numeric_value ?? '');
+    $estadoActual = old('status', $attributeOption->status ?? 'ACTIVE');
 
-    $currentColor = old('color', $attributeOption->color ?? '#6366F1');
+    /* `selectedParentId` solo existe al crear: al editar no lo manda nadie. */
+    $padreActual = old(
+        'parent_option_id',
+        $attributeOption->parent_option_id ?? ($selectedParentId ?? null),
+    );
 
-    $currentParentId = old('parent_option_id', $attributeOption->parent_option_id ?? ($selectedParentId ?? null));
+    /* Los que ya están dentro, en el formato que consume el motor. */
+    $existentes = ($existingOptions ?? collect())
+        ->map(
+            fn($valor) => [
+                'id' => (string) $valor->id,
+                'name' => $valor->name,
+                'normalizado' => mb_strtolower(trim($valor->name)),
+                'image' => $valor->image_url,
+                'icon' => $valor->icon ?: '',
+                'color' => $valor->color ?: $acento,
+                'status' => $valor->status,
+                'parent' => $valor->parent_option_id ? (string) $valor->parent_option_id : '',
+            ],
+        )
+        ->values();
 
+    $candidatosPadre = $parentOptions
+        ->map(
+            fn($valor) => [
+                'id' => (string) $valor->id,
+                'name' => $valor->name,
+                'image' => $valor->image_url,
+                'icon' => $valor->icon ?: '',
+                'color' => $valor->color ?: $acento,
+            ],
+        )
+        ->values();
+
+    $tonoEstado = [
+        'ACTIVE' => 'bg-emerald-500/15 text-emerald-300',
+        'INACTIVE' => 'bg-amber-500/15 text-amber-300',
+        'ARCHIVED' => 'bg-slate-800 text-slate-500',
+    ];
 @endphp
 
-
-<div x-data="{
-
-    name: @js($currentName),
-
-    icon: @js($currentIcon),
-
-    color: @js($currentColor),
-
-    imagePreview: @js($editing ? $attributeOption->image_url : null),
-
-    removeImage: false,
-
-    advanced: false,
-
-    parentId: @js($currentParentId ? (string) $currentParentId : ''),
+<div x-data="editorDeValor({
+    nombre: @js($nombreActual),
+    icono: @js($iconoActual),
+    color: @js($colorActual),
+    padre: @js($padreActual ? (string) $padreActual : ''),
+    imagenActual: @js($editando ? $attributeOption->image_url : null),
+    existentes: @js($existentes),
+    padres: @js($candidatosPadre),
+    catalogo: @js($catalogo?->name ?? ''),
+})" class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
 
 
-    previewImage(event) {
+    {{-- ===================================================== --}}
+    {{-- LO QUE SE RELLENA --}}
+    {{-- ===================================================== --}}
 
-        const file =
-            event.target.files[0];
+    <div class="space-y-4">
 
+        {{-- ---------- 1 · A QUÉ CATÁLOGO VA ---------- --}}
 
-        if (!file) {
-            return;
-        }
+        <section class="overflow-hidden rounded-2xl border bg-slate-900/50"
+            style="border-color: {{ $acento }}40">
 
+            <div class="flex items-center gap-3 border-b border-slate-800 px-4 py-2.5">
+                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg font-mono text-[11px] font-black"
+                    style="background-color: {{ $acento }}22; color: {{ $acento }}">1</span>
+                <h3 class="min-w-0 flex-1 text-[12px] font-black text-white">A qué catálogo pertenece</h3>
+                <span class="shrink-0 rounded-lg bg-slate-800 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    No se puede cambiar después
+                </span>
+            </div>
 
-        this.removeImage =
-            false;
+            <div class="flex flex-wrap items-center gap-3 p-4">
 
+                @include('attributes.partials.cara', [
+                    'cosa' => $catalogo,
+                    'tamano' => 'h-12 w-12',
+                    'respaldo' => '◫',
+                    'tono' => $acento,
+                ])
 
-        const reader =
-            new FileReader();
+                <div class="min-w-0 flex-1">
+                    <p class="truncate text-[14px] font-black text-white">{{ $catalogo?->name ?? 'Sin catálogo' }}</p>
+                    <p class="font-mono text-[10px] text-slate-600">{{ $catalogo?->code }}</p>
+                </div>
 
+                <div class="shrink-0 text-right">
+                    <p class="font-mono text-lg font-black" style="color: {{ $acento }}">
+                        {{ $existentes->count() + ($editando ? 1 : 0) }}
+                    </p>
+                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-600">
+                        {{ $existentes->count() === 0 && ! $editando ? 'está vacío' : 'ya dentro' }}
+                    </p>
+                </div>
 
-        reader.onload =
-            (event) => {
+                @if (! $editando)
+                    <a href="{{ route('attribute-options.create') }}"
+                        class="shrink-0 rounded-xl border border-slate-800 px-2.5 py-1.5 text-[10px] font-black text-slate-400 transition hover:border-violet-500 hover:text-violet-300">
+                        Cambiar
+                    </a>
+                @endif
+            </div>
 
-                this.imagePreview =
-                    event.target.result;
+            {{-- De qué está hecho ya, para no repetirse --}}
+            @if ($existentes->isNotEmpty())
+                <div class="border-t border-slate-800 px-4 py-2.5">
+                    <p class="mb-1.5 text-[9px] font-black uppercase tracking-wider text-slate-600">
+                        Lo que ya hay dentro
+                    </p>
 
-            };
+                    <div class="flex flex-wrap gap-1">
+                        @foreach ($existingOptions->take(24) as $existente)
+                            <span class="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950 py-0.5 pl-0.5 pr-1.5"
+                                title="{{ $existente->name }}">
+                                <span class="h-4 w-4 shrink-0 overflow-hidden rounded-sm">
+                                    @if ($existente->image_url)
+                                        <img src="{{ $existente->image_url }}" alt="" loading="lazy"
+                                            class="h-full w-full object-cover">
+                                    @else
+                                        <span class="flex h-full w-full items-center justify-center text-[8px] text-slate-700">◇</span>
+                                    @endif
+                                </span>
+                                <span class="max-w-[110px] truncate text-[9px] text-slate-400">{{ $existente->name }}</span>
+                            </span>
+                        @endforeach
 
-
-        reader.readAsDataURL(
-            file
-        );
-    },
-
-
-    clearImage() {
-
-        this.imagePreview =
-            null;
-
-        this.removeImage =
-            true;
-
-
-        if (
-            this.$refs.imageInput
-        ) {
-
-            this.$refs.imageInput.value =
-                '';
-        }
-    }
-}" class="
-        grid
-        gap-8
-        xl:grid-cols-[minmax(0,1fr)_320px]
-    ">
-
-    {{-- ========================================================= --}}
-    {{-- FORMULARIO --}}
-    {{-- ========================================================= --}}
-
-    <div class="space-y-9">
-
-
-        {{-- ===================================================== --}}
-        {{-- IDENTIDAD --}}
-        {{-- ===================================================== --}}
-
-        <section>
-
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-[0.16em]
-                    text-violet-600
-                ">
-                1 · Identidad
-            </p>
-
-
-            <h3
-                class="
-                    mt-2
-                    text-xl
-                    font-black
-                    text-slate-900
-                ">
-                Información del elemento
-            </h3>
+                        @if ($existingOptions->count() > 24)
+                            <span class="rounded-lg border border-slate-800 px-1.5 py-0.5 font-mono text-[9px] font-black text-slate-500">
+                                +{{ $existingOptions->count() - 24 }}
+                            </span>
+                        @endif
+                    </div>
+                </div>
+            @endif
+        </section>
 
 
-            <p
-                class="
-                    mt-2
-                    text-sm
-                    leading-6
-                    text-slate-500
-                ">
-                Cada elemento posee identidad propia dentro
-                de OmniMerge, pero conserva el contexto
-                proporcionado por su Catálogo.
-            </p>
+        {{-- ---------- 2 · CÓMO SE LLAMA Y QUÉ CARA TIENE ---------- --}}
 
+        <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
 
-            <div
-                class="
-                    mt-6
-                    grid
-                    gap-6
-                    lg:grid-cols-2
-                ">
+            <div class="flex items-center gap-3 border-b border-slate-800 px-4 py-2.5">
+                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 font-mono text-[11px] font-black text-violet-300">2</span>
+                <h3 class="min-w-0 flex-1 text-[12px] font-black text-white">Cómo se llama y qué cara tiene</h3>
+            </div>
 
-                {{-- NOMBRE --}}
-                <div>
+            <div class="space-y-4 p-4">
 
-                    <label for="name"
-                        class="
-                            mb-2
-                            block
-                            text-sm
-                            font-bold
-                            text-slate-700
-                        ">
-                        Nombre *
-                    </label>
+                <label class="block">
+                    <span class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-600">
+                        Nombre
+                    </span>
 
-
-                    <input id="name" name="name" type="text" x-model="name" value="{{ $currentName }}"
-                        required placeholder="Ejemplo: Naruto"
-                        class="
-                            w-full
-                            rounded-xl
-                            border-slate-300
-                            bg-white
-                            text-slate-900
-                            placeholder:text-slate-400
-                            focus:border-violet-500
-                            focus:ring-violet-500
-                        ">
-
+                    <input type="text" name="name" x-model="nombre" required maxlength="150"
+                        placeholder="«Uzumaki», «Konoha», «Fuego»…"
+                        class="w-full rounded-xl border-slate-800 bg-slate-950 text-sm font-bold text-white placeholder:font-normal placeholder:text-slate-600 focus:border-violet-500 focus:ring-violet-500">
 
                     @error('name')
-                        <p
-                            class="
-                                mt-2
-                                text-sm
-                                font-semibold
-                                text-red-600
-                            ">
-                            {{ $message }}
-                        </p>
+                        <span class="mt-1 block text-[11px] font-bold text-rose-300">{{ $message }}</span>
                     @enderror
 
-                </div>
+                    {{--
+                        El aviso que faltaba. Un catálogo con «Uzumaki» y
+                        «uzumaki» no da error en ningún sitio: simplemente queda
+                        mal para siempre. La condición se escribe entera en la
+                        expresión para que Alpine la vuelva a evaluar al teclear.
+                    --}}
+
+                    <span x-show="nombre.trim() !== '' && repetido"
+                        x-cloak
+                        class="mt-1.5 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
+                        <span class="text-[11px] text-amber-300">⚠</span>
+                        <span class="text-[10px] leading-4 text-amber-200/90">
+                            Ya hay un valor llamado
+                            <strong class="text-amber-200" x-text="repetido?.name"></strong>
+                            en este catálogo. Puedes guardarlo igual, pero al elegirlo nadie sabrá cuál
+                            es cuál.
+                        </span>
+                    </span>
+
+                    <span x-show="nombre.trim() !== '' && ! repetido && parecidos.length > 0"
+                        x-cloak
+                        class="mt-1.5 block text-[10px] leading-4 text-slate-500">
+                        Parecidos que ya existen:
+                        <template x-for="(p, i) in parecidos" :key="p.id">
+                            <span>
+                                <span class="text-slate-300" x-text="p.name"></span><span
+                                    x-show="i < parecidos.length - 1">, </span>
+                            </span>
+                        </template>
+                    </span>
+                </label>
 
 
-                {{-- CÓDIGO --}}
-                <div>
+                <div class="grid gap-4 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)]">
 
-                    <label
-                        class="
-                            mb-2
-                            block
-                            text-sm
-                            font-bold
-                            text-slate-700
-                        ">
-                        Código OmniMerge
-                    </label>
-
-
-                    <div
-                        class="
-                            flex
-                            h-[42px]
-                            items-center
-                            rounded-xl
-                            border
-                            border-slate-200
-                            bg-slate-100
-                            px-4
-                        ">
-
-                        <span
-                            class="
-                                font-mono
-                                text-sm
-                                font-black
-                                tracking-wider
-                                text-slate-700
-                            ">
-                            {{ $editing ? $attributeOption->code : $previewCode }}
+                    <div>
+                        <span class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-600">
+                            Su imagen
                         </span>
 
+                        <div class="overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
+                            <div class="relative aspect-square overflow-hidden bg-slate-900">
+                                <template x-if="imagen">
+                                    <img :src="imagen" alt="" class="h-full w-full object-cover">
+                                </template>
 
-                        <span
-                            class="
-                                ml-auto
-                                rounded-full
-                                bg-slate-200
-                                px-2
-                                py-1
-                                text-[9px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-slate-500
-                            ">
-                            Permanente
-                        </span>
-
-                    </div>
-
-
-                    <p
-                        class="
-                            mt-2
-                            text-xs
-                            text-slate-500
-                        ">
-                        Se genera automáticamente y nunca
-                        cambia aunque renombres el elemento.
-                    </p>
-
-                </div>
-
-            </div>
-
-
-            {{-- CATÁLOGO PROPIETARIO --}}
-            <div
-                class="
-                    mt-6
-                    rounded-2xl
-                    border
-                    border-violet-100
-                    bg-violet-50
-                    p-4
-                ">
-
-                <div
-                    class="
-                        flex
-                        items-center
-                        gap-4
-                    ">
-
-                    <div
-                        class="
-                            h-14
-                            w-14
-                            shrink-0
-                            overflow-hidden
-                            rounded-xl
-                            bg-white
-                        ">
-
-                        @if ($catalog->image_url)
-                            <img src="{{ $catalog->image_url }}" alt="{{ $catalog->name }}"
-                                class="
-                                    h-full
-                                    w-full
-                                    object-cover
-                                ">
-                        @else
-                            <div class="
-                                    flex
-                                    h-full
-                                    items-center
-                                    justify-center
-                                    text-xl
-                                    font-black
-                                "
-                                style="
-                                    background-color:
-                                        {{ $catalog->color ?? '#6366F1' }}20;
-
-                                    color:
-                                        {{ $catalog->color ?? '#6366F1' }};
-                                ">
-                                {{ $catalog->icon ?: '◆' }}
+                                <template x-if="! imagen">
+                                    <span class="flex h-full w-full flex-col items-center justify-center gap-1">
+                                        <span class="text-3xl" :style="`color: ${color}66`"
+                                            x-text="icono || '◇'"></span>
+                                        <span class="text-[9px] font-black uppercase tracking-wider text-rose-400">
+                                            sin imagen
+                                        </span>
+                                    </span>
+                                </template>
                             </div>
+                        </div>
+
+                        <div class="mt-2 flex items-center gap-1.5">
+                            <label class="flex-1 cursor-pointer rounded-xl border border-dashed border-slate-700 px-2 py-1.5 text-center transition hover:border-violet-500">
+                                <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp"
+                                    x-ref="campoImagen" @change="verImagen($event)" class="sr-only">
+                                <span class="text-[10px] font-black text-slate-300">Elegir</span>
+                            </label>
+
+                            <button type="button" x-show="imagen" x-cloak @click="quitarImagen()"
+                                class="rounded-xl border border-slate-800 px-2 py-1.5 text-[10px] font-black text-slate-500 transition hover:border-rose-500 hover:text-rose-300">
+                                Quitar
+                            </button>
+                        </div>
+
+                        @if ($editando)
+                            <input type="hidden" name="remove_image" :value="quitarLaExistente ? 1 : 0">
                         @endif
 
+                        @error('image')
+                            <span class="mt-1 block text-[11px] font-bold text-rose-300">{{ $message }}</span>
+                        @enderror
+
+                        <p class="mt-1.5 text-[9px] leading-3 text-slate-600">
+                            JPG, PNG o WEBP, hasta 4 MB. Cuadrada se ve mejor.
+                        </p>
                     </div>
 
 
-                    <div class="min-w-0">
+                    <div class="space-y-3">
 
-                        <p
-                            class="
-                                text-[10px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-violet-500
-                            ">
-                            Catálogo propietario
+                        <div class="rounded-xl border border-rose-500/25 bg-rose-500/5 px-3 py-2"
+                            x-show="! imagen" x-cloak>
+                            <p class="text-[10px] leading-4 text-rose-200/80">
+                                <strong class="text-rose-200">Sin imagen no se le reconoce.</strong>
+                                Todas las pantallas donde se elige un valor —el constructor de reglas, las
+                                dependencias entre catálogos, el formulario de una entidad— lo enseñan por
+                                su cara. Se puede guardar así, pero aparecerá como un cuadro vacío.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="block">
+                                <span class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-600">
+                                    Símbolo
+                                </span>
+                                <input type="text" name="icon" x-model="icono" maxlength="100" placeholder="◆"
+                                    class="w-full rounded-xl border-slate-800 bg-slate-950 text-center text-sm text-slate-200 placeholder:text-slate-600 focus:border-violet-500 focus:ring-violet-500">
+                                <span class="mt-1 block text-[9px] leading-3 text-slate-600">
+                                    El respaldo si no hay imagen.
+                                </span>
+                            </label>
+
+                            <label class="block">
+                                <span class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-600">
+                                    Color
+                                </span>
+                                <div class="flex items-center gap-1.5">
+                                    <input type="color" name="color" x-model="color"
+                                        class="h-[38px] w-12 shrink-0 cursor-pointer rounded-xl border border-slate-800 bg-slate-950 p-1">
+                                    <input type="text" :value="color" readonly
+                                        class="w-full min-w-0 rounded-xl border-slate-800 bg-slate-950 font-mono text-[11px] text-slate-400 focus:border-violet-500 focus:ring-violet-500">
+                                </div>
+                                <span class="mt-1 block text-[9px] leading-3 text-slate-600">
+                                    Su acento en listas y bordes.
+                                </span>
+                            </label>
+                        </div>
+
+                        <label class="block">
+                            <span class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-600">
+                                Qué representa
+                            </span>
+                            <textarea name="description" rows="3" maxlength="3000"
+                                placeholder="Opcional. Una línea explicando qué es, para acordarte dentro de un año."
+                                class="w-full rounded-xl border-slate-800 bg-slate-950 text-xs text-slate-200 placeholder:text-slate-600 focus:border-violet-500 focus:ring-violet-500">{{ $descripcionActual }}</textarea>
+                            @error('description')
+                                <span class="mt-1 block text-[11px] font-bold text-rose-300">{{ $message }}</span>
+                            @enderror
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        {{-- ---------- 3 · DE QUÉ CUELGA ---------- --}}
+
+        <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
+
+            <div class="flex items-center gap-3 border-b border-slate-800 px-4 py-2.5">
+                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cyan-500/15 font-mono text-[11px] font-black text-cyan-300">3</span>
+                <h3 class="min-w-0 flex-1 text-[12px] font-black text-white">De qué cuelga</h3>
+                <span class="shrink-0 text-[10px] font-bold text-slate-600">Opcional</span>
+            </div>
+
+            <div class="p-4">
+
+                {{--
+                    Va fuera del bloque de candidatos a propósito: si el catálogo
+                    no tiene ninguno, el campo tiene que viajar igual para no
+                    dejar sin decir de qué cuelga un valor que ya colgaba.
+                --}}
+                <input type="hidden" name="parent_option_id" :value="padre">
+
+                <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+
+                    <div>
+                        <p class="text-[11px] leading-relaxed text-slate-500">
+                            Solo si este valor está <strong class="text-slate-300">dentro</strong> de otro del
+                            mismo catálogo: Konoha dentro del País del Fuego. Si no, déjalo suelto —la mayoría
+                            lo están—.
                         </p>
 
+                        @if ($candidatosPadre->isEmpty())
+                            <p class="mt-3 rounded-xl border border-dashed border-slate-800 py-6 text-center text-[10px] text-slate-600">
+                                No hay ningún otro valor activo del que pueda colgar.
+                            </p>
+                        @else
+                            <div class="mt-3">
+                                <input type="search" x-model="buscarPadre" placeholder="Buscar entre los que ya hay…"
+                                    class="w-full rounded-xl border-slate-800 bg-slate-950 text-xs text-slate-200 placeholder:text-slate-600 focus:border-violet-500 focus:ring-violet-500">
+                            </div>
 
-                        <p
-                            class="
-                                mt-1
-                                truncate
-                                font-black
-                                text-violet-950
-                            ">
-                            {{ $catalog->name }}
-                        </p>
+                            <div class="mt-2 flex max-h-56 flex-wrap gap-1.5 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950 p-2">
 
+                                <button type="button" @click="padre = ''"
+                                    :class="padre === '' ? 'border-cyan-500 bg-cyan-500/15 text-cyan-200' : 'border-slate-800 text-slate-400'"
+                                    class="flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-black transition">
+                                    <span class="text-[11px]">⊘</span>
+                                    De ninguno
+                                </button>
 
-                        <p
-                            class="
-                                mt-1
-                                font-mono
-                                text-[10px]
-                                font-bold
-                                text-violet-500
-                            ">
-                            {{ $catalog->code }}
-                        </p>
+                                <template x-for="candidato in padres" :key="candidato.id">
+                                    <button type="button" @click="padre = candidato.id"
+                                        x-show="! buscarPadre || candidato.name.toLowerCase().includes(buscarPadre.toLowerCase())"
+                                        :class="padre === candidato.id ? 'border-cyan-500 bg-cyan-500/15 text-white' : 'border-slate-800 text-slate-400'"
+                                        class="flex items-center gap-1.5 rounded-lg border py-0.5 pl-0.5 pr-2 text-[10px] font-black transition hover:border-slate-600">
+                                        <span class="h-6 w-6 shrink-0 overflow-hidden rounded-md border border-slate-800 bg-slate-900">
+                                            <template x-if="candidato.image">
+                                                <img :src="candidato.image" alt="" class="h-full w-full object-cover">
+                                            </template>
+                                            <template x-if="! candidato.image">
+                                                <span class="flex h-full w-full items-center justify-center text-[9px]"
+                                                    :style="`color: ${candidato.color}`"
+                                                    x-text="candidato.icon || '◇'"></span>
+                                            </template>
+                                        </span>
+                                        <span class="max-w-[130px] truncate" x-text="candidato.name"></span>
+                                    </button>
+                                </template>
+                            </div>
 
+                            @error('parent_option_id')
+                                <span class="mt-1 block text-[11px] font-bold text-rose-300">{{ $message }}</span>
+                            @enderror
+                        @endif
                     </div>
 
 
-                    @if ($editing)
-                        <span
-                            class="
-                                ml-auto
-                                rounded-full
-                                bg-white
-                                px-3
-                                py-1.5
-                                text-[9px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-violet-600
-                            ">
-                            Bloqueado
+                    {{-- Dónde va a quedar --}}
+                    <div class="rounded-xl border border-slate-800 bg-slate-950 p-3">
+                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-600">
+                            Dónde quedará
+                        </p>
+
+                        <div class="mt-2 space-y-1.5">
+
+                            <div class="flex items-center gap-2 rounded-lg border border-slate-800 px-2 py-1.5">
+                                @include('attributes.partials.cara', [
+                                    'cosa' => $catalogo,
+                                    'tamano' => 'h-6 w-6',
+                                    'respaldo' => '◫',
+                                    'tono' => $acento,
+                                ])
+                                <span class="min-w-0 flex-1 truncate text-[10px] font-black text-slate-300">
+                                    {{ $catalogo?->name }}
+                                </span>
+                            </div>
+
+                            {{--
+                                `padre` se lee dentro de la propia expresión a
+                                propósito: si la condición fuera solo el captador,
+                                Alpine no registraría de qué depende y el dibujo
+                                se quedaría congelado al cambiar de padre.
+                            --}}
+                            <template x-if="padre && padreElegido">
+                                <div class="ml-3 flex items-center gap-2 rounded-lg border border-cyan-500/40 px-2 py-1.5">
+                                    <span class="font-mono text-[10px] text-slate-700">└</span>
+                                    <span class="h-6 w-6 shrink-0 overflow-hidden rounded-md border border-slate-800 bg-slate-900">
+                                        <template x-if="padreElegido.image">
+                                            <img :src="padreElegido.image" alt="" class="h-full w-full object-cover">
+                                        </template>
+                                        <template x-if="! padreElegido.image">
+                                            <span class="flex h-full w-full items-center justify-center text-[9px]"
+                                                :style="`color: ${padreElegido.color}`"
+                                                x-text="padreElegido.icon || '◇'"></span>
+                                        </template>
+                                    </span>
+                                    <span class="min-w-0 flex-1 truncate text-[10px] font-black text-slate-300"
+                                        x-text="padreElegido.name"></span>
+                                </div>
+                            </template>
+
+                            <div class="flex items-center gap-2 rounded-lg border px-2 py-1.5"
+                                :class="padre ? 'ml-6 border-violet-500/60' : 'ml-3 border-violet-500/60'">
+                                <span class="font-mono text-[10px] text-slate-700">└</span>
+                                <span class="h-6 w-6 shrink-0 overflow-hidden rounded-md border border-slate-800 bg-slate-900">
+                                    <template x-if="imagen">
+                                        <img :src="imagen" alt="" class="h-full w-full object-cover">
+                                    </template>
+                                    <template x-if="! imagen">
+                                        <span class="flex h-full w-full items-center justify-center text-[9px]"
+                                            :style="`color: ${color}`" x-text="icono || '◇'"></span>
+                                    </template>
+                                </span>
+                                <span class="min-w-0 flex-1 truncate text-[10px] font-black text-white"
+                                    x-text="nombre || 'este valor'"></span>
+                            </div>
+                        </div>
+
+                        @if ($editando && $attributeOption->children_count > 0)
+                            <p class="mt-2 border-t border-slate-800 pt-2 text-[9px] leading-3 text-amber-300/80">
+                                Cuidado: {{ $attributeOption->children_count }}
+                                {{ $attributeOption->children_count === 1 ? 'valor cuelga' : 'valores cuelgan' }}
+                                de este, y se {{ $attributeOption->children_count === 1 ? 'moverá' : 'moverán' }}
+                                con él.
+                            </p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        {{-- ---------- 4 · LO DEMÁS ---------- --}}
+
+        <section x-data="{ abierto: {{ $errors->any() || $numeroActual !== '' || $estadoActual !== 'ACTIVE' ? 'true' : 'false' }} }"
+            class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
+
+            <button type="button" @click="abierto = !abierto"
+                class="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-slate-950/40">
+
+                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-slate-800 font-mono text-[11px] font-black text-slate-400">4</span>
+
+                <span class="min-w-0 flex-1">
+                    <span class="block text-[12px] font-black text-white">Lo demás</span>
+                    <span class="block text-[10px] text-slate-500">
+                        Un número de referencia y si se puede elegir. Casi nunca hace falta tocarlo.
+                    </span>
+                </span>
+
+                <span class="shrink-0 text-slate-500 transition" :class="abierto ? 'rotate-90' : ''">
+                    <x-omni-icon name="chevron-derecha" size="h-4 w-4" />
+                </span>
+            </button>
+
+            <div x-show="abierto" x-cloak x-collapse class="border-t border-slate-800 p-4">
+
+                <div class="grid gap-4 sm:grid-cols-2">
+
+                    <label class="block">
+                        <span class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-600">
+                            Valor numérico
                         </span>
-                    @endif
-
-                </div>
-
-
-                <p
-                    class="
-                        mt-3
-                        text-xs
-                        leading-5
-                        text-violet-700
-                    ">
-                    El Catálogo no puede cambiarse después
-                    de crear el elemento. Así se conserva
-                    su significado y sus relaciones.
-                </p>
-
-            </div>
-
-        </section>
-
-
-        {{-- ===================================================== --}}
-        {{-- REPRESENTACIÓN --}}
-        {{-- ===================================================== --}}
-
-        <section class="
-                border-t
-                border-slate-200
-                pt-8
-            ">
-
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-[0.16em]
-                    text-violet-600
-                ">
-                2 · Representación
-            </p>
-
-
-            <h3
-                class="
-                    mt-2
-                    text-xl
-                    font-black
-                    text-slate-900
-                ">
-                Imagen e identidad visual
-            </h3>
-
-            <div class="
-        mt-6
-        max-w-2xl
-    "
-                @omni-image-selected="
-        imagePreview =
-            $event.detail.url;
-
-        removeImage =
-            false;
-    "
-                @omni-image-cleared="
-        imagePreview =
-            null;
-
-        removeImage =
-            true;
-    "
-                @omni-image-restored="
-        imagePreview =
-            $event.detail.url;
-
-        removeImage =
-            false;
-    ">
-
-                <x-omni-image-upload name="image" label="Imagen del elemento de Catálogo" :current-url="$editing ? $attributeOption->image_url : null"
-                    :max-mb="4" :remove-name="$editing ? 'remove_image' : null" />
-
-            </div>
-
-            <div
-                class="
-                    mt-5
-                    grid
-                    gap-5
-                    sm:grid-cols-2
-                ">
-
-                <div>
-
-                    <label
-                        class="
-                            mb-2
-                            block
-                            text-sm
-                            font-bold
-                            text-slate-700
-                        ">
-                        Icono alternativo
+                        <input type="number" step="any" name="numeric_value" value="{{ $numeroActual }}"
+                            placeholder="Vacío"
+                            class="w-full rounded-xl border-slate-800 bg-slate-950 font-mono text-sm text-slate-200 placeholder:font-sans placeholder:text-slate-600 focus:border-violet-500 focus:ring-violet-500">
+                        <span class="mt-1 block text-[10px] leading-4 text-slate-600">
+                            Un número asociado a este valor, por si más adelante hace falta ordenarlos o
+                            compararlos por él: el rango de un ninja, la potencia de un elemento. No se
+                            enseña en ninguna parte todavía.
+                        </span>
+                        @error('numeric_value')
+                            <span class="mt-1 block text-[11px] font-bold text-rose-300">{{ $message }}</span>
+                        @enderror
                     </label>
 
+                    <div>
+                        <span class="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-600">
+                            Se puede elegir
+                        </span>
 
-                    <input name="icon" x-model="icon" value="{{ $currentIcon }}" placeholder="🍥"
-                        class="
-                            w-full
-                            rounded-xl
-                            border-slate-300
-                            bg-white
-                            text-slate-900
-                            placeholder:text-slate-400
-                        ">
+                        <div class="space-y-1.5">
+                            @foreach ([['ACTIVE', 'Sí, activo', 'Aparece en los selectores y se puede asignar.'], ['INACTIVE', 'De momento no', 'Se oculta de los selectores, pero sigue ahí.'], ['ARCHIVED', 'Archivado', 'Fuera de circulación. Quien ya lo llevaba lo conserva.']] as [$valor, $etiqueta, $ayuda])
+                                <label class="group flex cursor-pointer items-start gap-2 rounded-xl border border-slate-800 bg-slate-950 px-2.5 py-1.5 transition has-[:checked]:border-violet-500 has-[:checked]:bg-violet-500/10">
+                                    <input type="radio" name="status" value="{{ $valor }}"
+                                        @checked($estadoActual === $valor)
+                                        class="mt-0.5 border-slate-700 bg-slate-900 text-violet-500 focus:ring-violet-500">
+                                    <span class="min-w-0">
+                                        <span class="block text-[11px] font-black text-slate-200">{{ $etiqueta }}</span>
+                                        <span class="block text-[9px] leading-3 text-slate-600">{{ $ayuda }}</span>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
 
-                </div>
-
-
-                <div>
-
-                    <label
-                        class="
-                            mb-2
-                            block
-                            text-sm
-                            font-bold
-                            text-slate-700
-                        ">
-                        Color
-                    </label>
-
-
-                    <div class="flex gap-3">
-
-                        <input type="color" name="color" x-model="color" value="{{ $currentColor }}"
-                            class="
-                                h-11
-                                w-16
-                                rounded-xl
-                                border
-                                border-slate-300
-                                bg-white
-                                p-1
-                            ">
-
-
-                        <input type="text" x-model="color" readonly
-                            class="
-                                flex-1
-                                rounded-xl
-                                border-slate-300
-                                bg-slate-50
-                                font-mono
-                                text-sm
-                                uppercase
-                                text-slate-900
-                            ">
-
+                        @error('status')
+                            <span class="mt-1 block text-[11px] font-bold text-rose-300">{{ $message }}</span>
+                        @enderror
                     </div>
-
                 </div>
-
             </div>
-
         </section>
-
-
-        {{-- ===================================================== --}}
-        {{-- DESCRIPCIÓN --}}
-        {{-- ===================================================== --}}
-
-        <section class="
-                border-t
-                border-slate-200
-                pt-8
-            ">
-
-            <label
-                class="
-                    mb-2
-                    block
-                    text-sm
-                    font-bold
-                    text-slate-700
-                ">
-                Descripción
-            </label>
-
-
-            <textarea name="description" rows="5" placeholder="Explica qué representa este elemento..."
-                class="
-                    w-full
-                    rounded-xl
-                    border-slate-300
-                    bg-white
-                    text-slate-900
-                    placeholder:text-slate-400
-                ">{{ old('description', $attributeOption->description ?? '') }}</textarea>
-
-        </section>
-
-
-        {{-- ===================================================== --}}
-        {{-- JERARQUÍA --}}
-        {{-- ===================================================== --}}
-
-        <section class="
-                border-t
-                border-slate-200
-                pt-8
-            ">
-
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-[0.16em]
-                    text-violet-600
-                ">
-                3 · Jerarquía
-            </p>
-
-
-            <h3
-                class="
-                    mt-2
-                    text-xl
-                    font-black
-                    text-slate-900
-                ">
-                Elemento superior
-            </h3>
-
-
-            <p
-                class="
-                    mt-2
-                    max-w-2xl
-                    text-sm
-                    leading-6
-                    text-slate-500
-                ">
-                Úsalo solamente cuando este elemento dependa
-                jerárquicamente de otro elemento del mismo
-                Catálogo.
-            </p>
-
-
-            <div
-                class="
-                    mt-5
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-slate-50
-                    p-5
-                ">
-
-                <select name="parent_option_id" x-model="parentId"
-                    class="
-                        w-full
-                        rounded-xl
-                        border-slate-300
-                        bg-white
-                        text-slate-900
-                    ">
-
-                    <option value="">
-                        Ninguno · Nivel principal
-                    </option>
-
-
-                    @foreach ($parentOptions as $parentOption)
-                        <option value="{{ $parentOption->id }}" @selected($currentParentId == $parentOption->id)>
-                            {{ $parentOption->name }}
-                            ·
-                            {{ $parentOption->code }}
-                        </option>
-                    @endforeach
-
-                </select>
-
-
-                @error('parent_option_id')
-                    <p
-                        class="
-                            mt-2
-                            text-sm
-                            font-semibold
-                            text-red-600
-                        ">
-                        {{ $message }}
-                    </p>
-                @enderror
-
-
-                <div
-                    class="
-                        mt-4
-                        rounded-xl
-                        border
-                        border-blue-100
-                        bg-blue-50
-                        p-4
-                    ">
-
-                    <p
-                        class="
-                            text-xs
-                            font-black
-                            text-blue-800
-                        ">
-                        Ejemplo
-                    </p>
-
-
-                    <div
-                        class="
-                            mt-3
-                            space-y-1
-                            font-mono
-                            text-xs
-                            text-blue-700
-                        ">
-
-                        <p>
-                            Perú
-                        </p>
-
-                        <p class="pl-4">
-                            └── Tacna
-                        </p>
-
-                        <p class="pl-8">
-                            └── Pocollay
-                        </p>
-
-                    </div>
-
-
-                    <p
-                        class="
-                            mt-3
-                            text-xs
-                            leading-5
-                            text-blue-700
-                        ">
-                        La jerarquía es opcional.
-                        Para Anime → Naruto, One Piece y Bleach
-                        normalmente todos serían elementos principales.
-                    </p>
-
-                </div>
-
-            </div>
-
-        </section>
-
-
-        {{-- ===================================================== --}}
-        {{-- AVANZADO --}}
-        {{-- ===================================================== --}}
-
-        <section class="
-                border-t
-                border-slate-200
-                pt-8
-            ">
-
-            <button type="button"
-                @click="
-                    advanced =
-                        ! advanced
-                "
-                class="
-                    flex
-                    w-full
-                    items-center
-                    justify-between
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-slate-50
-                    px-5
-                    py-4
-                    text-left
-                ">
-
-                <div>
-
-                    <p
-                        class="
-                            text-sm
-                            font-black
-                            text-slate-800
-                        ">
-                        ⚙ Configuración avanzada
-                    </p>
-
-
-                    <p
-                        class="
-                            mt-1
-                            text-xs
-                            text-slate-500
-                        ">
-                        Valor de referencia y estado.
-                    </p>
-
-                </div>
-
-
-                <span
-                    x-text="
-                        advanced
-                            ? '−'
-                            : '+'
-                    "
-                    class="
-                        text-slate-400
-                    "></span>
-
-            </button>
-
-
-            <div x-cloak x-show="advanced" x-transition
-                class="
-                    mt-5
-                    space-y-6
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    p-5
-                ">
-
-                {{-- NUMERIC VALUE --}}
-                <div>
-
-                    <label
-                        class="
-                            mb-2
-                            block
-                            text-sm
-                            font-bold
-                            text-slate-700
-                        ">
-                        Valor numérico de referencia
-                    </label>
-
-
-                    <input type="number" step="any" name="numeric_value"
-                        value="{{ old('numeric_value', $attributeOption->numeric_value ?? '') }}"
-                        placeholder="Ejemplo: 4"
-                        class="
-                            w-full
-                            rounded-xl
-                            border-slate-300
-                            bg-white
-                            text-slate-900
-                            placeholder:text-slate-400
-                        ">
-
-
-                    <p
-                        class="
-                            mt-2
-                            text-xs
-                            leading-5
-                            text-slate-500
-                        ">
-                        Opcional. Permite asociar una equivalencia
-                        numérica para comparaciones, reglas,
-                        rankings o sistemas futuros.
-                    </p>
-
-                </div>
-
-
-                {{-- STATUS --}}
-                <div>
-
-                    <label
-                        class="
-                            mb-2
-                            block
-                            text-sm
-                            font-bold
-                            text-slate-700
-                        ">
-                        Estado
-                    </label>
-
-
-                    <select name="status"
-                        class="
-                            w-full
-                            rounded-xl
-                            border-slate-300
-                            bg-white
-                            text-slate-900
-                        ">
-
-                        <option value="ACTIVE" @selected(old('status', $attributeOption->status ?? 'ACTIVE') === 'ACTIVE')>
-                            Activo
-                        </option>
-
-
-                        <option value="INACTIVE" @selected(old('status', $attributeOption->status ?? 'ACTIVE') === 'INACTIVE')>
-                            Inactivo
-                        </option>
-
-
-                        <option value="ARCHIVED" @selected(old('status', $attributeOption->status ?? 'ACTIVE') === 'ARCHIVED')>
-                            Archivado
-                        </option>
-
-                    </select>
-
-
-                    <div
-                        class="
-                            mt-3
-                            space-y-1
-                            text-xs
-                            text-slate-500
-                        ">
-
-                        <p>
-                            <strong class="text-emerald-600">
-                                Activo:
-                            </strong>
-                            disponible normalmente.
-                        </p>
-
-
-                        <p>
-                            <strong class="text-amber-600">
-                                Inactivo:
-                            </strong>
-                            temporalmente deshabilitado.
-                        </p>
-
-
-                        <p>
-                            <strong class="text-slate-600">
-                                Archivado:
-                            </strong>
-                            conservado para historial.
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </section>
-
-
-        {{-- ===================================================== --}}
-        {{-- BOTONES --}}
-        {{-- ===================================================== --}}
-
-        <div
-            class="
-                flex
-                flex-wrap
-                justify-end
-                gap-3
-                border-t
-                border-slate-200
-                pt-7
-            ">
-
-            <a href="{{ $editing ? route('attribute-options.show', $attributeOption) : route('attribute-options.index') }}"
-                class="
-                    rounded-xl
-                    border
-                    border-slate-300
-                    px-5
-                    py-3
-                    text-sm
-                    font-bold
-                    text-slate-700
-                    hover:bg-slate-50
-                ">
-                Cancelar
-            </a>
-
-
-            <button type="submit"
-                class="
-                    rounded-xl
-                    bg-violet-600
-                    px-6
-                    py-3
-                    text-sm
-                    font-black
-                    text-white
-                    shadow-lg
-                    shadow-violet-600/20
-                    hover:bg-violet-700
-                ">
-                {{ $editing ? 'Guardar cambios' : 'Crear elemento' }}
-            </button>
-
-        </div>
 
     </div>
 
 
-    {{-- ========================================================= --}}
-    {{-- PREVIEW --}}
-    {{-- ========================================================= --}}
+    {{-- ===================================================== --}}
+    {{-- LO QUE SE VERÁ --}}
+    {{-- ===================================================== --}}
 
-    <aside class="
-            xl:sticky
-            xl:top-24
-            xl:self-start
-        ">
+    <aside class="space-y-3 xl:sticky xl:top-2 xl:self-start">
 
-        <div
-            class="
-                rounded-3xl
-                border
-                border-slate-200
-                bg-slate-50
-                p-5
-            ">
+        <section class="overflow-hidden rounded-2xl border bg-slate-900/50"
+            style="border-color: {{ $acento }}40">
 
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-wider
-                    text-slate-400
-                ">
-                Vista previa
-            </p>
-
-
-            <div
-                class="
-                    mt-4
-                    overflow-hidden
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-white
-                ">
-
-                <div class="
-                        h-44
-                        bg-slate-100
-                    ">
-
-                    <template x-if="imagePreview">
-
-                        <img :src="imagePreview"
-                            class="
-                                h-full
-                                w-full
-                                object-cover
-                            ">
-
-                    </template>
-
-
-                    <template x-if="! imagePreview">
-
-                        <div class="
-                                flex
-                                h-full
-                                items-center
-                                justify-center
-                                text-5xl
-                                font-black
-                            "
-                            :style="`
-                                                                                        background-color:
-                                                                                            ${color}20;
-                                                        
-                                                                                        color:
-                                                                                            ${color};
-                                                                                    `">
-                            <span
-                                x-text="
-                                    icon
-                                    || '◆'
-                                "></span>
-                        </div>
-
-                    </template>
-
-                </div>
-
-
-                <div class="p-5">
-
-                    <p
-                        class="
-                            font-mono
-                            text-[10px]
-                            font-black
-                            uppercase
-                            tracking-wider
-                            text-slate-400
-                        ">
-                        {{ $editing ? $attributeOption->code : $previewCode }}
-                    </p>
-
-
-                    <h4 x-text="
-                            name
-                            || 'Nuevo elemento'
-                        "
-                        class="
-                            mt-2
-                            text-lg
-                            font-black
-                            text-slate-900
-                        ">
-                    </h4>
-
-
-                    <div
-                        class="
-                            mt-3
-                            flex
-                            items-center
-                            gap-2
-                        ">
-
-                        <div
-                            class="
-                                h-7
-                                w-7
-                                overflow-hidden
-                                rounded-lg
-                                bg-slate-100
-                            ">
-
-                            @if ($catalog->image_url)
-                                <img src="{{ $catalog->image_url }}"
-                                    class="
-                                        h-full
-                                        w-full
-                                        object-cover
-                                    ">
-                            @else
-                                <div
-                                    class="
-                                        flex
-                                        h-full
-                                        items-center
-                                        justify-center
-                                        text-xs
-                                    ">
-                                    {{ $catalog->icon ?: '◆' }}
-                                </div>
-                            @endif
-
-                        </div>
-
-
-                        <span
-                            class="
-                                text-xs
-                                font-bold
-                                text-slate-500
-                            ">
-                            {{ $catalog->name }}
-                        </span>
-
-                    </div>
-
-                </div>
-
+            <div class="border-b border-slate-800 px-3 py-2">
+                <p class="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                    Así se verá al elegirlo
+                </p>
             </div>
 
-        </div>
+            <div class="p-3">
+
+                {{--
+                    No es un adorno: es la misma ficha que sale en la galería del
+                    catálogo y en el selector de una entidad. Lo que se vea aquí
+                    es exactamente lo que verá quien tenga que reconocerlo.
+                --}}
+
+                <article class="overflow-hidden rounded-xl border bg-slate-950"
+                    :style="`border-color: ${imagen ? color + '55' : '#f43f5e55'}`">
+
+                    <div class="relative aspect-square overflow-hidden bg-slate-900">
+                        <template x-if="imagen">
+                            <img :src="imagen" alt="" class="h-full w-full object-cover">
+                        </template>
+                        <template x-if="! imagen">
+                            <span class="flex h-full w-full items-center justify-center text-4xl"
+                                :style="`color: ${color}66`" x-text="icono || '◇'"></span>
+                        </template>
+
+                        <template x-if="! imagen">
+                            <span class="absolute inset-x-0 bottom-0 bg-rose-500/85 py-0.5 text-center text-[9px] font-black text-white">
+                                sin imagen
+                            </span>
+                        </template>
+                    </div>
+
+                    <div class="p-2">
+                        <p class="truncate text-[12px] font-black text-white" x-text="nombre || 'Sin nombre'"></p>
+                        <p class="truncate text-[10px] font-bold" style="color: {{ $acento }}">
+                            {{ $catalogo?->name }}
+                        </p>
+                    </div>
+                </article>
 
 
-        <div
-            class="
-                mt-4
-                rounded-2xl
-                border
-                border-violet-100
-                bg-violet-50
-                p-5
-            ">
+                {{-- Y así, en una fila --}}
+                <p class="mt-3 text-[9px] font-black uppercase tracking-wider text-slate-600">
+                    Y así en una lista
+                </p>
 
-            <p
-                class="
-                    text-sm
-                    font-black
-                    text-violet-900
-                ">
-                ◆ Elemento de Catálogo
-            </p>
+                <div class="mt-1 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 p-1.5">
+                    <span class="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-900">
+                        <template x-if="imagen">
+                            <img :src="imagen" alt="" class="h-full w-full object-cover">
+                        </template>
+                        <template x-if="! imagen">
+                            <span class="flex h-full w-full items-center justify-center text-[11px]"
+                                :style="`color: ${color}`" x-text="icono || '◇'"></span>
+                        </template>
+                    </span>
+                    <span class="min-w-0 flex-1 truncate text-[11px] font-black text-white"
+                        x-text="nombre || 'Sin nombre'"></span>
+                </div>
+            </div>
 
 
-            <p
-                class="
-                    mt-2
-                    text-xs
-                    leading-6
-                    text-violet-700
-                ">
-                Esta pieza podrá ser utilizada por entidades
-                y, posteriormente, referenciada desde
-                Universos, Torneos, filtros y otras reglas
-                de OmniMerge.
-            </p>
+            {{-- Qué falta --}}
+            <div class="border-t border-slate-800 px-3 py-2.5">
+                <p class="mb-1.5 text-[9px] font-black uppercase tracking-wider text-slate-600">
+                    Qué le falta
+                </p>
 
-        </div>
+                <ul class="space-y-1">
+                    <li class="flex items-center gap-1.5 text-[10px]">
+                        <span x-text="nombre.trim() ? '✓' : '·'"
+                            :class="nombre.trim() ? 'text-emerald-400' : 'text-slate-700'"
+                            class="w-3 text-center font-black"></span>
+                        <span :class="nombre.trim() ? 'text-slate-400' : 'text-slate-600'">Un nombre</span>
+                    </li>
+
+                    <li class="flex items-center gap-1.5 text-[10px]">
+                        <span x-text="imagen ? '✓' : '!'"
+                            :class="imagen ? 'text-emerald-400' : 'text-rose-400'"
+                            class="w-3 text-center font-black"></span>
+                        <span :class="imagen ? 'text-slate-400' : 'text-rose-300'">Una imagen</span>
+                    </li>
+
+                    <li class="flex items-center gap-1.5 text-[10px]">
+                        <span class="w-3 text-center font-black text-slate-700">·</span>
+                        <span class="text-slate-600">Descripción y jerarquía, si aplican</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+
+        {{-- ---------- GUARDAR ---------- --}}
+
+        <section class="space-y-2 rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+
+            @if (! $editando)
+                <label class="flex cursor-pointer items-start gap-2 rounded-xl border border-slate-800 bg-slate-950 px-2.5 py-2 transition has-[:checked]:border-violet-500 has-[:checked]:bg-violet-500/10">
+                    <input type="checkbox" name="keep_adding" value="1" @checked(old('keep_adding'))
+                        class="mt-0.5 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-violet-500">
+                    <span class="min-w-0">
+                        <span class="block text-[11px] font-black text-slate-200">Seguir añadiendo</span>
+                        <span class="block text-[9px] leading-3 text-slate-600">
+                            Al guardar, vuelve aquí con el catálogo ya elegido. Para llenar un catálogo de
+                            cincuenta sin dar cincuenta vueltas.
+                        </span>
+                    </span>
+                </label>
+            @endif
+
+            <button type="submit" :disabled="! nombre.trim()"
+                class="w-full rounded-xl px-4 py-2.5 text-[12px] font-black text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-40"
+                style="background-color: {{ $acento }}">
+                {{ $editando ? 'Guardar los cambios' : 'Crear el valor' }}
+            </button>
+
+            <a href="{{ $editando ? route('attribute-options.show', $attributeOption) : route('attribute-options.index') }}"
+                class="block rounded-xl border border-slate-800 px-4 py-2 text-center text-[11px] font-black text-slate-400 transition hover:border-slate-700 hover:text-white">
+                Cancelar
+            </a>
+        </section>
 
     </aside>
 
 </div>
+
+
+<script>
+    function editorDeValor(config) {
+
+        return {
+
+            nombre: config.nombre ?? '',
+            icono: config.icono ?? '',
+            color: config.color ?? '#6366f1',
+            padre: config.padre ?? '',
+
+            imagen: config.imagenActual ?? null,
+            quitarLaExistente: false,
+
+            buscarPadre: '',
+
+            existentes: config.existentes ?? [],
+            padres: config.padres ?? [],
+
+            /*
+             * Un nombre exactamente igual al de otro valor del mismo catálogo.
+             * Se compara en minúsculas y sin espacios sobrantes porque
+             * «Uzumaki» y «uzumaki » son el mismo clan para cualquiera menos
+             * para la base de datos.
+             */
+            get repetido() {
+                const buscado = this.nombre.trim().toLowerCase();
+
+                if (! buscado) {
+                    return null;
+                }
+
+                return this.existentes.find(v => v.normalizado === buscado) ?? null;
+            },
+
+            /*
+             * Los que empiezan igual. No es un aviso, es un recordatorio: sirve
+             * para darse cuenta de que «Uchiha» ya existe antes de crear
+             * «Uchiha (clan)».
+             */
+            get parecidos() {
+                const buscado = this.nombre.trim().toLowerCase();
+
+                if (buscado.length < 3) {
+                    return [];
+                }
+
+                return this.existentes
+                    .filter(v => v.normalizado !== buscado
+                        && (v.normalizado.includes(buscado) || buscado.includes(v.normalizado)))
+                    .slice(0, 5);
+            },
+
+            get padreElegido() {
+                return this.padres.find(p => p.id === this.padre) ?? null;
+            },
+
+            verImagen(evento) {
+                const archivo = evento.target.files?.[0];
+
+                if (! archivo) {
+                    return;
+                }
+
+                this.quitarLaExistente = false;
+
+                const lector = new FileReader();
+
+                lector.onload = (e) => {
+                    this.imagen = e.target.result;
+                };
+
+                lector.readAsDataURL(archivo);
+            },
+
+            quitarImagen() {
+                this.imagen = null;
+                this.quitarLaExistente = true;
+
+                if (this.$refs.campoImagen) {
+                    this.$refs.campoImagen.value = '';
+                }
+            },
+        };
+    }
+</script>

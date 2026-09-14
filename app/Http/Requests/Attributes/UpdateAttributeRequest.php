@@ -204,6 +204,49 @@ class UpdateAttributeRequest extends FormRequest
     }
 
 
+    public function messages(): array
+    {
+        return [
+
+            'name.required' =>
+            'El nombre del atributo es obligatorio.',
+
+            'name.max' =>
+            'El nombre no puede pasar de 150 caracteres.',
+
+            'data_type.required' =>
+            'Elige de qué clase de dato es.',
+
+            'data_type.in' =>
+            'Esa clase de dato no existe.',
+
+            'color.regex' =>
+            'Selecciona un color válido.',
+
+            'scope.required' =>
+            'Falta decir quién puede verlo.',
+
+            'scope.in' =>
+            'Esa visibilidad no existe.',
+
+            'status.required' =>
+            'Falta el estado.',
+
+            'status.in' =>
+            'Ese estado no existe.',
+
+            'image.max' =>
+            'La imagen no puede pasar del tamaño permitido.',
+
+            'unit.max' =>
+            'La unidad no puede pasar de 30 caracteres.',
+
+            'group_ids.*.exists' =>
+            'Alguno de los grupos elegidos ya no existe o no es tuyo.',
+        ];
+    }
+
+
     public function rules(): array
     {
         return [

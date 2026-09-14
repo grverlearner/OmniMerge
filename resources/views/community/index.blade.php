@@ -1,1077 +1,638 @@
-<x-app-layout>
+@php
+    /*
+     * La comunidad de la biblioteca.
+     *
+     * Aquí se ve lo que otros han hecho público —entidades, colecciones,
+     * atributos y valores de catálogo— y se copia a la biblioteca propia.
+     *
+     * Lo que faltaba y ahora se dice en todas partes:
+     *
+     *   · De quién es cada cosa, y de quién la copió esa persona. El dato
+     *     («source_*_id») se guardaba desde el principio y no se enseñaba en
+     *     ningún sitio, así que una cadena de tres copias parecía tres
+     *     creaciones originales.
+     *   · Si tú ya la copiaste. Sin eso, la comunidad invita a duplicar lo
+     *     mismo una y otra vez.
+     *   · Si su autor deja copiarla, dicho antes de pulsar y no después.
+     */
 
-    <x-slot name="header">
-        Comunidad
-    </x-slot>
+    $pestanas = [
+        'all' => ['Todo', 'panel', null],
+        'entities' => ['Entidades', 'chispa', $statistics['entities']],
+        'collections' => ['Colecciones', 'capas', $statistics['collections']],
+        'attributes' => ['Atributos', 'controles', $statistics['attributes']],
+        'catalogs' => ['Catálogos', 'cuadricula', $statistics['catalogs']],
+        'creators' => ['Creadores', 'usuario', $statistics['creators']],
+    ];
 
+    /* Los filtros que hay que arrastrar al cambiar de pestaña o de página. */
+    $comunes = array_filter([
+        'search' => $search,
+        'sort' => $sort,
+        'creator' => $creator,
+        'image' => $image,
+        'cloning' => $cloning,
+        'period' => $period,
+        'per_page' => $perPage !== 24 ? $perPage : null,
+    ]);
 
-    <style>
-        [x-cloak] {
-            display: none !important;
-        }
-    </style>
+    $hayFiltros = $search || $creator || $image || $cloning || $period
+        || $entityTypeId || $dataType || $multiple || $catalogState
+        || $attributeId || $hierarchy || $usage || $collectionSize;
 
+    /* Los modos de mirar de cada pestaña, con su forma especial al final. */
+    $modos = [
+        'entities' => [
+            ['gallery', 'galeria', 'Galería: solo las caras'],
+            ['grid', 'cuadricula', 'Cuadrícula: la ficha completa'],
+            ['list', 'menu', 'Lista: una línea cada una'],
+            ['table', 'controles', 'Tabla: para comparar y ver de quién viene'],
+            ['special', 'usuario', 'Por creador: agrupadas por quien las hizo'],
+        ],
+        'collections' => [
+            ['gallery', 'galeria', 'Galería: solo las portadas'],
+            ['grid', 'cuadricula', 'Cuadrícula: la ficha completa'],
+            ['list', 'menu', 'Lista: una línea cada una'],
+            ['table', 'controles', 'Tabla: para comparar'],
+            ['special', 'capas', 'Contenido: las caras de lo que hay dentro'],
+        ],
+        'attributes' => [
+            ['gallery', 'galeria', 'Galería: solo las caras'],
+            ['grid', 'cuadricula', 'Cuadrícula: la ficha completa'],
+            ['list', 'menu', 'Lista: una línea cada uno'],
+            ['table', 'controles', 'Tabla: para comparar'],
+            ['special', 'capas', 'Valores: qué trae dentro cada catálogo'],
+        ],
+        'catalogs' => [
+            ['gallery', 'galeria', 'Galería: solo las caras'],
+            ['grid', 'cuadricula', 'Cuadrícula: la ficha completa'],
+            ['list', 'menu', 'Lista: una línea cada uno'],
+            ['table', 'controles', 'Tabla: para comparar'],
+            ['special', 'grafo', 'Por catálogo: agrupados por a cuál pertenecen'],
+        ],
+    ];
 
-    <div x-data="communityExplorer({
-        searchUrl: @js(route('community.search'))
-    })" x-init="init()"
-        @keydown.escape.window="
-            searchOpen = false;
-            cloneOpen = false;
-        ">
+    $ordenes = [
+        'popular' => 'Lo más copiado',
+        'newest' => 'Lo más nuevo',
+        'oldest' => 'Lo más antiguo',
+        'name_asc' => 'Nombre (A–Z)',
+        'name_desc' => 'Nombre (Z–A)',
+    ];
+@endphp
+
+<x-app-layout title="Comunidad" surface="dark">
+
+    <x-slot name="header">Comunidad</x-slot>
+
+    <div x-data="exploradorDeComunidad({ pestana: @js($tab) })" class="space-y-4">
 
         {{-- ===================================================== --}}
         {{-- CABECERA --}}
         {{-- ===================================================== --}}
 
-        <section
-            class="
-                relative
-                overflow-visible
-                rounded-3xl
-                border
-                border-slate-200
-                bg-white
-                p-5
-                shadow-sm
-                sm:p-7
-            ">
+        <header class="flex flex-wrap items-end gap-4">
 
-            <div class="absolute right-0 top-0 -z-0 h-40 w-40 rounded-full bg-violet-100 blur-3xl"></div>
+            <div class="min-w-0 flex-1">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Biblioteca compartida</p>
 
-            <div class="relative">
+                <h1 class="mt-1 text-xl font-black tracking-tight text-white">Comunidad</h1>
 
-                <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-
-                    <div>
-
-                        <span
-                            class="rounded-full bg-violet-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-violet-700">
-                            🌐 Comunidad OmniMerge
-                        </span>
-
-
-                        <h2 class="mt-3 text-3xl font-black tracking-tight text-slate-900">
-                            Descubre. Copia. Evoluciona.
-                        </h2>
-
-
-                        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                            Explora recursos públicos creados por otros usuarios
-                            y reutilízalos como copias independientes dentro de tu Biblioteca.
-                        </p>
-
-                    </div>
-
-
-                    <div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
-
-                        @foreach ([['✦', $statistics['entities'], 'Entidades', 'entities'], ['▤', $statistics['collections'], 'Colecciones', 'collections'], ['☷', $statistics['attributes'], 'Atributos', 'attributes'], ['◆', $statistics['catalogs'], 'Catálogos', 'catalogs'], ['◎', $statistics['creators'], 'Creadores', 'creators']] as [$icon, $value, $label, $target])
-                            <a href="{{ route('community.index', ['tab' => $target]) }}"
-                                class="
-                                    rounded-xl
-                                    bg-slate-50
-                                    px-3
-                                    py-2.5
-                                    text-center
-                                    transition
-                                    hover:bg-indigo-50
-                                ">
-                                <p class="text-sm">
-                                    {{ $icon }}
-                                </p>
-
-                                <p class="mt-1 text-sm font-black text-slate-800">
-                                    {{ number_format($value) }}
-                                </p>
-
-                                <p class="mt-0.5 hidden text-[8px] font-bold uppercase text-slate-400 sm:block">
-                                    {{ $label }}
-                                </p>
-                            </a>
-                        @endforeach
-
-                    </div>
-
-                </div>
-
-
-                {{-- BUSCADOR GLOBAL --}}
-                <div class="relative mt-6 max-w-4xl"
-                    @click.outside="
-                        searchOpen = false
-                    ">
-
-                    <div
-                        class="
-                            flex
-                            items-center
-                            gap-3
-                            rounded-2xl
-                            border
-                            border-slate-200
-                            bg-slate-50
-                            px-4
-                            focus-within:border-violet-300
-                            focus-within:bg-white
-                            focus-within:ring-4
-                            focus-within:ring-violet-50
-                        ">
-
-                        <span class="text-xl text-slate-400">
-                            ⌕
-                        </span>
-
-
-                        <input type="search" x-model="searchQuery" @input.debounce.300ms="searchCommunity()"
-                            @focus="
-                                if (searchQuery.length >= 2) {
-                                    searchOpen = true
-                                }
-                            "
-                            placeholder="Busca cualquier entidad, creador, tipo, atributo o elemento de Catálogo..."
-                            class="
-                                w-full
-                                min-w-0
-                                border-0
-                                bg-transparent
-                                py-4
-                                text-sm
-                                text-slate-900
-                                placeholder:text-slate-400
-                                focus:ring-0
-                            ">
-
-
-                        <span x-show="searching" x-cloak class="text-xs font-bold text-violet-500">
-                            Buscando...
-                        </span>
-
-                    </div>
-
-
-                    <div x-show="searchOpen" x-cloak x-transition
-                        class="
-                            absolute
-                            inset-x-0
-                            top-[calc(100%+8px)]
-                            z-50
-                            overflow-hidden
-                            rounded-2xl
-                            border
-                            border-slate-200
-                            bg-white
-                            shadow-2xl
-                        ">
-
-                        <div class="max-h-[430px] overflow-y-auto p-2">
-
-                            <template x-for="(result, index) in searchResults"
-                                :key="`${result.type}-${result.url}-${index}`">
-
-                                <a :href="result.url"
-                                    class="flex items-center gap-3 rounded-xl p-3 hover:bg-violet-50">
-
-                                    <div class="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-slate-100">
-
-                                        <template x-if="result.image">
-
-                                            <img :src="result.image" class="h-full w-full object-cover">
-
-                                        </template>
-
-
-                                        <template x-if="!result.image">
-
-                                            <div class="flex h-full items-center justify-center font-black text-violet-400"
-                                                x-text="result.icon"></div>
-
-                                        </template>
-
-                                    </div>
-
-
-                                    <div class="min-w-0 flex-1">
-
-                                        <div class="flex items-center gap-2">
-
-                                            <p class="truncate text-sm font-black text-slate-800" x-text="result.title">
-                                            </p>
-
-                                            <span
-                                                class="rounded-full bg-violet-50 px-2 py-0.5 text-[8px] font-black uppercase text-violet-600"
-                                                x-text="result.type"></span>
-
-                                        </div>
-
-
-                                        <p class="mt-1 truncate text-[10px] text-slate-400" x-text="result.subtitle">
-                                        </p>
-
-                                    </div>
-
-
-                                    <span class="text-xs text-slate-300">
-                                        →
-                                    </span>
-
-                                </a>
-
-                            </template>
-
-
-                            <div x-show="
-                                    ! searching
-                                    &&
-                                    searchQuery.length >= 2
-                                    &&
-                                    searchResults.length === 0
-                                "
-                                x-cloak class="p-8 text-center text-sm text-slate-400">
-                                No encontramos resultados.
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
+                <p class="mt-0.5 text-[11px] text-slate-500">
+                    Lo que otros han hecho público: entidades, colecciones, atributos y valores de catálogo.
+                    Todo se puede copiar a tu biblioteca, y la copia recuerda de quién viene.
+                </p>
             </div>
 
+            <a href="{{ route('entities.index') }}"
+                class="rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2 text-[11px] font-black text-slate-300 transition hover:border-violet-500 hover:text-violet-300">
+                Mi biblioteca →
+            </a>
+        </header>
+
+
+        @if (session('success'))
+            <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-[12px] font-bold text-emerald-200">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session('warning'))
+            <div class="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-[12px] font-bold text-amber-200">
+                {{ session('warning') }}
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-[12px] font-bold text-rose-200">
+                <ul class="space-y-0.5">
+                    @foreach ($errors->all() as $error)
+                        <li>· {{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+
+        {{-- ===================================================== --}}
+        {{-- CÓMO FUNCIONA --}}
+        {{-- ===================================================== --}}
+
+        <section x-data="{ abierto: false }"
+            class="overflow-hidden rounded-2xl border border-violet-500/25 bg-violet-500/5">
+
+            <button type="button" @click="abierto = !abierto"
+                class="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-violet-500/5">
+
+                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+                    <x-omni-icon name="globo" size="h-3.5 w-3.5" />
+                </span>
+
+                <span class="min-w-0 flex-1 text-[12px] font-black text-white">
+                    Cómo funciona copiar
+                    <span class="font-bold text-slate-500">— y por qué queda anotado de quién viene</span>
+                </span>
+
+                <span class="shrink-0 text-slate-500 transition" :class="abierto ? 'rotate-90' : ''">
+                    <x-omni-icon name="chevron-derecha" size="h-4 w-4" />
+                </span>
+            </button>
+
+            <div x-show="abierto" x-cloak x-collapse class="border-t border-violet-500/20 p-4">
+                <div class="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+
+                    <svg viewBox="0 0 300 140" class="h-auto w-full text-violet-400" fill="none"
+                        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+
+                        {{-- La biblioteca de otro --}}
+                        <rect x="6" y="40" width="76" height="56" rx="6" />
+                        <circle cx="26" cy="58" r="7" opacity=".8" />
+                        <path d="M40 55h32M40 63h20" opacity=".4" />
+                        <rect x="16" y="74" width="14" height="14" rx="3" opacity=".7" />
+                        <rect x="34" y="74" width="14" height="14" rx="3" opacity=".7" />
+                        <rect x="52" y="74" width="14" height="14" rx="3" opacity=".7" />
+                        <text x="44" y="34" text-anchor="middle" fill="currentColor" stroke="none"
+                            font-size="8" font-weight="700">Lo de otra persona</text>
+                        <text x="44" y="108" text-anchor="middle" fill="currentColor" stroke="none"
+                            font-size="7" font-weight="700" opacity=".55">público en la comunidad</text>
+
+                        {{-- La copia --}}
+                        <path d="M88 68h30M118 68l-7-5M118 68l-7 5" opacity=".8" />
+                        <text x="103" y="60" text-anchor="middle" fill="currentColor" stroke="none"
+                            font-size="7" font-weight="700">copiar</text>
+
+                        {{-- Tu biblioteca --}}
+                        <rect x="124" y="40" width="76" height="56" rx="6" stroke-width="2" />
+                        <circle cx="144" cy="58" r="7" opacity=".8" />
+                        <path d="M158 55h32M158 63h20" opacity=".4" />
+                        <rect x="134" y="74" width="14" height="14" rx="3" opacity=".7" />
+                        <rect x="152" y="74" width="14" height="14" rx="3" opacity=".7" />
+                        <rect x="170" y="74" width="14" height="14" rx="3" opacity=".7" />
+                        <text x="162" y="34" text-anchor="middle" fill="currentColor" stroke="none"
+                            font-size="8" font-weight="700">La tuya</text>
+                        <text x="162" y="108" text-anchor="middle" fill="currentColor" stroke="none"
+                            font-size="7" font-weight="700" opacity=".55">tuya para editar</text>
+
+                        {{-- La atribución --}}
+                        <path d="M206 68h30M236 68l-7-5M236 68l-7 5" opacity=".5" stroke-dasharray="4 3" />
+                        <rect x="242" y="52" width="52" height="32" rx="5" stroke-dasharray="4 3" opacity=".8" />
+                        <circle cx="254" cy="64" r="4" opacity=".7" />
+                        <path d="M262 62h24M250 74h36" opacity=".35" />
+                        <text x="268" y="46" text-anchor="middle" fill="currentColor" stroke="none"
+                            font-size="7" font-weight="700">inspirado en…</text>
+
+                        <path d="M6 122h288" opacity=".15" />
+                        <text x="150" y="134" text-anchor="middle" fill="currentColor" stroke="none"
+                            font-size="7" font-weight="700" opacity=".5">la copia es tuya, pero recuerda de dónde salió</text>
+                    </svg>
+
+                    <div class="space-y-2 text-[11px] leading-relaxed text-slate-400">
+                        <p>
+                            Al copiar algo se crea una <strong class="text-white">copia tuya</strong> en tu
+                            biblioteca: la puedes editar, renombrar y borrar sin que le pase nada al
+                            original.
+                        </p>
+
+                        <p>
+                            La copia guarda de dónde salió, así que en tu ficha y en la comunidad aparece
+                            <strong class="text-amber-300">«inspirado en @alguien»</strong>. Si esa persona a
+                            su vez lo había copiado, la cadena se ve entera.
+                        </p>
+
+                        <p class="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-[10px] text-slate-400">
+                            <strong class="text-slate-200">Copiar arrastra lo que hace falta.</strong> Una
+                            colección se lleva sus entidades, un atributo de catálogo se lleva sus valores.
+                            Por eso las fichas de aquí enseñan lo que traen dentro antes de que pulses.
+                        </p>
+
+                        <p class="border-t border-slate-800 pt-2 text-[10px] text-slate-500">
+                            Lo que ya copiaste sale marcado con <span class="font-black text-emerald-400">✓
+                                Ya lo tienes</span>, y el botón lleva a tu copia en vez de hacer otra.
+                        </p>
+                    </div>
+
+                </div>
+            </div>
         </section>
 
 
         {{-- ===================================================== --}}
-        {{-- TABS --}}
+        {{-- QUÉ HAY --}}
         {{-- ===================================================== --}}
 
-        <div class="mt-6 overflow-x-auto">
+        <section class="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            @foreach (['entities' => ['Entidades', '#a78bfa'], 'collections' => ['Colecciones', '#22d3ee'], 'attributes' => ['Atributos', '#34d399'], 'catalogs' => ['Catálogos', '#fbbf24'], 'creators' => ['Creadores', '#fb7185']] as $clave => [$etiqueta, $tono])
+                <a href="{{ route('community.index', array_merge($comunes, ['tab' => $clave])) }}"
+                    class="rounded-xl border bg-slate-900/50 px-3 py-2 transition hover:-translate-y-0.5"
+                    style="border-color: {{ $tab === $clave ? $tono : '#1e293b' }}">
+                    <span class="block font-mono text-xl font-black"
+                        style="color: {{ $statistics[$clave] > 0 ? $tono : '#475569' }}">
+                        {{ $statistics[$clave] }}
+                    </span>
+                    <span class="block text-[9px] font-black uppercase tracking-wider text-slate-600">{{ $etiqueta }}</span>
+                </a>
+            @endforeach
+        </section>
 
-            <nav class="flex min-w-max gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
 
-                @foreach ([
-        'all' => ['⌘', 'Todo'],
-        'entities' => ['✦', 'Entidades'],
-        'collections' => ['▤', 'Colecciones'],
-        'attributes' => ['☷', 'Atributos'],
-        'catalogs' => ['◆', 'Catálogos'],
-        'creators' => ['◎', 'Creadores'],
-    ] as $value => [$icon, $label])
-                    <a href="{{ route('community.index', ['tab' => $value]) }}"
-                        class="
-                            {{ $tab === $value
-                                ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20'
-                                : 'text-slate-600 hover:bg-slate-100' }}
+        {{-- ===================================================== --}}
+        {{-- PESTAÑAS --}}
+        {{-- ===================================================== --}}
 
-                            flex
-                            items-center
-                            gap-2
-                            rounded-xl
-                            px-4
-                            py-2.5
-                            text-sm
-                            font-bold
-                            transition
-                        ">
-                        <span>
-                            {{ $icon }}
+        <nav class="flex flex-wrap items-center gap-1.5">
+            @foreach ($pestanas as $clave => [$etiqueta, $icono, $cuantos])
+                <a href="{{ route('community.index', array_merge($comunes, ['tab' => $clave])) }}"
+                    class="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[11px] font-black transition {{ $tab === $clave ? 'border-violet-500 bg-violet-500/15 text-white' : 'border-slate-800 bg-slate-900/50 text-slate-400 hover:border-slate-700 hover:text-slate-200' }}">
+                    <x-omni-icon :name="$icono" size="h-3.5 w-3.5" />
+                    {{ $etiqueta }}
+                    @if ($cuantos !== null)
+                        <span class="font-mono text-[10px] {{ $tab === $clave ? 'text-violet-300' : 'text-slate-600' }}">
+                            {{ $cuantos }}
                         </span>
-
-                        {{ $label }}
-                    </a>
-                @endforeach
-
-            </nav>
-
-        </div>
-
-
-        {{-- FILTROS --}}
-        @include('community.partials.filters')
+                    @endif
+                </a>
+            @endforeach
+        </nav>
 
 
         {{-- ===================================================== --}}
-        {{-- CONTROLES DE VISTA --}}
+        {{-- FILTROS Y FORMA DE MIRAR --}}
         {{-- ===================================================== --}}
 
-        @if ($tab !== 'all')
+        <section class="sticky top-2 z-20 rounded-2xl border border-slate-800 bg-slate-900/95 p-2 backdrop-blur">
 
-            <div
-                class="
-                    mt-5
-                    flex
-                    flex-col
-                    gap-3
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-white
-                    p-3
-                    shadow-sm
-                    lg:flex-row
-                    lg:items-center
-                    lg:justify-between
-                ">
+            <div class="flex flex-wrap items-center gap-2">
 
-                <div class="flex flex-wrap gap-2">
+                <form method="GET" action="{{ route('community.index') }}"
+                    class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
 
-                    @foreach ([
-        'gallery' => '▦ Galería',
-        'grid' => '▦ Cuadrícula',
-        'masonry' => '▥ Mosaico',
-        'list' => '☰ Lista',
-        'table' => '≡ Tabla',
-    ] as $value => $label)
-                        <button type="button"
-                            @click="
-                                setView(
-                                    '{{ $value }}'
-                                )
-                            "
-                            :class="view === '{{ $value }}'
-                                ?
-                                'bg-violet-600 text-white' :
-                                'bg-slate-100 text-slate-500'"
-                            class="rounded-lg px-3 py-2 text-xs font-bold">
-                            {{ $label }}
-                        </button>
-                    @endforeach
+                    <input type="hidden" name="tab" value="{{ $tab }}">
 
-                </div>
+                    <label class="relative min-w-[150px] flex-1">
+                        <span class="sr-only">Buscar</span>
+                        <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600">
+                            <x-omni-icon name="brujula" size="h-3.5 w-3.5" />
+                        </span>
+                        <input type="search" name="search" value="{{ $search }}"
+                            placeholder="Buscar en la comunidad…"
+                            class="w-full rounded-xl border-slate-800 bg-slate-950 pl-9 text-xs text-slate-200 placeholder:text-slate-600 focus:border-violet-500 focus:ring-violet-500">
+                    </label>
 
+                    @if ($tab !== 'creators')
+                        <select name="creator" onchange="this.form.submit()"
+                            class="rounded-xl border-slate-800 bg-slate-950 py-2 text-[11px] font-bold text-slate-300 focus:border-violet-500 focus:ring-violet-500">
+                            <option value="">Cualquier creador</option>
+                            @foreach ($publicCreators as $unCreador)
+                                <option value="{{ $unCreador->username }}" @selected($creator === $unCreador->username)>
+                                    {{ '@' . $unCreador->username }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @endif
 
-                {{--
-                    Modo seleccion. Solo aparece cuando se estan mirando
-                    entidades: es lo unico que esta pantalla sabe copiar
-                    en lote.
-                --}}
-                @if (($tab ?? 'entities') === 'entities')
-                    <button type="button" @click="toggleSelecting()"
-                        :class="selecting
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
-                        class="rounded-lg px-3 py-2 text-xs font-black transition">
-                        <span x-show="!selecting">☑ Seleccionar varias</span>
-                        <span x-show="selecting" x-cloak>✕ Salir de seleccion</span>
+                    <select name="sort" onchange="this.form.submit()"
+                        class="rounded-xl border-slate-800 bg-slate-950 py-2 text-[11px] font-bold text-slate-300 focus:border-violet-500 focus:ring-violet-500">
+                        @foreach ($ordenes as $valor => $etiqueta)
+                            <option value="{{ $valor }}" @selected($sort === $valor)>{{ $etiqueta }}</option>
+                        @endforeach
+                    </select>
+
+                    @if ($tab !== 'creators')
+                        <select name="image" onchange="this.form.submit()"
+                            class="rounded-xl border-slate-800 bg-slate-950 py-2 text-[11px] font-bold text-slate-300 focus:border-violet-500 focus:ring-violet-500">
+                            @foreach (['' => 'Con o sin imagen', 'yes' => 'Solo con imagen', 'no' => 'Sin imagen'] as $valor => $etiqueta)
+                                <option value="{{ $valor }}" @selected($image === $valor)>{{ $etiqueta }}</option>
+                            @endforeach
+                        </select>
+
+                        <select name="period" onchange="this.form.submit()"
+                            class="rounded-xl border-slate-800 bg-slate-950 py-2 text-[11px] font-bold text-slate-300 focus:border-violet-500 focus:ring-violet-500">
+                            @foreach (['' => 'De cualquier fecha', 'week' => 'De esta semana', 'month' => 'De este mes', 'year' => 'De este año'] as $valor => $etiqueta)
+                                <option value="{{ $valor }}" @selected($period === $valor)>{{ $etiqueta }}</option>
+                            @endforeach
+                        </select>
+                    @endif
+
+                    {{-- Los que solo tienen sentido en una pestaña --}}
+
+                    @if ($tab === 'entities')
+                        <select name="entity_type" onchange="this.form.submit()"
+                            class="rounded-xl border-slate-800 bg-slate-950 py-2 text-[11px] font-bold text-slate-300 focus:border-violet-500 focus:ring-violet-500">
+                            <option value="">Cualquier tipo</option>
+                            @foreach ($entityTypes as $tipo)
+                                <option value="{{ $tipo->id }}" @selected($entityTypeId === $tipo->id)>{{ $tipo->name }}</option>
+                            @endforeach
+                        </select>
+                    @endif
+
+                    @if ($tab === 'collections')
+                        <select name="collection_size" onchange="this.form.submit()"
+                            class="rounded-xl border-slate-800 bg-slate-950 py-2 text-[11px] font-bold text-slate-300 focus:border-violet-500 focus:ring-violet-500">
+                            @foreach (['' => 'De cualquier tamaño', 'empty' => 'Vacías', 'small' => 'Pequeñas', 'medium' => 'Medianas', 'large' => 'Grandes'] as $valor => $etiqueta)
+                                <option value="{{ $valor }}" @selected($collectionSize === $valor)>{{ $etiqueta }}</option>
+                            @endforeach
+                        </select>
+                    @endif
+
+                    @if ($tab === 'attributes')
+                        <select name="data_type" onchange="this.form.submit()"
+                            class="rounded-xl border-slate-800 bg-slate-950 py-2 text-[11px] font-bold text-slate-300 focus:border-violet-500 focus:ring-violet-500">
+                            @foreach (['' => 'Cualquier tipo', 'OPTION' => 'Catálogo', 'TEXT' => 'Texto', 'LONG_TEXT' => 'Texto largo', 'INTEGER' => 'Número entero', 'DECIMAL' => 'Número decimal', 'BOOLEAN' => 'Sí o no', 'DATE' => 'Fecha', 'COLOR' => 'Color'] as $valor => $etiqueta)
+                                <option value="{{ $valor }}" @selected($dataType === $valor)>{{ $etiqueta }}</option>
+                            @endforeach
+                        </select>
+
+                        <select name="catalog_state" onchange="this.form.submit()"
+                            class="rounded-xl border-slate-800 bg-slate-950 py-2 text-[11px] font-bold text-slate-300 focus:border-violet-500 focus:ring-violet-500">
+                            @foreach (['' => 'Llenos o vacíos', 'filled' => 'Con valores', 'empty' => 'Catálogo vacío'] as $valor => $etiqueta)
+                                <option value="{{ $valor }}" @selected($catalogState === $valor)>{{ $etiqueta }}</option>
+                            @endforeach
+                        </select>
+                    @endif
+
+                    @if ($tab === 'catalogs')
+                        <select name="attribute" onchange="this.form.submit()"
+                            class="rounded-xl border-slate-800 bg-slate-950 py-2 text-[11px] font-bold text-slate-300 focus:border-violet-500 focus:ring-violet-500">
+                            <option value="">Cualquier catálogo</option>
+                            @foreach ($publicAttributes as $unAtributo)
+                                <option value="{{ $unAtributo->id }}" @selected($attributeId === $unAtributo->id)>
+                                    {{ $unAtributo->name }}
+                                </option>
+                            @endforeach
+                        </select>
+
+                        <select name="hierarchy" onchange="this.form.submit()"
+                            class="rounded-xl border-slate-800 bg-slate-950 py-2 text-[11px] font-bold text-slate-300 focus:border-violet-500 focus:ring-violet-500">
+                            @foreach (['' => 'Toda la jerarquía', 'root' => 'Sin padre', 'child' => 'Cuelgan de otro', 'has_children' => 'Tienen hijos'] as $valor => $etiqueta)
+                                <option value="{{ $valor }}" @selected($hierarchy === $valor)>{{ $etiqueta }}</option>
+                            @endforeach
+                        </select>
+                    @endif
+
+                    <select name="per_page" onchange="this.form.submit()"
+                        class="rounded-xl border-slate-800 bg-slate-950 py-2 text-[11px] font-bold text-slate-300 focus:border-violet-500 focus:ring-violet-500">
+                        @foreach ([12, 24, 48, 96] as $cuantos)
+                            <option value="{{ $cuantos }}" @selected($perPage === $cuantos)>{{ $cuantos }}</option>
+                        @endforeach
+                    </select>
+
+                    <button type="submit"
+                        class="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-[11px] font-black text-slate-300 transition hover:border-violet-500 hover:text-violet-300">
+                        Buscar
                     </button>
-                @endif
+
+                    @if ($hayFiltros)
+                        <a href="{{ route('community.index', ['tab' => $tab]) }}"
+                            class="rounded-xl px-2 py-2 text-[10px] font-black text-slate-500 underline transition hover:text-slate-300">
+                            Quitar filtros
+                        </a>
+                    @endif
+                </form>
 
 
-                <div x-show="
-                        view === 'grid'
-                    " class="flex gap-2">
+                @if (isset($modos[$tab]))
+                    <span class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
+                        @foreach ($modos[$tab] as [$modo, $icono, $ayuda])
+                            <button type="button" @click="vista = '{{ $modo }}'" title="{{ $ayuda }}"
+                                :aria-pressed="vista === '{{ $modo }}'"
+                                :class="vista === '{{ $modo }}' ? 'bg-violet-500 text-white' : 'text-slate-500 hover:text-slate-200'"
+                                class="rounded-lg px-2 py-1.5 transition">
+                                <x-omni-icon :name="$icono" size="h-4 w-4" />
+                            </button>
+                        @endforeach
+                    </span>
 
-                    @foreach ([
-        'compact' => 'Compacto',
-        'medium' => 'Mediano',
-        'large' => 'Grande',
-    ] as $value => $label)
-                        <button type="button"
-                            @click="
-                                setDensity(
-                                    '{{ $value }}'
-                                )
-                            "
-                            :class="density === '{{ $value }}'
-                                ?
-                                'bg-slate-900 text-white' :
-                                'bg-slate-100 text-slate-500'"
-                            class="rounded-lg px-3 py-2 text-xs font-bold">
-                            {{ $label }}
+                    <span x-show="['gallery', 'grid'].includes(vista)" x-cloak
+                        class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
+                        <button type="button" @click="tamano = Math.max(4, tamano - 1)" :disabled="tamano === 4"
+                            class="rounded-lg px-2 py-1.5 text-slate-500 transition hover:text-slate-200 disabled:opacity-30">
+                            <x-omni-icon name="chevron-izquierda" size="h-3.5 w-3.5" />
                         </button>
-                    @endforeach
-
-                </div>
-
+                        <span class="w-3 text-center font-mono text-[10px] font-black text-slate-500" x-text="tamano"></span>
+                        <button type="button" @click="tamano = Math.min(9, tamano + 1)" :disabled="tamano === 9"
+                            class="rounded-lg px-2 py-1.5 text-slate-500 transition hover:text-slate-200 disabled:opacity-30">
+                            <x-omni-icon name="chevron-derecha" size="h-3.5 w-3.5" />
+                        </button>
+                    </span>
+                @endif
             </div>
-
-        @endif
+        </section>
 
 
         {{-- ===================================================== --}}
-        {{-- TODO --}}
+        {{-- COPIAR VARIAS A LA VEZ --}}
+        {{-- ===================================================== --}}
+
+        @auth
+            @if ($tab === 'entities')
+                <form method="POST" action="{{ route('community.entities.clone-many') }}"
+                    x-show="seleccionadas.length > 0" x-cloak x-collapse
+                    class="flex flex-wrap items-center gap-3 rounded-2xl border border-violet-500/40 bg-violet-500/10 px-4 py-2.5">
+                    @csrf
+
+                    <template x-for="id in seleccionadas" :key="'sel' + id">
+                        <input type="hidden" name="entity_ids[]" :value="id">
+                    </template>
+
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-500 font-mono text-[11px] font-black text-white"
+                        x-text="seleccionadas.length"></span>
+
+                    <p class="min-w-0 flex-1 text-[11px] font-bold text-violet-100">
+                        <span x-text="seleccionadas.length === 1 ? 'entidad seleccionada' : 'entidades seleccionadas'"></span>.
+                        <span class="font-normal text-violet-200/60">
+                            Se copian a tu biblioteca anotando de quién viene cada una. Las que ya tengas se
+                            saltan.
+                        </span>
+                    </p>
+
+                    <div class="flex shrink-0 items-center gap-1.5">
+                        <button type="submit"
+                            class="rounded-xl bg-violet-500 px-3 py-1.5 text-[11px] font-black text-white transition hover:bg-violet-400">
+                            Copiarlas todas
+                        </button>
+
+                        <button type="button" @click="seleccionadas = []"
+                            class="rounded-xl px-2 py-1.5 text-[10px] font-black text-slate-400 transition hover:text-white">
+                            Quitar selección
+                        </button>
+                    </div>
+                </form>
+
+                <p x-show="seleccionadas.length === 0" x-cloak
+                    class="px-1 text-[10px] text-slate-600">
+                    En la vista de lista puedes marcar varias entidades y copiarlas de una vez.
+                </p>
+            @endif
+        @endauth
+
+
+        {{-- ===================================================== --}}
+        {{-- RESULTADOS --}}
         {{-- ===================================================== --}}
 
         @if ($tab === 'all')
 
-            <div class="mt-8 space-y-12">
+            @include('community.partials.resumen-todo')
 
-                @foreach ([
-        'entities' => ['✦', 'Entidades', 'entity'],
-        'collections' => ['▤', 'Colecciones', 'collection'],
-        'attributes' => ['☷', 'Atributos', 'attribute'],
-        'catalogs' => ['◆', 'Catálogos', 'catalog'],
-        'creators' => ['◎', 'Creadores', 'creator'],
-    ] as $key => [$icon, $label, $itemType])
-                    @php
+        @elseif ($tab === 'creators')
 
-                        $sectionItems = $allResults[$key];
-
-                    @endphp
-
-
-                    @if ($sectionItems->isNotEmpty())
-                        <section>
-
-                            <div class="mb-4 flex items-end justify-between">
-
-                                <div>
-
-                                    <p class="text-[10px] font-black uppercase tracking-wider text-violet-500">
-                                        {{ $icon }} Comunidad
-                                    </p>
-
-                                    <h3 class="mt-1 text-xl font-black text-slate-900">
-                                        {{ $label }}
-                                    </h3>
-
-                                </div>
-
-
-                                <a href="{{ route('community.index', [
-                                    'tab' => $key,
-                                    'search' => $search,
-                                ]) }}"
-                                    class="text-xs font-black text-violet-600">
-                                    Ver todos →
-                                </a>
-
-                            </div>
-
-
-                            <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-
-                                @foreach ($sectionItems as $item)
-                                    @include('community.partials.item-card', [
-                                        'item' => $item,
-                                        'itemType' => $itemType,
-                                    ])
-                                @endforeach
-
-                            </div>
-
-                        </section>
-                    @endif
-                @endforeach
-
-            </div>
-        @else
-            {{-- ================================================= --}}
-            {{-- RESULTADOS DE UNA PESTAÑA --}}
-            {{-- ================================================= --}}
-
-            @php
-
-                $paginator = match ($tab) {
-                    'entities' => $entities,
-
-                    'collections' => $collections,
-
-                    'attributes' => $attributes,
-
-                    'catalogs' => $catalogs,
-
-                    'creators' => $creators,
-
-                    default => null,
-                };
-
-                $itemType = match ($tab) {
-                    'entities' => 'entity',
-
-                    'collections' => 'collection',
-
-                    'attributes' => 'attribute',
-
-                    'catalogs' => 'catalog',
-
-                    'creators' => 'creator',
-
-                    default => 'entity',
-                };
-
-                $currentCollection = $paginator ? $paginator->getCollection() : collect();
-
-                $groupedResults = null;
-
-                if ($groupBy && $tab !== 'creators') {
-                    $groupedResults = match (true) {
-                        $tab === 'entities' && $groupBy === 'type' => $currentCollection->groupBy(
-                            fn($item) => $item->entityType?->name ?? 'Sin tipo',
-                        ),
-
-                        $tab === 'attributes' && $groupBy === 'data_type' => $currentCollection->groupBy(
-                            fn($item) => $item->data_type_label,
-                        ),
-
-                        $tab === 'catalogs' && $groupBy === 'attribute' => $currentCollection->groupBy(
-                            fn($item) => $item->attribute?->name ?? 'Sin Catálogo',
-                        ),
-
-                        $groupBy === 'creator' && $tab === 'catalogs' => $currentCollection->groupBy(
-                            fn($item) => '@' . $item->user->username,
-                        ),
-
-                        $groupBy === 'creator' => $currentCollection->groupBy(
-                            fn($item) => '@' . $item->creator->username,
-                        ),
-
-                        default => null,
-                    };
-                }
-
-            @endphp
-
-
-            @if (!$paginator || $paginator->isEmpty())
-
-                <div class="mt-6 rounded-3xl border border-dashed border-slate-300 bg-white py-20 text-center">
-
-                    <div class="text-5xl">
-                        ⌕
-                    </div>
-
-                    <p class="mt-4 font-black text-slate-700">
-                        No encontramos resultados
-                    </p>
-
-                    <p class="mt-2 text-sm text-slate-500">
-                        Prueba otro término o elimina algunos filtros.
-                    </p>
-
-                </div>
-            @elseif ($groupedResults)
-                <div class="mt-8 space-y-12">
-
-                    @foreach ($groupedResults as $groupLabel => $groupItems)
-                        <section>
-
-                            <div class="mb-4 flex items-center gap-3">
-
-                                <h3 class="text-xl font-black text-slate-900">
-                                    {{ $groupLabel }}
-                                </h3>
-
-                                <span
-                                    class="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-black text-violet-700">
-                                    {{ $groupItems->count() }}
-                                    en esta página
-                                </span>
-
-                            </div>
-
-
-                            @include('community.partials.results-view', [
-                                'items' => $groupItems,
-                                'itemType' => $itemType,
-                            ])
-
-                        </section>
-                    @endforeach
-
-                </div>
+            @if ($creators->isEmpty())
+                @include('community.partials.vacio', ['que' => 'creadores'])
             @else
-                <div class="mt-6">
+                <p class="px-1 text-[10px] font-black uppercase tracking-wider text-slate-600">
+                    {{ $creators->total() }} {{ $creators->total() === 1 ? 'creador' : 'creadores' }}
+                </p>
 
-                    @include('community.partials.results-view', [
-                        'items' => $currentCollection,
-                        'itemType' => $itemType,
-                    ])
-
+                <div class="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+                    @foreach ($creators as $unCreador)
+                        @include('community.partials.tarjeta-creador', ['creador' => $unCreador])
+                    @endforeach
                 </div>
 
+                <div>{{ $creators->links() }}</div>
             @endif
 
+        @else
 
-            @if ($paginator)
-                <div class="mt-8">
-                    {{ $paginator->links() }}
+            @php
+                $listado = match ($tab) {
+                    'entities' => $entities,
+                    'collections' => $collections,
+                    'attributes' => $attributes,
+                    'catalogs' => $catalogs,
+                };
+
+                $partial = match ($tab) {
+                    'entities' => 'community.partials.resultados-entidades',
+                    'collections' => 'community.partials.resultados-colecciones',
+                    'attributes' => 'community.partials.resultados-atributos',
+                    'catalogs' => 'community.partials.resultados-catalogos',
+                };
+            @endphp
+
+            @if ($listado->isEmpty())
+                @include('community.partials.vacio', ['que' => $pestanas[$tab][0]])
+            @else
+                <div class="flex flex-wrap items-center gap-3 px-1">
+                    <p class="min-w-0 flex-1 text-[10px] font-black uppercase tracking-wider text-slate-600">
+                        {{ $listado->total() }} {{ mb_strtolower($pestanas[$tab][0]) }}
+                        @if ($creator)
+                            · de {{ '@' . $creator }}
+                        @endif
+                    </p>
                 </div>
+
+                @include($partial, ['items' => $listado])
+
+                <div>{{ $listado->links() }}</div>
             @endif
 
         @endif
-
-
-        {{-- ===================================================== --}}
-        {{-- MODAL COPIAR --}}
-        {{-- ===================================================== --}}
-
-        <div x-show="cloneOpen" x-cloak
-            class="
-                fixed
-                inset-0
-                z-[100]
-                flex
-                items-center
-                justify-center
-                bg-slate-950/60
-                p-4
-                backdrop-blur-sm
-            ">
-
-            <div @click.outside="
-                    cloneOpen = false
-                "
-                class="
-                    w-full
-                    max-w-lg
-                    rounded-3xl
-                    bg-white
-                    p-6
-                    shadow-2xl
-                ">
-
-                <div class="flex items-start justify-between gap-4">
-
-                    <div>
-
-                        <p class="text-[10px] font-black uppercase tracking-wider text-violet-500">
-                            Copiar a Biblioteca
-                        </p>
-
-                        <h3 class="mt-2 text-xl font-black text-slate-900" x-text="cloneTitle"></h3>
-
-                    </div>
-
-
-                    <button type="button"
-                        @click="
-                            cloneOpen = false
-                        "
-                        class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-                        ×
-                    </button>
-
-                </div>
-
-
-                <div class="mt-5 rounded-2xl bg-slate-50 p-5">
-
-                    <p class="text-sm font-bold text-slate-700">
-                        ¿Qué ocurrirá?
-                    </p>
-
-
-                    <ul class="mt-3 space-y-2 text-sm text-slate-500">
-
-                        <li>
-                            ✓ Se creará una copia independiente.
-                        </li>
-
-                        <li>
-                            ✓ La copia será privada.
-                        </li>
-
-                        <li>
-                            ✓ Podrás modificarla sin afectar al original.
-                        </li>
-
-                        <li x-show="cloneType === 'entity'">
-                            ✓ Se copiarán sus atributos y valores.
-                        </li>
-
-                        <li x-show="cloneType === 'collection'">
-                            ✓ Se copiarán también sus entidades.
-                        </li>
-
-                        <li x-show="cloneType === 'attribute'">
-                            ✓ Se copiará su Catálogo y jerarquías.
-                        </li>
-
-                        <li x-show="cloneType === 'catalog'">
-                            ✓ Si todavía no tienes el Catálogo padre, OmniMerge lo copiará para conservar el contexto.
-                        </li>
-
-                    </ul>
-
-                </div>
-
-
-                <form method="POST" :action="cloneAction" class="mt-5">
-
-                    @csrf
-
-                    <div class="flex justify-end gap-3">
-
-                        <button type="button"
-                            @click="
-                                cloneOpen = false
-                            "
-                            class="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600">
-                            Cancelar
-                        </button>
-
-
-                        <button type="submit"
-                            class="rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-violet-600/20">
-                            ⧉ Copiar
-                        </button>
-
-                    </div>
-
-                </form>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    {{-- ===================================================== --}}
-    {{-- LANZADOR DE SELECCION --}}
-    {{-- ===================================================== --}}
-    {{--
-        Flotante y no en la barra de herramientas porque esa barra solo
-        existe fuera de la pestana "Todo", y ahi tambien se listan
-        entidades copiables.
-
-        Solo aparece si la pagina tiene alguna entidad ajena que copiar:
-        se comprueba en el init contra el DOM, no adivinando la pestana.
-    --}}
-
-    <div x-show="!selecting && hasSelectableEntities" x-cloak
-        class="fixed bottom-6 right-6 z-30">
-
-        <button type="button" @click="toggleSelecting()"
-            class="flex items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-xs font-black text-white shadow-2xl transition hover:bg-slate-800">
-            <span class="text-sm">☑</span>
-            Seleccionar varias
-        </button>
-
-    </div>
-
-
-    {{-- ===================================================== --}}
-    {{-- BARRA DE SELECCION MULTIPLE --}}
-    {{-- ===================================================== --}}
-    {{--
-        Flotante y fuera del flujo: acompaña al usuario mientras recorre
-        la lista, en vez de obligarle a subir para confirmar.
-    --}}
-
-    <div x-show="selecting" x-cloak
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="translate-y-full opacity-0"
-        x-transition:enter-end="translate-y-0 opacity-100"
-        class="fixed inset-x-0 bottom-0 z-40 px-4 pb-4">
-
-        <div class="mx-auto flex max-w-4xl flex-wrap items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-5 py-4 shadow-2xl">
-
-            <div class="min-w-0 flex-1">
-
-                <p class="text-sm font-black text-white">
-                    <span x-text="selected.length"></span>
-                    <span x-show="selected.length === 1">entidad seleccionada</span>
-                    <span x-show="selected.length !== 1">entidades seleccionadas</span>
-                </p>
-
-                <p class="text-[11px] text-slate-400">
-                    <span x-show="selected.length === 0">
-                        Pulsa las tarjetas que quieras traerte.
-                    </span>
-                    <span x-show="selected.length > 0" x-cloak>
-                        Se copiaran a tu Biblioteca como entidades propias.
-                    </span>
-                </p>
-
-            </div>
-
-            <button type="button" @click="selectAllVisible()"
-                class="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 transition hover:border-slate-500 hover:text-white">
-                Marcar toda la pagina
-            </button>
-
-            <button type="button" @click="clearSelection()" x-show="selected.length > 0" x-cloak
-                class="rounded-xl border border-slate-700 px-4 py-2 text-xs font-black text-slate-400 transition hover:text-white">
-                Limpiar
-            </button>
-
-            <form method="POST" action="{{ route('community.entities.clone-many') }}"
-                @submit="if (selected.length === 0) $event.preventDefault()">
-
-                @csrf
-
-                <template x-for="id in selected" :key="id">
-                    <input type="hidden" name="entity_ids[]" :value="id">
-                </template>
-
-                <button type="submit" :disabled="selected.length === 0"
-                    class="rounded-xl bg-indigo-500 px-6 py-2.5 text-xs font-black text-white shadow-lg shadow-indigo-900/40 transition hover:bg-indigo-400 disabled:opacity-40">
-                    Copiar a mi Biblioteca
-                </button>
-
-            </form>
-
-            <button type="button" @click="toggleSelecting()"
-                class="rounded-xl px-3 py-2 text-xs font-black text-slate-500 transition hover:text-white">
-                Salir
-            </button>
-
-        </div>
 
     </div>
 
 
     <script>
-        function communityExplorer(
-            config
-        ) {
+        function exploradorDeComunidad(config) {
 
             return {
 
-                view: localStorage.getItem(
-                        'omnimerge.community.view'
-                    ) ||
-                    'grid',
+                pestana: config.pestana ?? 'all',
 
-                density: localStorage.getItem(
-                        'omnimerge.community.density'
-                    ) ||
-                    'medium',
+                vista: 'grid',
+                tamano: 6,
 
-                searchQuery: @js($search),
-
-                searchResults: [],
-
-                searchOpen: false,
-
-                searching: false,
-
-                cloneOpen: false,
-
-                cloneAction: '',
-
-                cloneTitle: '',
-
-                cloneType: '',
-
-                cloneSubtitle: '',
-
-
-                /*
-                |--------------------------------------------------------
-                | Seleccion multiple
-                |--------------------------------------------------------
-                |
-                | Copiar de una en una obliga a entrar en cada ficha y
-                | volver. Con seleccion se marca lo que interesa y se
-                | copia todo de golpe.
-                |
-                | Solo tiene sentido sobre ENTIDADES: son las unicas que
-                | esta pantalla sabe copiar en lote.
-                */
-
-                selecting: false,
-
-                selected: [],
-
-                /* Si esta pagina tiene algo que seleccionar siquiera */
-                hasSelectableEntities: false,
-
-                refreshSelectable() {
-                    this.hasSelectableEntities =
-                        document.querySelectorAll('[data-selectable-entity]').length > 0;
-                },
-
-                toggleSelecting() {
-                    this.selecting = !this.selecting;
-
-                    if (!this.selecting) {
-                        this.selected = [];
-                    }
-                },
-
-                isSelected(id) {
-                    return this.selected.includes(id);
-                },
-
-                toggleSelected(id) {
-                    this.selected = this.isSelected(id)
-                        ? this.selected.filter((item) => item !== id)
-                        : [...this.selected, id];
-                },
-
-                selectAllVisible() {
-                    const ids = Array.from(
-                        document.querySelectorAll('[data-selectable-entity]')
-                    ).map((node) => Number(node.dataset.selectableEntity));
-
-                    /* Si ya estan todas marcadas, el boton desmarca */
-                    const todas = ids.length > 0
-                        && ids.every((id) => this.selected.includes(id));
-
-                    this.selected = todas ? [] : ids;
-                },
-
-                clearSelection() {
-                    this.selected = [];
-                },
-
+                seleccionadas: [],
 
                 init() {
-
-                    this.refreshSelectable();
-
-                    const allowedViews = [
-                        'gallery',
-                        'grid',
-                        'masonry',
-                        'list',
-                        'table'
-                    ];
-
-
-                    if (
-                        !allowedViews.includes(
-                            this.view
-                        )
-                    ) {
-                        this.view =
-                            'grid';
-                    }
-                },
-
-
-                setView(
-                    value
-                ) {
-
-                    this.view =
-                        value;
-
-                    localStorage.setItem(
-                        'omnimerge.community.view',
-                        value
-                    );
-                },
-
-
-                setDensity(
-                    value
-                ) {
-
-                    this.density =
-                        value;
-
-                    localStorage.setItem(
-                        'omnimerge.community.density',
-                        value
-                    );
-                },
-
-
-                openClone(
-                    action,
-                    title,
-                    type,
-                    subtitle
-                ) {
-
-                    this.cloneAction =
-                        action;
-
-                    this.cloneTitle =
-                        title;
-
-                    this.cloneType =
-                        type;
-
-                    this.cloneSubtitle =
-                        subtitle;
-
-                    this.cloneOpen =
-                        true;
-                },
-
-
-                async searchCommunity() {
-
-                    const query =
-                        this
-                        .searchQuery
-                        .trim();
-
-
-                    if (
-                        query.length < 2
-                    ) {
-
-                        this.searchResults = [];
-
-                        this.searchOpen =
-                            false;
-
-                        return;
-                    }
-
-
-                    this.searchOpen =
-                        true;
-
-                    this.searching =
-                        true;
-
-
+                    /*
+                     * La forma de mirar se recuerda por pestaña: no tiene
+                     * sentido que elegir «tabla» en catálogos deje las entidades
+                     * en tabla también.
+                     */
                     try {
-
-                        const url =
-                            new URL(
-                                config.searchUrl,
-                                window.location.origin
-                            );
-
-
-                        url.searchParams.set(
-                            'q',
-                            query
+                        const guardado = JSON.parse(
+                            localStorage.getItem('omnimerge.community.view') ?? '{}'
                         );
 
+                        const mio = guardado[this.pestana] ?? {};
 
-                        const response =
-                            await fetch(
-                                url, {
-                                    headers: {
-                                        'Accept': 'application/json'
-                                    }
-                                }
-                            );
-
-
-                        const data =
-                            await response.json();
-
-
-                        if (
-                            query !==
-                            this
-                            .searchQuery
-                            .trim()
-                        ) {
-                            return;
+                        if (['gallery', 'grid', 'list', 'table', 'special'].includes(mio.vista)) {
+                            this.vista = mio.vista;
                         }
 
+                        if (mio.tamano >= 4 && mio.tamano <= 9) {
+                            this.tamano = mio.tamano;
+                        }
+                    } catch (e) {}
 
-                        this.searchResults =
-                            Array.isArray(
-                                data.results
-                            ) ?
-                            data.results :
-                            [];
+                    this.$watch('vista', () => this.recordar());
+                    this.$watch('tamano', () => this.recordar());
+                },
 
-                    } catch (
-                        error
-                    ) {
+                recordar() {
+                    try {
+                        const guardado = JSON.parse(
+                            localStorage.getItem('omnimerge.community.view') ?? '{}'
+                        );
 
-                        this.searchResults = [];
+                        guardado[this.pestana] = {
+                            vista: this.vista,
+                            tamano: this.tamano,
+                        };
 
-                    } finally {
+                        localStorage.setItem(
+                            'omnimerge.community.view',
+                            JSON.stringify(guardado)
+                        );
+                    } catch (e) {}
+                },
 
-                        this.searching =
-                            false;
-                    }
-                }
+                get columnas() {
+                    return {
+                        4: 'grid-cols-2 sm:grid-cols-4',
+                        5: 'grid-cols-2 sm:grid-cols-5',
+                        6: 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6',
+                        7: 'grid-cols-3 sm:grid-cols-5 lg:grid-cols-7',
+                        8: 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-8',
+                        9: 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9',
+                    }[this.tamano];
+                },
+
+                /*
+                 * Las fichas de colección y atributo son apaisadas y no caben en
+                 * nueve columnas, así que su rejilla va dos pasos por debajo.
+                 */
+                get columnasAnchas() {
+                    return {
+                        4: 'sm:grid-cols-2',
+                        5: 'sm:grid-cols-2 lg:grid-cols-3',
+                        6: 'sm:grid-cols-2 lg:grid-cols-3',
+                        7: 'sm:grid-cols-3 lg:grid-cols-4',
+                        8: 'sm:grid-cols-3 lg:grid-cols-4',
+                        9: 'sm:grid-cols-4 lg:grid-cols-5',
+                    }[this.tamano];
+                },
             };
         }
     </script>

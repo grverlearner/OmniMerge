@@ -606,10 +606,82 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        /*
+        |--------------------------------------------------------------------------
+        | El mosaico de la biblioteca
+        |--------------------------------------------------------------------------
+        |
+        | Las caras de lo que uno ha hecho, arriba del todo. Un panel que abre
+        | con cifras no recuerda de que va la biblioteca; abriendo con las caras,
+        | si.
+        |
+        */
+
+        $mosaico =
+            Entity::query()
+            ->ownedBy($user)
+            ->latest('updated_at')
+            ->limit(60)
+            ->get()
+            ->filter(
+                fn(Entity $entidad) => (bool) $entidad->image_url
+            )
+            ->take(24)
+            ->values();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Hasta donde llega
+        |--------------------------------------------------------------------------
+        |
+        | Cuanto de la biblioteca esta publicado, cuantas veces se lo han
+        | copiado, y cuanto se ha traido uno de los demas. Son los tres numeros
+        | que dicen si la biblioteca vive sola o esta conectada con la
+        | comunidad, y ninguno se veia en el panel.
+        |
+        */
+
+        $alcance = [
+
+            'publicas' =>
+            $statistics['public_entities'],
+
+            'copiado' =>
+            (int) Entity::query()->ownedBy($user)->sum('clones_count')
+                + (int) LibraryCollection::query()->ownedBy($user)->sum('clones_count')
+                + (int) Attribute::query()->ownedBy($user)->sum('clones_count'),
+
+            'traido' =>
+            Entity::query()->ownedBy($user)->whereNotNull('source_entity_id')->count()
+                + LibraryCollection::query()->ownedBy($user)->whereNotNull('source_collection_id')->count()
+                + Attribute::query()->ownedBy($user)->whereNotNull('source_attribute_id')->count(),
+        ];
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Lo que mas le han copiado
+        |--------------------------------------------------------------------------
+        */
+
+        $loMasCopiado =
+            Entity::query()
+            ->ownedBy($user)
+            ->where('clones_count', '>', 0)
+            ->with('entityType')
+            ->orderByDesc('clones_count')
+            ->limit(6)
+            ->get();
+
+
         return view(
             'dashboard.index',
             compact(
                 'user',
+                'mosaico',
+                'alcance',
+                'loMasCopiado',
 
                 'statistics',
                 'healthItems',

@@ -476,6 +476,31 @@ class StoreAttributeRequest extends FormRequest
     {
         return [
 
+            'data_type.required' =>
+            'Elige de qué clase de dato es.',
+
+            'data_type.in' =>
+            'Esa clase de dato no existe.',
+
+            'scope.required' =>
+            'Falta decir quién puede verlo.',
+
+            'scope.in' =>
+            'Esa visibilidad no existe.',
+
+            'status.required' =>
+            'Falta el estado.',
+
+            'status.in' =>
+            'Ese estado no existe.',
+
+            'unit.max' =>
+            'La unidad no puede pasar de 30 caracteres.',
+
+            'group_ids.*.exists' =>
+            'Alguno de los grupos elegidos ya no existe o no es tuyo.',
+
+
             'name.required' =>
             'El nombre del atributo es obligatorio.',
 

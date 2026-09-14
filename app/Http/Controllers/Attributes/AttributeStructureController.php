@@ -8,6 +8,7 @@ use App\Models\Attribute;
 use App\Models\AttributeContextRule;
 use App\Models\AttributeOptionRelationship;
 use App\Models\AttributeRelationship;
+use App\Models\EntityAttribute;
 
 use App\Services\Attributes\AttributeContextService;
 
@@ -106,6 +107,45 @@ class AttributeStructureController extends Controller
             ->get();
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | Cuantas entidades usan cada atributo
+        |--------------------------------------------------------------------------
+        |
+        | Hace falta para avisar de algo que hoy no se ve: una regla sobre un
+        | atributo que no tiene ninguna entidad es correcta y no hace nada. Se
+        | cuenta de una vez para todos, no uno por uno.
+        |
+        */
+
+        $usoPorAtributo =
+            EntityAttribute::query()
+            ->whereIn(
+                'attribute_id',
+                $attributes->pluck('id')
+            )
+            ->selectRaw(
+                'attribute_id, COUNT(DISTINCT entity_id) as total'
+            )
+            ->groupBy(
+                'attribute_id'
+            )
+            ->pluck(
+                'total',
+                'attribute_id'
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | El material que consume el constructor
+        |--------------------------------------------------------------------------
+        |
+        | Con imagen y color: los selectores de la pantalla se eligen por la cara
+        | del atributo y la del valor, no por un desplegable de texto.
+        |
+        */
+
         $attributePayload =
             $attributes
             ->map(
@@ -122,9 +162,29 @@ class AttributeStructureController extends Controller
                     'data_type' =>
                     $attribute->data_type,
 
+                    'type_label' =>
+                    $attribute->data_type_label,
+
                     'level' =>
                     $attribute
                         ->hierarchy_level,
+
+                    'image' =>
+                    $attribute->image_url,
+
+                    'icon' =>
+                    $attribute->icon
+                        ?: $attribute->data_type_icon,
+
+                    'color' =>
+                    $attribute->color
+                        ?: '#6366f1',
+
+                    'uses' =>
+                    (int) (
+                        $usoPorAtributo[$attribute->id]
+                        ?? 0
+                    ),
 
                     'options' =>
                     $attribute
@@ -139,6 +199,20 @@ class AttributeStructureController extends Controller
 
                                 'code' =>
                                 $option->code,
+
+                                'image' =>
+                                $option->image_url,
+
+                                'icon' =>
+                                $option->icon
+                                    ?: '',
+
+                                'color' =>
+                                $option->color
+                                    ?: (
+                                        $attribute->color
+                                        ?: '#6366f1'
+                                    ),
                             ]
                         )
                         ->values()
@@ -147,6 +221,126 @@ class AttributeStructureController extends Controller
             )
             ->values()
             ->all();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | El mapa por niveles
+        |--------------------------------------------------------------------------
+        |
+        | El nivel no se elige: sale de las reglas. Agrupados asi, la pantalla
+        | puede dibujar el recorrido —lo que no depende de nada, lo que depende
+        | de eso, y asi— en vez de una lista plana.
+        |
+        */
+
+        $niveles =
+            $attributes
+            ->groupBy(
+                fn($attribute) =>
+                (int) $attribute->hierarchy_level
+            )
+            ->sortKeys();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Quien esta metido en alguna regla
+        |--------------------------------------------------------------------------
+        */
+
+        $comoObjetivo =
+            $rules
+            ->groupBy(
+                'target_attribute_id'
+            );
+
+
+        $comoCondicion =
+            $rules
+            ->flatMap(
+                fn($rule) =>
+                $rule
+                    ->conditions
+                    ->pluck(
+                        'source_attribute_id'
+                    )
+            )
+            ->countBy();
+
+
+        /*
+         * Los que no aparecen en ninguna regla. No es un error —la mayoria de
+         * atributos son asi— pero saber cuales son responde de un vistazo a
+         * «¿por que este siempre se ve?».
+         */
+        $sueltos =
+            $attributes
+            ->filter(
+                fn($attribute) =>
+                ! $comoObjetivo->has($attribute->id)
+                && ! $comoCondicion->has($attribute->id)
+            )
+            ->values();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Conflictos
+        |--------------------------------------------------------------------------
+        |
+        | Dos cosas que hoy se pueden guardar y que nadie avisa:
+        |
+        |   · dos reglas que sobre el mismo atributo dicen «mostrar» y «ocultar»
+        |   · el mismo par de valores marcado a la vez como permitido y bloqueado
+        |
+        | Ninguna de las dos rompe nada, pero el resultado depende de la
+        | prioridad y deja de ser evidente. Merece un aviso.
+        |
+        */
+
+        $conflictosDeReglas =
+            $comoObjetivo
+            ->filter(
+                fn($grupo) =>
+                $grupo
+                    ->pluck('action')
+                    ->unique()
+                    ->intersect(['SHOW', 'HIDE'])
+                    ->count() === 2
+            );
+
+
+        $conflictosDeCatalogo =
+            $optionRelationships
+            ->groupBy(
+                fn($relacion) =>
+                $relacion->source_option_id
+                . '-'
+                . $relacion->target_option_id
+            )
+            ->filter(
+                fn($grupo) =>
+                $grupo
+                    ->pluck('relationship_type')
+                    ->unique()
+                    ->count() > 1
+            );
+
+
+        /*
+         * Reglas que no pueden hacer nada porque el atributo al que apuntan no
+         * lo tiene ninguna entidad.
+         */
+        $reglasInertes =
+            $rules
+            ->filter(
+                fn($rule) =>
+                (int) (
+                    $usoPorAtributo[$rule->target_attribute_id]
+                    ?? 0
+                ) === 0
+            );
 
 
         $stats = [
@@ -161,6 +355,19 @@ class AttributeStructureController extends Controller
 
             'option_relationships' =>
             $optionRelationships->count(),
+
+            'sueltos' =>
+            $sueltos->count(),
+
+            'conflictos' =>
+            $conflictosDeReglas->count()
+            + $conflictosDeCatalogo->count(),
+
+            'inertes' =>
+            $reglasInertes->count(),
+
+            'niveles' =>
+            $niveles->count(),
         ];
 
 
@@ -172,7 +379,15 @@ class AttributeStructureController extends Controller
                 'rules',
                 'optionRelationships',
                 'attributePayload',
-                'stats'
+                'stats',
+                'niveles',
+                'sueltos',
+                'comoObjetivo',
+                'comoCondicion',
+                'conflictosDeReglas',
+                'conflictosDeCatalogo',
+                'reglasInertes',
+                'usoPorAtributo'
             )
         );
     }

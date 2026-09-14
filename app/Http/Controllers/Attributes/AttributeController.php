@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Attributes\StoreAttributeRequest;
 use App\Http\Requests\Attributes\UpdateAttributeRequest;
 use App\Models\Attribute;
+use App\Models\Entity;
 use App\Models\AttributeGroup;
 use App\Models\AttributeOption;
 use App\Models\User;
@@ -64,6 +65,24 @@ class AttributeController extends Controller
         $multiple =
             $request->input(
                 'multiple'
+            );
+
+
+        $usage =
+            $request->input(
+                'usage'
+            );
+
+
+        $filling =
+            $request->input(
+                'filling'
+            );
+
+
+        $featured =
+            $request->input(
+                'featured'
             );
 
 
@@ -172,7 +191,42 @@ class AttributeController extends Controller
                     'entityAttributes'
                 )
                 ->count(),
+
+            /*
+             * Las dos cifras que senalan trabajo pendiente: un catalogo sin
+             * valores no se puede asignar a nada, y un atributo que no usa
+             * nadie ocupa sitio en todas las listas sin aportar.
+             */
+
+            'empty_catalogs' => (clone $baseQuery)
+                ->where('data_type', 'OPTION')
+                ->whereDoesntHave('options')
+                ->count(),
+
+            'unused' => (clone $baseQuery)
+                ->whereDoesntHave('entityAttributes')
+                ->count(),
+
+            'featured' => (clone $baseQuery)
+                ->where('is_featured', true)
+                ->count(),
         ];
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | De que esta hecha la biblioteca de atributos
+        |--------------------------------------------------------------------------
+        |
+        | «23 atributos» no dice nada. Repartidos por tipo, si.
+        |
+        */
+
+        $reparto =
+            (clone $baseQuery)
+            ->selectRaw('data_type, COUNT(*) as total')
+            ->groupBy('data_type')
+            ->pluck('total', 'data_type');
 
 
         /*
@@ -189,6 +243,16 @@ class AttributeController extends Controller
             ->withCount([
                 'options',
                 'entityAttributes',
+            ])
+
+            /*
+             * Un catalogo se reconoce por sus valores, no por su nombre.
+             */
+            ->with([
+                'options' => fn($relation) => $relation
+                    ->where('status', 'ACTIVE')
+                    ->orderBy('sort_order')
+                    ->orderBy('name'),
             ])
             ->when(
                 $search,
@@ -264,6 +328,41 @@ class AttributeController extends Controller
                         $groupId
                     )
                 )
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Filtros de trabajo pendiente
+        |--------------------------------------------------------------------------
+        |
+        | Los tres que hacen falta en cuanto la biblioteca crece: quien no se
+        | usa, que catalogo se quedo sin valores, y cuales estan destacados.
+        |
+        */
+
+        $query
+            ->when(
+                $usage === 'used',
+                fn($q) => $q->whereHas('entityAttributes')
+            )
+            ->when(
+                $usage === 'unused',
+                fn($q) => $q->whereDoesntHave('entityAttributes')
+            )
+            ->when(
+                $filling === 'empty',
+                fn($q) => $q
+                    ->where('data_type', 'OPTION')
+                    ->whereDoesntHave('options')
+            )
+            ->when(
+                $filling === 'filled',
+                fn($q) => $q->whereHas('options')
+            )
+            ->when(
+                $featured === 'yes',
+                fn($q) => $q->where('is_featured', true)
             );
 
 
@@ -437,7 +536,11 @@ class AttributeController extends Controller
                 'status',
                 'scope',
                 'multiple',
+                'usage',
+                'filling',
+                'featured',
                 'groupId',
+                'reparto',
                 'sort',
                 'perPage'
             )
@@ -783,6 +886,16 @@ class AttributeController extends Controller
 
         $catalogOptions = null;
 
+        /*
+         * Un atributo que no es catalogo no entra en el bloque de abajo, asi
+         * que estas tienen que existir igualmente.
+         */
+        $topValores = collect();
+
+        $valoresSinUsar = 0;
+
+        $valoresConPadre = 0;
+
         $parentOptions =
             collect();
 
@@ -944,8 +1057,67 @@ class AttributeController extends Controller
                     'status',
                     'ACTIVE'
                 )
+                ->withCount('values')
+                ->orderBy('sort_order')
+                ->orderBy('name')
                 ->get();
+
+
+            /*
+             * Los valores que se usan de verdad. En un catalogo de cincuenta
+             * clanes, esto es lo unico que permite distinguir los que sostienen
+             * la biblioteca de los que nadie ha tocado nunca.
+             */
+
+            $topValores =
+                $attribute
+                ->options()
+                ->withCount('values')
+                ->orderByDesc('values_count')
+                ->orderBy('name')
+                ->limit(10)
+                ->get()
+                ->filter(fn($opcion) => $opcion->values_count > 0)
+                ->values();
+
+
+            $valoresSinUsar =
+                $attribute
+                ->options()
+                ->whereDoesntHave('values')
+                ->count();
+
+
+            $valoresConPadre =
+                $attribute
+                ->options()
+                ->whereNotNull('parent_option_id')
+                ->count();
         }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Quien lo usa
+        |--------------------------------------------------------------------------
+        |
+        | «17 entidades» sin ensenar ninguna no dice nada. Con sus caras, se ve
+        | de un vistazo si el atributo esta vivo o es un adorno.
+        |
+        */
+
+        $entidadesQueLoUsan =
+            Entity::query()
+            ->ownedBy($request->user())
+            ->whereHas(
+                'entityAttributes',
+                fn($query) =>
+                $query->where('attribute_id', $attribute->id)
+            )
+            ->with('entityType')
+            ->orderBy('name')
+            ->limit(18)
+            ->get();
 
 
         return view(
@@ -954,6 +1126,10 @@ class AttributeController extends Controller
                 'attribute',
                 'catalogOptions',
                 'parentOptions',
+                'topValores',
+                'valoresSinUsar',
+                'valoresConPadre',
+                'entidadesQueLoUsan',
                 'catalogSearch',
                 'catalogStatus',
                 'catalogSort',

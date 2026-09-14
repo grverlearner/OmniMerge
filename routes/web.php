@@ -3282,6 +3282,26 @@ Route::middleware('auth')->group(function () {
         [AttributeOptionController::class, 'create']
     )->name('attribute-options.create');
 
+    /*
+    |--------------------------------------------------------------------------
+    | Cambios de estado desde el indice
+    |--------------------------------------------------------------------------
+    |
+    | Van antes que la ruta con parametro para que «bulk» no se lea como el id
+    | de un valor.
+    |
+    */
+
+    Route::post(
+        'attribute-options/bulk',
+        [AttributeOptionController::class, 'bulkUpdate']
+    )->name('attribute-options.bulk');
+
+    Route::patch(
+        'attribute-options/{attributeOption}/quick',
+        [AttributeOptionController::class, 'quickUpdate']
+    )->name('attribute-options.quick');
+
     Route::get(
         'attribute-options/{attributeOption}',
         [AttributeOptionController::class, 'show']

@@ -604,9 +604,57 @@ class ExploreController extends Controller
         }
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | Las caras de cada creador
+        |--------------------------------------------------------------------------
+        |
+        | Una tarjeta de creador que solo dice «12 entidades» no ensena nada de
+        | lo que ha hecho. Con seis de sus caras se decide en un vistazo si vale
+        | la pena entrar. Se sacan de una vez para todos los que salen en
+        | pantalla, no uno por uno.
+        |
+        */
+
+        $idsDeCreadores =
+            collect()
+            ->merge(
+                $creators?->pluck('id') ?? []
+            )
+            ->merge(
+                collect($allResults['creators'] ?? [])->pluck('id')
+            )
+            ->unique()
+            ->values();
+
+        $carasDeCreador =
+            $idsDeCreadores->isEmpty()
+
+            ? collect()
+
+            : $this
+            ->entityQuery()
+            ->whereIn(
+                'user_id',
+                $idsDeCreadores
+            )
+            ->get()
+            ->groupBy('user_id')
+            ->map(
+                fn($suyas) =>
+                $suyas
+                    ->filter(
+                        fn($entidad) => (bool) $entidad->image_url
+                    )
+                    ->take(6)
+                    ->values()
+            );
+
+
         return view(
             'community.index',
             compact(
+                'carasDeCreador',
                 'tab',
                 'search',
                 'sort',
@@ -1467,6 +1515,7 @@ class ExploreController extends Controller
             ->with([
                 'creator',
                 'entityType',
+                'sourceEntity.creator',
                 'presentation.entityVersion.version',
                 'presentation.mediaImage',
                 'baseVersionSetting.entityVersion',
@@ -1800,6 +1849,19 @@ class ExploreController extends Controller
             )
             ->with([
                 'creator',
+                'sourceCollection.creator',
+
+                /*
+                 * Sus miembros. La vista de «contenido» ensena las caras de lo
+                 * que hay dentro, que es lo unico que dice si merece la pena
+                 * copiar una coleccion.
+                 */
+                'entities' =>
+                fn($query) =>
+                $query
+                    ->where('visibility', 'PUBLIC')
+                    ->where('status', 'ACTIVE')
+                    ->limit(12),
 
                 'clones' =>
                 fn($query) =>
@@ -2023,6 +2085,19 @@ class ExploreController extends Controller
             )
             ->with([
                 'creator',
+                'sourceAttribute.creator',
+
+                /*
+                 * Sus valores, para que se vea que trae dentro un catalogo
+                 * antes de copiarlo.
+                 */
+                'options' =>
+                fn($query) =>
+                $query
+                    ->where('status', 'ACTIVE')
+                    ->orderBy('sort_order')
+                    ->orderBy('name')
+                    ->limit(12),
 
                 'clones' =>
                 fn($query) =>
@@ -2270,6 +2345,7 @@ class ExploreController extends Controller
                 'attribute.creator',
                 'user',
                 'parent',
+                'sourceOption.user',
 
                 'clones' =>
                 fn($query) =>

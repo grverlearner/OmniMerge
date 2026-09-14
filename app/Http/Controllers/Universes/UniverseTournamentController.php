@@ -31,7 +31,9 @@ class UniverseTournamentController extends Controller
     */
 
     public function index(
-        Universe $universe
+        Request $request,
+        Universe $universe,
+        GameRegistry $registry
     ): View {
 
         $this->authorize(
@@ -39,47 +41,159 @@ class UniverseTournamentController extends Controller
             $universe
         );
 
-        $universeTournaments =
+
+        /*
+        |--------------------------------------------------------------------------
+        | Filtros y orden
+        |--------------------------------------------------------------------------
+        */
+
+        $search = trim((string) $request->input('search'));
+
+        $status = (string) $request->input('status');
+
+        $gameKey = (string) $request->input('game');
+
+        $played = (string) $request->input('played');
+
+        $sort = (string) $request->input('sort', 'newest');
+
+        $perPage = (int) $request->input('per_page', 24);
+
+        if (! in_array($perPage, [12, 24, 48, 96], true)) {
+            $perPage = 24;
+        }
+
+
+        $query =
             $universe
             ->universeTournaments()
             ->with([
                 'tournamentTemplate',
+
+                /*
+                 * Las ultimas ediciones. Un torneo se juzga por lo que ha
+                 * pasado con el, no por su ficha: si se jugo, cuando, y
+                 * quien gano.
+                 *
+                 * Se traen cinco y no una a proposito: la ultima edicion
+                 * puede estar a medias, y entonces el campeon que interesa
+                 * es el de la ultima que SI termino. Con una sola, un torneo
+                 * con historia dice «aun sin campeon» y miente por omision.
+                 */
+                'instances' => fn($q) => $q
+                    ->with([
+                        'season',
+                        'participants' => fn($p) => $p
+                            ->where('placement', 1)
+                            ->with('universeEntity'),
+                    ])
+                    ->latest('created_at')
+                    ->limit(5),
             ])
-            ->latest()
-            ->paginate(20);
+            ->withCount([
+                'instances',
+                'rewards',
+                'modifiers',
+            ])
+            ->when(
+                $search,
+                fn($q) => $q->where(
+                    fn($s) => $s
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                )
+            )
+            ->when(
+                $status,
+                fn($q) => $q->where('status', $status)
+            )
+            ->when(
+                $gameKey,
+                fn($q) => $q->where('game_key', $gameKey)
+            )
+            ->when(
+                $played === 'yes',
+                fn($q) => $q->has('instances')
+            )
+            ->when(
+                $played === 'no',
+                fn($q) => $q->doesntHave('instances')
+            );
+
+
+        match ($sort) {
+
+            'oldest' => $query->orderBy('created_at')->orderBy('id'),
+
+            'name_asc' => $query->orderBy('name'),
+
+            'name_desc' => $query->orderByDesc('name'),
+
+            'editions' => $query
+                ->orderByDesc('instances_count')
+                ->orderByDesc('created_at'),
+
+            default => $query
+                ->orderByDesc('created_at')
+                ->orderByDesc('id'),
+        };
+
+
+        $universeTournaments =
+            $query
+            ->paginate($perPage)
+            ->withQueryString();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Cifras
+        |--------------------------------------------------------------------------
+        |
+        | «Sin jugar» es la que faltaba: un torneo configurado y nunca
+        | lanzado es trabajo a medias, y sin contarlo no se ve.
+        |
+        */
+
+        $base = fn() => $universe->universeTournaments();
 
         $statistics = [
 
-            'total' =>
-            $universe
-                ->universeTournaments()
-                ->count(),
+            'total' => $base()->count(),
 
-            'active' =>
-            $universe
-                ->universeTournaments()
-                ->where(
-                    'status',
-                    'ACTIVE'
-                )
-                ->count(),
+            'active' => $base()->where('status', 'ACTIVE')->count(),
 
-            'draft' =>
-            $universe
-                ->universeTournaments()
-                ->where(
-                    'status',
-                    'DRAFT'
-                )
-                ->count(),
+            'draft' => $base()->where('status', 'DRAFT')->count(),
+
+            'sin_jugar' => $base()->doesntHave('instances')->count(),
+
+            'ediciones' => $universe->tournamentInstances()->count(),
         ];
+
+
+        /*
+         * Los juegos que usan estos torneos, para el filtro y para pintar
+         * cada tarjeta con el acento de su motor.
+         */
+        $juegos =
+            collect($registry->definitions())
+            ->keyBy('key');
+
 
         return view(
             'universes.tournaments.index',
             compact(
                 'universe',
                 'universeTournaments',
-                'statistics'
+                'statistics',
+                'juegos',
+                'search',
+                'status',
+                'gameKey',
+                'played',
+                'sort',
+                'perPage'
             )
         );
     }

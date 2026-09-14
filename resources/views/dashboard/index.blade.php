@@ -1,4109 +1,831 @@
-<x-app-layout>
-
-    <x-slot name="header">
-        Biblioteca
-    </x-slot>
-
-
-    <style>
-        [x-cloak] {
-            display: none !important;
-        }
-    </style>
-
-
-    @php
-
-        /*
-        |--------------------------------------------------------------------------
-        | Tarjetas principales
-        |--------------------------------------------------------------------------
-        */
-
-        $metricCards = [
-            [
-                'label' => 'Entidades',
-
-                'value' => $statistics['entities'],
-
-                'description' =>
-                    $statistics['active_entities'] . ' activas · ' . $statistics['public_entities'] . ' públicas',
-
-                'icon' => '✦',
-
-                'url' => route('entities.index'),
-
-                'classes' => 'bg-indigo-50 text-indigo-700',
-            ],
-
-            [
-                'label' => 'Atributos',
-
-                'value' => $statistics['attributes'],
-
-                'description' => 'Características reutilizables',
-
-                'icon' => '☷',
-
-                'url' => route('attributes.index'),
-
-                'classes' => 'bg-violet-50 text-violet-700',
-            ],
-
-            [
-                'label' => 'Catálogo',
-
-                'value' => $statistics['catalog_options'],
-
-                'description' => $statistics['catalog_attributes'] . ' atributos con Catálogo',
-
-                'icon' => '◆',
-
-                'url' => route('attribute-options.index'),
-
-                'classes' => 'bg-fuchsia-50 text-fuchsia-700',
-            ],
-
-            [
-                'label' => 'Colecciones',
-
-                'value' => $statistics['collections'],
-
-                'description' => 'Organización de entidades',
-
-                'icon' => '▤',
-
-                'url' => route('collections.index'),
-
-                'classes' => 'bg-cyan-50 text-cyan-700',
-            ],
-
-            [
-                'label' => 'Tipos',
-
-                'value' => $statistics['entity_types'],
-
-                'description' => 'Clasificación de entidades',
-
-                'icon' => '◇',
-
-                'url' => route('entity-types.index'),
-
-                'classes' => 'bg-amber-50 text-amber-700',
-            ],
-
-            [
-                'label' => 'Grupos',
-
-                'value' => $statistics['attribute_groups'],
-
-                'description' => 'Organización de atributos',
-
-                'icon' => '▥',
-
-                'url' => route('attribute-groups.index'),
-
-                'classes' => 'bg-emerald-50 text-emerald-700',
-            ],
-        ];
-
-        /*
-        |--------------------------------------------------------------------------
-        | Acciones rápidas
-        |--------------------------------------------------------------------------
-        */
-
-        $quickActions = [
-            [
-                'label' => 'Nueva entidad',
-
-                'description' => 'Crea una nueva pieza de tu Biblioteca.',
-
-                'icon' => '✦',
-
-                'url' => route('entities.create'),
-            ],
-
-            [
-                'label' => 'Nuevo atributo',
-
-                'description' => 'Define una característica reutilizable.',
-
-                'icon' => '☷',
-
-                'url' => route('attributes.create'),
-            ],
-
-            [
-                'label' => 'Nuevo Catálogo',
-
-                'description' => 'Añade un elemento seleccionable.',
-
-                'icon' => '◆',
-
-                'url' => route('attribute-options.create'),
-            ],
-
-            [
-                'label' => 'Nueva colección',
-
-                'description' => 'Organiza varias entidades.',
-
-                'icon' => '▤',
-
-                'url' => route('collections.create'),
-            ],
-
-            [
-                'label' => 'Nuevo tipo',
-
-                'description' => 'Clasifica futuras entidades.',
-
-                'icon' => '◇',
-
-                'url' => route('entity-types.create'),
-            ],
-
-            [
-                'label' => 'Nuevo grupo',
-
-                'description' => 'Organiza visualmente tus atributos.',
-
-                'icon' => '▥',
-
-                'url' => route('attribute-groups.create'),
-            ],
-        ];
-
-    @endphp
-
-
-    <div x-data="dashboardWorkspace({
-        searchUrl: @js(route('dashboard.search'))
-    })" x-init="init()"
-        @keydown.escape.window="
-            createOpen = false;
-            customizeOpen = false;
-            searchOpen = false;
-        ">
+@php
+    /*
+     * El panel.
+     *
+     * Es lo primero que se ve al entrar, así que su trabajo no es enseñar todo
+     * lo que hay sino contestar tres cosas en este orden:
+     *
+     *   1. ¿de qué va mi biblioteca?   → las caras, no un número
+     *   2. ¿qué estaba haciendo?       → lo último tocado, con un clic para seguir
+     *   3. ¿qué le falta?              → lo que está a medias, dicho y enlazado
+     *
+     * Y a mano, siempre: el buscador —que ya existía en el servidor y no estaba
+     * enchufado a nada— y los atajos a lo que se hace todos los días.
+     */
+
+    $atajos = [
+        ['Nueva entidad', 'chispa', route('entities.create'), '#a78bfa', 'Un personaje, un país, lo que sea'],
+        ['Nueva colección', 'capas', route('collections.create'), '#22d3ee', 'Agrupar entidades que van juntas'],
+        ['Nuevo atributo', 'controles', route('attributes.create'), '#34d399', 'Un dato con el que describirlas'],
+        ['Nuevo valor', 'cuadricula', route('attribute-options.create'), '#fbbf24', 'Una opción para un catálogo'],
+        ['Taller de versiones', 'orbita', route('versions.index'), '#f472b6', 'Variantes de una misma entidad'],
+        ['Comunidad', 'globo', route('community.index'), '#60a5fa', 'Copiar lo que otros han hecho'],
+    ];
+
+    /* Solo lo que de verdad está pendiente; lo demás no es un aviso. */
+    $pendientes = $healthItems->where('count', '>', 0)->values();
+    $resueltos = $healthItems->where('count', 0)->count();
+
+    $bloques = [
+        ['entities', 'Entidades', $statistics['entities'], '#a78bfa', route('entities.index')],
+        ['collections', 'Colecciones', $statistics['collections'], '#22d3ee', route('collections.index')],
+        ['attributes', 'Atributos', $statistics['attributes'], '#34d399', route('attributes.index')],
+        ['catalogs', 'Valores', $statistics['catalog_options'], '#fbbf24', route('attribute-options.index')],
+        ['types', 'Tipos', $statistics['entity_types'], '#f472b6', route('entity-types.index')],
+        ['groups', 'Grupos', $statistics['attribute_groups'], '#60a5fa', route('attribute-groups.index')],
+    ];
+
+    $vacia = $statistics['resources_total'] === 0;
+@endphp
+
+<x-app-layout title="Panel" surface="dark">
+
+    <x-slot name="header">Panel</x-slot>
+
+    <div x-data="panelDeBiblioteca({
+        rutaBusqueda: @js(route('dashboard.search')),
+    })" class="space-y-4">
 
         {{-- ===================================================== --}}
-        {{-- CABECERA --}}
+        {{-- DE QUÉ VA MI BIBLIOTECA --}}
         {{-- ===================================================== --}}
 
-        <section
-            class="
-                rounded-3xl
-                border
-                border-slate-200
-                bg-white
-                p-5
-                shadow-sm
-                sm:p-6
-            ">
-
-            <div
-                class="
-                    flex
-                    flex-col
-                    gap-5
-                    xl:flex-row
-                    xl:items-start
-                    xl:justify-between
-                ">
-
-                {{-- TÍTULO --}}
-                <div>
-
-                    <div
-                        class="
-                            flex
-                            flex-wrap
-                            items-center
-                            gap-2
-                        ">
-
-                        <span
-                            class="
-                                rounded-full
-                                bg-indigo-50
-                                px-3
-                                py-1
-                                text-[10px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-indigo-700
-                            ">
-                            Biblioteca
-                        </span>
-
-
-                        <span
-                            class="
-                                rounded-full
-                                bg-slate-100
-                                px-3
-                                py-1
-                                text-[10px]
-                                font-bold
-                                text-slate-500
-                            ">
-                            {{ number_format($statistics['resources_total']) }}
-                            recursos
-                        </span>
-
-                    </div>
-
-
-                    <h2
-                        class="
-                            mt-3
-                            text-2xl
-                            font-black
-                            tracking-tight
-                            text-slate-900
-                            sm:text-3xl
-                        ">
-                        Hola,
-                        {{ explode(' ', $user->name)[0] }}
-                        👋
-                    </h2>
-
-
-                    <p
-                        class="
-                            mt-2
-                            max-w-2xl
-                            text-sm
-                            leading-6
-                            text-slate-500
-                        ">
-                        Continúa construyendo, organizando y
-                        explorando las piezas de tu Biblioteca.
-                    </p>
-
-                </div>
-
-
-                {{-- CONTROLES --}}
-                <div
-                    class="
-                        flex
-                        flex-wrap
-                        gap-2
-                    ">
-
-                    {{-- MODO --}}
-                    <div
-                        class="
-                            flex
-                            rounded-xl
-                            bg-slate-100
-                            p-1
-                        ">
-
-                        @foreach ([
-        'summary' => 'Resumen',
-
-        'compact' => 'Compacto',
-
-        'visual' => 'Visual',
-    ] as $value => $label)
-                            <button type="button"
-                                @click="
-                                    setView(
-                                        '{{ $value }}'
-                                    )
-                                "
-                                :class="view === '{{ $value }}'
-                                
-                                    ?
-                                    'bg-white text-indigo-700 shadow-sm'
-                                
-                                    :
-                                    'text-slate-500'"
-                                class="
-                                    rounded-lg
-                                    px-3
-                                    py-2
-                                    text-xs
-                                    font-bold
-                                    transition
-                                ">
-                                {{ $label }}
-                            </button>
-                        @endforeach
-
-                    </div>
-
-
-                    {{-- PERSONALIZAR --}}
-                    <button type="button"
-                        @click="
-                            customizeOpen = true
-                        "
-                        class="
-                            rounded-xl
-                            border
-                            border-slate-200
-                            bg-white
-                            px-4
-                            py-2.5
-                            text-xs
-                            font-bold
-                            text-slate-600
-                            hover:bg-slate-50
-                        ">
-                        ⚙ Personalizar
-                    </button>
-
-                </div>
-
-            </div>
-
-
-            {{-- ================================================= --}}
-            {{-- BUSCADOR + CREAR --}}
-            {{-- ================================================= --}}
-
-            <div
-                class="
-                    mt-6
-                    flex
-                    flex-col
-                    gap-3
-                    lg:flex-row
-                ">
-
-                {{-- BUSCADOR --}}
-                <div class="
-                        relative
-                        flex-1
-                    "
-                    @click.outside="
-                        searchOpen = false
-                    ">
-
-                    <div
-                        class="
-                            flex
-                            items-center
-                            gap-3
-                            rounded-2xl
-                            border
-                            border-slate-200
-                            bg-slate-50
-                            px-4
-                            transition
-                            focus-within:border-indigo-300
-                            focus-within:bg-white
-                            focus-within:ring-4
-                            focus-within:ring-indigo-50
-                        ">
-
-                        <span
-                            class="
-                                text-lg
-                                text-slate-400
-                            ">
-                            ⌕
-                        </span>
-
-
-                        <input type="search"
-                            x-model="
-                                searchQuery
-                            "
-                            @input.debounce.300ms="
-                                searchLibrary()
-                            "
-                            @focus="
-                                if (
-                                    searchQuery.length >= 2
-                                ) {
-                                    searchOpen = true;
-                                }
-                            "
-                            placeholder="Buscar entidades, atributos, Catálogos, grupos..."
-                            class="
-                                w-full
-                                border-0
-                                bg-transparent
-                                px-0
-                                py-3.5
-                                text-sm
-                                text-slate-900
-                                placeholder:text-slate-400
-                                focus:ring-0
-                            ">
-
-
-                        <span x-show="
-                                searching
-                            " x-cloak
-                            class="
-                                text-xs
-                                font-bold
-                                text-indigo-500
-                            ">
-                            Buscando...
-                        </span>
-
-                    </div>
-
-
-                    {{-- RESULTADOS --}}
-                    <div x-show="
-                            searchOpen
-                        " x-cloak x-transition
-                        class="
-                            absolute
-                            inset-x-0
-                            top-[calc(100%+8px)]
-                            z-40
-                            overflow-hidden
-                            rounded-2xl
-                            border
-                            border-slate-200
-                            bg-white
-                            shadow-2xl
-                        ">
-
-                        <div
-                            class="
-                                border-b
-                                border-slate-100
-                                px-4
-                                py-3
-                            ">
-
-                            <p
-                                class="
-                                    text-[10px]
-                                    font-black
-                                    uppercase
-                                    tracking-wider
-                                    text-slate-400
-                                ">
-                                Resultados de tu Biblioteca
-                            </p>
-
-                        </div>
-
-
-                        <div
-                            class="
-                                max-h-[430px]
-                                overflow-y-auto
-                                p-2
-                            ">
-
-                            <template
-                                x-for="
-                                    result
-                                    in searchResults
-                                "
-                                :key="`${result.kind}-${result.id}`">
-
-                                <a :href="result.url"
-                                    class="
-                                        flex
-                                        items-center
-                                        gap-3
-                                        rounded-xl
-                                        p-3
-                                        transition
-                                        hover:bg-indigo-50
-                                    ">
-
-                                    <div
-                                        class="
-                                            h-11
-                                            w-11
-                                            shrink-0
-                                            overflow-hidden
-                                            rounded-xl
-                                            bg-slate-100
-                                        ">
-
-                                        <template
-                                            x-if="
-                                                result.image_url
-                                            ">
-
-                                            <img :src="result.image_url"
-                                                :alt="result.title"
-                                                class="
-                                                    h-full
-                                                    w-full
-                                                    object-cover
-                                                ">
-
-                                        </template>
-
-
-                                        <template
-                                            x-if="
-                                                ! result.image_url
-                                            ">
-
-                                            <div class="
-                                                    flex
-                                                    h-full
-                                                    items-center
-                                                    justify-center
-                                                    font-black
-                                                    text-indigo-400
-                                                "
-                                                x-text="
-                                                    result.icon
-                                                    || '◆'
-                                                ">
-                                            </div>
-
-                                        </template>
-
-                                    </div>
-
-
-                                    <div
-                                        class="
-                                            min-w-0
-                                            flex-1
-                                        ">
-
-                                        <div
-                                            class="
-                                                flex
-                                                items-center
-                                                gap-2
-                                            ">
-
-                                            <p class="
-                                                    truncate
-                                                    text-sm
-                                                    font-black
-                                                    text-slate-800
-                                                "
-                                                x-text="
-                                                    result.title
-                                                ">
-                                            </p>
-
-
-                                            <span
-                                                class="
-                                                    rounded-full
-                                                    bg-indigo-50
-                                                    px-2
-                                                    py-0.5
-                                                    text-[8px]
-                                                    font-black
-                                                    uppercase
-                                                    text-indigo-600
-                                                "
-                                                x-text="
-                                                    result.kind_label
-                                                "></span>
-
-                                        </div>
-
-
-                                        <p
-                                            class="
-                                                mt-1
-                                                truncate
-                                                text-[10px]
-                                                text-slate-400
-                                            ">
-                                            <span
-                                                x-text="
-                                                    result.code
-                                                "
-                                                class="
-                                                    font-mono
-                                                "></span>
-
-                                            <span>
-                                                ·
-                                            </span>
-
-                                            <span
-                                                x-text="
-                                                    result.subtitle
-                                                "></span>
-                                        </p>
-
-                                    </div>
-
-
-                                    <span
-                                        class="
-                                            text-xs
-                                            text-slate-300
-                                        ">
-                                        →
-                                    </span>
-
-                                </a>
-
-                            </template>
-
-
-                            <div x-show="
-                                    ! searching
-                                    &&
-                                    searchQuery.length >= 2
-                                    &&
-                                    searchResults.length === 0
-                                "
-                                x-cloak
-                                class="
-                                    p-8
-                                    text-center
-                                ">
-
-                                <p
-                                    class="
-                                        text-sm
-                                        font-bold
-                                        text-slate-500
-                                    ">
-                                    No encontramos resultados.
-                                </p>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                {{-- ================================================= --}}
-                {{-- + CREAR --}}
-                {{-- ================================================= --}}
-
-                <div class="
-                        relative
-                    "
-                    @click.outside="
-                        createOpen = false
-                    ">
-
-                    <button type="button"
-                        @click="
-                            createOpen = ! createOpen
-                        "
-                        class="
-                            flex
-                            w-full
-                            items-center
-                            justify-center
-                            gap-2
-                            rounded-2xl
-                            bg-indigo-600
-                            px-6
-                            py-3.5
-                            text-sm
-                            font-black
-                            text-white
-                            shadow-lg
-                            shadow-indigo-600/20
-                            hover:bg-indigo-700
-                            lg:w-auto
-                        ">
-                        <span class="text-lg">
-                            +
-                        </span>
-
-                        Crear
-                    </button>
-
-
-                    <div x-show="
-                            createOpen
-                        " x-cloak x-transition
-                        class="
-                            absolute
-                            right-0
-                            top-[calc(100%+8px)]
-                            z-40
-                            w-full
-                            overflow-hidden
-                            rounded-2xl
-                            border
-                            border-slate-200
-                            bg-white
-                            p-2
-                            shadow-2xl
-                            lg:w-[360px]
-                        ">
-
-                        <div
-                            class="
-                                px-3
-                                pb-2
-                                pt-2
-                            ">
-
-                            <p
-                                class="
-                                    text-[10px]
-                                    font-black
-                                    uppercase
-                                    tracking-wider
-                                    text-slate-400
-                                ">
-                                Crear en Biblioteca
-                            </p>
-
-                        </div>
-
-
-                        @foreach ($quickActions as $action)
-                            <a href="{{ $action['url'] }}"
-                                class="
-                                    flex
-                                    items-center
-                                    gap-3
-                                    rounded-xl
-                                    p-3
-                                    transition
-                                    hover:bg-indigo-50
-                                ">
-
-                                <div
-                                    class="
-                                        flex
-                                        h-10
-                                        w-10
-                                        shrink-0
-                                        items-center
-                                        justify-center
-                                        rounded-xl
-                                        bg-indigo-50
-                                        font-black
-                                        text-indigo-600
-                                    ">
-                                    {{ $action['icon'] }}
-                                </div>
-
-
-                                <div>
-
-                                    <p
-                                        class="
-                                            text-sm
-                                            font-black
-                                            text-slate-800
-                                        ">
-                                        {{ $action['label'] }}
-                                    </p>
-
-
-                                    <p
-                                        class="
-                                            mt-0.5
-                                            text-[10px]
-                                            text-slate-400
-                                        ">
-                                        {{ $action['description'] }}
-                                    </p>
-
-                                </div>
-
+        <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
+
+            @if ($mosaico->isNotEmpty())
+                <div class="relative">
+                    <div class="grid grid-cols-6 gap-px bg-slate-800 sm:grid-cols-12 lg:grid-cols-[repeat(24,minmax(0,1fr))]">
+                        @foreach ($mosaico as $pieza)
+                            <a href="{{ route('entities.show', $pieza) }}" title="{{ $pieza->name }}"
+                                class="group block aspect-square overflow-hidden bg-slate-950">
+                                <img src="{{ $pieza->image_url }}" alt="" loading="lazy"
+                                    class="h-full w-full object-cover opacity-50 transition duration-500 group-hover:scale-110 group-hover:opacity-100">
                             </a>
                         @endforeach
-
                     </div>
 
+                    <span class="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-slate-900 to-transparent"></span>
+                </div>
+            @endif
+
+            <div class="flex flex-wrap items-end gap-4 p-4 {{ $mosaico->isNotEmpty() ? 'relative -mt-6' : '' }}">
+
+                <div class="min-w-0 flex-1">
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Tu biblioteca</p>
+
+                    <h1 class="mt-0.5 text-2xl font-black tracking-tight text-white">
+                        Hola, {{ $user->name }}
+                    </h1>
+
+                    <p class="mt-0.5 text-[11px] text-slate-500">
+                        @if ($vacia)
+                            Todavía está vacía. Lo de abajo son los cuatro sitios por donde se empieza.
+                        @else
+                            <strong class="text-slate-300">{{ $statistics['resources_total'] }}</strong>
+                            cosas creadas entre entidades, tipos, atributos, valores, grupos y colecciones.
+                        @endif
+                    </p>
                 </div>
 
-            </div>
 
-        </section>
+                {{-- El buscador, que ya existía en el servidor y no estaba enchufado --}}
+                <div class="relative w-full sm:w-80" @click.outside="cerrarBusqueda()">
 
-
-        {{-- ===================================================== --}}
-        {{-- MÉTRICAS --}}
-        {{-- ===================================================== --}}
-
-        <section x-show="
-                view !== 'compact'
-            "
-            class="
-                mt-6
-                grid
-                grid-cols-2
-                gap-3
-                md:grid-cols-3
-                xl:grid-cols-6
-            ">
-
-            @foreach ($metricCards as $card)
-                <a href="{{ $card['url'] }}"
-                    class="
-                        group
-                        rounded-2xl
-                        border
-                        border-slate-200
-                        bg-white
-                        p-4
-                        shadow-sm
-                        transition
-                        hover:-translate-y-0.5
-                        hover:border-indigo-200
-                        hover:shadow-md
-                    ">
-
-                    <div
-                        class="
-                            flex
-                            items-start
-                            justify-between
-                            gap-3
-                        ">
-
-                        <div>
-
-                            <p
-                                class="
-                                    text-[10px]
-                                    font-black
-                                    uppercase
-                                    tracking-wider
-                                    text-slate-400
-                                ">
-                                {{ $card['label'] }}
-                            </p>
-
-
-                            <p
-                                class="
-                                    mt-2
-                                    text-2xl
-                                    font-black
-                                    text-slate-900
-                                ">
-                                {{ number_format($card['value']) }}
-                            </p>
-
-                        </div>
-
-
-                        <div
-                            class="
-                                flex
-                                h-10
-                                w-10
-                                items-center
-                                justify-center
-                                rounded-xl
-                                text-lg
-                                font-black
-                                {{ $card['classes'] }}
-                            ">
-                            {{ $card['icon'] }}
-                        </div>
-
-                    </div>
-
-
-                    <p
-                        class="
-                            mt-3
-                            line-clamp-1
-                            text-[10px]
-                            text-slate-400
-                        ">
-                        {{ $card['description'] }}
-                    </p>
-
-
-                    <p
-                        class="
-                            mt-3
-                            text-[10px]
-                            font-black
-                            text-indigo-600
-                            opacity-0
-                            transition
-                            group-hover:opacity-100
-                        ">
-                        Abrir →
-                    </p>
-
-                </a>
-            @endforeach
-
-        </section>
-
-
-        {{-- ===================================================== --}}
-        {{-- MODO RESUMEN --}}
-        {{-- ===================================================== --}}
-
-        <div x-show="
-                view === 'summary'
-            "
-            class="
-                mt-6
-                space-y-6
-            ">
-
-            {{-- ================================================= --}}
-            {{-- CONTINUAR + ACCIONES --}}
-            {{-- ================================================= --}}
-
-            <section
-                class="
-                    grid
-                    gap-6
-                    xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.7fr)]
-                ">
-
-                {{-- CONTINUAR --}}
-                <article x-show="
-                        sections.continue
-                    "
-                    class="
-                        overflow-hidden
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        shadow-sm
-                    ">
-
-                    <div
-                        class="
-                            flex
-                            items-end
-                            justify-between
-                            border-b
-                            border-slate-100
-                            px-5
-                            py-4
-                        ">
-
-                        <div>
-
-                            <p
-                                class="
-                                    text-[10px]
-                                    font-black
-                                    uppercase
-                                    tracking-wider
-                                    text-indigo-500
-                                ">
-                                Workspace
-                            </p>
-
-
-                            <h3
-                                class="
-                                    mt-1
-                                    text-lg
-                                    font-black
-                                    text-slate-900
-                                ">
-                                Continuar trabajando
-                            </h3>
-
-                        </div>
-
-
-                        <span
-                            class="
-                                text-[10px]
-                                text-slate-400
-                            ">
-                            Modificados recientemente
+                    <label class="relative block">
+                        <span class="sr-only">Buscar en la biblioteca</span>
+                        <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600">
+                            <x-omni-icon name="brujula" size="h-4 w-4" />
                         </span>
 
-                    </div>
+                        <input type="search" x-model="consulta" @input.debounce.250ms="buscar()"
+                            @keydown.escape="cerrarBusqueda()"
+                            @keydown.arrow-down.prevent="mover(1)" @keydown.arrow-up.prevent="mover(-1)"
+                            @keydown.enter.prevent="abrirElegido()"
+                            x-ref="buscador"
+                            placeholder="Buscar entidades, atributos, valores…"
+                            class="w-full rounded-xl border-slate-800 bg-slate-950 pl-9 pr-12 text-xs text-slate-200 placeholder:text-slate-600 focus:border-violet-500 focus:ring-violet-500">
 
+                        <span class="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-slate-800 px-1.5 py-0.5 font-mono text-[9px] font-black text-slate-600 sm:block">
+                            /
+                        </span>
+                    </label>
 
-                    <div
-                        class="
-                            grid
-                            gap-2
-                            p-3
-                            md:grid-cols-2
-                        ">
+                    <div x-show="abierto" x-cloak
+                        class="absolute inset-x-0 top-full z-30 mt-1 max-h-80 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950 shadow-2xl">
 
-                        @forelse ($workspaceItems->take(6)
-                            as $item)
-                            <a href="{{ $item['url'] }}"
-                                class="
-                                    flex
-                                    items-center
-                                    gap-3
-                                    rounded-2xl
-                                    p-3
-                                    transition
-                                    hover:bg-indigo-50
-                                ">
+                        <template x-if="cargando">
+                            <p class="px-3 py-4 text-center text-[11px] text-slate-600">Buscando…</p>
+                        </template>
 
-                                <div
-                                    class="
-                                        h-12
-                                        w-12
-                                        shrink-0
-                                        overflow-hidden
-                                        rounded-xl
-                                        bg-slate-100
-                                    ">
+                        <template x-if="! cargando && resultados.length === 0">
+                            <p class="px-3 py-4 text-center text-[11px] text-slate-600">
+                                Nada con ese nombre en tu biblioteca.
+                            </p>
+                        </template>
 
-                                    @if ($item['image_url'])
-                                        <img src="{{ $item['image_url'] }}" alt="{{ $item['name'] }}"
-                                            class="
-                                                h-full
-                                                w-full
-                                                object-cover
-                                            ">
-                                    @else
-                                        <div class="
-                                                flex
-                                                h-full
-                                                items-center
-                                                justify-center
-                                                font-black
-                                            "
-                                            style="
-                                                background-color:
-                                                    {{ $item['color'] }}15;
+                        <template x-for="(resultado, indice) in resultados" :key="resultado.kind + resultado.id">
+                            <a :href="resultado.url"
+                                :class="indice === elegido ? 'bg-violet-500/15' : ''"
+                                @mouseenter="elegido = indice"
+                                class="flex items-center gap-2 border-b border-slate-800/70 px-2 py-1.5 transition last:border-0">
 
-                                                color:
-                                                    {{ $item['color'] }};
-                                            ">
-                                            {{ $item['icon'] }}
-                                        </div>
-                                    @endif
-
-                                </div>
-
-
-                                <div
-                                    class="
-                                        min-w-0
-                                        flex-1
-                                    ">
-
-                                    <div
-                                        class="
-                                            flex
-                                            items-center
-                                            gap-2
-                                        ">
-
-                                        <p
-                                            class="
-                                                truncate
-                                                text-sm
-                                                font-black
-                                                text-slate-800
-                                            ">
-                                            {{ $item['name'] }}
-                                        </p>
-
-
-                                        <span
-                                            class="
-                                                rounded-full
-                                                bg-slate-100
-                                                px-2
-                                                py-0.5
-                                                text-[8px]
-                                                font-bold
-                                                text-slate-500
-                                            ">
-                                            {{ $item['type'] }}
-                                        </span>
-
-                                    </div>
-
-
-                                    <p
-                                        class="
-                                            mt-1
-                                            truncate
-                                            text-[10px]
-                                            text-slate-400
-                                        ">
-                                        {{ $item['subtitle'] }}
-
-                                        ·
-
-                                        {{ $item['updated_at']->diffForHumans() }}
-                                    </p>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        text-xs
-                                        text-slate-300
-                                    ">
-                                    →
+                                <span class="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-900">
+                                    <template x-if="resultado.image_url">
+                                        <img :src="resultado.image_url" alt="" class="h-full w-full object-cover">
+                                    </template>
+                                    <template x-if="! resultado.image_url">
+                                        <span class="flex h-full w-full items-center justify-center text-[11px] text-slate-600"
+                                            x-text="resultado.icon"></span>
+                                    </template>
                                 </span>
 
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate text-[11px] font-black text-white" x-text="resultado.title"></span>
+                                    <span class="block truncate text-[9px] text-slate-500" x-text="resultado.subtitle"></span>
+                                </span>
+
+                                <span class="shrink-0 rounded border border-slate-800 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-slate-500"
+                                    x-text="resultado.kind_label"></span>
                             </a>
-
-                        @empty
-
-                            <div
-                                class="
-                                    col-span-2
-                                    py-12
-                                    text-center
-                                    text-sm
-                                    text-slate-400
-                                ">
-                                Empieza creando tu primer recurso.
-                            </div>
-                        @endforelse
-
+                        </template>
                     </div>
-
-                </article>
-
-
-                {{-- ACCIONES --}}
-                <article x-show="
-                        sections.quick
-                    "
-                    class="
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        p-5
-                        shadow-sm
-                    ">
-
-                    <p
-                        class="
-                            text-[10px]
-                            font-black
-                            uppercase
-                            tracking-wider
-                            text-indigo-500
-                        ">
-                        Atajos
-                    </p>
-
-
-                    <h3
-                        class="
-                            mt-1
-                            text-lg
-                            font-black
-                            text-slate-900
-                        ">
-                        Acciones rápidas
-                    </h3>
-
-
-                    <div
-                        class="
-                            mt-4
-                            grid
-                            grid-cols-2
-                            gap-2
-                        ">
-
-                        @foreach ($quickActions as $action)
-                            <a href="{{ $action['url'] }}"
-                                class="
-                                    rounded-2xl
-                                    border
-                                    border-slate-100
-                                    bg-slate-50
-                                    p-3
-                                    transition
-                                    hover:border-indigo-200
-                                    hover:bg-indigo-50
-                                ">
-
-                                <p
-                                    class="
-                                        text-lg
-                                        text-indigo-500
-                                    ">
-                                    {{ $action['icon'] }}
-                                </p>
-
-
-                                <p
-                                    class="
-                                        mt-2
-                                        text-xs
-                                        font-black
-                                        text-slate-700
-                                    ">
-                                    {{ $action['label'] }}
-                                </p>
-
-                            </a>
-                        @endforeach
-
-                    </div>
-
-
-                    <a href="{{ route('community.index') }}"
-                        class="
-                            mt-4
-                            flex
-                            items-center
-                            justify-between
-                            rounded-2xl
-                            border
-                            border-indigo-100
-                            bg-indigo-50
-                            p-4
-                        ">
-
-                        <div>
-
-                            <p
-                                class="
-                                    text-xs
-                                    font-black
-                                    text-indigo-800
-                                ">
-                                🌐 Comunidad
-                            </p>
-
-
-                            <p
-                                class="
-                                    mt-1
-                                    text-[10px]
-                                    text-indigo-500
-                                ">
-                                Descubre contenido reutilizable.
-                            </p>
-
-                        </div>
-
-
-                        <span class="
-                                text-indigo-400
-                            ">
-                            →
-                        </span>
-
-                    </a>
-
-                </article>
-
-            </section>
-
-
-            {{-- ================================================= --}}
-            {{-- ACTIVIDAD + SALUD --}}
-            {{-- ================================================= --}}
-
-            <section
-                class="
-                    grid
-                    gap-6
-                    xl:grid-cols-2
-                ">
-
-                {{-- ACTIVIDAD --}}
-                <article x-show="
-                        sections.activity
-                    "
-                    class="
-                        overflow-hidden
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        shadow-sm
-                    ">
-
-                    <div
-                        class="
-                            border-b
-                            border-slate-100
-                            px-5
-                            py-4
-                        ">
-
-                        <p
-                            class="
-                                text-[10px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-indigo-500
-                            ">
-                            Historial reciente
-                        </p>
-
-
-                        <h3
-                            class="
-                                mt-1
-                                text-lg
-                                font-black
-                                text-slate-900
-                            ">
-                            Actividad
-                        </h3>
-
-                    </div>
-
-
-                    <div
-                        class="
-                            divide-y
-                            divide-slate-100
-                        ">
-
-                        @forelse ($activityItems
-                            as $item)
-                            <a href="{{ $item['url'] }}"
-                                class="
-                                    flex
-                                    items-center
-                                    gap-3
-                                    px-5
-                                    py-3.5
-                                    hover:bg-slate-50
-                                ">
-
-                                <div class="
-                                        flex
-                                        h-9
-                                        w-9
-                                        shrink-0
-                                        items-center
-                                        justify-center
-                                        rounded-xl
-                                    "
-                                    style="
-                                        background-color:
-                                            {{ $item['color'] }}15;
-
-                                        color:
-                                            {{ $item['color'] }};
-                                    ">
-                                    {{ $item['icon'] }}
-                                </div>
-
-
-                                <div
-                                    class="
-                                        min-w-0
-                                        flex-1
-                                    ">
-
-                                    <p
-                                        class="
-                                            truncate
-                                            text-sm
-                                            font-bold
-                                            text-slate-700
-                                        ">
-                                        {{ $item['name'] }}
-                                    </p>
-
-
-                                    <p
-                                        class="
-                                            mt-0.5
-                                            text-[10px]
-                                            text-slate-400
-                                        ">
-                                        {{ $item['action'] }}
-
-                                        ·
-
-                                        {{ $item['type'] }}
-
-                                        ·
-
-                                        {{ $item['updated_at']->diffForHumans() }}
-                                    </p>
-
-                                </div>
-
-                            </a>
-
-                        @empty
-
-                            <div
-                                class="
-                                    p-10
-                                    text-center
-                                    text-sm
-                                    text-slate-400
-                                ">
-                                Sin actividad todavía.
-                            </div>
-                        @endforelse
-
-                    </div>
-
-                </article>
-
-
-                {{-- SALUD --}}
-                <article x-show="
-                        sections.health
-                    "
-                    class="
-                        overflow-hidden
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        shadow-sm
-                    ">
-
-                    <div
-                        class="
-                            border-b
-                            border-slate-100
-                            px-5
-                            py-4
-                        ">
-
-                        <p
-                            class="
-                                text-[10px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-emerald-500
-                            ">
-                            Organización
-                        </p>
-
-
-                        <h3
-                            class="
-                                mt-1
-                                text-lg
-                                font-black
-                                text-slate-900
-                            ">
-                            Estado de tu Biblioteca
-                        </h3>
-
-                    </div>
-
-
-                    <div
-                        class="
-                            grid
-                            gap-2
-                            p-3
-                            sm:grid-cols-2
-                        ">
-
-                        @foreach ($healthItems as $health)
-                            <a href="{{ $health['url'] }}"
-                                class="
-                                    flex
-                                    items-center
-                                    gap-3
-                                    rounded-2xl
-                                    p-3
-                                    transition
-                                    hover:bg-slate-50
-                                ">
-
-                                <div
-                                    class="
-                                        flex
-                                        h-10
-                                        w-10
-                                        shrink-0
-                                        items-center
-                                        justify-center
-                                        rounded-xl
-
-                                        {{ $health['count'] > 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600' }}
-                                    ">
-                                    {{ $health['count'] > 0 ? $health['icon'] : '✓' }}
-                                </div>
-
-
-                                <div
-                                    class="
-                                        min-w-0
-                                        flex-1
-                                    ">
-
-                                    <p
-                                        class="
-                                            text-xs
-                                            font-black
-                                            text-slate-700
-                                        ">
-                                        {{ $health['label'] }}
-                                    </p>
-
-
-                                    <p
-                                        class="
-                                            mt-0.5
-                                            text-[10px]
-                                            text-slate-400
-                                        ">
-                                        @if ($health['count'] > 0)
-                                            <strong
-                                                class="
-                                                    text-amber-600
-                                                ">
-                                                {{ $health['count'] }}
-                                            </strong>
-
-                                            por revisar
-                                        @else
-                                            Todo organizado
-                                        @endif
-                                    </p>
-
-                                </div>
-
-                            </a>
-                        @endforeach
-
-                    </div>
-
-                </article>
-
-            </section>
-
-
-            {{-- ================================================= --}}
-            {{-- ENTIDADES RECIENTES --}}
-            {{-- ================================================= --}}
-
-            <section x-show="
-                    sections.entities
-                ">
-
-                <div
-                    class="
-                        flex
-                        items-end
-                        justify-between
-                        gap-4
-                    ">
-
-                    <div>
-
-                        <p
-                            class="
-                                text-[10px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-indigo-500
-                            ">
-                            Creaciones
-                        </p>
-
-
-                        <h3
-                            class="
-                                mt-1
-                                text-xl
-                                font-black
-                                text-slate-900
-                            ">
-                            Entidades recientes
-                        </h3>
-
-                    </div>
-
-
-                    <a href="{{ route('entities.index') }}"
-                        class="
-                            text-xs
-                            font-black
-                            text-indigo-600
-                        ">
-                        Ver todas →
-                    </a>
-
                 </div>
-
-
-                <div
-                    class="
-                        mt-4
-                        grid
-                        grid-cols-2
-                        gap-3
-                        sm:grid-cols-3
-                        md:grid-cols-4
-                        xl:grid-cols-5
-                    ">
-
-                    @forelse ($recentEntities->take(10)
-                        as $entity)
-                        <a href="{{ route('entities.show', $entity) }}"
-                            class="
-                                group
-                                overflow-hidden
-                                rounded-2xl
-                                border
-                                border-slate-200
-                                bg-white
-                                shadow-sm
-                                transition
-                                hover:-translate-y-0.5
-                                hover:border-indigo-200
-                                hover:shadow-md
-                            ">
-
-                            <div
-                                class="
-                                    aspect-square
-                                    bg-slate-100
-                                ">
-
-                                @if ($entity->base_display_image_url)
-                                    <img src="{{ $entity->base_display_image_url }}" alt="{{ $entity->name }}"
-                                        class="
-                                            h-full
-                                            w-full
-                                            object-cover
-                                            transition
-                                            duration-300
-                                            group-hover:scale-105
-                                        ">
-                                @else
-                                    <div
-                                        class="
-                                            flex
-                                            h-full
-                                            items-center
-                                            justify-center
-                                            bg-gradient-to-br
-                                            from-indigo-50
-                                            to-violet-100
-                                            text-4xl
-                                            font-black
-                                            text-indigo-300
-                                        ">
-                                        {{ $entity->entityType?->icon ?: '✦' }}
-                                    </div>
-                                @endif
-
-                            </div>
-
-
-                            <div class="p-3">
-
-                                <p
-                                    class="
-                                        truncate
-                                        text-sm
-                                        font-black
-                                        text-slate-800
-                                    ">
-                                    {{ $entity->name }}
-                                </p>
-
-
-                                <p
-                                    class="
-                                        mt-1
-                                        truncate
-                                        text-[10px]
-                                        text-slate-400
-                                    ">
-                                    {{ $entity->entityType?->name ?? 'Sin tipo' }}
-                                </p>
-
-
-                                <div
-                                    class="
-                                        mt-3
-                                        flex
-                                        gap-3
-                                        text-[9px]
-                                        font-bold
-                                        text-slate-400
-                                    ">
-                                    <span>
-                                        {{ $entity->entity_attributes_count }}
-                                        atributos
-                                    </span>
-
-                                    <span>
-                                        {{ $entity->collections_count }}
-                                        colecciones
-                                    </span>
-                                </div>
-
-                            </div>
-
-                        </a>
-
-                    @empty
-
-                        <div
-                            class="
-                                col-span-full
-                                rounded-2xl
-                                border
-                                border-dashed
-                                border-slate-300
-                                bg-white
-                                py-12
-                                text-center
-                                text-sm
-                                text-slate-400
-                            ">
-                            Todavía no tienes entidades.
-                        </div>
-                    @endforelse
-
-                </div>
-
-            </section>
-
-
-            {{-- ================================================= --}}
-            {{-- ATRIBUTOS + CATÁLOGOS --}}
-            {{-- ================================================= --}}
-
-            <section
-                class="
-                    grid
-                    gap-6
-                    xl:grid-cols-2
-                ">
-
-                {{-- ATRIBUTOS --}}
-                <article x-show="
-                        sections.attributes
-                    "
-                    class="
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        p-5
-                        shadow-sm
-                    ">
-
-                    <div
-                        class="
-                            flex
-                            items-end
-                            justify-between
-                        ">
-
-                        <div>
-
-                            <p
-                                class="
-                                    text-[10px]
-                                    font-black
-                                    uppercase
-                                    tracking-wider
-                                    text-violet-500
-                                ">
-                                Características
-                            </p>
-
-
-                            <h3
-                                class="
-                                    mt-1
-                                    text-lg
-                                    font-black
-                                    text-slate-900
-                                ">
-                                Atributos recientes
-                            </h3>
-
-                        </div>
-
-
-                        <a href="{{ route('attributes.index') }}"
-                            class="
-                                text-xs
-                                font-black
-                                text-indigo-600
-                            ">
-                            Ver todos
-                        </a>
-
-                    </div>
-
-
-                    <div
-                        class="
-                            mt-4
-                            grid
-                            gap-2
-                            sm:grid-cols-2
-                        ">
-
-                        @foreach ($recentAttributes->take(6) as $attribute)
-                            <a href="{{ route('attributes.show', $attribute) }}"
-                                class="
-                                    flex
-                                    items-center
-                                    gap-3
-                                    rounded-2xl
-                                    border
-                                    border-slate-100
-                                    p-3
-                                    hover:border-violet-200
-                                    hover:bg-violet-50
-                                ">
-
-                                <div
-                                    class="
-                                        h-12
-                                        w-12
-                                        shrink-0
-                                        overflow-hidden
-                                        rounded-xl
-                                        bg-slate-100
-                                    ">
-
-                                    @if ($attribute->image_url)
-                                        <img src="{{ $attribute->image_url }}"
-                                            class="
-                                                h-full
-                                                w-full
-                                                object-cover
-                                            ">
-                                    @else
-                                        <div
-                                            class="
-                                                flex
-                                                h-full
-                                                items-center
-                                                justify-center
-                                                font-black
-                                                text-violet-500
-                                            ">
-                                            {{ $attribute->icon ?: $attribute->data_type_icon }}
-                                        </div>
-                                    @endif
-
-                                </div>
-
-
-                                <div
-                                    class="
-                                        min-w-0
-                                        flex-1
-                                    ">
-
-                                    <p
-                                        class="
-                                            truncate
-                                            text-xs
-                                            font-black
-                                            text-slate-800
-                                        ">
-                                        {{ $attribute->name }}
-                                    </p>
-
-
-                                    <p
-                                        class="
-                                            mt-1
-                                            truncate
-                                            text-[9px]
-                                            text-slate-400
-                                        ">
-                                        {{ $attribute->data_type_label }}
-
-                                        @if ($attribute->data_type === 'OPTION')
-                                            ·
-                                            {{ $attribute->options_count }}
-                                            elementos
-                                        @endif
-                                    </p>
-
-                                </div>
-
-                            </a>
-                        @endforeach
-
-                    </div>
-
-                </article>
-
-
-                {{-- CATÁLOGO --}}
-                <article x-show="
-                        sections.catalogs
-                    "
-                    class="
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        p-5
-                        shadow-sm
-                    ">
-
-                    <div
-                        class="
-                            flex
-                            items-end
-                            justify-between
-                        ">
-
-                        <div>
-
-                            <p
-                                class="
-                                    text-[10px]
-                                    font-black
-                                    uppercase
-                                    tracking-wider
-                                    text-fuchsia-500
-                                ">
-                                Catálogo
-                            </p>
-
-
-                            <h3
-                                class="
-                                    mt-1
-                                    text-lg
-                                    font-black
-                                    text-slate-900
-                                ">
-                                Elementos recientes
-                            </h3>
-
-                        </div>
-
-
-                        <a href="{{ route('attribute-options.index') }}"
-                            class="
-                                text-xs
-                                font-black
-                                text-indigo-600
-                            ">
-                            Ver todos
-                        </a>
-
-                    </div>
-
-
-                    <div
-                        class="
-                            mt-4
-                            grid
-                            grid-cols-3
-                            gap-2
-                            sm:grid-cols-5
-                        ">
-
-                        @forelse ($recentOptions->take(10)
-                            as $option)
-                            <a href="{{ route('attribute-options.show', $option) }}"
-                                class="
-                                    group
-                                    min-w-0
-                                ">
-
-                                <div
-                                    class="
-                                        aspect-square
-                                        overflow-hidden
-                                        rounded-xl
-                                        bg-slate-100
-                                    ">
-
-                                    @if ($option->image_url)
-                                        <img src="{{ $option->image_url }}"
-                                            class="
-                                                h-full
-                                                w-full
-                                                object-cover
-                                                transition
-                                                group-hover:scale-105
-                                            ">
-                                    @else
-                                        <div
-                                            class="
-                                                flex
-                                                h-full
-                                                items-center
-                                                justify-center
-                                                text-2xl
-                                                font-black
-                                                text-fuchsia-400
-                                            ">
-                                            {{ $option->icon ?: '◆' }}
-                                        </div>
-                                    @endif
-
-                                </div>
-
-
-                                <p
-                                    class="
-                                        mt-2
-                                        truncate
-                                        text-center
-                                        text-[10px]
-                                        font-black
-                                        text-slate-700
-                                    ">
-                                    {{ $option->name }}
-                                </p>
-
-                            </a>
-
-                        @empty
-
-                            <p
-                                class="
-                                    col-span-full
-                                    py-8
-                                    text-center
-                                    text-sm
-                                    text-slate-400
-                                ">
-                                Sin elementos de Catálogo.
-                            </p>
-                        @endforelse
-
-                    </div>
-
-                </article>
-
-            </section>
-
-
-            {{-- ================================================= --}}
-            {{-- COLECCIONES --}}
-            {{-- ================================================= --}}
-
-            <section x-show="
-                    sections.collections
-                ">
-
-                <div
-                    class="
-                        flex
-                        items-end
-                        justify-between
-                    ">
-
-                    <div>
-
-                        <p
-                            class="
-                                text-[10px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-cyan-500
-                            ">
-                            Organización
-                        </p>
-
-
-                        <h3
-                            class="
-                                mt-1
-                                text-xl
-                                font-black
-                                text-slate-900
-                            ">
-                            Colecciones recientes
-                        </h3>
-
-                    </div>
-
-
-                    <a href="{{ route('collections.index') }}"
-                        class="
-                            text-xs
-                            font-black
-                            text-indigo-600
-                        ">
-                        Ver todas →
-                    </a>
-
-                </div>
-
-
-                <div
-                    class="
-                        mt-4
-                        grid
-                        gap-4
-                        sm:grid-cols-2
-                        lg:grid-cols-3
-                    ">
-
-                    @foreach ($recentCollections as $collection)
-                        <a href="{{ route('collections.show', $collection) }}"
-                            class="
-                                group
-                                overflow-hidden
-                                rounded-2xl
-                                border
-                                border-slate-200
-                                bg-white
-                                shadow-sm
-                                hover:border-cyan-200
-                            ">
-
-                            <div
-                                class="
-                                    aspect-[16/7]
-                                    overflow-hidden
-                                    bg-slate-100
-                                ">
-
-                                @if ($collection->image_url)
-                                    <img src="{{ $collection->image_url }}"
-                                        class="
-                                            h-full
-                                            w-full
-                                            object-cover
-                                            transition
-                                            group-hover:scale-105
-                                        ">
-                                @else
-                                    <div
-                                        class="
-                                            flex
-                                            h-full
-                                            items-center
-                                            justify-center
-                                            text-4xl
-                                            text-cyan-300
-                                        ">
-                                        {{ $collection->icon ?: '▤' }}
-                                    </div>
-                                @endif
-
-                            </div>
-
-
-                            <div class="p-4">
-
-                                <p
-                                    class="
-                                        truncate
-                                        font-black
-                                        text-slate-800
-                                    ">
-                                    {{ $collection->name }}
-                                </p>
-
-
-                                <p
-                                    class="
-                                        mt-1
-                                        text-[10px]
-                                        text-slate-400
-                                    ">
-                                    {{ $collection->entities_count }}
-                                    entidades
-                                </p>
-
-                            </div>
-
-                        </a>
-                    @endforeach
-
-                </div>
-
-            </section>
-
-
-            {{-- ================================================= --}}
-            {{-- INSIGHTS --}}
-            {{-- ================================================= --}}
-
-            <section x-show="
-                    sections.insights
-                "
-                class="
-                    grid
-                    gap-6
-                    xl:grid-cols-2
-                ">
-
-                {{-- TIPOS --}}
-                <article
-                    class="
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        p-5
-                        shadow-sm
-                    ">
-
-                    <p
-                        class="
-                            text-[10px]
-                            font-black
-                            uppercase
-                            tracking-wider
-                            text-indigo-500
-                        ">
-                        Distribución
-                    </p>
-
-
-                    <h3
-                        class="
-                            mt-1
-                            text-lg
-                            font-black
-                            text-slate-900
-                        ">
-                        Entidades por tipo
-                    </h3>
-
-
-                    <div
-                        class="
-                            mt-5
-                            space-y-4
-                        ">
-
-                        @forelse ($typeDistribution
-                            as $item)
-                            <a href="{{ $item['url'] }}"
-                                class="
-                                    block
-                                ">
-
-                                <div
-                                    class="
-                                        flex
-                                        items-center
-                                        justify-between
-                                        gap-4
-                                    ">
-
-                                    <div
-                                        class="
-                                            flex
-                                            min-w-0
-                                            items-center
-                                            gap-2
-                                        ">
-
-                                        <span
-                                            class="
-                                                flex
-                                                h-7
-                                                w-7
-                                                shrink-0
-                                                items-center
-                                                justify-center
-                                                rounded-lg
-                                                bg-slate-100
-                                                text-xs
-                                            ">
-                                            {{ $item['icon'] }}
-                                        </span>
-
-
-                                        <span
-                                            class="
-                                                truncate
-                                                text-xs
-                                                font-bold
-                                                text-slate-600
-                                            ">
-                                            {{ $item['name'] }}
-                                        </span>
-
-                                    </div>
-
-
-                                    <span
-                                        class="
-                                            text-xs
-                                            font-black
-                                            text-slate-700
-                                        ">
-                                        {{ $item['count'] }}
-                                    </span>
-
-                                </div>
-
-
-                                <div
-                                    class="
-                                        mt-2
-                                        h-2.5
-                                        overflow-hidden
-                                        rounded-full
-                                        bg-slate-100
-                                    ">
-
-                                    <div class="
-                                            h-full
-                                            rounded-full
-                                        "
-                                        style="
-                                            width:
-                                                {{ $item['percentage'] }}%;
-
-                                            background-color:
-                                                {{ $item['color'] }};
-                                        ">
-                                    </div>
-
-                                </div>
-
-                            </a>
-
-                        @empty
-
-                            <p
-                                class="
-                                    py-8
-                                    text-center
-                                    text-sm
-                                    text-slate-400
-                                ">
-                                Todavía no hay datos.
-                            </p>
-                        @endforelse
-
-                    </div>
-
-                </article>
-
-
-                {{-- CATÁLOGOS GRANDES --}}
-                <article
-                    class="
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        p-5
-                        shadow-sm
-                    ">
-
-                    <p
-                        class="
-                            text-[10px]
-                            font-black
-                            uppercase
-                            tracking-wider
-                            text-fuchsia-500
-                        ">
-                        Estructura
-                    </p>
-
-
-                    <h3
-                        class="
-                            mt-1
-                            text-lg
-                            font-black
-                            text-slate-900
-                        ">
-                        Catálogos principales
-                    </h3>
-
-
-                    <div
-                        class="
-                            mt-5
-                            space-y-4
-                        ">
-
-                        @forelse (
-                            $topCatalogs
-                            as $catalog
-                        )
-
-                            @php
-
-                                $catalogPercentage = round(($catalog->active_options_count / $catalogMax) * 100, 1);
-                            @endphp
-
-
-                            <a href="{{ route('attributes.show', $catalog) }}"
-                                class="
-                                    block
-                                ">
-
-                                <div
-                                    class="
-                                        flex
-                                        items-center
-                                        justify-between
-                                        gap-4
-                                    ">
-
-                                    <div
-                                        class="
-                                            flex
-                                            min-w-0
-                                            items-center
-                                            gap-2
-                                        ">
-
-                                        <div
-                                            class="
-                                                flex
-                                                h-7
-                                                w-7
-                                                items-center
-                                                justify-center
-                                                overflow-hidden
-                                                rounded-lg
-                                                bg-violet-50
-                                                text-xs
-                                                text-violet-500
-                                            ">
-
-                                            @if ($catalog->image_url)
-                                                <img src="{{ $catalog->image_url }}"
-                                                    class="
-                                                        h-full
-                                                        w-full
-                                                        object-cover
-                                                    ">
-                                            @else
-                                                {{ $catalog->icon ?: '◆' }}
-                                            @endif
-
-                                        </div>
-
-
-                                        <span
-                                            class="
-                                                truncate
-                                                text-xs
-                                                font-bold
-                                                text-slate-600
-                                            ">
-                                            {{ $catalog->name }}
-                                        </span>
-
-                                    </div>
-
-
-                                    <span
-                                        class="
-                                            text-xs
-                                            font-black
-                                            text-slate-700
-                                        ">
-                                        {{ $catalog->active_options_count }}
-                                    </span>
-
-                                </div>
-
-
-                                <div
-                                    class="
-                                        mt-2
-                                        h-2.5
-                                        overflow-hidden
-                                        rounded-full
-                                        bg-slate-100
-                                    ">
-
-                                    <div class="
-                                            h-full
-                                            rounded-full
-                                            bg-violet-500
-                                        "
-                                        style="
-                                            width:
-                                                {{ $catalogPercentage }}%;
-                                        ">
-                                    </div>
-
-                                </div>
-
-                            </a>
-
-                        @empty
-
-                            <p
-                                class="
-                                    py-8
-                                    text-center
-                                    text-sm
-                                    text-slate-400
-                                ">
-                                Todavía no existen Catálogos.
-                            </p>
-                        @endforelse
-
-                    </div>
-
-                </article>
-
-            </section>
-
-        </div>
-
-
-        {{-- ===================================================== --}}
-        {{-- MODO COMPACTO --}}
-        {{-- ===================================================== --}}
-
-        <div x-show="
-                view === 'compact'
-            " x-cloak
-            class="
-                mt-5
-                space-y-4
-            ">
-
-            {{-- STATS COMPACTAS --}}
-            <section
-                class="
-                    flex
-                    flex-wrap
-                    gap-2
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-white
-                    p-3
-                    shadow-sm
-                ">
-
-                @foreach ($metricCards as $card)
-                    <a href="{{ $card['url'] }}"
-                        class="
-                            flex
-                            flex-1
-                            items-center
-                            justify-between
-                            gap-3
-                            rounded-xl
-                            bg-slate-50
-                            px-3
-                            py-2.5
-                            hover:bg-indigo-50
-                        ">
-
-                        <span
-                            class="
-                                whitespace-nowrap
-                                text-xs
-                                font-bold
-                                text-slate-500
-                            ">
-                            {{ $card['icon'] }}
-                            {{ $card['label'] }}
-                        </span>
-
-
-                        <strong
-                            class="
-                                text-sm
-                                text-slate-800
-                            ">
-                            {{ number_format($card['value']) }}
-                        </strong>
-
+            </div>
+
+
+            {{-- Las cifras, cada una a su sitio --}}
+            <div class="grid grid-cols-2 gap-px border-t border-slate-800 bg-slate-800 sm:grid-cols-3 lg:grid-cols-6">
+                @foreach ($bloques as [$clave, $etiqueta, $cuantos, $tono, $ruta])
+                    <a href="{{ $ruta }}" class="bg-slate-900/50 px-3 py-2.5 transition hover:bg-slate-950">
+                        <span class="block font-mono text-xl font-black"
+                            style="color: {{ $cuantos > 0 ? $tono : '#475569' }}">{{ $cuantos }}</span>
+                        <span class="block text-[9px] font-black uppercase tracking-wider text-slate-600">{{ $etiqueta }}</span>
                     </a>
                 @endforeach
+            </div>
+        </section>
 
+
+        {{-- ===================================================== --}}
+        {{-- ATAJOS --}}
+        {{-- ===================================================== --}}
+
+        <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            @foreach ($atajos as [$etiqueta, $icono, $ruta, $tono, $ayuda])
+                <a href="{{ $ruta }}" title="{{ $ayuda }}"
+                    class="group flex flex-col gap-1.5 rounded-2xl border bg-slate-900/50 p-3 transition duration-300 hover:-translate-y-0.5"
+                    style="border-color: {{ $tono }}33">
+
+                    <span class="flex h-8 w-8 items-center justify-center rounded-xl transition group-hover:scale-110"
+                        style="background-color: {{ $tono }}22; color: {{ $tono }}">
+                        <x-omni-icon :name="$icono" size="h-4 w-4" />
+                    </span>
+
+                    <span class="block text-[11px] font-black leading-tight text-white">{{ $etiqueta }}</span>
+                    <span class="block text-[9px] leading-3 text-slate-600">{{ $ayuda }}</span>
+                </a>
+            @endforeach
+        </section>
+
+
+        @if ($vacia)
+
+            {{-- ================================================= --}}
+            {{-- POR DÓNDE SE EMPIEZA --}}
+            {{-- ================================================= --}}
+
+            <section class="overflow-hidden rounded-2xl border border-violet-500/25 bg-violet-500/5 p-5">
+
+                <h2 class="text-[14px] font-black text-white">Por dónde se empieza</h2>
+
+                <p class="mt-1 max-w-2xl text-[11px] leading-relaxed text-slate-400">
+                    OmniMerge se monta de dentro afuera. No hace falta seguir el orden, pero este es el que
+                    menos vueltas da.
+                </p>
+
+                <div class="mt-4 grid gap-3 lg:grid-cols-4">
+                    @foreach ([['1', 'Un tipo', 'Personaje, país, arma… la categoría de lo que vas a crear.', route('entity-types.create'), '#f472b6'], ['2', 'Unos atributos', 'Los datos con los que describirlas: clan, edad, elemento.', route('attributes.create'), '#34d399'], ['3', 'Tus entidades', 'Ya con su tipo y sus atributos rellenados.', route('entities.create'), '#a78bfa'], ['4', 'Colecciones', 'Para agrupar las que van juntas.', route('collections.create'), '#22d3ee']] as [$paso, $titulo, $texto, $ruta, $tono])
+                        <a href="{{ $ruta }}"
+                            class="group rounded-2xl border bg-slate-950 p-3 transition hover:-translate-y-0.5"
+                            style="border-color: {{ $tono }}33">
+
+                            <span class="flex h-7 w-7 items-center justify-center rounded-lg font-mono text-[12px] font-black"
+                                style="background-color: {{ $tono }}22; color: {{ $tono }}">{{ $paso }}</span>
+
+                            <p class="mt-2 text-[12px] font-black text-white">{{ $titulo }}</p>
+                            <p class="mt-0.5 text-[10px] leading-relaxed text-slate-500">{{ $texto }}</p>
+                        </a>
+                    @endforeach
+                </div>
+
+                <p class="mt-4 border-t border-violet-500/20 pt-3 text-[10px] text-slate-500">
+                    ¿Prefieres no empezar de cero? En la
+                    <a href="{{ route('community.index') }}" class="font-black text-violet-300 underline">comunidad</a>
+                    puedes copiar entidades, atributos y catálogos enteros de otros a tu biblioteca.
+                </p>
             </section>
 
+        @else
 
-            <section
-                class="
-                    grid
-                    gap-4
-                    xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.7fr)]
-                ">
+            {{-- ================================================= --}}
+            {{-- QUÉ ESTABA HACIENDO --}}
+            {{-- ================================================= --}}
 
-                {{-- CONTINUAR COMPACTO --}}
-                <article x-show="
-                        sections.continue
-                    "
-                    class="
-                        overflow-hidden
-                        rounded-2xl
-                        border
-                        border-slate-200
-                        bg-white
-                    ">
+            <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
 
-                    <div
-                        class="
-                            border-b
-                            border-slate-100
-                            px-4
-                            py-3
-                        ">
-                        <h3
-                            class="
-                                text-sm
-                                font-black
-                                text-slate-800
-                            ">
-                            Continuar trabajando
-                        </h3>
+                <div class="flex flex-wrap items-center gap-3 border-b border-slate-800 px-4 py-2.5">
+
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+                        <x-omni-icon name="historial" size="h-4 w-4" />
+                    </span>
+
+                    <div class="min-w-0 flex-1">
+                        <h2 class="text-[13px] font-black text-white">Sigue donde lo dejaste</h2>
+                        <p class="text-[10px] leading-relaxed text-slate-500">
+                            Lo último que has tocado, de cualquier clase, ordenado por cuándo lo tocaste.
+                        </p>
                     </div>
 
+                    <span class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
+                        @foreach ([['gallery', 'galeria', 'Galería: solo las caras'], ['grid', 'cuadricula', 'Cuadrícula: con su tipo'], ['list', 'menu', 'Lista: una línea cada uno'], ['table', 'controles', 'Tabla: con sus fechas']] as [$modo, $icono, $ayuda])
+                            <button type="button" @click="vista = '{{ $modo }}'" title="{{ $ayuda }}"
+                                :aria-pressed="vista === '{{ $modo }}'"
+                                :class="vista === '{{ $modo }}' ? 'bg-violet-500 text-white' : 'text-slate-500 hover:text-slate-200'"
+                                class="rounded-lg px-2 py-1.5 transition">
+                                <x-omni-icon :name="$icono" size="h-4 w-4" />
+                            </button>
+                        @endforeach
+                    </span>
 
-                    <div
-                        class="
-                            divide-y
-                            divide-slate-100
-                        ">
+                    <span x-show="['gallery', 'grid'].includes(vista)" x-cloak
+                        class="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
+                        <button type="button" @click="tamano = Math.max(4, tamano - 1)" :disabled="tamano === 4"
+                            class="rounded-lg px-2 py-1.5 text-slate-500 transition hover:text-slate-200 disabled:opacity-30">
+                            <x-omni-icon name="chevron-izquierda" size="h-3.5 w-3.5" />
+                        </button>
+                        <span class="w-3 text-center font-mono text-[10px] font-black text-slate-500" x-text="tamano"></span>
+                        <button type="button" @click="tamano = Math.min(9, tamano + 1)" :disabled="tamano === 9"
+                            class="rounded-lg px-2 py-1.5 text-slate-500 transition hover:text-slate-200 disabled:opacity-30">
+                            <x-omni-icon name="chevron-derecha" size="h-3.5 w-3.5" />
+                        </button>
+                    </span>
+                </div>
 
-                        @foreach ($workspaceItems->take(8) as $item)
-                            <a href="{{ $item['url'] }}"
-                                class="
-                                    grid
-                                    gap-2
-                                    px-4
-                                    py-3
-                                    hover:bg-slate-50
-                                    sm:grid-cols-[minmax(0,1fr)_130px_120px]
-                                    sm:items-center
-                                ">
+                @if ($workspaceItems->isEmpty())
+                    <p class="px-4 py-8 text-center text-[11px] text-slate-600">
+                        Todavía no has tocado nada.
+                    </p>
+                @else
 
-                                <div
-                                    class="
-                                        flex
-                                        min-w-0
-                                        items-center
-                                        gap-2
-                                    ">
+                    {{-- GALERÍA --}}
+                    <div x-show="vista === 'gallery'" x-cloak class="grid gap-2 p-3" :class="columnas">
+                        @foreach ($workspaceItems as $item)
+                            <a href="{{ $item['url'] }}" title="{{ $item['name'] }}"
+                                class="group overflow-hidden rounded-xl border bg-slate-950 transition hover:-translate-y-0.5"
+                                style="border-color: {{ $item['color'] }}33">
+                                <span class="block aspect-square overflow-hidden bg-slate-900">
+                                    @if ($item['image_url'])
+                                        <img src="{{ $item['image_url'] }}" alt="" loading="lazy"
+                                            class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                                    @else
+                                        <span class="flex h-full w-full items-center justify-center text-xl"
+                                            style="color: {{ $item['color'] }}66">{{ $item['icon'] }}</span>
+                                    @endif
+                                </span>
+                                <span class="block truncate px-1.5 pt-1 text-center text-[10px] font-black text-slate-300">
+                                    {{ $item['name'] }}
+                                </span>
+                                <span class="block truncate px-1.5 pb-1 text-center text-[9px] text-slate-600">
+                                    {{ $item['type'] }}
+                                </span>
+                            </a>
+                        @endforeach
+                    </div>
 
-                                    <span
-                                        style="
-                                            color:
-                                                {{ $item['color'] }};
-                                        ">
-                                        {{ $item['icon'] }}
-                                    </span>
+                    {{-- CUADRÍCULA --}}
+                    <div x-show="vista === 'grid'" class="grid gap-2.5 p-3" :class="columnas">
+                        @foreach ($workspaceItems as $item)
+                            <article class="group overflow-hidden rounded-xl border bg-slate-950 transition hover:-translate-y-0.5"
+                                style="border-color: {{ $item['color'] }}33">
 
+                                <a href="{{ $item['url'] }}" class="block aspect-square overflow-hidden bg-slate-900">
+                                    @if ($item['image_url'])
+                                        <img src="{{ $item['image_url'] }}" alt="" loading="lazy"
+                                            class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                                    @else
+                                        <span class="flex h-full w-full items-center justify-center text-2xl"
+                                            style="color: {{ $item['color'] }}66">{{ $item['icon'] }}</span>
+                                    @endif
+                                </a>
 
-                                    <span
-                                        class="
-                                            truncate
-                                            text-xs
-                                            font-black
-                                            text-slate-700
-                                        ">
-                                        {{ $item['name'] }}
-                                    </span>
-
+                                <div class="p-1.5">
+                                    <a href="{{ $item['url'] }}"
+                                        class="block truncate text-[11px] font-black text-white">{{ $item['name'] }}</a>
+                                    <p class="truncate text-[9px]" style="color: {{ $item['color'] }}">{{ $item['type'] }}</p>
+                                    <p class="truncate text-[9px] text-slate-600">{{ $item['subtitle'] }}</p>
                                 </div>
+                            </article>
+                        @endforeach
+                    </div>
 
+                    {{-- LISTA --}}
+                    <div x-show="vista === 'list'" x-cloak class="divide-y divide-slate-800/70">
+                        @foreach ($workspaceItems as $item)
+                            <a href="{{ $item['url'] }}"
+                                class="flex items-center gap-3 px-4 py-2 transition hover:bg-slate-950/50">
 
-                                <span
-                                    class="
-                                        text-[10px]
-                                        font-bold
-                                        text-slate-400
-                                    ">
+                                <span class="h-9 w-9 shrink-0 overflow-hidden rounded-lg border bg-slate-950"
+                                    style="border-color: {{ $item['color'] }}40">
+                                    @if ($item['image_url'])
+                                        <img src="{{ $item['image_url'] }}" alt="" loading="lazy" class="h-full w-full object-cover">
+                                    @else
+                                        <span class="flex h-full w-full items-center justify-center"
+                                            style="color: {{ $item['color'] }}">{{ $item['icon'] }}</span>
+                                    @endif
+                                </span>
+
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate text-[12px] font-black text-white">{{ $item['name'] }}</span>
+                                    <span class="block truncate text-[10px] text-slate-500">{{ $item['subtitle'] }}</span>
+                                </span>
+
+                                <span class="shrink-0 rounded-lg border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
+                                    style="border-color: {{ $item['color'] }}40; color: {{ $item['color'] }}">
                                     {{ $item['type'] }}
                                 </span>
 
-
-                                <span
-                                    class="
-                                        text-[10px]
-                                        text-slate-400
-                                        sm:text-right
-                                    ">
-                                    {{ $item['updated_at']->diffForHumans() }}
+                                <span class="hidden shrink-0 font-mono text-[9px] text-slate-600 sm:block">
+                                    {{ $item['updated_at']?->diffForHumans(null, true) }}
                                 </span>
-
                             </a>
                         @endforeach
-
                     </div>
 
-                </article>
-
-
-                {{-- REVISAR --}}
-                <article x-show="
-                        sections.health
-                    "
-                    class="
-                        rounded-2xl
-                        border
-                        border-slate-200
-                        bg-white
-                        p-4
-                    ">
-
-                    <h3
-                        class="
-                            text-sm
-                            font-black
-                            text-slate-800
-                        ">
-                        Por revisar
-                    </h3>
-
-
-                    <div
-                        class="
-                            mt-3
-                            space-y-1
-                        ">
-
-                        @foreach ($healthItems as $health)
-                            <a href="{{ $health['url'] }}"
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    rounded-lg
-                                    px-2
-                                    py-2
-                                    hover:bg-slate-50
-                                ">
-
-                                <span
-                                    class="
-                                        text-[11px]
-                                        text-slate-500
-                                    ">
-                                    {{ $health['label'] }}
-                                </span>
-
-
-                                <strong
-                                    class="
-                                        text-xs
-
-                                        {{ $health['count'] > 0 ? 'text-amber-600' : 'text-emerald-600' }}
-                                    ">
-                                    {{ $health['count'] }}
-                                </strong>
-
-                            </a>
-                        @endforeach
-
+                    {{-- TABLA --}}
+                    <div x-show="vista === 'table'" x-cloak class="overflow-x-auto">
+                        <table class="w-full min-w-[600px]">
+                            <thead class="border-b border-slate-800 text-left">
+                                <tr class="text-[9px] font-black uppercase tracking-wider text-slate-600">
+                                    <th class="px-4 py-2.5">Qué</th>
+                                    <th class="px-3 py-2.5">Clase</th>
+                                    <th class="px-3 py-2.5">Código</th>
+                                    <th class="px-3 py-2.5">Creado</th>
+                                    <th class="px-3 py-2.5">Tocado</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/70">
+                                @foreach ($workspaceItems as $item)
+                                    <tr class="transition hover:bg-slate-950/50">
+                                        <td class="px-4 py-2">
+                                            <a href="{{ $item['url'] }}" class="flex items-center gap-2">
+                                                <span class="h-7 w-7 shrink-0 overflow-hidden rounded-lg border bg-slate-950"
+                                                    style="border-color: {{ $item['color'] }}40">
+                                                    @if ($item['image_url'])
+                                                        <img src="{{ $item['image_url'] }}" alt="" loading="lazy" class="h-full w-full object-cover">
+                                                    @else
+                                                        <span class="flex h-full w-full items-center justify-center text-[10px]"
+                                                            style="color: {{ $item['color'] }}">{{ $item['icon'] }}</span>
+                                                    @endif
+                                                </span>
+                                                <span class="truncate text-[12px] font-black text-white">{{ $item['name'] }}</span>
+                                            </a>
+                                        </td>
+                                        <td class="px-3 py-2 text-[11px]" style="color: {{ $item['color'] }}">{{ $item['type'] }}</td>
+                                        <td class="px-3 py-2 font-mono text-[10px] text-slate-600">{{ $item['code'] }}</td>
+                                        <td class="px-3 py-2 font-mono text-[10px] text-slate-500">
+                                            {{ $item['created_at']?->format('d/m/Y') }}
+                                        </td>
+                                        <td class="px-3 py-2 font-mono text-[10px] text-slate-500">
+                                            {{ $item['updated_at']?->diffForHumans(null, true) }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
-
-                </article>
-
+                @endif
             </section>
 
 
-            {{-- ACCIONES COMPACTAS --}}
-            <section x-show="
-                    sections.quick
-                "
-                class="
-                    flex
-                    flex-wrap
-                    gap-2
-                ">
+            {{-- ================================================= --}}
+            {{-- LO QUE FALTA, Y DE QUÉ ESTÁ HECHA --}}
+            {{-- ================================================= --}}
 
-                @foreach (array_slice($quickActions, 0, 4) as $action)
-                    <a href="{{ $action['url'] }}"
-                        class="
-                            rounded-xl
-                            border
-                            border-slate-200
-                            bg-white
-                            px-4
-                            py-2.5
-                            text-xs
-                            font-black
-                            text-slate-600
-                            hover:border-indigo-200
-                            hover:text-indigo-700
-                        ">
-                        {{ $action['icon'] }}
-                        {{ $action['label'] }}
-                    </a>
-                @endforeach
+            <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
 
-            </section>
+                <div class="space-y-4">
 
-        </div>
+                    {{-- Lo que está a medias --}}
+                    <section class="overflow-hidden rounded-2xl border {{ $pendientes->isEmpty() ? 'border-emerald-500/25 bg-emerald-500/5' : 'border-amber-500/25 bg-amber-500/5' }}">
 
+                        <div class="flex flex-wrap items-center gap-3 border-b {{ $pendientes->isEmpty() ? 'border-emerald-500/20' : 'border-amber-500/20' }} px-4 py-2.5">
 
-        {{-- ===================================================== --}}
-        {{-- MODO VISUAL --}}
-        {{-- ===================================================== --}}
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $pendientes->isEmpty() ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300' }}">
+                                <x-omni-icon name="matraz" size="h-4 w-4" />
+                            </span>
 
-        <div x-show="
-                view === 'visual'
-            " x-cloak
-            class="
-                mt-6
-                space-y-8
-            ">
-
-            {{-- ENTIDADES VISUALES --}}
-            <section x-show="
-                    sections.entities
-                ">
-
-                <div
-                    class="
-                        flex
-                        items-end
-                        justify-between
-                    ">
-
-                    <div>
-
-                        <p
-                            class="
-                                text-[10px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-indigo-500
-                            ">
-                            Tu mundo visual
-                        </p>
-
-
-                        <h3
-                            class="
-                                mt-1
-                                text-2xl
-                                font-black
-                                text-slate-900
-                            ">
-                            Entidades recientes
-                        </h3>
-
-                    </div>
-
-
-                    <a href="{{ route('entities.index') }}"
-                        class="
-                            text-xs
-                            font-black
-                            text-indigo-600
-                        ">
-                        Explorar →
-                    </a>
-
-                </div>
-
-
-                <div
-                    class="
-                        mt-4
-                        grid
-                        grid-cols-3
-                        gap-3
-                        sm:grid-cols-4
-                        lg:grid-cols-5
-                        xl:grid-cols-8
-                    ">
-
-                    @foreach ($recentEntities->take(8) as $entity)
-                        <a href="{{ route('entities.show', $entity) }}"
-                            class="
-                                group
-                                min-w-0
-                            ">
-
-                            <div
-                                class="
-                                    aspect-square
-                                    overflow-hidden
-                                    rounded-2xl
-                                    border
-                                    border-slate-200
-                                    bg-slate-100
-                                ">
-
-                                @if ($entity->base_display_image_url)
-                                    <img src="{{ $entity->base_display_image_url }}"
-                                        class="
-                                            h-full
-                                            w-full
-                                            object-cover
-                                            transition
-                                            duration-300
-                                            group-hover:scale-105
-                                        ">
-                                @else
-                                    <div
-                                        class="
-                                            flex
-                                            h-full
-                                            items-center
-                                            justify-center
-                                            text-4xl
-                                            text-indigo-300
-                                        ">
-                                        ✦
-                                    </div>
-                                @endif
-
-                            </div>
-
-
-                            <p
-                                class="
-                                    mt-2
-                                    truncate
-                                    text-center
-                                    text-xs
-                                    font-black
-                                    text-slate-700
-                                ">
-                                {{ $entity->name }}
-                            </p>
-
-                        </a>
-                    @endforeach
-
-                </div>
-
-            </section>
-
-
-            {{-- CATÁLOGO VISUAL --}}
-            <section x-show="
-                    sections.catalogs
-                ">
-
-                <div
-                    class="
-                        flex
-                        items-end
-                        justify-between
-                    ">
-
-                    <div>
-
-                        <p
-                            class="
-                                text-[10px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-fuchsia-500
-                            ">
-                            Catálogo
-                        </p>
-
-
-                        <h3
-                            class="
-                                mt-1
-                                text-2xl
-                                font-black
-                                text-slate-900
-                            ">
-                            Elementos recientes
-                        </h3>
-
-                    </div>
-
-
-                    <a href="{{ route('attribute-options.index') }}"
-                        class="
-                            text-xs
-                            font-black
-                            text-indigo-600
-                        ">
-                        Ver Catálogo →
-                    </a>
-
-                </div>
-
-
-                <div
-                    class="
-                        mt-4
-                        grid
-                        grid-cols-3
-                        gap-3
-                        sm:grid-cols-5
-                        md:grid-cols-6
-                        xl:grid-cols-10
-                    ">
-
-                    @foreach ($recentOptions->take(10) as $option)
-                        <a href="{{ route('attribute-options.show', $option) }}"
-                            class="
-                                group
-                                min-w-0
-                            ">
-
-                            <div
-                                class="
-                                    aspect-square
-                                    overflow-hidden
-                                    rounded-2xl
-                                    border
-                                    border-slate-200
-                                    bg-white
-                                ">
-
-                                @if ($option->image_url)
-                                    <img src="{{ $option->image_url }}"
-                                        class="
-                                            h-full
-                                            w-full
-                                            object-cover
-                                            transition
-                                            group-hover:scale-105
-                                        ">
-                                @else
-                                    <div
-                                        class="
-                                            flex
-                                            h-full
-                                            items-center
-                                            justify-center
-                                            text-3xl
-                                            text-fuchsia-300
-                                        ">
-                                        {{ $option->icon ?: '◆' }}
-                                    </div>
-                                @endif
-
-                            </div>
-
-
-                            <p
-                                class="
-                                    mt-2
-                                    truncate
-                                    text-center
-                                    text-[10px]
-                                    font-black
-                                    text-slate-700
-                                ">
-                                {{ $option->name }}
-                            </p>
-
-                        </a>
-                    @endforeach
-
-                </div>
-
-            </section>
-
-
-            {{-- COLECCIONES VISUALES --}}
-            <section x-show="
-                    sections.collections
-                ">
-
-                <h3
-                    class="
-                        text-xl
-                        font-black
-                        text-slate-900
-                    ">
-                    Colecciones
-                </h3>
-
-
-                <div
-                    class="
-                        mt-4
-                        grid
-                        gap-4
-                        sm:grid-cols-2
-                        lg:grid-cols-3
-                    ">
-
-                    @foreach ($recentCollections->take(6) as $collection)
-                        <a href="{{ route('collections.show', $collection) }}"
-                            class="
-                                group
-                                relative
-                                overflow-hidden
-                                rounded-3xl
-                                border
-                                border-slate-200
-                                bg-slate-900
-                            ">
-
-                            <div
-                                class="
-                                    aspect-[16/8]
-                                ">
-
-                                @if ($collection->image_url)
-                                    <img src="{{ $collection->image_url }}"
-                                        class="
-                                            h-full
-                                            w-full
-                                            object-cover
-                                            opacity-75
-                                            transition
-                                            group-hover:scale-105
-                                        ">
-                                @else
-                                    <div
-                                        class="
-                                            flex
-                                            h-full
-                                            items-center
-                                            justify-center
-                                            bg-slate-800
-                                            text-5xl
-                                            text-slate-500
-                                        ">
-                                        ▤
-                                    </div>
-                                @endif
-
-                            </div>
-
-
-                            <div
-                                class="
-                                    absolute
-                                    inset-x-0
-                                    bottom-0
-                                    bg-gradient-to-t
-                                    from-black/90
-                                    to-transparent
-                                    px-5
-                                    pb-4
-                                    pt-10
-                                    text-white
-                                ">
-
-                                <p
-                                    class="
-                                        font-black
-                                    ">
-                                    {{ $collection->name }}
-                                </p>
-
-
-                                <p
-                                    class="
-                                        mt-1
-                                        text-[10px]
-                                        text-white/60
-                                    ">
-                                    {{ $collection->entities_count }}
-                                    entidades
-                                </p>
-
-                            </div>
-
-                        </a>
-                    @endforeach
-
-                </div>
-
-            </section>
-
-
-            {{-- ATRIBUTOS VISUALES --}}
-            <section x-show="
-                    sections.attributes
-                ">
-
-                <h3
-                    class="
-                        text-xl
-                        font-black
-                        text-slate-900
-                    ">
-                    Atributos
-                </h3>
-
-
-                <div
-                    class="
-                        mt-4
-                        grid
-                        gap-3
-                        sm:grid-cols-2
-                        lg:grid-cols-4
-                    ">
-
-                    @foreach ($recentAttributes->take(8) as $attribute)
-                        <a href="{{ route('attributes.show', $attribute) }}"
-                            class="
-                                flex
-                                items-center
-                                gap-3
-                                rounded-2xl
-                                border
-                                border-slate-200
-                                bg-white
-                                p-3
-                                hover:border-violet-200
-                            ">
-
-                            <div
-                                class="
-                                    h-14
-                                    w-14
-                                    shrink-0
-                                    overflow-hidden
-                                    rounded-xl
-                                    bg-violet-50
-                                ">
-
-                                @if ($attribute->image_url)
-                                    <img src="{{ $attribute->image_url }}"
-                                        class="
-                                            h-full
-                                            w-full
-                                            object-cover
-                                        ">
-                                @else
-                                    <div
-                                        class="
-                                            flex
-                                            h-full
-                                            items-center
-                                            justify-center
-                                            text-violet-500
-                                        ">
-                                        {{ $attribute->data_type_icon }}
-                                    </div>
-                                @endif
-
-                            </div>
-
-
-                            <div class="min-w-0">
-
-                                <p
-                                    class="
-                                        truncate
-                                        text-xs
-                                        font-black
-                                        text-slate-700
-                                    ">
-                                    {{ $attribute->name }}
-                                </p>
-
-
-                                <p
-                                    class="
-                                        mt-1
-                                        text-[9px]
-                                        text-slate-400
-                                    ">
-                                    {{ $attribute->data_type_label }}
-                                </p>
-
-                            </div>
-
-                        </a>
-                    @endforeach
-
-                </div>
-
-            </section>
-
-
-            {{-- CONTINUAR / SALUD VISUAL --}}
-            <section
-                class="
-                    grid
-                    gap-6
-                    xl:grid-cols-2
-                ">
-
-                <article x-show="
-                        sections.continue
-                    "
-                    class="
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        p-5
-                    ">
-
-                    <h3
-                        class="
-                            text-lg
-                            font-black
-                            text-slate-900
-                        ">
-                        Continuar
-                    </h3>
-
-
-                    <div
-                        class="
-                            mt-4
-                            grid
-                            grid-cols-4
-                            gap-3
-                        ">
-
-                        @foreach ($workspaceItems->take(4) as $item)
-                            <a href="{{ $item['url'] }}"
-                                class="
-                                    min-w-0
-                                ">
-
-                                <div
-                                    class="
-                                        aspect-square
-                                        overflow-hidden
-                                        rounded-xl
-                                        bg-slate-100
-                                    ">
-
-                                    @if ($item['image_url'])
-                                        <img src="{{ $item['image_url'] }}"
-                                            class="
-                                                h-full
-                                                w-full
-                                                object-cover
-                                            ">
+                            <div class="min-w-0 flex-1">
+                                <h2 class="text-[13px] font-black text-white">Lo que está a medias</h2>
+                                <p class="text-[10px] leading-relaxed {{ $pendientes->isEmpty() ? 'text-emerald-200/60' : 'text-amber-200/60' }}">
+                                    @if ($pendientes->isEmpty())
+                                        Nada pendiente: las {{ $healthItems->count() }} comprobaciones salen limpias.
                                     @else
-                                        <div class="
-                                                flex
-                                                h-full
-                                                items-center
-                                                justify-center
-                                                text-2xl
-                                            "
-                                            style="
-                                                color:
-                                                    {{ $item['color'] }};
-                                            ">
-                                            {{ $item['icon'] }}
-                                        </div>
+                                        {{ $pendientes->count() }} de {{ $healthItems->count() }} comprobaciones
+                                        encuentran algo. No es un error —una biblioteca viva siempre tiene
+                                        cabos sueltos— pero aquí están, y cada uno lleva a su sitio.
                                     @endif
+                                </p>
+                            </div>
+                        </div>
 
+                        @if ($pendientes->isNotEmpty())
+                            <div class="grid gap-2 p-3 sm:grid-cols-2">
+                                @foreach ($pendientes as $aviso)
+                                    <a href="{{ $aviso['url'] }}"
+                                        class="flex items-center gap-2.5 rounded-xl border border-slate-800 bg-slate-950 p-2.5 transition hover:border-amber-500/50">
+
+                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 font-mono text-[13px] font-black text-amber-300">
+                                            {{ $aviso['count'] }}
+                                        </span>
+
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-[11px] font-black text-white">{{ $aviso['label'] }}</span>
+                                            <span class="block truncate text-[9px] leading-3 text-slate-500">{{ $aviso['description'] }}</span>
+                                        </span>
+
+                                        <span class="shrink-0 text-slate-700">›</span>
+                                    </a>
+                                @endforeach
+                            </div>
+
+                            @if ($resueltos > 0)
+                                <p class="border-t border-amber-500/20 px-4 py-2 text-[10px] text-slate-500">
+                                    Las otras {{ $resueltos }} comprobaciones salen limpias.
+                                </p>
+                            @endif
+                        @endif
+                    </section>
+
+
+                    {{-- Lo que más te han copiado --}}
+                    @if ($loMasCopiado->isNotEmpty())
+                        <section class="overflow-hidden rounded-2xl border border-fuchsia-500/25 bg-fuchsia-500/5">
+
+                            <div class="flex flex-wrap items-center gap-3 border-b border-fuchsia-500/20 px-4 py-2.5">
+                                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fuchsia-500/15 text-fuchsia-300">
+                                    <x-omni-icon name="medalla" size="h-4 w-4" />
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                    <h2 class="text-[13px] font-black text-white">Lo que más te han copiado</h2>
+                                    <p class="text-[10px] leading-relaxed text-fuchsia-200/60">
+                                        De lo que has publicado, esto es lo que se ha llevado la gente.
+                                    </p>
                                 </div>
 
-
-                                <p
-                                    class="
-                                        mt-2
-                                        truncate
-                                        text-center
-                                        text-[10px]
-                                        font-bold
-                                        text-slate-600
-                                    ">
-                                    {{ $item['name'] }}
-                                </p>
-
-                            </a>
-                        @endforeach
-
-                    </div>
-
-                </article>
-
-
-                <article x-show="
-                        sections.health
-                    "
-                    class="
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        p-5
-                    ">
-
-                    <h3
-                        class="
-                            text-lg
-                            font-black
-                            text-slate-900
-                        ">
-                        Estado de Biblioteca
-                    </h3>
-
-
-                    <div
-                        class="
-                            mt-4
-                            flex
-                            flex-wrap
-                            gap-2
-                        ">
-
-                        @foreach ($healthItems as $health)
-                            <a href="{{ $health['url'] }}"
-                                class="
-                                    rounded-full
-                                    border
-                                    px-3
-                                    py-2
-                                    text-[10px]
-                                    font-bold
-
-                                    {{ $health['count'] > 0
-                                        ? 'border-amber-200 bg-amber-50 text-amber-700'
-                                        : 'border-emerald-200 bg-emerald-50 text-emerald-700' }}
-                                ">
-                                {{ $health['count'] > 0 ? $health['count'] : '✓' }}
-
-                                {{ $health['label'] }}
-                            </a>
-                        @endforeach
-
-                    </div>
-
-                </article>
-
-            </section>
-
-        </div>
-
-
-        {{-- ===================================================== --}}
-        {{-- MODAL PERSONALIZACIÓN --}}
-        {{-- ===================================================== --}}
-
-        <div x-show="
-                customizeOpen
-            " x-cloak
-            class="
-                fixed
-                inset-0
-                z-[100]
-                flex
-                items-center
-                justify-center
-                bg-slate-950/50
-                p-4
-                backdrop-blur-sm
-            ">
-
-            <div @click.outside="
-                    customizeOpen = false
-                "
-                class="
-                    w-full
-                    max-w-lg
-                    rounded-3xl
-                    border
-                    border-slate-200
-                    bg-white
-                    p-6
-                    shadow-2xl
-                ">
-
-                <div
-                    class="
-                        flex
-                        items-start
-                        justify-between
-                        gap-4
-                    ">
-
-                    <div>
-
-                        <p
-                            class="
-                                text-[10px]
-                                font-black
-                                uppercase
-                                tracking-wider
-                                text-indigo-500
-                            ">
-                            Preferencias
-                        </p>
-
-
-                        <h3
-                            class="
-                                mt-1
-                                text-xl
-                                font-black
-                                text-slate-900
-                            ">
-                            Personalizar Dashboard
-                        </h3>
-
-
-                        <p
-                            class="
-                                mt-2
-                                text-sm
-                                leading-6
-                                text-slate-500
-                            ">
-                            Decide qué información deseas
-                            conservar visible.
-                        </p>
-
-                    </div>
-
-
-                    <button type="button"
-                        @click="
-                            customizeOpen = false
-                        "
-                        class="
-                            flex
-                            h-9
-                            w-9
-                            items-center
-                            justify-center
-                            rounded-xl
-                            bg-slate-100
-                            text-slate-500
-                        ">
-                        ×
-                    </button>
-
-                </div>
-
-
-                <div class="
-                        mt-6
-                        space-y-2
-                    ">
-
-                    <template
-                        x-for="
-                            option
-                            in sectionOptions
-                        "
-                        :key="option.key">
-
-                        <label
-                            class="
-                                flex
-                                cursor-pointer
-                                items-center
-                                justify-between
-                                gap-4
-                                rounded-xl
-                                border
-                                border-slate-100
-                                px-4
-                                py-3
-                                hover:bg-slate-50
-                            ">
-
-                            <div>
-
-                                <p class="
-                                        text-sm
-                                        font-bold
-                                        text-slate-700
-                                    "
-                                    x-text="
-                                        option.label
-                                    ">
-                                </p>
-
-
-                                <p class="
-                                        mt-0.5
-                                        text-[10px]
-                                        text-slate-400
-                                    "
-                                    x-text="
-                                        option.description
-                                    ">
-                                </p>
-
+                                <a href="{{ route('community.creators.show', $user->username) }}"
+                                    class="shrink-0 rounded-xl border border-fuchsia-500/30 px-2.5 py-2 text-[10px] font-black text-slate-400 transition hover:text-white">
+                                    Tu perfil →
+                                </a>
                             </div>
 
+                            <div class="grid grid-cols-3 gap-2 p-3 sm:grid-cols-6">
+                                @foreach ($loMasCopiado as $pieza)
+                                    <a href="{{ route('entities.show', $pieza) }}" title="{{ $pieza->name }}"
+                                        class="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-950 transition hover:-translate-y-0.5">
+                                        <span class="block aspect-square overflow-hidden bg-slate-900">
+                                            @if ($pieza->image_url)
+                                                <img src="{{ $pieza->image_url }}" alt="" loading="lazy"
+                                                    class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                                            @else
+                                                <span class="flex h-full w-full items-center justify-center text-xl text-slate-800">◍</span>
+                                            @endif
+                                        </span>
 
-                            <input type="checkbox"
-                                x-model="
-                                    sections[
-                                        option.key
-                                    ]
-                                "
-                                @change="
-                                    saveSections()
-                                "
-                                class="
-                                    rounded
-                                    border-slate-300
-                                    text-indigo-600
-                                    focus:ring-indigo-500
-                                ">
+                                        <span class="absolute right-1 top-1 rounded bg-fuchsia-500 px-1 font-mono text-[9px] font-black text-fuchsia-950">
+                                            ↺{{ $pieza->clones_count }}
+                                        </span>
 
-                        </label>
+                                        <span class="block truncate px-1 py-1 text-center text-[9px] font-black text-slate-400">
+                                            {{ $pieza->name }}
+                                        </span>
+                                    </a>
+                                @endforeach
+                            </div>
+                        </section>
+                    @endif
 
-                    </template>
 
+                    {{-- Lo último de cada clase --}}
+                    <section x-data="{ clase: 'entities' }"
+                        class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
+
+                        <div class="flex flex-wrap items-center gap-1.5 border-b border-slate-800 px-3 py-2">
+                            <h2 class="mr-auto text-[13px] font-black text-white">Lo último de cada clase</h2>
+
+                            @foreach ([['entities', 'Entidades', '#a78bfa'], ['attributes', 'Atributos', '#34d399'], ['options', 'Valores', '#fbbf24'], ['collections', 'Colecciones', '#22d3ee'], ['types', 'Tipos', '#f472b6'], ['groups', 'Grupos', '#60a5fa']] as [$clave, $etiqueta, $tono])
+                                <button type="button" @click="clase = '{{ $clave }}'"
+                                    :class="clase === '{{ $clave }}' ? 'text-white' : 'text-slate-500 hover:text-slate-300'"
+                                    :style="clase === '{{ $clave }}' ? 'border-color: {{ $tono }}; background-color: {{ $tono }}22' : ''"
+                                    class="rounded-lg border border-slate-800 px-2 py-1 text-[10px] font-black transition">
+                                    {{ $etiqueta }}
+                                </button>
+                            @endforeach
+                        </div>
+
+                        @foreach ([['entities', $recentEntities, '#a78bfa', 'entities.show', '✦'], ['attributes', $recentAttributes, '#34d399', 'attributes.show', '☷'], ['options', $recentOptions, '#fbbf24', 'attribute-options.show', '◇'], ['collections', $recentCollections, '#22d3ee', 'collections.show', '❒'], ['types', $recentTypes, '#f472b6', 'entity-types.show', '◈'], ['groups', $recentGroups, '#60a5fa', 'attribute-groups.show', '▥']] as [$clave, $lista, $tono, $ruta, $respaldo])
+
+                            <div x-show="clase === '{{ $clave }}'" @if ($clave !== 'entities') x-cloak @endif>
+                                @if ($lista->isEmpty())
+                                    <p class="px-4 py-8 text-center text-[11px] text-slate-600">
+                                        Todavía no has creado ninguno.
+                                    </p>
+                                @else
+                                    <div class="grid grid-cols-3 gap-2 p-3 sm:grid-cols-5 lg:grid-cols-6">
+                                        @foreach ($lista as $cosa)
+                                            <a href="{{ route($ruta, $cosa) }}" title="{{ $cosa->name }}"
+                                                class="group overflow-hidden rounded-xl border border-slate-800 bg-slate-950 transition hover:-translate-y-0.5">
+                                                <span class="block aspect-square overflow-hidden bg-slate-900">
+                                                    @if ($cosa->image_url ?? null)
+                                                        <img src="{{ $cosa->image_url }}" alt="" loading="lazy"
+                                                            class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                                                    @else
+                                                        <span class="flex h-full w-full items-center justify-center text-xl"
+                                                            style="color: {{ $tono }}55">{{ $cosa->icon ?: $respaldo }}</span>
+                                                    @endif
+                                                </span>
+                                                <span class="block truncate px-1 py-1 text-center text-[9px] font-black text-slate-400">
+                                                    {{ $cosa->name }}
+                                                </span>
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </section>
                 </div>
 
 
-                <div
-                    class="
-                        mt-6
-                        flex
-                        justify-between
-                        gap-3
-                        border-t
-                        border-slate-100
-                        pt-5
-                    ">
+                {{-- ---------- LA COLUMNA DE AL LADO ---------- --}}
 
-                    <button type="button"
-                        @click="
-                            resetPreferences()
-                        "
-                        class="
-                            text-xs
-                            font-bold
-                            text-slate-500
-                            hover:text-red-600
-                        ">
-                        Restaurar
-                    </button>
+                <aside class="space-y-3">
+
+                    {{-- Hasta dónde llega --}}
+                    <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-3.5">
+                        <h2 class="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                            Hasta dónde llega
+                        </h2>
+
+                        <p class="mt-1 text-[10px] leading-relaxed text-slate-500">
+                            Si tu biblioteca vive sola o está conectada con la comunidad.
+                        </p>
+
+                        <div class="mt-2.5 grid grid-cols-3 gap-2">
+                            @foreach ([['Públicas', $alcance['publicas'], '#60a5fa', 'Entidades que los demás pueden ver'], ['Te copiaron', $alcance['copiado'], '#e879f9', 'Veces que alguien se llevó algo tuyo'], ['Te trajiste', $alcance['traido'], '#fbbf24', 'Cosas que copiaste de otros']] as [$etiqueta, $numero, $tono, $ayuda])
+                                <div class="rounded-xl border border-slate-800 bg-slate-950 px-2 py-1.5" title="{{ $ayuda }}">
+                                    <span class="block font-mono text-[15px] font-black"
+                                        style="color: {{ $numero > 0 ? $tono : '#475569' }}">{{ $numero }}</span>
+                                    <span class="block text-[8px] font-black uppercase tracking-wider text-slate-600">{{ $etiqueta }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        @if ($alcance['publicas'] === 0)
+                            <p class="mt-2 border-t border-slate-800 pt-2 text-[10px] leading-4 text-slate-500">
+                                No has publicado nada todavía. Nada se comparte solo: se marca como público
+                                en la ficha de cada entidad.
+                            </p>
+                        @endif
+
+                        <a href="{{ route('community.creators.show', $user->username) }}"
+                            class="mt-2 block rounded-xl border border-slate-800 px-3 py-1.5 text-center text-[10px] font-black text-slate-400 transition hover:border-violet-500 hover:text-violet-300">
+                            Cómo te ven los demás →
+                        </a>
+                    </section>
 
 
-                    <button type="button"
-                        @click="
-                            customizeOpen = false
-                        "
-                        class="
-                            rounded-xl
-                            bg-indigo-600
-                            px-5
-                            py-2.5
-                            text-xs
-                            font-black
-                            text-white
-                        ">
-                        Listo
-                    </button>
+                    {{-- De qué está hecha --}}
+                    @if ($typeDistribution->isNotEmpty())
+                        <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-3.5">
+                            <h2 class="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                                De qué está hecha
+                            </h2>
 
-                </div>
+                            <div class="mt-2 space-y-1.5">
+                                @foreach ($typeDistribution as $fila)
+                                    <a href="{{ $fila['url'] }}" class="block">
+                                        <div class="flex items-center gap-1.5 text-[10px]">
+                                            <span style="color: {{ $fila['color'] }}">{{ $fila['icon'] }}</span>
+                                            <span class="min-w-0 flex-1 truncate font-bold text-slate-300">{{ $fila['name'] }}</span>
+                                            <span class="font-mono font-black" style="color: {{ $fila['color'] }}">{{ $fila['count'] }}</span>
+                                        </div>
+                                        <div class="mt-0.5 h-1.5 overflow-hidden rounded-full bg-slate-950">
+                                            <div class="h-full rounded-full"
+                                                style="width: {{ max((int) round(($fila['count'] / $distributionMax) * 100), 3) }}%; background-color: {{ $fila['color'] }}"></div>
+                                        </div>
+                                    </a>
+                                @endforeach
+                            </div>
+                        </section>
+                    @endif
 
+
+                    {{-- Los catálogos más grandes --}}
+                    @if ($topCatalogs->isNotEmpty())
+                        <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
+                            <div class="border-b border-slate-800 px-3.5 py-2">
+                                <h2 class="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                                    Tus catálogos
+                                </h2>
+                            </div>
+
+                            <div class="divide-y divide-slate-800/70">
+                                @foreach ($topCatalogs as $catalogo)
+                                    @php $tono = $catalogo->color ?: '#6366f1'; @endphp
+
+                                    <a href="{{ route('attributes.show', $catalogo) }}"
+                                        class="flex items-center gap-2 px-3 py-1.5 transition hover:bg-slate-950/50">
+
+                                        @include('attributes.partials.cara', [
+                                            'cosa' => $catalogo,
+                                            'tamano' => 'h-7 w-7',
+                                            'respaldo' => '◫',
+                                            'tono' => $tono,
+                                        ])
+
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-[11px] font-black text-slate-300">{{ $catalogo->name }}</span>
+                                            <span class="block h-1 overflow-hidden rounded-full bg-slate-950">
+                                                <span class="block h-full rounded-full"
+                                                    style="width: {{ max((int) round(($catalogo->active_options_count / $catalogMax) * 100), 3) }}%; background-color: {{ $tono }}"></span>
+                                            </span>
+                                        </span>
+
+                                        <span class="shrink-0 font-mono text-[10px] font-black"
+                                            style="color: {{ $catalogo->active_options_count > 0 ? $tono : '#f43f5e' }}">
+                                            {{ $catalogo->active_options_count }}
+                                        </span>
+                                    </a>
+                                @endforeach
+                            </div>
+                        </section>
+                    @endif
+
+
+                    {{-- Los otros paneles --}}
+                    <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-3.5">
+                        <h2 class="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                            Los otros paneles
+                        </h2>
+
+                        <p class="mt-1 text-[10px] leading-relaxed text-slate-500">
+                            Este panel es solo la biblioteca. Los torneos y los universos tienen el suyo.
+                        </p>
+
+                        <div class="mt-2 space-y-1.5">
+                            @foreach ([['Torneos', 'trofeo', route('tournaments.dashboard'), '#fbbf24'], ['Universos', 'orbita', route('universes.dashboard'), '#22d3ee'], ['Comunidad', 'globo', route('community.index'), '#a78bfa']] as [$etiqueta, $icono, $ruta, $tono])
+                                <a href="{{ $ruta }}"
+                                    class="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-2.5 py-2 transition hover:-translate-y-0.5"
+                                    style="border-color: {{ $tono }}22">
+                                    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
+                                        style="background-color: {{ $tono }}22; color: {{ $tono }}">
+                                        <x-omni-icon :name="$icono" size="h-3.5 w-3.5" />
+                                    </span>
+                                    <span class="min-w-0 flex-1 truncate text-[11px] font-black text-slate-300">{{ $etiqueta }}</span>
+                                    <span class="shrink-0 text-slate-700">›</span>
+                                </a>
+                            @endforeach
+                        </div>
+                    </section>
+
+                </aside>
             </div>
 
-        </div>
+        @endif
 
     </div>
 
 
-    {{-- ========================================================= --}}
-    {{-- JAVASCRIPT --}}
-    {{-- ========================================================= --}}
-
     <script>
-        function dashboardWorkspace(
-            config
-        ) {
-
-            const defaultSections = {
-
-                continue: true,
-
-                quick: true,
-
-                activity: true,
-
-                health: true,
-
-                entities: true,
-
-                attributes: true,
-
-                catalogs: true,
-
-                collections: true,
-
-                insights: true
-            };
-
+        function panelDeBiblioteca(config) {
 
             return {
 
-                /*
-                |--------------------------------------------------------------------------
-                | Estado
-                |--------------------------------------------------------------------------
-                */
+                vista: 'grid',
+                tamano: 6,
 
-                view: 'summary',
-
-                createOpen: false,
-
-                customizeOpen: false,
-
-                searchOpen: false,
-
-                searching: false,
-
-                searchQuery: '',
-
-                searchResults: [],
-
-                sections: {
-                    ...defaultSections
-                },
-
-
-                sectionOptions: [
-
-                    {
-                        key: 'continue',
-
-                        label: 'Continuar trabajando',
-
-                        description: 'Recursos modificados recientemente.'
-                    },
-
-                    {
-                        key: 'quick',
-
-                        label: 'Acciones rápidas',
-
-                        description: 'Atajos para crear recursos.'
-                    },
-
-                    {
-                        key: 'activity',
-
-                        label: 'Actividad reciente',
-
-                        description: 'Creaciones y modificaciones recientes.'
-                    },
-
-                    {
-                        key: 'health',
-
-                        label: 'Estado de Biblioteca',
-
-                        description: 'Elementos pendientes por organizar.'
-                    },
-
-                    {
-                        key: 'entities',
-
-                        label: 'Entidades recientes',
-
-                        description: 'Tus últimas creaciones.'
-                    },
-
-                    {
-                        key: 'attributes',
-
-                        label: 'Atributos recientes',
-
-                        description: 'Características creadas recientemente.'
-                    },
-
-                    {
-                        key: 'catalogs',
-
-                        label: 'Catálogo reciente',
-
-                        description: 'Últimos elementos añadidos.'
-                    },
-
-                    {
-                        key: 'collections',
-
-                        label: 'Colecciones',
-
-                        description: 'Tus agrupaciones recientes.'
-                    },
-
-                    {
-                        key: 'insights',
-
-                        label: 'Distribuciones',
-
-                        description: 'Tipos y Catálogos principales.'
-                    }
-                ],
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Inicialización
-                |--------------------------------------------------------------------------
-                */
+                /* El buscador */
+                consulta: '',
+                resultados: [],
+                abierto: false,
+                cargando: false,
+                elegido: 0,
+                peticion: 0,
 
                 init() {
+                    try {
+                        const g = JSON.parse(localStorage.getItem('omnimerge.dashboard.view') ?? '{}');
+                        if (['gallery', 'grid', 'list', 'table'].includes(g.vista)) this.vista = g.vista;
+                        if (g.tamano >= 4 && g.tamano <= 9) this.tamano = g.tamano;
+                    } catch (e) {}
 
-                    this.loadView();
+                    this.$watch('vista', () => this.recordar());
+                    this.$watch('tamano', () => this.recordar());
 
-                    this.loadSections();
-                },
+                    /*
+                     * La barra «/» enfoca el buscador, como en cualquier sitio
+                     * donde uno busca a menudo. Se ignora si ya se está
+                     * escribiendo en otro campo.
+                     */
+                    window.addEventListener('keydown', (evento) => {
+                        if (evento.key !== '/' || evento.metaKey || evento.ctrlKey) return;
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | Vista
-                |--------------------------------------------------------------------------
-                */
-
-                setView(
-                    value
-                ) {
-
-                    const allowed = [
-                        'summary',
-                        'compact',
-                        'visual'
-                    ];
-
-
-                    if (
-                        !allowed.includes(
-                            value
-                        )
-                    ) {
-                        value =
-                            'summary';
-                    }
-
-
-                    this.view =
-                        value;
-
-
-                    localStorage.setItem(
-                        'omnimerge.dashboard.view',
-                        value
-                    );
-                },
-
-
-                loadView() {
-
-                    const saved =
-                        localStorage.getItem(
-                            'omnimerge.dashboard.view'
+                        const activo = document.activeElement;
+                        const escribiendo = activo && (
+                            activo.tagName === 'INPUT'
+                            || activo.tagName === 'TEXTAREA'
+                            || activo.isContentEditable
                         );
 
+                        if (escribiendo) return;
 
-                    if (
-                        [
-                            'summary',
-                            'compact',
-                            'visual'
-                        ].includes(
-                            saved
-                        )
-                    ) {
-
-                        this.view =
-                            saved;
-                    }
+                        evento.preventDefault();
+                        this.$refs.buscador?.focus();
+                    });
                 },
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | Secciones
-                |--------------------------------------------------------------------------
-                */
-
-                loadSections() {
-
+                recordar() {
                     try {
-
-                        const saved =
-                            JSON.parse(
-                                localStorage.getItem(
-                                    'omnimerge.dashboard.sections'
-                                )
-                            );
-
-
-                        if (
-                            saved &&
-                            typeof saved ===
-                            'object'
-                        ) {
-
-                            this.sections = {
-
-                                ...defaultSections,
-
-                                ...saved
-                            };
-                        }
-
-                    } catch (
-                        error
-                    ) {
-
-                        this.sections = {
-                            ...defaultSections
-                        };
-                    }
+                        localStorage.setItem('omnimerge.dashboard.view',
+                            JSON.stringify({ vista: this.vista, tamano: this.tamano }));
+                    } catch (e) {}
                 },
 
-
-                saveSections() {
-
-                    localStorage.setItem(
-
-                        'omnimerge.dashboard.sections',
-
-                        JSON.stringify(
-                            this.sections
-                        )
-                    );
+                get columnas() {
+                    return {
+                        4: 'grid-cols-2 sm:grid-cols-4',
+                        5: 'grid-cols-2 sm:grid-cols-5',
+                        6: 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6',
+                        7: 'grid-cols-3 sm:grid-cols-5 lg:grid-cols-7',
+                        8: 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-8',
+                        9: 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9',
+                    }[this.tamano];
                 },
 
+                async buscar() {
+                    const texto = this.consulta.trim();
 
-                resetPreferences() {
-
-                    this.sections = {
-                        ...defaultSections
-                    };
-
-
-                    this.view =
-                        'summary';
-
-
-                    localStorage.removeItem(
-                        'omnimerge.dashboard.sections'
-                    );
-
-
-                    localStorage.removeItem(
-                        'omnimerge.dashboard.view'
-                    );
-                },
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | Búsqueda
-                |--------------------------------------------------------------------------
-                */
-
-                async searchLibrary() {
-
-                    const query =
-                        this
-                        .searchQuery
-                        .trim();
-
-
-                    if (
-                        query.length < 2
-                    ) {
-
-                        this.searchResults = [];
-
-                        this.searchOpen =
-                            false;
-
-                        this.searching =
-                            false;
-
+                    if (texto.length < 2) {
+                        this.resultados = [];
+                        this.abierto = false;
                         return;
                     }
 
+                    /*
+                     * Cada búsqueda lleva su número. Si vuelve una respuesta de
+                     * una búsqueda anterior a la última tecleada, se descarta:
+                     * de lo contrario la lista parpadea con resultados viejos.
+                     */
+                    const mia = ++this.peticion;
 
-                    this.searchOpen =
-                        true;
-
-                    this.searching =
-                        true;
-
+                    this.abierto = true;
+                    this.cargando = true;
 
                     try {
-
-                        const url =
-                            new URL(
-                                config.searchUrl,
-                                window.location.origin
-                            );
-
-
-                        url.searchParams.set(
-                            'q',
-                            query
+                        const respuesta = await fetch(
+                            config.rutaBusqueda + '?q=' + encodeURIComponent(texto),
+                            { headers: { 'Accept': 'application/json' } }
                         );
 
+                        const datos = await respuesta.json();
 
-                        const response =
-                            await fetch(
-                                url.toString(), {
-                                    headers: {
-                                        'Accept': 'application/json'
-                                    }
-                                }
-                            );
+                        if (mia !== this.peticion) return;
 
-
-                        if (
-                            !response.ok
-                        ) {
-
-                            throw new Error(
-                                'Search request failed.'
-                            );
-                        }
-
-
-                        const data =
-                            await response.json();
-
-
-                        /*
-                         * Evita que una respuesta anterior
-                         * reemplace una búsqueda nueva.
-                         */
-
-                        if (
-                            query !==
-                            this
-                            .searchQuery
-                            .trim()
-                        ) {
-                            return;
-                        }
-
-
-                        this.searchResults =
-                            Array.isArray(
-                                data.results
-                            ) ?
-                            data.results :
-                            [];
-
-                    } catch (
-                        error
-                    ) {
-
-                        this.searchResults = [];
-
+                        this.resultados = datos.results ?? [];
+                        this.elegido = 0;
+                    } catch (e) {
+                        if (mia === this.peticion) this.resultados = [];
                     } finally {
-
-                        this.searching =
-                            false;
+                        if (mia === this.peticion) this.cargando = false;
                     }
-                }
+                },
+
+                cerrarBusqueda() {
+                    this.abierto = false;
+                },
+
+                mover(paso) {
+                    if (this.resultados.length === 0) return;
+
+                    this.elegido =
+                        (this.elegido + paso + this.resultados.length) % this.resultados.length;
+                },
+
+                abrirElegido() {
+                    const elegido = this.resultados[this.elegido];
+
+                    if (elegido) window.location.href = elegido.url;
+                },
             };
         }
     </script>
