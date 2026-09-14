@@ -70,12 +70,24 @@ class TournamentInstanceController extends Controller
             $universe
         );
 
-        $status =
-            (string)
-            $request->input(
-                'status',
-                ''
-            );
+        $status = (string) $request->input('status', '');
+
+        $search = trim((string) $request->input('search'));
+
+        $tournamentId = $request->integer('tournament') ?: null;
+
+        $seasonId = $request->integer('season') ?: null;
+
+        $gameKey = (string) $request->input('game');
+
+        $sort = (string) $request->input('sort', 'newest');
+
+        $perPage = (int) $request->input('per_page', 24);
+
+        if (! in_array($perPage, [12, 24, 48, 96], true)) {
+            $perPage = 24;
+        }
+
 
         $base =
             TournamentInstance::query()
@@ -83,53 +95,142 @@ class TournamentInstanceController extends Controller
 
         $statistics = [
 
-            'total' => (clone $base)
-                ->count(),
+            'total' => (clone $base)->count(),
 
             'running' => (clone $base)
-                ->whereIn(
-                    'status',
-                    [
-                        'RUNNING',
-                        'PAUSED',
-                    ]
-                )
+                ->whereIn('status', ['RUNNING', 'PAUSED'])
                 ->count(),
 
             'completed' => (clone $base)
-                ->where(
-                    'status',
-                    'COMPLETED'
-                )
+                ->where('status', 'COMPLETED')
                 ->count(),
 
             'draft' => (clone $base)
-                ->where(
-                    'status',
-                    'DRAFT'
-                )
+                ->where('status', 'DRAFT')
+                ->count(),
+
+            'cancelled' => (clone $base)
+                ->where('status', 'CANCELLED')
                 ->count(),
         ];
 
-        $competitions =
+
+        /*
+        |--------------------------------------------------------------------------
+        | Lo que espera por ti
+        |--------------------------------------------------------------------------
+        |
+        | Dos cosas distintas que el panel trataba igual:
+        |
+        |   - las preparadas y sin empezar, que solo necesitan que alguien pulse
+        |   - las que se quedaron a mitad esperando una decision o bloqueadas
+        |
+        | La segunda es la urgente: hay un torneo detenido esperando a una
+        | persona, y hasta ahora eso no se veia desde el indice.
+        |
+        */
+
+        $esperando =
+            (clone $base)
+            ->whereIn('runtime_status', ['AWAITING_DECISION', 'BLOCKED'])
+            ->with(['universeTournament', 'season'])
+            ->orderByDesc('started_at')
+            ->get();
+
+        $preparadas =
+            (clone $base)
+            ->where('status', 'DRAFT')
+            ->with(['universeTournament', 'season'])
+            ->orderByDesc('created_at')
+            ->limit(8)
+            ->get();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | El listado
+        |--------------------------------------------------------------------------
+        */
+
+        $query =
             TournamentInstance::query()
             ->inUniverse($universe)
             ->with([
                 'universeTournament',
                 'season',
+
+                /* El campeon, para las que ya terminaron */
+                'participants' => fn($q) => $q
+                    ->where('placement', 1)
+                    ->with('universeEntity'),
             ])
             ->when(
                 $status,
-
-                fn($query) =>
-                $query->where(
-                    'status',
-                    $status
+                fn($q) => $status === 'RUNNING'
+                    ? $q->whereIn('status', ['RUNNING', 'PAUSED'])
+                    : $q->where('status', $status)
+            )
+            ->when(
+                $search,
+                fn($q) => $q->where(
+                    fn($s) => $s
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
                 )
             )
-            ->orderByDesc('created_at')
-            ->paginate(15)
+            ->when(
+                $tournamentId,
+                fn($q) => $q->where('universe_tournament_id', $tournamentId)
+            )
+            ->when(
+                $seasonId,
+                fn($q) => $q->where('universe_season_id', $seasonId)
+            )
+            ->when(
+                $gameKey,
+                fn($q) => $q->where('game_key', $gameKey)
+            );
+
+        match ($sort) {
+            'oldest' => $query->orderBy('created_at')->orderBy('id'),
+            'name_asc' => $query->orderBy('name'),
+            'participants' => $query
+                ->orderByDesc('participant_count')
+                ->orderByDesc('created_at'),
+            'season' => $query
+                ->orderByDesc('universe_season_id')
+                ->orderByDesc('created_at'),
+            default => $query->orderByDesc('created_at')->orderByDesc('id'),
+        };
+
+        $competitions =
+            $query
+            ->paginate($perPage)
             ->withQueryString();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Para los filtros y para agrupar
+        |--------------------------------------------------------------------------
+        */
+
+        $torneos =
+            $universe
+            ->universeTournaments()
+            ->orderBy('name')
+            ->get();
+
+        $temporadas =
+            $universe
+            ->seasons()
+            ->orderByDesc('number')
+            ->get();
+
+        $juegos =
+            collect(app(\App\Services\Games\GameRegistry::class)->definitions())
+            ->keyBy('key');
+
 
         return view(
             'universes.competitions.index',
@@ -137,7 +238,18 @@ class TournamentInstanceController extends Controller
                 'universe',
                 'competitions',
                 'statistics',
-                'status'
+                'status',
+                'search',
+                'tournamentId',
+                'seasonId',
+                'gameKey',
+                'sort',
+                'perPage',
+                'esperando',
+                'preparadas',
+                'torneos',
+                'temporadas',
+                'juegos'
             )
         );
     }

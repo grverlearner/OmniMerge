@@ -299,6 +299,25 @@ class TournamentInstance extends Model
     |--------------------------------------------------------------------------
     */
 
+    /*
+     * Su propia portada. La columna existia desde el principio y no la leia
+     * nadie, asi que una competicion con imagen se ensenaba igual que una sin
+     * ella. Cuando no tiene, la pantalla cae en la del torneo del que sale.
+     */
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image) {
+            return null;
+        }
+
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+
+        return $disk->exists($this->image)
+            ? $disk->url($this->image)
+            : null;
+    }
+
+
     public function getStatusLabelAttribute(): string
     {
         return match ($this->status) {

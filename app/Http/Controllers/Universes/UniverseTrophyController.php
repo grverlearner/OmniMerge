@@ -32,13 +32,61 @@ class UniverseTrophyController extends Controller
 
         $this->authorize('view', $universe);
 
-        $trophies =
+        $search = trim((string) request()->input('search'));
+
+        $tier = (string) request()->input('tier');
+
+        $scope = (string) request()->input('scope');
+
+        $awarded = (string) request()->input('awarded');
+
+        $sort = (string) request()->input('sort', 'name');
+
+
+        $query =
             $universe->trophies()
             ->withCount('awards')
-            ->orderBy('name')
-            ->get();
+            ->with('competition')
+            ->when(
+                $search,
+                fn($q) => $q->where(
+                    fn($s) => $s
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                )
+            )
+            ->when(
+                $tier,
+                fn($q) => $q->where('tier', $tier)
+            )
+            ->when(
+                $scope === 'universe',
+                fn($q) => $q->whereNull('tournament_instance_id')
+            )
+            ->when(
+                $scope === 'edition',
+                fn($q) => $q->whereNotNull('tournament_instance_id')
+            )
+            ->when(
+                $awarded === 'yes',
+                fn($q) => $q->has('awards')
+            )
+            ->when(
+                $awarded === 'no',
+                fn($q) => $q->doesntHave('awards')
+            );
 
-        /* La vitrina: lo último conquistado en este mundo */
+        match ($sort) {
+            'awards' => $query->orderByDesc('awards_count')->orderBy('name'),
+            'tier' => $query->orderBy('tier')->orderBy('name'),
+            'newest' => $query->orderByDesc('created_at'),
+            default => $query->orderBy('name'),
+        };
+
+        $trophies = $query->get();
+
+
+        /* Lo último conquistado en este mundo */
         $recentAwards =
             UniverseTrophyAward::query()
             ->where('universe_id', $universe->id)
@@ -52,9 +100,96 @@ class UniverseTrophyController extends Controller
             ->limit(12)
             ->get();
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Todas las entregas
+        |--------------------------------------------------------------------------
+        |
+        | Hacen falta enteras para dos cosas que el panel no contestaba: quien
+        | tiene mas trofeos de este mundo, y quien ha ganado cada trofeo. Son
+        | pocas filas —una por premio entregado— asi que se traen de una vez y
+        | se reparten en memoria.
+        |
+        */
+
+        $entregas =
+            UniverseTrophyAward::query()
+            ->where('universe_id', $universe->id)
+            ->with([
+                'trophy',
+                'universeEntity',
+                'tournamentInstance',
+                'season',
+            ])
+            ->orderByDesc('awarded_at')
+            ->get();
+
+
+        /* Quien tiene mas: la vitrina personal de cada competidor */
+        $palmares =
+            $entregas
+            ->filter(fn($entrega) => $entrega->universe_entity_id !== null)
+            ->groupBy('universe_entity_id')
+            ->map(
+                fn($suyas) => [
+                    'competidor' => $suyas->first()->universeEntity,
+                    'nombre' => $suyas->first()->universeEntity?->display_label ?? 'Sin nombre',
+                    'entregas' => $suyas->values(),
+                    'primeros' => $suyas->where('position', 1)->count(),
+                ]
+            )
+            ->sortByDesc(fn($fila) => $fila['entregas']->count())
+            ->values();
+
+
+        /* Y el reves: quien ha ganado cada trofeo */
+        $porTrofeo =
+            $entregas->groupBy('universe_trophy_id');
+
+
+        $statistics = [
+
+            'trofeos' => $universe->trophies()->count(),
+
+            'entregados' => $entregas->count(),
+
+            'premiados' => $palmares->count(),
+
+            'sin_entregar' => $universe->trophies()->doesntHave('awards')->count(),
+
+            'de_edicion' => $universe->trophies()
+                ->whereNotNull('tournament_instance_id')
+                ->count(),
+        ];
+
+
+        /* Las ediciones a las que se puede atar un trofeo nuevo */
+        $ediciones =
+            $universe
+            ->tournamentInstances()
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
+
         return view(
             'universes.trophies.index',
-            compact('universe', 'trophies', 'recentAwards')
+            compact(
+                'universe',
+                'trophies',
+                'recentAwards',
+                'entregas',
+                'palmares',
+                'porTrofeo',
+                'statistics',
+                'ediciones',
+                'search',
+                'tier',
+                'scope',
+                'awarded',
+                'sort'
+            )
         );
     }
 
