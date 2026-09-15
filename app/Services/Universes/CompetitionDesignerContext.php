@@ -85,7 +85,10 @@ class CompetitionDesignerContext
             'overallRankingModes' =>
             \App\Services\Tournaments\GroupStage\GroupStageOverallRanking::MODES,
 
-            'competitors' => $this->competitors($universe),
+            'competitors' => $this->competitors($universe, $tournament),
+
+            /* La sala de participantes de esta edicion: ver ParticipantRoomBuilder::forEdition */
+            'sala' => app(ParticipantRoomBuilder::class)->forEdition($universe, $tournament, $competition, $source, $template),
 
             'eligibilityCatalog' => $this->eligibility->catalog($universe),
 
@@ -162,7 +165,8 @@ class CompetitionDesignerContext
              * puertas era lo único que NO se heredaba: aparecía vacío y había
              * que rehacerlo a mano.
              */
-            'currentAssignments' => $this->currentAssignments($competition ?? $source),
+            'currentAssignments' => $this->currentAssignments($competition ?? $source)
+                ?: ($competition === null && $source === null ? $this->tournamentDoors($universe, $tournament)['assignments'] : []),
 
             'decisionModes' => CompetitionPhasePlan::DECISION_MODES,
         ];
@@ -289,7 +293,7 @@ class CompetitionDesignerContext
                 $base?->allow_draws ?? $tournament->allow_draws
             ),
 
-            'start_rules' => old('start_rules', $base?->start_rules ?? []),
+            'start_rules' => old('start_rules', $base?->start_rules ?? $this->tournamentDoors($universe, $tournament)['rules']),
 
             'copied_from_instance_id' => $source?->id,
 
@@ -478,9 +482,70 @@ class CompetitionDesignerContext
      * de aqui se quedo sin los textos, asi que las fichas no podian
      * ensenar los atributos-.
      */
-    private function competitors(Universe $universe): array
+    private function competitors(Universe $universe, ?UniverseTournament $tournament = null): array
     {
-        return $this->eligibility->roster($universe);
+        $roster = $this->eligibility->roster($universe);
+
+        if (! $tournament) {
+            return $roster;
+        }
+
+        /*
+         * Solo los que el TORNEO deja competir. Antes salia el universo
+         * entero, y una edicion de «solo la Hoja» podia llenarse con
+         * cualquiera: las reglas del torneo no llegaban a sus ediciones.
+         */
+        $dentro = $this->eligibility
+            ->matching($universe, $tournament->eligibility)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->flip();
+
+        return array_values(array_filter($roster, fn ($c) => isset($dentro[(int) $c['id']])));
+    }
+
+    /*
+     * El reparto por puertas que el torneo dejo preparado en su sala.
+     *
+     * Solo vale si la edicion se juega con la misma plantilla: las puertas
+     * de otra plantilla son otras.
+     *
+     * @return array{rules: array, assignments: array}
+     */
+    private function tournamentDoors(Universe $universe, UniverseTournament $tournament): array
+    {
+        $routing = app(CompetitionStartRouting::class);
+        $guardado = $tournament->eligibility['doors'] ?? null;
+
+        if (! $guardado) {
+            return ['rules' => [], 'assignments' => []];
+        }
+
+        $doors = $routing->normalizeDoors($guardado);
+
+        if ($doors['template_id'] && (int) $doors['template_id'] !== (int) $tournament->tournament_template_id) {
+            return ['rules' => [], 'assignments' => []];
+        }
+
+        if ($doors['mode'] === 'RULES' && ! $doors['fill_rest']) {
+            return ['rules' => $doors['rules'], 'assignments' => []];
+        }
+
+        $starts = \App\Models\TournamentStart::query()
+            ->where('tournament_template_id', $tournament->tournament_template_id)
+            ->where('status', 'ACTIVE')
+            ->orderBy('sequence_number')
+            ->get()
+            ->mapWithKeys(fn ($s) => [(int) $s->id => $s->expected_participants ? (int) $s->expected_participants : null])
+            ->all();
+
+        return [
+            'rules' => [],
+            'assignments' => array_filter(
+                $routing->plan($universe, $guardado, $starts, $tournament->eligibility)['assignments'],
+                fn ($ids) => $ids !== []
+            ),
+        ];
     }
 
 

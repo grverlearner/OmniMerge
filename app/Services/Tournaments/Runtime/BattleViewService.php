@@ -153,8 +153,9 @@ class BattleViewService
                             ?? $entity?->display_label
                             ?? $key,
 
+                        /* La de la version con la que juega, no la de siempre */
                         'image_url' =>
-                        $entity?->image_url,
+                        $participant?->face_url ?? $entity?->image_url,
 
                         'stats' =>
                         $stats

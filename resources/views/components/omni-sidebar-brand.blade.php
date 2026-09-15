@@ -9,6 +9,9 @@
     'image' => null,
     'accent' => 'indigo',
     'logo' => false,
+
+    /* Un color propio -el de un universo- en vez del del módulo */
+    'color' => null,
 ])
 
 @php
@@ -67,7 +70,8 @@
     class="flex items-center gap-3 rounded-xl transition hover:opacity-90 {{ $compactoAqui ? 'lg:justify-center' : '' }}">
 
     <span
-        class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br text-white shadow-lg {{ $marca }}">
+        class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br text-white shadow-lg {{ $color ? '' : $marca }}"
+        @if ($color) style="background-image: linear-gradient(135deg, {{ $color }}, {{ $color }}88); box-shadow: 0 10px 22px -10px {{ $color }}" @endif>
 
         @if ($image)
             <img src="{{ $image }}" alt="" class="h-full w-full object-cover">

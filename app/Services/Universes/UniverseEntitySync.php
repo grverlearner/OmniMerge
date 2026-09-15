@@ -310,6 +310,17 @@ class UniverseEntitySync
                 );
             }
 
+            /* Y las condiciones propias de la edicion, si las tiene */
+            $diseno = (array) ($instancia->participant_design ?? []);
+
+            if (($diseno['source'] ?? null) === 'CUSTOM') {
+                foreach ([$diseno, ...array_values((array) ($diseno['doors']['rules'] ?? []))] as $fila) {
+                    foreach ($this->eligibility->attributesUsed((array) $fila) as $atributo) {
+                        $anotar($atributo, 'los participantes de «' . $instancia->name . '»');
+                    }
+                }
+            }
+
             /* Y el reparto por puertas de la edicion */
             foreach ((array) ($instancia->start_rules ?? []) as $fila) {
 

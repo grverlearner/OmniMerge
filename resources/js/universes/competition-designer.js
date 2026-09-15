@@ -142,6 +142,9 @@ export default function competitionDesigner(config) {
         /* ------------------------------------------------ premios */
         inheritedRewards: config.inheritedRewards ?? [],
 
+        /* Lo que cuenta la sala de participantes de la edicion, para el indice */
+        salaResumen: null,
+
         /* ------------------------------------------------ servicios */
         previewUrl: config.previewUrl,
         csrf: config.csrf,
@@ -690,6 +693,7 @@ export default function competitionDesigner(config) {
                     body: JSON.stringify({
                         start_rules: this.startRules,
                         capacities,
+                        universe_tournament_id: this.inherited?.id ?? null,
                     }),
                 });
 
@@ -812,6 +816,11 @@ export default function competitionDesigner(config) {
         },
 
         get doorsSummary() {
+            if (this.salaResumen) {
+                return this.salaResumen.entran + ' de ' + this.salaResumen.total
+                    + (this.salaResumen.fuente === 'TOURNAMENT' ? ' · como el torneo' : ' · propia');
+            }
+
             return this.totalIn + ' de ' + this.competitors.length + ' competidores';
         },
 

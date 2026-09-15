@@ -44,7 +44,9 @@
         {{-- ===================================================== --}}
 
         <section class="relative overflow-hidden rounded-2xl border bg-slate-900/50"
-            style="border-color: {{ $tonoUniverso }}44">
+            style="border-color: {{ $universe->accent }}55; box-shadow: 0 0 60px -30px {{ $universe->accent }}">
+
+            <span class="pointer-events-none absolute inset-x-0 top-0 h-1" style="background-color: {{ $universe->accent }}"></span>
 
             {{-- El mosaico de caras detrás: el mundo es su gente --}}
             @if ($mosaico->isNotEmpty())
@@ -63,13 +65,13 @@
             <div class="relative flex flex-wrap items-center gap-4 p-4">
 
                 {{-- La cara del universo --}}
-                <span class="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border bg-slate-950"
-                    style="border-color: {{ $tonoUniverso }}55">
+                <span class="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border-2 bg-slate-950"
+                    style="border-color: {{ $universe->accent }}">
                     @if ($universe->image_url)
-                        <img src="{{ $universe->image_url }}" alt="" class="h-full w-full object-cover">
+                        <img src="{{ $universe->image_url }}" alt="" class="h-full w-full object-cover" style="object-position: {{ $universe->ajustes()->coverPosition() }}">
                     @else
-                        <span class="flex h-full w-full items-center justify-center text-slate-700">
-                            <x-omni-icon name="globo" size="h-8 w-8" />
+                        <span class="flex h-full w-full items-center justify-center" style="color: {{ $universe->accent }}; background-color: {{ $universe->accent }}1a">
+                            <x-omni-icon :name="$universe->ajustes()->icon()" size="h-9 w-9" />
                         </span>
                     @endif
                 </span>
@@ -87,7 +89,7 @@
                         @if ($activeSeason)
                             <a href="{{ route('universes.seasons.show', [$universe, $activeSeason]) }}"
                                 class="rounded-lg bg-violet-500/15 px-2 py-0.5 text-[10px] font-black text-violet-300 transition hover:bg-violet-500 hover:text-white">
-                                Temporada {{ $activeSeason->number }} · {{ $activeSeason->name }}
+                                {{ $universe->ajustes()->label('label_season') }} {{ $activeSeason->number }} · {{ $activeSeason->name }}
                             </a>
                         @else
                             <span class="rounded-lg bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-300">
@@ -107,6 +109,12 @@
                     <h1 class="mt-1.5 text-2xl font-black leading-tight tracking-tight text-white">
                         {{ $universe->name }}
                     </h1>
+
+                    @if ($universe->ajustes()->tagline())
+                        <p class="mt-0.5 text-[13px] font-black" style="color: {{ $universe->accent }}">
+                            {{ $universe->ajustes()->tagline() }}
+                        </p>
+                    @endif
 
                     @if ($universe->description)
                         <p class="mt-1 line-clamp-2 max-w-2xl text-[11px] leading-relaxed text-slate-400">
@@ -141,90 +149,51 @@
         @endif
 
 
-        {{-- ===================================================== --}}
-        {{-- LO QUE ESPERA POR TI --}}
-        {{-- ===================================================== --}}
+        {{--
+            Los bloques del Resumen, en el orden y con los que este universo
+            eligió en su configuración. Arriba van a lo ancho; debajo, en dos
+            columnas.
+        --}}
+        @php
+            $ajustesResumen = $universe->ajustes();
+            $bloquesArriba = $ajustesResumen->summaryBlocks('top');
+            $bloquesIzquierda = $ajustesResumen->summaryBlocks('left');
+            $bloquesDerecha = $ajustesResumen->summaryBlocks('right');
+        @endphp
 
-        @include('universes.partials.resumen.atencion')
+        @foreach ($bloquesArriba as $bloque)
+            @include('universes.partials.resumen.' . $bloque)
+        @endforeach
 
+        @if ($bloquesIzquierda || $bloquesDerecha)
+            <div class="grid gap-3 {{ $bloquesIzquierda && $bloquesDerecha ? 'lg:grid-cols-[minmax(0,1fr)_340px]' : '' }}">
 
-        {{-- ===================================================== --}}
-        {{-- EL PULSO --}}
-        {{-- ===================================================== --}}
+                @if ($bloquesIzquierda)
+                    <div class="min-w-0 space-y-3">
+                        @foreach ($bloquesIzquierda as $bloque)
+                            @include('universes.partials.resumen.' . $bloque)
+                        @endforeach
+                    </div>
+                @endif
 
-        <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-
-            @php
-                $cifras = [
-                    ['Competidores', $statistics['entities'], '#a78bfa', route('universes.entities.index', $universe), $statistics['have_competed'] . ' han competido'],
-                    ['Temporadas', $statistics['seasons'], '#60a5fa', route('universes.seasons.index', $universe), $activeSeason ? 'la ' . $activeSeason->number . ' en curso' : 'ninguna en curso'],
-                    ['Torneos', $statistics['tournaments'], '#22d3ee', route('universes.tournaments.index', $universe), 'definidos en este mundo'],
-                    ['Competiciones', $statistics['competitions'], '#34d399', route('universes.competitions.index', $universe), $statistics['competitions_done'] . ' terminadas'],
-                    ['En juego', $statistics['competitions_running'], '#fb7185', route('universes.competitions.index', $universe), 'ahora mismo'],
-                    ['Trofeos dados', $statistics['trophy_awards'], '#fbbf24', route('universes.trophies.index', $universe), $statistics['trophies'] . ' en la vitrina'],
-                ];
-            @endphp
-
-            @foreach ($cifras as [$etiqueta, $valor, $tono, $destino, $pie])
-                <a href="{{ $destino }}"
-                    class="group rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2 transition hover:-translate-y-0.5"
-                    style="--t: {{ $tono }}"
-                    onmouseover="this.style.borderColor='{{ $tono }}66'"
-                    onmouseout="this.style.borderColor=''">
-
-                    <span class="block font-mono text-2xl font-black leading-none"
-                        style="color: {{ $valor > 0 ? $tono : '#475569' }}">{{ $valor }}</span>
-
-                    <span class="mt-1 block text-[9px] font-black uppercase tracking-wider text-slate-500">
-                        {{ $etiqueta }}
-                    </span>
-
-                    <span class="block truncate text-[9px] text-slate-600">{{ $pie }}</span>
-                </a>
-            @endforeach
-        </section>
-
-
-        {{-- ===================================================== --}}
-        {{-- LO QUE SE ESTÁ JUGANDO --}}
-        {{-- ===================================================== --}}
-
-        @include('universes.partials.resumen.en-juego')
-
-
-        <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
-
-            <div class="min-w-0 space-y-3">
-
-                {{-- ---------- LA TEMPORADA ---------- --}}
-
-                @include('universes.partials.resumen.temporada')
-
-                {{-- ---------- LA LÍNEA DEL TIEMPO ---------- --}}
-
-                @include('universes.partials.resumen.linea')
-
-                {{-- ---------- QUÉ HA PASADO ---------- --}}
-
-                @include('universes.partials.resumen.actividad')
+                @if ($bloquesDerecha)
+                    <div class="min-w-0 {{ $bloquesIzquierda ? 'space-y-3' : 'grid items-start gap-3 lg:grid-cols-3' }}">
+                        @foreach ($bloquesDerecha as $bloque)
+                            @include('universes.partials.resumen.' . $bloque)
+                        @endforeach
+                    </div>
+                @endif
             </div>
+        @endif
 
-
-            <div class="min-w-0 space-y-3">
-
-                {{-- ---------- QUIÉN MANDA ---------- --}}
-
-                @include('universes.partials.resumen.ranking')
-
-                {{-- ---------- LOS ÚLTIMOS EN GANAR ---------- --}}
-
-                @include('universes.partials.resumen.campeones')
-
-                {{-- ---------- CON QUÉ SE JUEGA ---------- --}}
-
-                @include('universes.partials.resumen.juegos')
-            </div>
-        </div>
+        @if (! $bloquesArriba && ! $bloquesIzquierda && ! $bloquesDerecha)
+            <p class="rounded-2xl border border-dashed border-slate-700 px-4 py-10 text-center text-[12px] text-slate-500">
+                Este Resumen tiene todos sus bloques escondidos.
+                @if ($puedeEditar)
+                    <a href="{{ route('universes.edit', $universe) }}#resumen" class="font-black text-violet-300 underline">Elegir cuáles se ven</a>
+                @endif
+            </p>
+        @endif
     </div>
 
 

@@ -46,7 +46,7 @@
 
                 <div class="flex min-w-[260px] flex-1 items-center gap-3 p-3">
 
-                    <a href="{{ route('universes.show', $mundo) }}"
+                    <a href="{{ $mundo->home_url }}"
                         class="h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 bg-slate-950"
                         style="border-color: {{ $tono }}66">
                         @if ($mundo->image_url)
@@ -59,7 +59,7 @@
                     </a>
 
                     <div class="min-w-0 flex-1">
-                        <a href="{{ route('universes.show', $mundo) }}"
+                        <a href="{{ $mundo->home_url }}"
                             class="block truncate text-[13px] font-black text-white transition hover:text-violet-300">
                             {{ $mundo->name }}
                         </a>

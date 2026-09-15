@@ -38,15 +38,16 @@
         overallRankingModes: @js($overallRankingModes ?? []),
         competitors: @js($competitors),
         catalog: @js($eligibilityCatalog),
-        startRules: @js(array_values((array) $designerValues['start_rules'])),
-        currentAssignments: @js((object) $currentAssignments),
+        startRules: [],
+        currentAssignments: {},
         canReassign: @js($canReassign),
         inheritedRewards: @js($inheritedRewards),
         previewUrl: @js(route('universes.competitions.start-preview', $universe)),
         csrf: @js(csrf_token()),
     })"
     x-init="$watch('startRules', () => refreshRouting())"
-    @change.debounce.400ms="assignMode === 'RULES' && refreshRouting()">
+    @change.debounce.400ms="assignMode === 'RULES' && refreshRouting()"
+    @sala-resumen="salaResumen = $event.detail">
 
 
     {{-- ============ EL ÍNDICE ============ --}}
@@ -79,7 +80,7 @@
                     <p class="truncate text-[8px] text-slate-600" x-text="phasesSummary"></p>
                 @elseif ($key === 'doors')
                     <p class="truncate text-[8px]"
-                        :class="totalIn === 0 ? 'text-rose-400' : 'text-slate-600'"
+                        :class="(salaResumen ? salaResumen.entran : totalIn) === 0 ? 'text-rose-400' : 'text-slate-600'"
                         x-text="doorsSummary"></p>
                 @endif
             </button>
@@ -92,7 +93,7 @@
     @include('universes.competitions.partials.designer-game')
     @include('universes.competitions.partials.designer-battle')
     @include('universes.competitions.partials.designer-phases')
-    @include('universes.competitions.partials.designer-doors')
+    @include('universes.competitions.partials.designer-participants')
     @include('universes.competitions.partials.designer-prizes')
 
 

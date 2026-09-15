@@ -318,8 +318,8 @@
                             </span>
 
                             <div class="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-slate-800">
-                                @if ($row->universeEntity?->image_url)
-                                    <img src="{{ $row->universeEntity->image_url }}" alt=""
+                                @if (($row->face_url ?? $row->universeEntity?->image_url))
+                                    <img src="{{ ($row->face_url ?? $row->universeEntity?->image_url) }}" alt=""
                                         class="h-full w-full object-cover">
                                 @endif
                             </div>
@@ -366,8 +366,8 @@
                             </span>
 
                             <div class="h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-slate-800">
-                                @if ($row->universeEntity?->image_url)
-                                    <img src="{{ $row->universeEntity->image_url }}" alt=""
+                                @if (($row->face_url ?? $row->universeEntity?->image_url))
+                                    <img src="{{ ($row->face_url ?? $row->universeEntity?->image_url) }}" alt=""
                                         class="h-full w-full object-cover">
                                 @endif
                             </div>

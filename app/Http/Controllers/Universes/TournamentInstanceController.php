@@ -267,12 +267,28 @@ class TournamentInstanceController extends Controller
     public function create(
         Request $request,
         Universe $universe
-    ): View {
+    ): View|RedirectResponse {
 
         $this->authorize(
             'update',
             $universe
         );
+
+        /*
+         * Una competicion es una edicion de un torneo.
+         *
+         * Los botones «Nueva competicion» de la lista y de Juegos no saben de
+         * que torneo: antes esto buscaba el torneo 0 y devolvia 404. Ahora,
+         * sin torneo, primero se elige uno.
+         */
+        $elegido = (int) $request->query('universe_tournament_id');
+
+        if (
+            $elegido <= 0
+            || ! UniverseTournament::query()->where('universe_id', $universe->id)->whereKey($elegido)->exists()
+        ) {
+            return $this->chooseTournament($universe, $elegido > 0);
+        }
 
         $universeTournament =
             UniverseTournament::query()
@@ -436,7 +452,38 @@ class TournamentInstanceController extends Controller
          */
         $aviso = 'Edición actualizada.';
 
-        if ($this->service->canReassign($competition)) {
+        $diseno = $request->participantDesign();
+
+        if ($diseno !== null && $this->service->canReassign($competition)) {
+
+            $participantes = app(\App\Services\Universes\EditionParticipants::class);
+
+            $assignments = array_filter(
+                $participantes->resolve(
+                    $universe,
+                    $competition->universeTournament,
+                    $diseno,
+                    (int) $competition->tournament_template_id
+                )['assignments'],
+                fn ($ids) => $ids !== []
+            );
+
+            if ($assignments === []) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'assignments' => 'Con esta configuración de participantes no entra nadie, o nadie cabe en las puertas.',
+                    ]);
+            }
+
+            $competition->update(['participant_design' => $participantes->normalize($diseno)]);
+
+            $this->service->reassign($competition->fresh(), $assignments);
+
+            $aviso = 'Edición actualizada, y su cuadro rehecho con '
+                . collect($assignments)->flatten()->count() . ' competidores.';
+
+        } elseif ($this->service->canReassign($competition)) {
 
             $assignments = $request->assignments();
 
@@ -446,7 +493,8 @@ class TournamentInstanceController extends Controller
                     $this->routing->route(
                         $universe,
                         $startRules,
-                        $this->capacitiesOf($competition)
+                        $this->capacitiesOf($competition),
+                        $competition->universeTournament?->eligibility
                     )['assignments'],
                     fn ($ids) => $ids !== []
                 );
@@ -492,15 +540,77 @@ class TournamentInstanceController extends Controller
             ])
             ->all();
 
+        /* Se parte de los que el torneo deja competir, no del universo entero */
+        $torneo = UniverseTournament::query()
+            ->where('universe_id', $universe->id)
+            ->find((int) $request->input('universe_tournament_id'));
+
         $routed = $this->routing->route(
             $universe,
             (array) $request->input('start_rules', []),
-            array_filter($capacities, fn ($v) => $v !== null)
+            array_filter($capacities, fn ($v) => $v !== null),
+            $torneo?->eligibility
         );
 
         return response()->json($routed);
     }
 
+
+    /*
+     * Elegir de qué torneo es la competición nueva.
+     *
+     * Sin torneos no hay nada que elegir: se lleva a crear uno. Con uno
+     * solo, se va directo a su edición nueva.
+     */
+    private function chooseTournament(Universe $universe, bool $noExiste): View|RedirectResponse
+    {
+        $torneos = UniverseTournament::query()
+            ->where('universe_id', $universe->id)
+            ->with('tournamentTemplate:id,name')
+            ->withCount('instances')
+            ->orderByRaw("CASE WHEN status = 'ACTIVE' THEN 0 ELSE 1 END")
+            ->orderBy('name')
+            ->get();
+
+        if ($torneos->isEmpty()) {
+            return redirect()
+                ->route('universes.tournaments.create', $universe)
+                ->with('error', 'Una competición es una edición de un torneo. Crea primero el torneo y después su primera edición.');
+        }
+
+        if ($torneos->count() === 1 && ! $noExiste) {
+            return redirect()->route('universes.competitions.create', [
+                'universe' => $universe,
+                'universe_tournament_id' => $torneos->first()->id,
+            ]);
+        }
+
+        $ultimas = TournamentInstance::query()
+            ->where('universe_id', $universe->id)
+            ->whereIn('universe_tournament_id', $torneos->pluck('id'))
+            ->latest('id')
+            ->get(['id', 'universe_tournament_id', 'name', 'status', 'participant_count', 'created_at'])
+            ->unique('universe_tournament_id')
+            ->keyBy('universe_tournament_id');
+
+        $eligibility = app(\App\Services\Universes\UniverseTournamentEligibility::class);
+
+        $permitidos = $torneos->mapWithKeys(fn ($t) => [
+            $t->id => $eligibility->matching($universe, $t->eligibility)->count(),
+        ]);
+
+        return view('universes.competitions.choose', [
+            'universe' => $universe,
+            'torneos' => $torneos,
+            'ultimas' => $ultimas,
+            'permitidos' => $permitidos,
+            'habitantes' => \App\Models\UniverseEntity::query()
+                ->where('universe_id', $universe->id)
+                ->where('status', 'ACTIVE')
+                ->count(),
+            'noExiste' => $noExiste,
+        ]);
+    }
 
     private function seasons(Universe $universe)
     {
@@ -555,10 +665,76 @@ class TournamentInstanceController extends Controller
             $assignments = $this->routing->route(
                 $universe,
                 $startRules,
-                $this->capacities($universeTournament, $request)
+                $this->capacities($universeTournament, $request),
+                $universeTournament->eligibility
             )['assignments'];
 
             $assignments = array_filter($assignments, fn ($ids) => $ids !== []);
+        }
+
+        /*
+         * Sin reparto propio, el que el torneo dejo preparado en su sala de
+         * participantes -si es para esta misma plantilla-.
+         */
+        $templateId = (int) ($request->validated('tournament_template_id') ?: $universeTournament->tournament_template_id);
+        $puertasDelTorneo = $universeTournament->eligibility['doors'] ?? null;
+
+        if ($assignments === [] && ! $startRules && $puertasDelTorneo
+            && (int) ($puertasDelTorneo['template_id'] ?? $templateId) === $templateId) {
+
+            $assignments = array_filter(
+                $this->routing->plan(
+                    $universe,
+                    $puertasDelTorneo,
+                    $this->startsOf($templateId),
+                    $universeTournament->eligibility
+                )['assignments'],
+                fn ($ids) => $ids !== []
+            );
+        }
+
+        /*
+         * La sala de participantes de la edicion manda sobre todo lo anterior.
+         *
+         * Lo que calculo la pantalla no se usa: se recalcula aqui desde el
+         * diseño, que es lo que se guarda. Y trae consigo con que cara sale
+         * cada uno y la regla de cada puerta.
+         */
+        $diseno = $request->participantDesign();
+        $extra = [];
+
+        if ($diseno !== null) {
+
+            $participantes = app(\App\Services\Universes\EditionParticipants::class);
+
+            $assignments = array_filter(
+                $participantes->resolve($universe, $universeTournament, $diseno, $templateId)['assignments'],
+                fn ($ids) => $ids !== []
+            );
+
+            $extra = [
+                'face_context' => $participantes->faceContext($universeTournament, $diseno),
+                'door_rules' => $participantes->doorRules($universeTournament, $diseno, $templateId),
+            ];
+        }
+
+        /*
+         * Y nadie que el torneo no deje competir. La pantalla ya solo los
+         * ofrece a ellos; esto cubre una pantalla abierta hace media hora.
+         * Con diseño no hace falta: una edicion puede abrirse a todo el
+         * universo a proposito, y el reparto ya salio del servidor.
+         */
+        $fuera = $diseno !== null ? 0 : $this->outsideTournament($universe, $universeTournament, $assignments);
+
+        if ($fuera > 0) {
+
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'assignments' => $fuera === 1
+                        ? 'Un competidor elegido no cumple las reglas de participación de este torneo.'
+                        : $fuera . ' competidores elegidos no cumplen las reglas de participación de este torneo.',
+                ]);
         }
 
         if ($assignments === []) {
@@ -567,8 +743,10 @@ class TournamentInstanceController extends Controller
                 ->withInput()
                 ->withErrors([
                     'assignments' =>
-                    'Ningún competidor entra en la competición: márcalos a mano '
-                        . 'o escribe una regla que seleccione a alguien.',
+                    $diseno !== null
+                        ? 'Con esta configuración de participantes no entra nadie, o nadie cabe en las puertas. Ábrela y revisa las condiciones o el reparto.'
+                        : 'Ningún competidor entra en la competición: márcalos a mano '
+                            . 'o escribe una regla que seleccione a alguien.',
                 ]);
         }
 
@@ -577,7 +755,7 @@ class TournamentInstanceController extends Controller
             ->create(
                 $universe,
                 $universeTournament,
-                $request->validated(),
+                [...$request->validated(), ...$extra],
                 $assignments
             );
 
@@ -600,6 +778,12 @@ class TournamentInstanceController extends Controller
 
         if ($copied = (int) $request->input('copied_from_instance_id')) {
             $instance->update(['copied_from_instance_id' => $copied]);
+        }
+
+        if ($diseno !== null) {
+            $instance->update([
+                'participant_design' => app(\App\Services\Universes\EditionParticipants::class)->normalize($diseno),
+            ]);
         }
 
         return redirect()
@@ -642,6 +826,29 @@ class TournamentInstanceController extends Controller
             ->filter(fn ($s) => $s->expected_participants)
             ->mapWithKeys(fn ($s) => [(int) $s->id => (int) $s->expected_participants])
             ->all();
+    }
+
+    /* Las puertas de una plantilla, en orden, con sus plazas */
+    private function startsOf(int $templateId): array
+    {
+        return \App\Models\TournamentStart::query()
+            ->where('tournament_template_id', $templateId)
+            ->where('status', 'ACTIVE')
+            ->orderBy('sequence_number')
+            ->get()
+            ->mapWithKeys(fn ($s) => [(int) $s->id => $s->expected_participants ? (int) $s->expected_participants : null])
+            ->all();
+    }
+
+    private function outsideTournament(Universe $universe, UniverseTournament $tournament, array $assignments): int
+    {
+        $dentro = app(\App\Services\Universes\UniverseTournamentEligibility::class)
+            ->matching($universe, $tournament->eligibility)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->flip();
+
+        return collect($assignments)->flatten()->reject(fn ($id) => isset($dentro[(int) $id]))->count();
     }
 
     private function capacities(
@@ -997,7 +1204,7 @@ class TournamentInstanceController extends Controller
                 fn($p) => [
                     'key' => $p->runtime_key,
                     'name' => $p->name ?: ($p->universeEntity?->name ?? $p->runtime_key),
-                    'image_url' => $p->universeEntity?->image_url,
+                    'image_url' => ($p->face_url ?? $p->universeEntity?->image_url),
                     'seed' => (int) $p->seed,
                 ]
             );

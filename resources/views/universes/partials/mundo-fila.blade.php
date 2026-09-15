@@ -19,21 +19,21 @@
     <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background-color: {{ $tono }}"
         title="{{ $textoEstado }}"></span>
 
-    <a href="{{ route('universes.show', $mundo) }}"
+    <a href="{{ $mundo->home_url }}"
         class="h-11 w-11 shrink-0 overflow-hidden rounded-xl border bg-slate-950"
-        style="border-color: {{ $tono }}55">
+        style="border-color: {{ $mundo->accent }}">
         @if ($mundo->image_url)
-            <img src="{{ $mundo->image_url }}" alt="" loading="lazy" class="h-full w-full object-cover">
+            <img src="{{ $mundo->image_url }}" alt="" loading="lazy" class="h-full w-full object-cover" style="object-position: {{ $mundo->ajustes()->coverPosition() }}">
         @else
-            <span class="flex h-full w-full items-center justify-center text-slate-700">
-                <x-omni-icon name="globo" size="h-4 w-4" />
+            <span class="flex h-full w-full items-center justify-center" style="color: {{ $mundo->accent }}; background-color: {{ $mundo->accent }}1a">
+                <x-omni-icon :name="$mundo->ajustes()->icon()" size="h-4 w-4" />
             </span>
         @endif
     </a>
 
     <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-1.5">
-            <a href="{{ route('universes.show', $mundo) }}"
+            <a href="{{ $mundo->home_url }}"
                 class="truncate text-[13px] font-black text-white transition hover:text-violet-300">
                 {{ $mundo->name }}
             </a>
@@ -97,7 +97,7 @@
         @endif
     </span>
 
-    <a href="{{ route('universes.show', $mundo) }}"
+    <a href="{{ $mundo->home_url }}"
         class="shrink-0 rounded-lg border border-slate-800 px-2.5 py-1.5 text-[10px] font-black text-slate-400 transition hover:border-violet-500 hover:text-violet-300">
         Entrar
     </a>

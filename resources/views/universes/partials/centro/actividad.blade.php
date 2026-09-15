@@ -97,7 +97,7 @@
 
                         <p class="flex items-center gap-1.5 text-[9px]">
                             @if ($suMundo)
-                                <a href="{{ route('universes.show', $suMundo) }}"
+                                <a href="{{ $suMundo->home_url }}"
                                     class="truncate font-black text-slate-500 transition hover:text-violet-300">
                                     {{ $suMundo->name }}
                                 </a>

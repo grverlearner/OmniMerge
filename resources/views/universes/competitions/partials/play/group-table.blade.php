@@ -100,8 +100,8 @@
                         <div class="flex items-center gap-2">
 
                             <div class="h-6 w-6 shrink-0 overflow-hidden rounded bg-slate-800">
-                                @if ($row->universeEntity?->image_url)
-                                    <img src="{{ $row->universeEntity->image_url }}" alt=""
+                                @if (($row->face_url ?? $row->universeEntity?->image_url))
+                                    <img src="{{ ($row->face_url ?? $row->universeEntity?->image_url) }}" alt=""
                                         class="h-full w-full object-cover">
                                 @endif
                             </div>

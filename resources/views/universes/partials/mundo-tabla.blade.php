@@ -43,7 +43,7 @@
                     <tr class="transition hover:bg-slate-950/50">
 
                         <td class="px-4 py-2">
-                            <a href="{{ route('universes.show', $mundo) }}" class="flex items-center gap-2">
+                            <a href="{{ $mundo->home_url }}" class="flex items-center gap-2">
                                 <span class="h-8 w-8 shrink-0 overflow-hidden rounded-lg border bg-slate-950"
                                     style="border-color: {{ $tono }}55">
                                     @if ($mundo->image_url)

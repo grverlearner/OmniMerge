@@ -56,6 +56,7 @@
             'censo' => $censo,
             'criterios' => $criterios,
             'porDefecto' => $porDefecto,
+            'modoPorDefecto' => $universe->ajustes()->get('explorer_default_mode'),
             'total' => $totalEntidades,
         ]))" class="space-y-2">
 
@@ -247,7 +248,7 @@
 
                     criterio: datos.porDefecto,
                     cruzarCon: '',
-                    modo: 'cuadros',
+                    modo: datos.modoPorDefecto ?? 'cuadros',
                     orden: 'poblacion',
                     lado: 56,
 
@@ -266,8 +267,11 @@
                         try {
                             const g = JSON.parse(localStorage.getItem('omnimerge.mapa') ?? '{}');
 
-                            if (this.criterios.some((c) => c.clave === g.criterio)) this.criterio = g.criterio;
-                            if (['cuadros', 'cruce', 'compartidos', 'todo'].includes(g.modo)) this.modo = g.modo;
+                            /* Si la configuración del universo cambió, manda ella y no lo último que se miró */
+                            const mismaBase = g.base === (datos.porDefecto + '|' + (datos.modoPorDefecto ?? 'cuadros'));
+
+                            if (mismaBase && this.criterios.some((c) => c.clave === g.criterio)) this.criterio = g.criterio;
+                            if (mismaBase && ['cuadros', 'cruce', 'compartidos', 'todo'].includes(g.modo)) this.modo = g.modo;
                             if (['poblacion', 'nombre', 'titulos'].includes(g.orden)) this.orden = g.orden;
                             if (g.lado >= 28 && g.lado <= 96) this.lado = g.lado;
                             if (typeof g.verSinDato === 'boolean') this.verSinDato = g.verSinDato;
@@ -286,6 +290,7 @@
 
                     guardar() {
                         localStorage.setItem('omnimerge.mapa', JSON.stringify({
+                            base: datos.porDefecto + '|' + (datos.modoPorDefecto ?? 'cuadros'),
                             criterio: this.criterio,
                             modo: this.modo,
                             orden: this.orden,

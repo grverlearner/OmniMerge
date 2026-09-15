@@ -87,7 +87,7 @@ class CompetitionAwardsService
                             ?? 'Competidor',
 
                         'image_url' =>
-                        $participant?->universeEntity?->image_url,
+                        ($participant?->face_url ?? $participant?->universeEntity?->image_url),
 
                         'temporary' => $temporary->get($entityId, collect())->values(),
                         'permanent' => $permanent->get($entityId, collect())->values(),

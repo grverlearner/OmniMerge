@@ -33,6 +33,12 @@
 
     <div x-data="omniSidebar({{ $sidebarCompacto ? 'true' : 'false' }})" class="min-h-screen">
 
+        {{-- El color del universo, en una línea arriba de todo --}}
+        @if ($universe ?? null)
+            <div class="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5"
+                style="background: linear-gradient(90deg, transparent, {{ $universe->accent }} 30%, {{ $universe->accent }} 70%, transparent)"></div>
+        @endif
+
         @include('partials.universes.sidebar')
 
 

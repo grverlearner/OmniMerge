@@ -299,4 +299,24 @@ class Universe extends Model
             $this->status,
         };
     }
+
+    /*
+     * Su configuracion, ya tipada. Ver App\Support\Universes\UniverseSettings.
+     */
+    public function ajustes(): \App\Support\Universes\UniverseSettings
+    {
+        return new \App\Support\Universes\UniverseSettings($this);
+    }
+
+    /* A donde lleva entrar en este universo, segun su configuracion */
+    public function getHomeUrlAttribute(): string
+    {
+        return $this->ajustes()->homeUrl();
+    }
+
+    /* Su color */
+    public function getAccentAttribute(): string
+    {
+        return $this->ajustes()->accent();
+    }
 }

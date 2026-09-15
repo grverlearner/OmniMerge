@@ -67,7 +67,7 @@
                     <span class="h-9 w-1 shrink-0 rounded-full" style="background-color: {{ $punto['tono'] }}"></span>
 
                     {{-- De qué mundo es: la cara, que es como se reconoce --}}
-                    <a href="{{ route('universes.show', $suMundo) }}"
+                    <a href="{{ $suMundo->home_url }}"
                         class="flex shrink-0 items-center gap-1.5"
                         title="{{ $suMundo->name }}">
 

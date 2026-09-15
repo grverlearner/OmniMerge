@@ -46,6 +46,27 @@
 
     <div class="p-4">
 
+        {{--
+            La sala de participantes: lo mismo y mucho más, a pantalla completa.
+            Se abre en otra pestaña para no perder lo que se esté escribiendo aquí.
+        --}}
+        @if (! empty($universeTournament?->id))
+            <a href="{{ route('universes.tournaments.participants', [$universe, $universeTournament]) }}" target="_blank" rel="noopener"
+                class="mb-3 flex items-center gap-3 rounded-xl border border-rose-500/40 bg-gradient-to-r from-rose-500/15 to-transparent px-3 py-2.5 transition hover:border-rose-400">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-500/20 text-rose-300">
+                    <x-omni-icon name="usuario" size="h-4 w-4" />
+                </span>
+                <span class="min-w-0 flex-1">
+                    <span class="block text-[12px] font-black text-rose-200">Abrir la sala de participantes</span>
+                    <span class="block text-[10px] leading-4 text-slate-400">
+                        A pantalla completa: el catálogo en árbol, las puertas de entrada, la cara de cada versión
+                        y quién queda dentro o fuera. Se abre en otra pestaña.
+                    </span>
+                </span>
+                <x-omni-icon name="flecha-derecha" size="h-4 w-4" class="shrink-0 text-rose-300" />
+            </a>
+        @endif
+
         {{-- ==================== LAS REGLAS ==================== --}}
 
 {{--
@@ -129,6 +150,7 @@
 
                     {{-- Lo que viaja al servidor --}}
                     <input type="hidden" :name="'eligibility[' + i + '][attribute]'" :value="rule.attribute">
+                    <input type="hidden" :name="'eligibility[' + i + '][descendants]'" :value="rule.descendants === false ? 0 : 1">
                     <template x-for="(v, vi) in rule.values" :key="'v' + rule.attribute + v">
                         <input type="hidden" :name="'eligibility[' + i + '][values][]'" :value="v">
                     </template>
@@ -198,6 +220,9 @@
                                 <input type="hidden"
                                     :name="'eligibility_groups[' + gi + '][rules][' + ri + '][attribute]'"
                                     :value="regla.attribute">
+                                <input type="hidden"
+                                    :name="'eligibility_groups[' + gi + '][rules][' + ri + '][descendants]'"
+                                    :value="regla.descendants === false ? 0 : 1">
                                 <template x-for="(v, vi) in regla.values" :key="'gv' + gi + '-' + ri + '-' + vi">
                                     <input type="hidden"
                                         :name="'eligibility_groups[' + gi + '][rules][' + ri + '][values][]'"

@@ -109,4 +109,16 @@ class TournamentInstanceParticipant extends Model
             default => $this->status,
         };
     }
+
+    /*
+     * La cara con la que jugo: la de su version congelada, no la de siempre.
+     * Ver App\Services\Tournaments\Runtime\CompetitorFaces.
+     */
+    public function getFaceUrlAttribute(): ?string
+    {
+        return \App\Services\Tournaments\Runtime\CompetitorFaces::url(
+            $this->universeEntity,
+            $this->entity_version_id ? (int) $this->entity_version_id : null
+        );
+    }
 }

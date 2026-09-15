@@ -43,6 +43,7 @@ use App\Http\Controllers\Universes\UniverseDashboardController;
 use App\Http\Controllers\Universes\UniverseEntityController;
 use App\Http\Controllers\Universes\UniverseSeasonController;
 use App\Http\Controllers\Universes\UniverseTournamentController;
+use App\Http\Controllers\Universes\UniverseTournamentParticipantsController;
 use App\Http\Controllers\Universes\TournamentInstanceController;
 use App\Http\Controllers\Universes\UniverseHistoryController;
 use App\Http\Controllers\Universes\UniverseRankingController;
@@ -444,6 +445,27 @@ Route::middleware('auth')->group(function () {
                                                 'edit',
                                             ]
                                         )->name('edit');
+
+                                        /*
+                                         * La sala de participantes: quien
+                                         * entra, por que puerta y con que
+                                         * cara. Ver docs/md/79.
+                                         */
+                                        Route::get(
+                                            '/{universeTournament}/participants',
+                                            [
+                                                UniverseTournamentParticipantsController::class,
+                                                'show',
+                                            ]
+                                        )->name('participants');
+
+                                        Route::put(
+                                            '/{universeTournament}/participants',
+                                            [
+                                                UniverseTournamentParticipantsController::class,
+                                                'update',
+                                            ]
+                                        )->name('participants.update');
 
                                         Route::put(
                                             '/{universeTournament}',

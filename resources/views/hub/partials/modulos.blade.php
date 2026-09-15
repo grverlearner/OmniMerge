@@ -107,7 +107,7 @@
         @if ($carasUniversos->isNotEmpty())
             <div class="grid grid-cols-2 gap-1.5 p-2 sm:grid-cols-4">
                 @foreach ($carasUniversos as $mundo)
-                    <a href="{{ route('universes.show', $mundo) }}"
+                    <a href="{{ $mundo->home_url }}"
                         class="group/m overflow-hidden rounded-xl border border-slate-800 bg-slate-950 transition hover:border-violet-500/50">
 
                         <span class="relative block h-16 overflow-hidden bg-slate-900">

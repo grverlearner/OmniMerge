@@ -1026,12 +1026,43 @@ class UniverseController extends Controller
             $universe
         );
 
-        return view(
-            'universes.edit',
-            compact(
-                'universe'
-            )
-        );
+        /*
+         * Todo lo que la configuracion ofrece, sacado de donde vive: las
+         * opciones de UniverseSettings, los criterios con los que puede
+         * abrirse el mapa y los modos de decision de una batalla.
+         */
+        $propios = (new \ReflectionClassConstant(UniverseExplorerController::class, 'PROPIOS'))->getValue();
+
+        $atributos = \App\Models\UniverseEntity::query()
+            ->where('universe_id', $universe->id)
+            ->where('status', 'ACTIVE')
+            ->pluck('attribute_snapshot')
+            ->flatMap(fn ($filas) => collect((array) $filas)->pluck('name'))
+            ->filter()
+            ->map(fn ($nombre) => trim((string) $nombre))
+            ->unique()
+            ->sort()
+            ->values();
+
+        $criterios = collect($propios)->map(fn ($meta) => $meta['etiqueta'])->all()
+            + $atributos->mapWithKeys(fn ($nombre) => [$nombre => $nombre])->all();
+
+        return view('universes.edit', [
+            'universe' => $universe,
+            'ajustes' => $universe->ajustes()->all(),
+            'porDefecto' => UniverseSettings::defaults(),
+            'criteriosMapa' => $criterios,
+            'decisiones' => collect(\App\Services\Tournaments\Runtime\CompetitionPhasePlan::DECISION_MODES)
+                ->map(fn ($m, $clave) => is_array($m) ? ($m['label'] ?? $m[0] ?? $clave) : (string) $m)
+                ->all(),
+            'temporadaActiva' => $universe->activeSeason(),
+            'cuentas' => [
+                'entities' => $universe->entities()->count(),
+                'seasons' => $universe->seasons()->count(),
+                'tournaments' => $universe->universeTournaments()->count(),
+                'competitions' => $universe->tournamentInstances()->count(),
+            ],
+        ]);
     }
 
 
@@ -1059,14 +1090,25 @@ class UniverseController extends Controller
                 )
             );
 
+        /*
+         * Y su configuracion. Llega entera desde la pantalla de ajustes;
+         * UniverseSettings solo acepta claves conocidas y cada una en su tipo.
+         */
+        if (is_array($request->input('settings'))) {
+            $universe->fresh()->ajustes()->save($request->input('settings'));
+        }
+
+        /*
+         * Vuelve a los ajustes, a la seccion en la que estaba. Antes iba a
+         * `tournaments.universes.show`, una ruta que no existe.
+         */
+        $seccion = preg_replace('/[^a-z-]/', '', (string) $request->input('_section'));
+
         return redirect()
-            ->route(
-                'tournaments.universes.show',
-                $universe
-            )
+            ->to(route('universes.edit', $universe) . ($seccion ? '#' . $seccion : ''))
             ->with(
                 'success',
-                'Universo actualizado correctamente.'
+                'Configuración guardada. Ya se aplica en todo el universo.'
             );
     }
 

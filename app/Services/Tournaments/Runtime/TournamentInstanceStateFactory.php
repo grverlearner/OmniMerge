@@ -41,6 +41,9 @@ class TournamentInstanceStateFactory
     /* Las reglas del torneo mientras se arma este estado */
     private ?array $context = null;
 
+    /* La regla de cada puerta, por start_id */
+    private array $doorRules = [];
+
     public function create(
         TournamentTemplate $template,
         int $userId,
@@ -54,7 +57,13 @@ class TournamentInstanceStateFactory
          * que imagen- sale cada competidor. Ver
          * UniverseEntityVersionResolver.
          */
-        ?array $context = null
+        ?array $context = null,
+
+        /*
+         * La regla de cada puerta, por start_id. Quien entra por «aldea →
+         * hoja» sale con la cara que corresponde a la Hoja.
+         */
+        array $doorRules = []
     ): array {
 
         /*
@@ -64,6 +73,7 @@ class TournamentInstanceStateFactory
          * ensuciado cuatro firmas.
          */
         $this->context = $context;
+        $this->doorRules = $doorRules;
 
         $participants = [];
         $starts = [];
@@ -265,7 +275,7 @@ class TournamentInstanceStateFactory
          */
         $context =
             $this->participantResolver
-            ->resolve($universeEntity, $this->context);
+            ->resolve($universeEntity, $this->context, $this->doorRules[(int) $start->id] ?? null);
 
         $location = [
 
@@ -337,6 +347,9 @@ class TournamentInstanceStateFactory
              */
             'version_from' =>
             $context['version_from'] ?? 'ENTITY',
+
+            'version_reason' =>
+            $context['version_reason'] ?? null,
 
             'entity_type_name' =>
             $context['entity_type_name'],

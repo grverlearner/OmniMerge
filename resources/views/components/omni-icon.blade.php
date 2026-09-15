@@ -117,6 +117,24 @@
 
         'cerrar' => '<path d="m6 6 12 12"/><path d="M18 6 6 18"/>',
 
+        /* ---------------------------------------------- sala de participantes */
+
+        'check' => '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+
+        'aviso' => '<path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5"/><path d="M12 17.5h.01"/>',
+
+        'puerta' => '<path d="M5 21V4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5V21"/><path d="M3 21h18"/><path d="M14.5 12h.01"/>',
+
+        'filtro' => '<path d="M3.5 5h17l-6.5 8v6l-4 2v-8L3.5 5Z"/>',
+
+        'barajar' => '<path d="M3 7h3.5c4 0 5 10 9 10H21"/><path d="m18 14 3 3-3 3"/><path d="M3 17h3.5c1.4 0 2.4-1.2 3.3-2.8"/><path d="M14.2 9.8C15.1 8.2 16.1 7 17.5 7H21"/><path d="m18 4 3 3-3 3"/>',
+
+        'deshacer' => '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+
+        'pincel' => '<path d="M14.5 4.5 19.5 9.5 10 19H5v-5l9.5-9.5Z"/>',
+
+        'guardar' => '<path d="M5 3h11l3 3v15H5V3Z"/><path d="M8 3v5h7V3"/><path d="M8 21v-7h8v7"/>',
+
         /* ---------------------------------------------- cuenta */
 
         /* Las pantallas de entrada usaban SVG sueltos pegados en la vista */

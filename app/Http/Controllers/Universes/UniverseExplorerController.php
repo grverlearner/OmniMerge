@@ -203,6 +203,13 @@ class UniverseExplorerController extends Controller
 
         $porDefecto = $criterios->first()['clave'] ?? 'TIPO';
 
+        /* El criterio con el que este universo quiere abrir su mapa */
+        $delMundo = (string) $universe->ajustes()->get('explorer_default_criterion');
+
+        if ($delMundo !== '' && $criterios->contains('clave', $delMundo)) {
+            $porDefecto = $delMundo;
+        }
+
         $criterioPedido = (string) $request->input('criterio', '');
 
         if ($criterioPedido !== '' && $criterios->contains('clave', $criterioPedido)) {

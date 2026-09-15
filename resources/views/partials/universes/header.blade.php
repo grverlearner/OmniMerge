@@ -52,7 +52,11 @@
                         tracking-wider
                         text-violet-600
                     ">
-                    OmniMerge · Universos
+                    @if ($universe ?? null)
+                        <span style="color: {{ $universe->accent }}">{{ $universe->name }}</span> · Universos
+                    @else
+                        OmniMerge · Universos
+                    @endif
                 </p>
 
 

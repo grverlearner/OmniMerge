@@ -38,7 +38,10 @@ class TournamentParticipantResolver
      */
     public function resolve(
         UniverseEntity $universeEntity,
-        ?array $context = null
+        ?array $context = null,
+
+        /* La regla de la puerta por la que entra: es mas concreta que la del torneo */
+        ?array $door = null
     ): array {
 
         /*
@@ -53,7 +56,7 @@ class TournamentParticipantResolver
          * versiones de la entidad, el torneo ya jugado sigue ensenando la
          * cara con la que se jugo.
          */
-        $cara = $this->versions->face($universeEntity, $context);
+        $cara = $this->versions->face($universeEntity, $context, $door);
 
         return [
 
@@ -82,6 +85,10 @@ class TournamentParticipantResolver
             /* De donde salio la cara: de una version que caso, o de la entidad */
             'version_from' =>
             $cara['from'],
+
+            /* Y por que, dicho para una persona */
+            'version_reason' =>
+            $cara['reason'] ?? null,
 
             'entity_type_name' =>
             $universeEntity->entity_type_name,

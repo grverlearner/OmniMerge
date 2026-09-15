@@ -31,7 +31,7 @@
         @foreach ($recientes as $mundo)
             @php [$tonoM, $textoM] = $tonosEstado[$mundo->status] ?? ['#94a3b8', $mundo->status]; @endphp
 
-            <a href="{{ route('universes.show', $mundo) }}"
+            <a href="{{ $mundo->home_url }}"
                 class="flex items-center gap-2.5 px-3 py-2 transition hover:bg-slate-950/50">
 
                 <span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg border bg-slate-950"

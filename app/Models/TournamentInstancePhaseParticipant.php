@@ -96,4 +96,17 @@ class TournamentInstancePhaseParticipant extends Model
             'Disputada',
         };
     }
+
+    /*
+     * La cara con la que jugo, leida del participante de la edicion por su
+     * clave. Ver App\Services\Tournaments\Runtime\CompetitorFaces.
+     */
+    public function getFaceUrlAttribute(): ?string
+    {
+        return \App\Services\Tournaments\Runtime\CompetitorFaces::byRuntimeKey(
+            (int) $this->tournament_instance_id,
+            $this->runtime_key,
+            $this->universeEntity
+        );
+    }
 }

@@ -143,6 +143,7 @@ trait ValidatesTournamentConfiguration
             'eligibility.*.attribute' => ['nullable', 'string', 'max:120'],
             'eligibility.*.values' => ['nullable', 'array', 'max:60'],
             'eligibility.*.values.*' => ['nullable', 'string', 'max:120'],
+            'eligibility.*.descendants' => ['nullable', 'boolean'],
 
             /*
              * Los grupos: una condicion con su propio modo dentro.
@@ -158,6 +159,7 @@ trait ValidatesTournamentConfiguration
             'eligibility_groups.*.rules.*.attribute' => ['nullable', 'string', 'max:120'],
             'eligibility_groups.*.rules.*.values' => ['nullable', 'array', 'max:60'],
             'eligibility_groups.*.rules.*.values.*' => ['nullable', 'string', 'max:120'],
+            'eligibility_groups.*.rules.*.descendants' => ['nullable', 'boolean'],
 
             /*
              * Y la mano: quien entra o queda fuera pase lo que pase.
@@ -262,6 +264,7 @@ trait ValidatesTournamentConfiguration
                     (array) ($row['values'] ?? []),
                     fn ($v) => trim((string) $v) !== ''
                 )),
+                'descendants' => filter_var($row['descendants'] ?? true, FILTER_VALIDATE_BOOLEAN),
             ])
             ->filter(fn (array $row) => trim($row['attribute']) !== '')
             ->values()
@@ -277,6 +280,7 @@ trait ValidatesTournamentConfiguration
                             (array) ($row['values'] ?? []),
                             fn ($v) => trim((string) $v) !== ''
                         )),
+                        'descendants' => filter_var($row['descendants'] ?? true, FILTER_VALIDATE_BOOLEAN),
                     ])
                     ->filter(fn (array $row) => trim($row['attribute']) !== '')
                     ->values()

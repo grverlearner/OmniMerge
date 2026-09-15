@@ -273,7 +273,7 @@ class UniverseEntityImporter
                 $this->attribute(
                     $row['custom_label'] ?: $row['attribute']?->name,
                     (string) ($row['display'] ?? ''),
-                    array_values((array) ($row['values'] ?? [])),
+                    $this->valueNames($row['attribute'] ?? null, array_values((array) ($row['values'] ?? []))),
                     (bool) ($row['is_featured'] ?? false)
                 )
             )
@@ -372,6 +372,8 @@ class UniverseEntityImporter
 
         $entity->loadMissing([
             'entityVersions.version',
+            'entityVersions.version.catalogLinks.attribute',
+            'entityVersions.version.catalogLinks.option',
         ]);
 
         $activeId =
@@ -429,6 +431,15 @@ class UniverseEntityImporter
                      * se eligen los competidores.
                      */
                     'attributes' => $this->versionAttributes($version),
+
+                    /*
+                     * Con que elementos de catalogo la activa la Biblioteca.
+                     *
+                     * «Naruto clásico» se activa con «Anime → Naruto». Es el
+                     * vinculo que dice que cara ponerle en un torneo de
+                     * Naruto, y sin copiarlo el universo no podia saberlo.
+                     */
+                    'activation' => $this->activationOf($version),
                 ]
             )
             ->values()
@@ -451,7 +462,7 @@ class UniverseEntityImporter
                 fn ($row) => $this->attribute(
                     $row['custom_label'] ?: $row['attribute']?->name,
                     (string) ($row['display'] ?? ''),
-                    array_values((array) ($row['values'] ?? [])),
+                    $this->valueNames($row['attribute'] ?? null, array_values((array) ($row['values'] ?? []))),
                     (bool) ($row['is_featured'] ?? false)
                 )
             )
@@ -469,5 +480,54 @@ class UniverseEntityImporter
                 ->where('universe_id', $universe->id)
                 ->max('sequence_number')
         ) + 1;
+    }
+
+    /*
+     * Los valores de un atributo de catalogo, por NOMBRE.
+     *
+     * La cadena de versiones devuelve los ids de los elementos -«aldea:
+     * [12]»-, y las reglas de participacion se escriben con nombres. Sin
+     * traducirlos aqui, una entidad importada desde su version base no
+     * casaba con «aldea → hoja» aunque fuese de la Hoja.
+     */
+    private function valueNames(?\App\Models\Attribute $attribute, array $values): array
+    {
+        if (! $attribute || $attribute->data_type !== 'OPTION') {
+            return $values;
+        }
+
+        $ids = array_values(array_filter($values, fn ($v) => is_numeric($v)));
+
+        if ($ids === []) {
+            return $values;
+        }
+
+        $nombres = \App\Models\AttributeOption::query()
+            ->where('attribute_id', $attribute->id)
+            ->whereIn('id', $ids)
+            ->pluck('name', 'id');
+
+        return array_values(array_map(
+            fn ($v) => is_numeric($v) && isset($nombres[(int) $v]) ? $nombres[(int) $v] : $v,
+            $values
+        ));
+    }
+
+    private function activationOf(EntityVersion $version): array
+    {
+        return collect($version->version?->catalogLinks ?? [])
+            ->where('relation_type', 'ACTIVATES')
+            ->filter(fn ($l) => $l->attribute && $l->option)
+            ->sortBy([['condition_group', 'asc'], ['id', 'asc']])
+            ->map(fn ($l) => [
+                'group' => (int) $l->condition_group,
+                'operator' => strtoupper((string) ($l->logical_operator ?: 'AND')),
+                'attribute' => mb_strtolower(trim($l->attribute->name)),
+                'value' => mb_strtolower(trim($l->option->name)),
+                'attribute_label' => $l->attribute->name,
+                'value_label' => $l->option->name,
+            ])
+            ->values()
+            ->all();
     }
 }

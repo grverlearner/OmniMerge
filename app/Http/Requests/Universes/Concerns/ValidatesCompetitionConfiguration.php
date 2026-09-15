@@ -153,6 +153,9 @@ trait ValidatesCompetitionConfiguration
             |
             */
 
+            /* La sala de participantes de la edicion, entera, en JSON */
+            'participant_design' => ['nullable', 'json', 'max:500000'],
+
             'start_rules' => ['nullable', 'array', 'max:40'],
             'start_rules.*.start_id' => ['required_with:start_rules', 'integer'],
             'start_rules.*.mode' => ['nullable', Rule::in(['ALL', 'ANY', 'NONE', 'ONE'])],
@@ -160,6 +163,7 @@ trait ValidatesCompetitionConfiguration
             'start_rules.*.rules.*.attribute' => ['nullable', 'string', 'max:120'],
             'start_rules.*.rules.*.values' => ['nullable', 'array', 'max:60'],
             'start_rules.*.rules.*.values.*' => ['nullable', 'string', 'max:120'],
+            'start_rules.*.rules.*.descendants' => ['nullable', 'boolean'],
 
             /* Una puerta usa el mismo lenguaje que un torneo: grupos y mano */
             'start_rules.*.groups' => ['nullable', 'array', 'max:10'],
@@ -168,6 +172,11 @@ trait ValidatesCompetitionConfiguration
             'start_rules.*.groups.*.rules.*.attribute' => ['nullable', 'string', 'max:120'],
             'start_rules.*.groups.*.rules.*.values' => ['nullable', 'array', 'max:60'],
             'start_rules.*.groups.*.rules.*.values.*' => ['nullable', 'string', 'max:120'],
+            'start_rules.*.groups.*.rules.*.descendants' => ['nullable', 'boolean'],
+
+            /* Con que cara entra cada uno por esta puerta: version, o 0 para la de siempre */
+            'start_rules.*.faces' => ['nullable', 'array', 'max:500'],
+            'start_rules.*.faces.*' => ['integer', 'min:0'],
 
             'start_rules.*.include' => ['nullable', 'array', 'max:500'],
             'start_rules.*.include.*' => ['integer'],
@@ -319,6 +328,7 @@ trait ValidatesCompetitionConfiguration
                             (array) ($r['values'] ?? []),
                             fn ($v) => trim((string) $v) !== ''
                         )),
+                        'descendants' => filter_var($r['descendants'] ?? true, FILTER_VALIDATE_BOOLEAN),
                     ] : null)
                     ->filter(fn ($r) => $r && $r['attribute'] !== '')
                     ->values()
@@ -353,6 +363,11 @@ trait ValidatesCompetitionConfiguration
 
                     'include' => $ids($row['include'] ?? []),
                     'exclude' => $ids($row['exclude'] ?? []),
+
+                    'faces' => collect((array) ($row['faces'] ?? []))
+                        ->filter(fn ($v, $k) => (int) $k > 0 && is_numeric($v) && (int) $v >= 0)
+                        ->mapWithKeys(fn ($v, $k) => [(int) $k => (int) $v])
+                        ->all(),
                 ];
             })
             ->filter()
@@ -454,5 +469,22 @@ trait ValidatesCompetitionConfiguration
         }
 
         return $data;
+    }
+
+    /*
+     * La configuracion de participantes que mando la sala de la edicion, o
+     * null si no mando ninguna.
+     */
+    public function participantDesign(): ?array
+    {
+        $crudo = $this->input('participant_design');
+
+        if (! is_string($crudo) || trim($crudo) === '') {
+            return null;
+        }
+
+        $diseno = json_decode($crudo, true);
+
+        return is_array($diseno) ? $diseno : null;
     }
 }

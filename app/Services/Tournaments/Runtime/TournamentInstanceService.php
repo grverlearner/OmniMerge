@@ -344,7 +344,10 @@ class TournamentInstanceService
                          * cada competidor sale con la version que encaja:
                          * un torneo de Shippuden ensena caras de Shippuden.
                          */
-                        $universeTournament->eligibility
+                        $data['face_context'] ?? $universeTournament->eligibility,
+
+                        /* Y la de la puerta por la que entra cada uno */
+                        $data['door_rules'] ?? $this->doorRules($data['start_rules'] ?? null, $universeTournament)
                     );
 
                 TournamentInstanceState::query()
@@ -519,7 +522,13 @@ class TournamentInstanceService
                 $universeEntities,
                 $instance->game_key,
                 $modifiers,
-                $instance->universeTournament?->eligibility
+                /* Con la configuracion de participantes de la edicion, si tiene */
+                $instance->participant_design && $instance->universeTournament
+                    ? app(\App\Services\Universes\EditionParticipants::class)->faceContext($instance->universeTournament, $instance->participant_design)
+                    : $instance->universeTournament?->eligibility,
+                $instance->participant_design && $instance->universeTournament
+                    ? app(\App\Services\Universes\EditionParticipants::class)->doorRules($instance->universeTournament, $instance->participant_design, (int) $instance->tournament_template_id)
+                    : $this->doorRules($instance->start_rules, $instance->universeTournament)
             );
 
             TournamentInstanceState::query()
@@ -816,4 +825,26 @@ class TournamentInstanceService
         return $template;
     }
 
+    /*
+     * La regla de cada puerta, por start_id.
+     *
+     * La de la edicion si la escribio; si no, la que el torneo dejo
+     * preparada en su sala de participantes. Solo sirve para elegir la cara:
+     * quien entra ya viene decidido en $assignments.
+     */
+    private function doorRules(?array $startRules, ?UniverseTournament $tournament): array
+    {
+        $routing = app(\App\Services\Universes\CompetitionStartRouting::class);
+
+        $filas = $routing->normalize($startRules ?? []);
+
+        if ($filas === [] && $tournament) {
+            $doors = $routing->normalizeDoors($tournament->eligibility['doors'] ?? null);
+
+            /* Unas reglas de puerta guardadas pero sin usar no deciden nada */
+            $filas = $doors['mode'] === 'RULES' ? $doors['rules'] : [];
+        }
+
+        return collect($filas)->keyBy('start_id')->all();
+    }
 }

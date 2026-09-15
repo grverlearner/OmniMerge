@@ -81,8 +81,8 @@
                                     text-violet-500
                                 ">
 
-                                @if ($row->universeEntity?->image_url)
-                                    <img src="{{ $row->universeEntity->image_url }}"
+                                @if (($row->face_url ?? $row->universeEntity?->image_url))
+                                    <img src="{{ ($row->face_url ?? $row->universeEntity?->image_url) }}"
                                         alt="{{ $row->participant_name }}"
                                         class="h-full w-full object-cover">
                                 @else

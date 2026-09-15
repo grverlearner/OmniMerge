@@ -57,6 +57,7 @@ class TournamentInstance extends Model
         'game_scope',
         'battle_scope',
         'start_rules',
+        'participant_design',
         'copied_from_instance_id',
 
         'description',
@@ -105,6 +106,9 @@ class TournamentInstance extends Model
             'boolean',
 
             'start_rules' =>
+            'array',
+
+            'participant_design' =>
             'array',
 
             'started_at' =>

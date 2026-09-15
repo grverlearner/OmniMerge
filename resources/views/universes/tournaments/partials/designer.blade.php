@@ -20,6 +20,9 @@
 
     $t = $universeTournament ?? null;
 
+    /* Con qué nace un torneo nuevo en este universo: ver su configuración */
+    $nace = $universe->ajustes()->competitionDefaults();
+
     /* Los bloques, con su color. Literales: Tailwind lee el código fuente */
     $blocks = [
         'identity' => ['n' => '01', 'label' => 'Identidad', 'icon' => '◈', 'dot' => 'bg-slate-400', 'text' => 'text-slate-300', 'soft' => 'bg-slate-500/10', 'border' => 'border-slate-500/30'],
@@ -42,14 +45,14 @@
         gameMode: @js(old('game_mode', $t->game_mode ?? 'SINGLE')),
         gameKey: @js(old('game_key', $t->game_key ?? $defaultGameKey)),
         battleParticipants: @js(old('battle_participants', $t->battle_participants ?? '')),
-        seriesFormat: @js(old('series_format', $t->series_format ?? 'BEST_OF')),
-        bestOf: @js((int) old('best_of', $t->best_of ?? 3)),
-        fixedGames: @js((int) old('fixed_games', $t->fixed_games ?? 2)),
-        decisionMode: @js(old('decision_mode', $t->decision_mode ?? 'SERIES_THEN_POINTS')),
-        allowDraws: @js((bool) old('allow_draws', $t->allow_draws ?? false)),
+        seriesFormat: @js(old('series_format', $t->series_format ?? $nace['series_format'])),
+        bestOf: @js((int) old('best_of', $t->best_of ?? $nace['best_of'])),
+        fixedGames: @js((int) old('fixed_games', $t->fixed_games ?? $nace['fixed_games'])),
+        decisionMode: @js(old('decision_mode', $t->decision_mode ?? $nace['decision_mode'])),
+        allowDraws: @js((bool) old('allow_draws', $t->allow_draws ?? $nace['allow_draws'])),
         allowPhaseGame: @js((bool) old('allow_phase_game', $t->allow_phase_game ?? false)),
         allowPhaseBattle: @js((bool) old('allow_phase_battle', $t->allow_phase_battle ?? false)),
-        recurrenceMode: @js(old('recurrence_mode', $t->recurrence_mode ?? 'EVERY_SEASON')),
+        recurrenceMode: @js(old('recurrence_mode', $t->recurrence_mode ?? $nace['recurrence_mode'])),
         eligibilityMode: @js($eligibilityRules['mode'] ?? 'ALL'),
         rules: @js($eligibilityRules['rules'] ?? []),
         groups: @js($eligibilityRules['groups'] ?? []),

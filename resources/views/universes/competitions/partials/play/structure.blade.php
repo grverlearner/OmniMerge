@@ -459,7 +459,7 @@
                                 ->map(fn($fila) => [
                                     'position' => $fila->position,
                                     'name' => $fila->participant_name,
-                                    'image_url' => $fila->universeEntity?->image_url,
+                                    'image_url' => ($fila->face_url ?? $fila->universeEntity?->image_url),
                                     'points' => $fila->points,
                                     'origin' => $fila->group_label
                                         ? mb_substr(str_replace('Grupo ', '', $fila->group_label), 0, 1)

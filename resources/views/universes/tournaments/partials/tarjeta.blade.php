@@ -141,6 +141,11 @@
                 ✎ Editar
             </a>
 
+            <a href="{{ route('universes.tournaments.participants', [$universe, $torneo]) }}"
+                class="rounded-lg px-2 py-1 text-[10px] font-black text-slate-400 transition hover:text-rose-300">
+                Participantes
+            </a>
+
             <a href="{{ route('universes.tournaments.rewards', [$universe, $torneo]) }}"
                 class="rounded-lg px-2 py-1 text-[10px] font-black text-slate-400 transition hover:text-amber-300">
                 Premios

@@ -396,8 +396,8 @@
                         </span>
 
                         <div class="h-6 w-6 shrink-0 overflow-hidden rounded bg-slate-800">
-                            @if ($row->universeEntity?->image_url)
-                                <img src="{{ $row->universeEntity->image_url }}" alt="" class="h-full w-full object-cover">
+                            @if (($row->face_url ?? $row->universeEntity?->image_url))
+                                <img src="{{ ($row->face_url ?? $row->universeEntity?->image_url) }}" alt="" class="h-full w-full object-cover">
                             @endif
                         </div>
 
@@ -556,8 +556,8 @@
 
                             <div class="shrink-0 overflow-hidden rounded-lg bg-slate-800 transition-all"
                                 :class="portraitCompactClass">
-                                @if ($row->universeEntity?->image_url)
-                                    <img src="{{ $row->universeEntity->image_url }}" alt=""
+                                @if (($row->face_url ?? $row->universeEntity?->image_url))
+                                    <img src="{{ ($row->face_url ?? $row->universeEntity?->image_url) }}" alt=""
                                         class="h-full w-full object-cover">
                                 @endif
                             </div>
@@ -700,8 +700,8 @@
 
                                     <div class="shrink-0 overflow-hidden rounded-xl bg-slate-800 ring-1 ring-slate-700 transition-all"
                                         :class="portraitClass">
-                                        @if ($row->universeEntity?->image_url)
-                                            <img src="{{ $row->universeEntity->image_url }}"
+                                        @if (($row->face_url ?? $row->universeEntity?->image_url))
+                                            <img src="{{ ($row->face_url ?? $row->universeEntity?->image_url) }}"
                                                 alt="{{ $row->participant_name }}"
                                                 class="h-full w-full object-cover">
                                         @else

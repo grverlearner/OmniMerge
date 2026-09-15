@@ -16,7 +16,7 @@
             $atascado = $mundo->atascadas_count > 0;
         @endphp
 
-        <a href="{{ route('universes.show', $mundo) }}"
+        <a href="{{ $mundo->home_url }}"
             class="group overflow-hidden rounded-xl border bg-slate-900/50 transition hover:-translate-y-0.5"
             style="border-color: {{ $atascado ? '#fb718566' : $tono . '44' }}">
 

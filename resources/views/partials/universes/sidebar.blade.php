@@ -11,6 +11,9 @@
         $universoActual->loadCount(['entities', 'seasons', 'universeTournaments', 'tournamentInstances']);
 
         $temporadaActual = $universoActual->activeSeason();
+
+        /* Su configuración: color, icono, vocabulario y qué secciones se ven */
+        $ajustesMundo = $universoActual->ajustes();
     }
 @endphp
 
@@ -19,8 +22,8 @@
     <x-slot:brand>
         @if ($universoActual)
             <x-omni-sidebar-brand accent="violet" :href="route('universes.show', $universoActual)" :back="route('universes.index')"
-                back-label="Todos los Universos" :title="$universoActual->name" :subtitle="$universoActual->code" :meta="$temporadaActual ? 'Temporada ' . $temporadaActual->number : null" :image="$universoActual->image_url"
-                icon="orbita" />
+                back-label="Todos los Universos" :title="$universoActual->name" :subtitle="$universoActual->code" :meta="$temporadaActual ? $ajustesMundo->label('label_season') . ' ' . $temporadaActual->number : null" :image="$universoActual->image_url"
+                :icon="$ajustesMundo->icon()" :color="$ajustesMundo->accent()" />
         @else
             <x-omni-sidebar-brand accent="violet" :href="route('universes.dashboard')" :back="route('hub')" back-label="Centro OmniMerge"
                 title="Universos" subtitle="Mundos" icon="orbita" />
@@ -36,38 +39,58 @@
         </x-omni-nav-section>
 
 
-        <x-omni-nav-section title="Contenido">
-            <x-omni-nav-item accent="violet" :href="route('universes.explorer', $universoActual)" icon="brujula" label="Explorar"
-                :active="request()->routeIs('universes.explorer')" />
+        @php
+            /*
+             * Las secciones, con los nombres de este universo y sin las que su
+             * configuración esconde. Ver App\Support\Universes\UniverseSettings.
+             */
+            $gruposMenu = [
+                'Contenido' => ['explorer', 'games', 'entities', 'seasons', 'tournaments', 'competitions'],
+                'Historia' => ['history', 'trophies', 'ranking'],
+            ];
 
-            <x-omni-nav-item accent="violet" :href="route('universes.games.index', $universoActual)" icon="dado" label="Juegos"
-                :active="request()->routeIs('universes.games.*')" />
+            $insigniasMenu = [
+                'entities' => $universoActual->entities_count,
+                'seasons' => $universoActual->seasons_count,
+                'tournaments' => $universoActual->universe_tournaments_count,
+                'competitions' => $universoActual->tournament_instances_count,
+            ];
 
-            <x-omni-nav-item accent="violet" :href="route('universes.entities.index', $universoActual)" icon="chispa"
-                label="Entidades" :badge="$universoActual->entities_count" :active="request()->routeIs('universes.entities.*')" />
+            $etiquetasMenu = [
+                'entities' => $ajustesMundo->label('label_entities'),
+                'seasons' => $ajustesMundo->label('label_seasons'),
+                'tournaments' => $ajustesMundo->label('label_tournaments'),
+                'competitions' => $ajustesMundo->label('label_competitions'),
+            ];
 
-            <x-omni-nav-item accent="violet" :href="route('universes.seasons.index', $universoActual)" icon="calendario"
-                label="Temporadas" :badge="$universoActual->seasons_count" :active="request()->routeIs('universes.seasons.*')" />
+            $activosMenu = [
+                'explorer' => 'universes.explorer',
+                'games' => 'universes.games.*',
+                'entities' => 'universes.entities.*',
+                'seasons' => 'universes.seasons.*',
+                'tournaments' => 'universes.tournaments.*',
+                'competitions' => 'universes.competitions.*',
+                'history' => 'universes.history',
+                'trophies' => 'universes.trophies.*',
+                'ranking' => 'universes.ranking*',
+            ];
+        @endphp
 
-            <x-omni-nav-item accent="violet" :href="route('universes.tournaments.index', $universoActual)" icon="trofeo"
-                label="Torneos" :badge="$universoActual->universe_tournaments_count" :active="request()->routeIs('universes.tournaments.*')" />
+        @foreach ($gruposMenu as $tituloMenu => $clavesMenu)
+            @php $visiblesMenu = array_filter($clavesMenu, fn ($k) => $ajustesMundo->navVisible($k)); @endphp
 
-            {{-- Competiciones reales, no plantillas --}}
-            <x-omni-nav-item accent="violet" :href="route('universes.competitions.index', $universoActual)" icon="espadas"
-                label="Competiciones" :badge="$universoActual->tournament_instances_count" :active="request()->routeIs('universes.competitions.*')" />
-        </x-omni-nav-section>
+            @if ($visiblesMenu)
+                <x-omni-nav-section :title="$tituloMenu">
+                    @foreach ($visiblesMenu as $claveMenu)
+                        @php [$rutaMenu, $textoMenu, $iconoMenu] = \App\Support\Universes\UniverseSettings::NAV[$claveMenu]; @endphp
 
-
-        <x-omni-nav-section title="Historia">
-            <x-omni-nav-item accent="violet" :href="route('universes.history', $universoActual)" icon="historial" label="Historial"
-                :active="request()->routeIs('universes.history')" />
-
-            <x-omni-nav-item accent="violet" :href="route('universes.trophies.index', $universoActual)" icon="medalla"
-                label="Trofeos" :active="request()->routeIs('universes.trophies.*')" />
-
-            <x-omni-nav-item accent="violet" :href="route('universes.ranking', $universoActual)" icon="barras"
-                label="Clasificación" :active="request()->routeIs('universes.ranking*')" />
-        </x-omni-nav-section>
+                        <x-omni-nav-item accent="violet" :href="route($rutaMenu, $universoActual)" :icon="$iconoMenu"
+                            :label="$etiquetasMenu[$claveMenu] ?? $textoMenu" :badge="$insigniasMenu[$claveMenu] ?? null"
+                            :active="request()->routeIs($activosMenu[$claveMenu])" />
+                    @endforeach
+                </x-omni-nav-section>
+            @endif
+        @endforeach
 
 
         <x-omni-nav-section title="Ajustes">

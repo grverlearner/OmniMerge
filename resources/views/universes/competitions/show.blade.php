@@ -257,8 +257,8 @@
                     <div
                         class="mx-auto flex h-32 w-32 items-center justify-center overflow-hidden rounded-3xl bg-violet-100 text-6xl text-violet-400 shadow-lg shadow-violet-600/10 ring-4 ring-violet-500/20 sm:mx-0">
 
-                        @if ($history['champion']->universeEntity?->image_url)
-                            <img src="{{ $history['champion']->universeEntity->image_url }}"
+                        @if (($history['champion']->face_url ?? $history['champion']->universeEntity?->image_url))
+                            <img src="{{ ($history['champion']->face_url ?? $history['champion']->universeEntity?->image_url) }}"
                                 alt="{{ $history['champion']->name }}"
                                 class="h-full w-full object-cover">
                         @else
@@ -583,7 +583,7 @@
                                     {{-- Entidad, versión y atributos congelados al empezar --}}
                                     @include('universes.competitions.partials.participant-chip', [
                                         'name' => $participant->name,
-                                        'imageUrl' => $participant->universeEntity?->image_url,
+                                        'imageUrl' => ($participant->face_url ?? $participant->universeEntity?->image_url),
                                         'typeName' => $participant->entity_type_name,
                                         'versionName' => $participant->entity_version_name,
                                         'attributes' => $participant->attribute_snapshot ?? [],

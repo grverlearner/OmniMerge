@@ -76,6 +76,14 @@
                 @if ($t->description)
                     <p class="mt-2 max-w-2xl text-xs leading-relaxed text-slate-400">{{ $t->description }}</p>
                 @endif
+
+                @can('update', $universe)
+                    <a href="{{ route('universes.tournaments.participants', [$universe, $t]) }}"
+                        class="mt-3 inline-flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-[11px] font-black text-rose-200 transition hover:bg-rose-500 hover:text-slate-950">
+                        <x-omni-icon name="usuario" size="h-3.5 w-3.5" />
+                        Sala de participantes
+                    </a>
+                @endcan
             </div>
 
             {{-- Las cifras: la respuesta corta --}}

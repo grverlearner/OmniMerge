@@ -172,7 +172,38 @@ class UniverseRankingService
                 fn($row) =>
                 $row->entity !== null
             )
-            ->sortByDesc('points')
+            /*
+             * El minimo de competiciones para aparecer, y los desempates que
+             * eligio el universo en su configuracion.
+             */
+            ->filter(
+                fn($row) =>
+                $row->tournaments >= $settings->int('ranking_min_competitions')
+            )
+            ->sort(function ($a, $b) use ($settings) {
+
+                if ($a->points !== $b->points) {
+                    return $b->points <=> $a->points;
+                }
+
+                foreach ((array) $settings->get('ranking_tiebreaks') as $desempate) {
+
+                    $orden = match ($desempate) {
+                        'TITLES' => $b->titles <=> $a->titles,
+                        'WINS' => $b->wins <=> $a->wins,
+                        'WIN_RATE' => ($b->win_rate ?? -1) <=> ($a->win_rate ?? -1),
+                        'FEWER_MATCHES' => $a->matches <=> $b->matches,
+                        'NAME' => strcasecmp((string) $a->entity?->display_label, (string) $b->entity?->display_label),
+                        default => 0,
+                    };
+
+                    if ($orden !== 0) {
+                        return $orden;
+                    }
+                }
+
+                return 0;
+            })
             ->values()
             ->map(
                 function ($row, $index) {

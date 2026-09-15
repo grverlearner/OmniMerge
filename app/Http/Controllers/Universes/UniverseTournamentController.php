@@ -378,12 +378,38 @@ class UniverseTournamentController extends Controller
      * ninguna regla dentro: el filtro existia en la base de datos y no
      * filtraba a nadie.
      */
-    private function withEligibility($request): array
+    private function withEligibility($request, ?UniverseTournament $tournament = null): array
     {
         return [
             ...$request->validated(),
-            'eligibility' => $request->eligibilityPayload(),
+
+            /*
+             * Las caras y el reparto por puertas se configuran en la sala de
+             * participantes, no aqui: guardar el diseñador los conserva.
+             */
+            'eligibility' => $request->eligibilityPayload()
+                + ($tournament
+                    ? array_intersect_key($tournament->eligibility ?? [], array_flip(['faces', 'face_mode', 'doors']))
+                    : $this->participantDefaults($request->route('universe'))),
             'rewards' => $request->rewardsPayload(),
+        ];
+    }
+
+    /*
+     * La cara y el reparto con los que nace la sala de participantes de un
+     * torneo nuevo, segun la configuracion del universo.
+     */
+    private function participantDefaults(?Universe $universe): array
+    {
+        if (! $universe) {
+            return [];
+        }
+
+        $nace = $universe->ajustes()->competitionDefaults();
+
+        return [
+            'face_mode' => $nace['face_mode'],
+            'doors' => ['mode' => 'AUTO', 'strategy' => $nace['door_strategy']],
         ];
     }
 
@@ -400,7 +426,7 @@ class UniverseTournamentController extends Controller
         $this->authorize('update', $universe);
 
         $data = $request->validate([
-            'mode' => ['nullable', 'in:ALL,ANY'],
+            'mode' => ['nullable', 'in:ALL,ANY,NONE,ONE'],
             'rules' => ['nullable', 'array', 'max:20'],
             'rules.*.attribute' => ['nullable', 'string', 'max:120'],
             'rules.*.values' => ['nullable', 'array', 'max:60'],
@@ -513,7 +539,7 @@ class UniverseTournamentController extends Controller
             ->update(
                 $universeTournament,
 
-                $this->withEligibility($request),
+                $this->withEligibility($request, $universeTournament),
 
                 $request->file('image')
             );

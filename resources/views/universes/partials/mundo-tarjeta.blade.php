@@ -20,11 +20,14 @@
 @endphp
 
 <article class="group relative overflow-hidden rounded-2xl border bg-slate-900/50 transition duration-300 hover:-translate-y-0.5"
-    style="border-color: {{ $atascado ? '#fb718566' : $tono . '44' }}">
+    style="border-color: {{ $atascado ? '#fb718566' : $mundo->accent . '55' }}">
+
+    {{-- Su color --}}
+    <span class="pointer-events-none absolute inset-x-0 top-0 z-10 h-1" style="background-color: {{ $mundo->accent }}"></span>
 
     {{-- ---------- LA PORTADA ---------- --}}
 
-    <a href="{{ route('universes.show', $mundo) }}" class="relative block h-32 overflow-hidden bg-slate-950">
+    <a href="{{ $mundo->home_url }}" class="relative block h-32 overflow-hidden bg-slate-950">
 
         {{-- Su gente de fondo --}}
         @if ($caras->isNotEmpty())
@@ -39,16 +42,16 @@
         @endif
 
         <span class="absolute inset-0"
-            style="background: linear-gradient(120deg, #020617 18%, {{ $tono }}22 65%, #02061788 100%)"></span>
+            style="background: linear-gradient(120deg, #020617 18%, {{ $mundo->accent }}26 65%, #02061788 100%)"></span>
 
         {{-- Su cara --}}
         <span class="absolute left-3 top-3 h-20 w-20 overflow-hidden rounded-xl border-2 bg-slate-950 shadow-lg"
-            style="border-color: {{ $tono }}88">
+            style="border-color: {{ $mundo->accent }}">
             @if ($mundo->image_url)
-                <img src="{{ $mundo->image_url }}" alt="" loading="lazy" class="h-full w-full object-cover">
+                <img src="{{ $mundo->image_url }}" alt="" loading="lazy" class="h-full w-full object-cover" style="object-position: {{ $mundo->ajustes()->coverPosition() }}">
             @else
-                <span class="flex h-full w-full items-center justify-center text-slate-700">
-                    <x-omni-icon name="globo" size="h-7 w-7" />
+                <span class="flex h-full w-full items-center justify-center" style="color: {{ $mundo->accent }}; background-color: {{ $mundo->accent }}1a">
+                    <x-omni-icon :name="$mundo->ajustes()->icon()" size="h-8 w-8" />
                 </span>
             @endif
         </span>
@@ -105,7 +108,7 @@
 
         <div class="flex items-start gap-2">
             <div class="min-w-0 flex-1">
-                <a href="{{ route('universes.show', $mundo) }}"
+                <a href="{{ $mundo->home_url }}"
                     class="block truncate text-[14px] font-black leading-tight text-white transition hover:text-violet-300">
                     {{ $mundo->name }}
                 </a>
@@ -131,6 +134,10 @@
                 </span>
             @endif
         </div>
+
+        @if ($mundo->ajustes()->tagline())
+            <p class="mt-1 truncate text-[11px] font-black" style="color: {{ $mundo->accent }}">{{ $mundo->ajustes()->tagline() }}</p>
+        @endif
 
         @if ($mundo->description)
             <p class="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-500">{{ $mundo->description }}</p>
@@ -195,7 +202,7 @@
 
         <span class="flex-1"></span>
 
-        <a href="{{ route('universes.show', $mundo) }}"
+        <a href="{{ $mundo->home_url }}"
             class="rounded-lg px-2 py-1 text-[10px] font-black text-slate-500 transition hover:text-violet-300">
             Entrar
         </a>
