@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-community-layout>
     <x-slot name="header">
         Explorar entidad
     </x-slot>
@@ -422,4 +422,4 @@
             </div>
         </section>
     @endif
-</x-app-layout>
+</x-community-layout>

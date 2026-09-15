@@ -23,7 +23,7 @@
     $esMia = $phase->user_id === auth()->id();
 @endphp
 
-<x-tournament-layout surface="dark">
+<x-community-layout surface="dark">
 
     <x-slot name="header">{{ $phase->name }}</x-slot>
 
@@ -299,4 +299,4 @@
 
     </div>
 
-</x-tournament-layout>
+</x-community-layout>

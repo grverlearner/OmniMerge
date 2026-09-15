@@ -75,9 +75,11 @@
     $maximoCopias = $loMasCopiado->max('clones_count') ?: 1;
 @endphp
 
-<x-app-layout :title="$user->name" surface="dark">
+<x-community-layout :title="$user->name" surface="dark">
 
     <x-slot name="header">Comunidad</x-slot>
+
+    @include('community.partials.perfil-pestanas', ['persona' => $user, 'activa' => 'biblioteca'])
 
     <div x-data="perfilDeCreador({ pestana: @js($tab) })" class="space-y-4">
 
@@ -825,4 +827,4 @@
         }
     </script>
 
-</x-app-layout>
+</x-community-layout>

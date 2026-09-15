@@ -36,8 +36,9 @@
 
 
     <x-omni-nav-section title="Comunidad">
-        <x-omni-nav-item accent="violet" :href="route('tournaments.community.index')" icon="globo" label="Explorar"
-            :active="request()->routeIs('tournaments.community.*')" />
+        <x-omni-nav-item accent="emerald" :href="route('tournaments.community.index')" icon="globo" label="Explorar plantillas" />
+
+        <x-omni-nav-item accent="emerald" :href="route('community.creators.index', ['tipo' => 'torneos'])" icon="orbita" label="Creadores de torneos" />
 
         <x-omni-nav-item accent="violet" :href="route('tournaments.creator.show')" icon="usuario" label="Creador"
             :active="request()->routeIs('tournaments.creator.*')" />

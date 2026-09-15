@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-community-layout>
 
     <x-slot name="header">
         Catálogo público
@@ -313,4 +313,4 @@
 
     @endif
 
-</x-app-layout>
+</x-community-layout>

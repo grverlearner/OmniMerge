@@ -70,7 +70,7 @@
     $hayFases = $phases && $phases->count() > 0;
 @endphp
 
-<x-tournament-layout surface="dark">
+<x-community-layout surface="dark">
 
     <x-slot name="header">Comunidad del taller</x-slot>
 
@@ -498,4 +498,4 @@
 
     </div>
 
-</x-tournament-layout>
+</x-community-layout>

@@ -225,7 +225,7 @@
 
     <article class="group overflow-hidden rounded-2xl border border-emerald-500/25 bg-slate-900/50 transition hover:border-emerald-500/50">
 
-        <a href="{{ route('community.index') }}" class="block">
+        <a href="{{ route('community.home') }}" class="block">
 
             <div class="flex items-center gap-3 border-b border-emerald-500/15 px-4 py-3">
 

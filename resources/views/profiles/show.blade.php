@@ -13,11 +13,13 @@
      */
 @endphp
 
-<x-app-layout surface="dark">
+<x-community-layout surface="dark">
 
     <x-slot name="header">
         {{ $esMio ? 'Tu perfil' : $creador->name }}
     </x-slot>
+
+    @include('community.partials.perfil-pestanas', ['persona' => $creador, 'activa' => 'todo'])
 
     <div class="space-y-3">
 
@@ -42,9 +44,9 @@
                     mientras no decida lo contrario.
                 </p>
 
-                <a href="{{ route('community.index') }}"
+                <a href="{{ route('community.creators.index') }}"
                     class="mt-4 inline-block rounded-xl border border-slate-800 px-3 py-2 text-[11px] font-black text-slate-300 transition hover:border-violet-500 hover:text-violet-300">
-                    Volver a la comunidad
+                    Ver otros creadores
                 </a>
             </section>
 
@@ -93,4 +95,4 @@
         @endif
     </div>
 
-</x-app-layout>
+</x-community-layout>

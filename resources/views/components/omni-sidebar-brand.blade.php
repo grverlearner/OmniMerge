@@ -24,18 +24,21 @@
         'indigo' => 'from-indigo-500 to-violet-600 shadow-indigo-950/40',
         'amber' => 'from-amber-400 to-orange-500 shadow-amber-950/40',
         'violet' => 'from-violet-500 to-indigo-600 shadow-violet-950/40',
+        'emerald' => 'from-emerald-400 to-teal-600 shadow-emerald-950/40',
     ];
 
     $vueltas = [
         'indigo' => 'hover:border-indigo-500/40 hover:bg-indigo-500/10 hover:text-indigo-300',
         'amber' => 'hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-300',
         'violet' => 'hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-300',
+        'emerald' => 'hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300',
     ];
 
     $rotulos = [
         'indigo' => 'text-indigo-400',
         'amber' => 'text-amber-400',
         'violet' => 'text-violet-400',
+        'emerald' => 'text-emerald-400',
     ];
 
     $marca = $marcas[$accent] ?? $marcas['indigo'];

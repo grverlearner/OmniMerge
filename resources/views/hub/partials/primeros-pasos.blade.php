@@ -76,7 +76,7 @@
     {{-- Por dónde empezar --}}
     <div class="grid gap-2 border-t border-slate-800 p-3 sm:grid-cols-2 xl:grid-cols-4">
 
-        @foreach ([['Crear tu primera entidad', 'Un personaje, un país, lo que sea.', '#818cf8', 'libro', route('entities.create')], ['Describirla con atributos', 'Aldea, poder, año… lo que la distinga.', '#22d3ee', 'capas', route('attributes.create')], ['Montar un mundo', 'Con su calendario y su clasificación.', '#a78bfa', 'globo', route('universes.create')], ['Copiar de la comunidad', 'Empezar de lo que otros ya hicieron.', '#34d399', 'orbita', route('community.index')]] as [$titulo, $ayuda, $tono, $icono, $destino])
+        @foreach ([['Crear tu primera entidad', 'Un personaje, un país, lo que sea.', '#818cf8', 'libro', route('entities.create')], ['Describirla con atributos', 'Aldea, poder, año… lo que la distinga.', '#22d3ee', 'capas', route('attributes.create')], ['Montar un mundo', 'Con su calendario y su clasificación.', '#a78bfa', 'globo', route('universes.create')], ['Copiar de la comunidad', 'Empezar de lo que otros ya hicieron.', '#34d399', 'orbita', route('community.home')]] as [$titulo, $ayuda, $tono, $icono, $destino])
 
             <a href="{{ $destino }}"
                 class="group rounded-xl border bg-slate-950 p-3 transition hover:-translate-y-0.5"

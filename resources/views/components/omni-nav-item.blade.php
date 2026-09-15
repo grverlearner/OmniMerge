@@ -26,12 +26,14 @@
         'indigo' => 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40',
         'amber' => 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-950/40',
         'violet' => 'bg-violet-500 text-white shadow-lg shadow-violet-950/40',
+        'emerald' => 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-950/40',
     ];
 
     $insignias = [
         'indigo' => 'bg-indigo-500/15 text-indigo-300',
         'amber' => 'bg-amber-500/15 text-amber-300',
         'violet' => 'bg-violet-500/15 text-violet-300',
+        'emerald' => 'bg-emerald-500/15 text-emerald-300',
     ];
 
     $clase = $active

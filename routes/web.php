@@ -17,6 +17,8 @@ use App\Http\Controllers\Entities\BulkEntityController;
 use App\Http\Controllers\Collections\CollectionController;
 use App\Http\Controllers\Community\ExploreController;
 use App\Http\Controllers\Community\CreatorController;
+use App\Http\Controllers\Community\CommunityCreatorsController;
+use App\Http\Controllers\Community\CommunityHomeController;
 use App\Http\Controllers\Entities\BulkEditEntityController;
 
 use App\Http\Controllers\Versions\VersionController;
@@ -3144,6 +3146,27 @@ Route::middleware('auth')->group(function () {
         '/perfil/{user:username}',
         ProfileShowController::class
     )->name('profiles.show');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | La Comunidad, con casa propia
+    |--------------------------------------------------------------------------
+    |
+    | La puerta de entrada y el directorio de creadores. Los dos exploradores
+    | -/explore y /tournaments/community- conservan sus rutas: lo que cambia
+    | es que ahora se abren dentro de este espacio.
+    |
+    | Ver docs/md/78-Comunidad.md
+    */
+    Route::get('/comunidad', CommunityHomeController::class)
+        ->name('community.home');
+
+    Route::get('/comunidad/buscar', [CommunityHomeController::class, 'buscar'])
+        ->name('community.buscar');
+
+    Route::get('/comunidad/creadores', CommunityCreatorsController::class)
+        ->name('community.creators.index');
 
 
     Route::get('/profile', [

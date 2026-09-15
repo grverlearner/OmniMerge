@@ -12,9 +12,11 @@
     $esYo = auth()->user()?->is($creator) ?? false;
 @endphp
 
-<x-tournament-layout surface="dark">
+<x-community-layout surface="dark">
 
     <x-slot name="header">{{ $creator->name }}</x-slot>
+
+    @include('community.partials.perfil-pestanas', ['persona' => $creator, 'activa' => 'torneos'])
 
     <div class="space-y-4">
 
@@ -244,4 +246,4 @@
 
     </div>
 
-</x-tournament-layout>
+</x-community-layout>

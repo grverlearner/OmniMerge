@@ -29,6 +29,7 @@
         'indigo' => ['texto' => 'text-indigo-300', 'borde' => 'hover:border-indigo-500/40', 'fondo' => 'hover:bg-indigo-500/10'],
         'amber' => ['texto' => 'text-amber-300', 'borde' => 'hover:border-amber-500/40', 'fondo' => 'hover:bg-amber-500/10'],
         'violet' => ['texto' => 'text-violet-300', 'borde' => 'hover:border-violet-500/40', 'fondo' => 'hover:bg-violet-500/10'],
+        'emerald' => ['texto' => 'text-emerald-300', 'borde' => 'hover:border-emerald-500/40', 'fondo' => 'hover:bg-emerald-500/10'],
     ];
 
     $tono = $acentos[$accent] ?? $acentos['indigo'];

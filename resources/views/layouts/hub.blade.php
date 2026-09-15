@@ -229,7 +229,7 @@
                         Torneos
                     </a>
 
-                    <a href="{{ route('community.index') }}"
+                    <a href="{{ route('community.home') }}"
                         class="
                         rounded-xl
                         px-4
@@ -534,7 +534,7 @@
                         Torneos
                     </a>
 
-                    <a href="{{ route('community.index') }}"
+                    <a href="{{ route('community.home') }}"
                         class="
                         block
                         rounded-xl

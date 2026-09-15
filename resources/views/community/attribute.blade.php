@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-community-layout>
     <x-slot name="header">
         Explorar atributo
     </x-slot>
@@ -203,4 +203,4 @@
             </div>
         </div>
     </article>
-</x-app-layout>
+</x-community-layout>

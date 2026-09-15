@@ -683,7 +683,7 @@
                         </p>
 
                         <div class="mt-2 space-y-1.5">
-                            @foreach ([['Torneos', 'trofeo', route('tournaments.dashboard'), '#fbbf24'], ['Universos', 'orbita', route('universes.dashboard'), '#22d3ee'], ['Comunidad', 'globo', route('community.index'), '#a78bfa']] as [$etiqueta, $icono, $ruta, $tono])
+                            @foreach ([['Torneos', 'trofeo', route('tournaments.dashboard'), '#fbbf24'], ['Universos', 'orbita', route('universes.dashboard'), '#22d3ee'], ['Comunidad', 'globo', route('community.home'), '#a78bfa']] as [$etiqueta, $icono, $ruta, $tono])
                                 <a href="{{ $ruta }}"
                                     class="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-2.5 py-2 transition hover:-translate-y-0.5"
                                     style="border-color: {{ $tono }}22">

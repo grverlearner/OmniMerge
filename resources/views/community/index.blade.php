@@ -81,7 +81,7 @@
     ];
 @endphp
 
-<x-app-layout title="Comunidad" surface="dark">
+<x-community-layout title="Comunidad" surface="dark">
 
     <x-slot name="header">Comunidad</x-slot>
 
@@ -637,4 +637,4 @@
         }
     </script>
 
-</x-app-layout>
+</x-community-layout>

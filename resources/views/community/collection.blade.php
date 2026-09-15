@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-community-layout>
     <x-slot name="header">
         Detalle de colección
     </x-slot>
@@ -195,4 +195,4 @@
             @endforelse
         </div>
     </section>
-</x-app-layout>
+</x-community-layout>

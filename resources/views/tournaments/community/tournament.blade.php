@@ -30,7 +30,7 @@
     $esMia = $template->user_id === auth()->id();
 @endphp
 
-<x-tournament-layout surface="dark">
+<x-community-layout surface="dark">
 
     <x-slot name="header">{{ $template->name }}</x-slot>
 
@@ -361,4 +361,4 @@
 
     </div>
 
-</x-tournament-layout>
+</x-community-layout>
