@@ -32,9 +32,18 @@ class UniverseLayout extends Component
      * El sidebar de Universos ya era oscuro, asi que oscurecer el contenido
      * acerca las dos mitades en vez de separarlas.
      */
+    /*
+     * Ancho completo, sin la columna de 1500 px.
+     *
+     * Para pantallas cuyo contenido ES el espacio: un mapa del mundo no se
+     * lee, se recorre, y recortarlo a una columna le quita justo lo que lo
+     * hace util. Sigue dentro del layout, con su sidebar: la pantalla
+     * completa de verdad es un boton que aprieta quien quiere mirar.
+     */
     public function __construct(
         public ?Universe $universe = null,
-        public string $surface = 'light'
+        public string $surface = 'light',
+        public bool $bleed = false
     ) {}
 
     public function render(): View

@@ -117,6 +117,21 @@
 
         'cerrar' => '<path d="m6 6 12 12"/><path d="M18 6 6 18"/>',
 
+        /* ---------------------------------------------- cuenta */
+
+        /* Las pantallas de entrada usaban SVG sueltos pegados en la vista */
+        'correo' => '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.8 7 8.2 6 8.2-6"/>',
+
+        'candado' => '<rect x="4.5" y="10.5" width="15" height="10.5" rx="2.5"/>' .
+            '<path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><path d="M12 14.5v2.5"/>',
+
+        'ojo' => '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>' .
+            '<circle cx="12" cy="12" r="2.8"/>',
+
+        'ojo-tachado' => '<path d="M9.9 5.8A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-2.3 3.1"/>' .
+            '<path d="M6.3 7.3C3.9 8.9 2.5 12 2.5 12S6 18.5 12 18.5a9 9 0 0 0 4.4-1.1"/>' .
+            '<path d="M10 10a2.8 2.8 0 0 0 4 4"/><path d="m3 3 18 18"/>',
+
         default => '<circle cx="12" cy="12" r="3.5"/>',
     };
 @endphp

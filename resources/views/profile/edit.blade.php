@@ -1,424 +1,143 @@
-@extends('layouts.hub')
+@php
+    /*
+     * Mi perfil.
+     *
+     * Lo que habia era el ajuste de cuenta que trae Breeze, ampliado: nombre,
+     * correo, contraseña y borrar cuenta, en claro. Correcto y sin contestar
+     * las dos preguntas que uno se hace de verdad aqui:
+     *
+     *   · ¿como me ven los demas?
+     *   · ¿que se ve de lo mio?
+     *
+     * La primera se contesta enseñando la tarjeta tal y como sale en la
+     * comunidad, y con el enlace a la pagina de verdad. La segunda, contando de
+     * cada tipo cuantas cosas hay y cuantas son publicas — porque la visibilidad
+     * se decide pieza a pieza en otra pantalla, y hasta ahora se podia poner el
+     * perfil en publico sin tener ni idea de que quedaba a la vista.
+     *
+     * Ver docs/md/76-Perfil.md
+     */
 
+    $usuario = $user;
 
-@section('title', 'Perfil y cuenta')
+    $totalPublicas = collect($loQueSeVe)->sum('publicas');
+    $totalCosas = collect($loQueSeVe)->sum('total');
+@endphp
 
+<x-app-layout surface="dark">
 
-@section('content')
+    <x-slot name="header">Mi perfil</x-slot>
 
-    {{-- ========================================================= --}}
-    {{-- CONTENEDOR --}}
-    {{-- ========================================================= --}}
-
-    <div
-        class="
-            mx-auto
-            max-w-7xl
-            px-5
-            py-10
-            sm:px-6
-            lg:px-8
-            lg:py-14
-        ">
-
-        {{-- VOLVER --}}
-        <div class="mb-6">
-
-            <a href="{{ route('hub') }}"
-                class="
-                    inline-flex
-                    items-center
-                    gap-2
-                    text-sm
-                    font-bold
-                    text-slate-500
-                    transition
-                    hover:text-white
-                ">
-                ← Centro OmniMerge
-            </a>
-
-        </div>
-
+    <div class="mx-auto max-w-5xl space-y-3">
 
         {{-- ===================================================== --}}
-        {{-- HERO DEL PERFIL --}}
+        {{-- CÓMO TE VEN --}}
         {{-- ===================================================== --}}
 
-        <section
-            class="
-                relative
-                overflow-hidden
-                rounded-[32px]
-                border
-                border-white/10
-                bg-gradient-to-br
-                from-indigo-600
-                via-violet-600
-                to-fuchsia-600
-                p-7
-                shadow-2xl
-                shadow-indigo-950/40
-                sm:p-10
-            ">
+        <section class="overflow-hidden rounded-2xl border border-violet-500/25 bg-slate-900/50">
 
-            <div
-                class="
-                    absolute
-                    -right-16
-                    -top-20
-                    h-72
-                    w-72
-                    rounded-full
-                    bg-white/10
-                    blur-3xl
-                ">
-            </div>
+            <header class="flex flex-wrap items-center gap-2 border-b border-violet-500/15 px-4 py-2.5">
 
+                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+                    <x-omni-icon name="usuario" size="h-4 w-4" />
+                </span>
 
-            <div
-                class="
-                    relative
-                    flex
-                    flex-col
-                    gap-7
-                    md:flex-row
-                    md:items-end
-                ">
-
-                <x-user-avatar :user="$user" size="2xl" ring />
-
-
-                <div class="
-                        min-w-0
-                        flex-1
-                    ">
-
-                    <div
-                        class="
-                            flex
-                            flex-wrap
-                            items-center
-                            gap-3
-                        ">
-
-                        <h1
-                            class="
-                                text-3xl
-                                font-black
-                                tracking-tight
-                                text-white
-                                sm:text-4xl
-                            ">
-                            {{ $user->name }}
-                        </h1>
-
-
-                        @if ($user->profile_visibility === 'PUBLIC')
-                            <span
-                                class="
-                                    rounded-full
-                                    border
-                                    border-emerald-300/30
-                                    bg-emerald-400/15
-                                    px-3
-                                    py-1
-                                    text-[10px]
-                                    font-black
-                                    uppercase
-                                    tracking-wider
-                                    text-emerald-100
-                                ">
-                                Perfil público
-                            </span>
-                        @else
-                            <span
-                                class="
-                                    rounded-full
-                                    border
-                                    border-white/20
-                                    bg-white/10
-                                    px-3
-                                    py-1
-                                    text-[10px]
-                                    font-black
-                                    uppercase
-                                    tracking-wider
-                                    text-white/70
-                                ">
-                                Perfil privado
-                            </span>
-                        @endif
-
-                    </div>
-
-
-                    <p
-                        class="
-                            mt-2
-                            font-semibold
-                            text-indigo-100
-                        ">
-                        {{ '@' . $user->username }}
+                <div class="min-w-0 flex-1">
+                    <h2 class="text-[13px] font-black text-white">Cómo te ven</h2>
+                    <p class="text-[10px] text-slate-500">
+                        Esto es lo que aparece de ti en la comunidad, junto a cada cosa que
+                        publicas.
                     </p>
-
-
-                    @if ($user->headline)
-                        <p
-                            class="
-                                mt-4
-                                max-w-2xl
-                                text-base
-                                font-semibold
-                                text-white
-                            ">
-                            {{ $user->headline }}
-                        </p>
-                    @endif
-
-
-                    @if ($user->bio)
-                        <p
-                            class="
-                                mt-3
-                                max-w-3xl
-                                text-sm
-                                leading-7
-                                text-indigo-100/80
-                            ">
-                            {{ $user->bio }}
-                        </p>
-                    @endif
-
-
-                    <div
-                        class="
-                            mt-5
-                            flex
-                            flex-wrap
-                            gap-x-5
-                            gap-y-2
-                            text-xs
-                            font-semibold
-                            text-indigo-100/70
-                        ">
-
-                        @if ($user->location)
-                            <span>
-                                📍 {{ $user->location }}
-                            </span>
-                        @endif
-
-
-                        @if ($user->website)
-                            <a href="{{ $user->website }}" target="_blank" rel="noopener noreferrer nofollow"
-                                class="
-                                    transition
-                                    hover:text-white
-                                ">
-                                🔗
-                                {{ parse_url($user->website, PHP_URL_HOST) ?: $user->website }}
-                            </a>
-                        @endif
-
-
-                        <span>
-                            ◷ Miembro desde
-                            {{ $user->created_at?->format('m/Y') }}
-                        </span>
-
-                    </div>
-
                 </div>
 
-
-                <a href="{{ route('community.creators.show', $user->username) }}"
-                    class="
-                        inline-flex
-                        shrink-0
-                        items-center
-                        justify-center
-                        rounded-xl
-                        border
-                        border-white/20
-                        bg-white/10
-                        px-5
-                        py-3
-                        text-sm
-                        font-black
-                        text-white
-                        backdrop-blur
-                        transition
-                        hover:bg-white/20
-                    ">
-                    Ver mi perfil comunitario →
+                <a href="{{ route('profiles.show', $usuario->username) }}"
+                    class="shrink-0 rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-2 text-[11px] font-black text-violet-300 transition hover:bg-violet-500 hover:text-white">
+                    Ver mi perfil completo
                 </a>
+            </header>
 
+            <div class="flex flex-wrap items-center gap-4 p-4">
+
+                <span class="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-2 border-violet-500/50 bg-slate-950">
+                    @if ($usuario->avatar_url)
+                        <img src="{{ $usuario->avatar_url }}" alt="" class="h-full w-full object-cover">
+                    @else
+                        <span class="flex h-full w-full items-center justify-center text-[22px] font-black text-violet-300">
+                            {{ $usuario->initials }}
+                        </span>
+                    @endif
+                </span>
+
+                <div class="min-w-0 flex-1">
+                    <p class="font-mono text-[11px] font-black text-violet-400">&#64;{{ $usuario->username }}</p>
+                    <p class="text-[17px] font-black leading-tight text-white">{{ $usuario->name }}</p>
+
+                    @if ($usuario->headline)
+                        <p class="text-[12px] font-bold text-slate-300">{{ $usuario->headline }}</p>
+                    @else
+                        <p class="text-[11px] italic text-slate-600">Sin presentación corta</p>
+                    @endif
+
+                    @if ($usuario->bio)
+                        <p class="mt-1 max-w-2xl text-[11px] leading-relaxed text-slate-400">{{ $usuario->bio }}</p>
+                    @endif
+                </div>
+
+                {{-- El estado del perfil, con su consecuencia dicha --}}
+                <div class="shrink-0 rounded-xl border px-3 py-2"
+                    style="border-color: {{ $usuario->isPublicProfile() ? '#34d39944' : '#fbbf2444' }};
+                           background-color: {{ $usuario->isPublicProfile() ? '#34d39912' : '#fbbf2412' }}">
+
+                    <p class="text-[10px] font-black uppercase tracking-wider"
+                        style="color: {{ $usuario->isPublicProfile() ? '#34d399' : '#fbbf24' }}">
+                        {{ $usuario->isPublicProfile() ? 'Perfil público' : 'Perfil privado' }}
+                    </p>
+
+                    <p class="mt-0.5 max-w-[200px] text-[10px] leading-3 text-slate-500">
+                        @if ($usuario->isPublicProfile())
+                            Cualquiera con cuenta puede abrir tu página.
+                        @else
+                            Tu página no la puede abrir nadie más que tú.
+                        @endif
+                    </p>
+                </div>
             </div>
-
         </section>
 
 
         {{-- ===================================================== --}}
-        {{-- ESTADÍSTICAS --}}
+        {{-- QUÉ SE VE DE TI --}}
         {{-- ===================================================== --}}
 
-        <section
-            class="
-                mt-6
-                grid
-                gap-4
-                sm:grid-cols-2
-                lg:grid-cols-4
-            ">
-
-            @foreach ([
-            [
-                'label' => 'Entidades',
-                'value' => $user->entities_count,
-                'icon' => '✦',
-            ],
-            [
-                'label' => 'Atributos',
-                'value' => $user->attributes_count,
-                'icon' => '☷',
-            ],
-            [
-                'label' => 'Colecciones',
-                'value' => $user->collections_count,
-                'icon' => '▤',
-            ],
-            [
-                'label' => 'Último acceso',
-                'value' => $user->last_login_at ? $user->last_login_at->diffForHumans() : 'Primera sesión',
-                'icon' => '◷',
-            ],
-        ] as $stat)
-                <article
-                    class="
-                        rounded-2xl
-                        border
-                        border-white/10
-                        bg-white/[0.03]
-                        p-5
-                    ">
-
-                    <div
-                        class="
-                            flex
-                            items-center
-                            gap-4
-                        ">
-
-                        <div
-                            class="
-                                flex
-                                h-11
-                                w-11
-                                shrink-0
-                                items-center
-                                justify-center
-                                rounded-xl
-                                bg-indigo-500/10
-                                text-lg
-                                text-indigo-300
-                            ">
-                            {{ $stat['icon'] }}
-                        </div>
-
-
-                        <div>
-
-                            <p
-                                class="
-                                    text-xs
-                                    font-bold
-                                    uppercase
-                                    tracking-wider
-                                    text-slate-500
-                                ">
-                                {{ $stat['label'] }}
-                            </p>
-
-                            <p
-                                class="
-                                    mt-1
-                                    text-lg
-                                    font-black
-                                    text-white
-                                ">
-                                {{ $stat['value'] }}
-                            </p>
-
-                        </div>
-
-                    </div>
-
-                </article>
-            @endforeach
-
-        </section>
+        @include('profile.partials.que-se-ve')
 
 
         {{-- ===================================================== --}}
-        {{-- MENSAJE GUARDADO --}}
+        {{-- QUIÉN ERES --}}
         {{-- ===================================================== --}}
 
-        @if (session('status') === 'profile-updated')
-            <div x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(
-                () => show = false,
-                4000
-            )"
-                class="
-                    mt-6
-                    rounded-2xl
-                    border
-                    border-emerald-500/20
-                    bg-emerald-500/10
-                    px-5
-                    py-4
-                    text-sm
-                    font-semibold
-                    text-emerald-300
-                ">
-                ✓ Tu perfil fue actualizado correctamente.
-            </div>
-        @endif
+        @include('profile.partials.update-profile-information-form')
 
 
         {{-- ===================================================== --}}
-        {{-- CONFIGURACIÓN --}}
+        {{-- CONTRASEÑA --}}
         {{-- ===================================================== --}}
 
-        <div
-            class="
-                mt-8
-                grid
-                items-start
-                gap-6
-                xl:grid-cols-[minmax(0,1fr)_380px]
-            ">
-
-            {{-- PERFIL --}}
-            <div>
-
-                @include('profile.partials.update-profile-information-form')
-
-            </div>
+        @include('profile.partials.update-password-form')
 
 
-            {{-- SEGURIDAD --}}
-            <div class="space-y-6">
+        {{-- ===================================================== --}}
+        {{-- LA CUENTA --}}
+        {{-- ===================================================== --}}
 
-                @include('profile.partials.update-password-form')
+        @include('profile.partials.la-cuenta')
 
 
-                @include('profile.partials.delete-user-form')
+        {{-- ===================================================== --}}
+        {{-- BORRAR --}}
+        {{-- ===================================================== --}}
 
-            </div>
-
-        </div>
-
+        @include('profile.partials.delete-user-form')
     </div>
 
-@endsection
+</x-app-layout>

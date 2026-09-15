@@ -11,7 +11,8 @@
     $compactoAqui = request()->cookie('omni_sidebar') === 'compact';
 @endphp
 
-<a href="{{ route('profile.edit') }}" :class="{ 'lg:justify-center': compact, 'lg:px-0': compact }"
+{{-- Al perfil, no a los ajustes: lo primero que se quiere ver es uno mismo --}}
+<a href="{{ route('profiles.show', auth()->user()->username) }}" :class="{ 'lg:justify-center': compact, 'lg:px-0': compact }"
     class="group/nav relative flex items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-slate-900 {{ $compactoAqui ? 'lg:justify-center lg:px-0' : '' }}">
 
     <x-user-avatar :user="$usuario" size="md" />

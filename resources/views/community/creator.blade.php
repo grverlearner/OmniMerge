@@ -153,6 +153,15 @@
                 </div>
 
                 <div class="flex shrink-0 flex-wrap items-center gap-1.5">
+                    {{--
+                        Esta pantalla es su biblioteca. Quien quiera saber quien
+                        es -las dos mitades a la vez- tiene el perfil entero.
+                    --}}
+                    <a href="{{ route('profiles.show', $user->username) }}"
+                        class="rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-2 text-[11px] font-black text-violet-300 transition hover:bg-violet-500 hover:text-white">
+                        Su perfil completo
+                    </a>
+
                     <a href="{{ route('tournaments.community.creator', $user) }}"
                         class="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-[11px] font-black text-slate-400 transition hover:border-amber-500 hover:text-amber-300"
                         title="Sus plantillas de torneo están en la otra comunidad">

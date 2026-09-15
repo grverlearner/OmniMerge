@@ -1,195 +1,188 @@
-<x-universe-layout>
+@php
+    /*
+     * El centro de mando de todos los mundos.
+     *
+     * Lo que habia: un hero, cinco contadores, los universos recientes y un
+     * bloque de «hoja de ruta» que prometia resultados y rankings «cuando las
+     * competiciones puedan jugarse de verdad» —cosa que lleva jugandose desde
+     * hace tiempo—. Una promesa caducada en la primera pantalla del modulo.
+     *
+     * Lo que es ahora: que esta pasando AHORA MISMO en todos tus mundos a la
+     * vez, y donde hace falta que entres. La estanteria («Mis universos») sirve
+     * para encontrar y comparar; esto sirve para actuar.
+     *
+     * Ver docs/md/73-Universos-Centro.md
+     */
 
-    <x-slot name="header">
-        Dashboard de Universos
-    </x-slot>
+    $tonosEstado = [
+        'ACTIVE' => ['#34d399', 'En marcha'],
+        'DRAFT' => ['#60a5fa', 'Borrador'],
+        'ARCHIVED' => ['#64748b', 'Archivado'],
+    ];
 
-    {{-- HERO --}}
+    $tonoTipoActividad = [
+        'SEASON_STARTED' => ['#a78bfa', 'Temporadas'],
+        'COMPETITION_STARTED' => ['#34d399', 'Empiezan'],
+        'COMPETITION_COMPLETED' => ['#22d3ee', 'Terminan'],
+        'CHAMPION_CROWNED' => ['#fbbf24', 'Campeones'],
+        'ENTITIES_IMPORTED' => ['#fb7185', 'Llegan competidores'],
+    ];
 
-    <section
-        class="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 p-7 text-white shadow-2xl shadow-indigo-950/20 sm:p-9">
+    $meses = [1 => 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
-        <div class="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-violet-400/15 blur-3xl">
-        </div>
+    $urgentes = $atencion->where('urgente', true)->count();
+@endphp
 
-        <div class="relative flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+<x-universe-layout surface="dark">
 
-            <div class="max-w-3xl">
-                <div
-                    class="inline-flex items-center gap-2 rounded-full border border-violet-300/20 bg-violet-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-violet-300">
-                    🌌 Contenedor de tus torneos
+    <x-slot name="header">Universos</x-slot>
+
+    <div x-data="{ tipoActividad: '' }" class="space-y-3">
+
+        {{-- ===================================================== --}}
+        {{-- LA PORTADA --}}
+        {{-- ===================================================== --}}
+
+        <section class="relative overflow-hidden rounded-2xl border border-violet-500/25 bg-slate-900/50">
+
+            @if ($mosaico->isNotEmpty())
+                <div class="pointer-events-none absolute inset-0 grid grid-cols-8 opacity-[0.14] sm:grid-cols-12 lg:grid-cols-[repeat(24,minmax(0,1fr))]">
+                    @foreach ($mosaico as $cara)
+                        <span class="block aspect-square overflow-hidden">
+                            <img src="{{ $cara->image_url }}" alt="" loading="lazy" class="h-full w-full object-cover">
+                        </span>
+                    @endforeach
                 </div>
 
-                <h2 class="mt-5 text-3xl font-black tracking-tight sm:text-4xl">
-                    Organiza tus torneos
-                    en Universos.
-                </h2>
+                <div class="pointer-events-none absolute inset-0"
+                    style="background: linear-gradient(105deg, #020617 26%, #020617dd 58%, #020617aa 100%)"></div>
+            @endif
 
-                <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
-                    Un Universo agrupa varias plantillas de torneo bajo un
-                    mismo nombre. Crea uno para empezar a organizar tus
-                    competiciones.
-                </p>
-            </div>
+            <div class="relative flex flex-wrap items-end gap-4 p-4">
 
-            <div class="flex flex-wrap gap-3">
-
-                <a href="{{ route('universes.index') }}"
-                    class="rounded-xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-black text-white transition hover:bg-white/15">
-                    🌌 Todos mis Universos
-                </a>
-
-                <a href="{{ route('universes.create') }}"
-                    class="rounded-xl bg-violet-400 px-5 py-3 text-sm font-black text-slate-950 shadow-lg shadow-violet-500/20 transition hover:bg-violet-300">
-                    + Nuevo Universo
-                </a>
-            </div>
-
-        </div>
-    </section>
-
-    {{-- STATS --}}
-
-    <section class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
-
-        @foreach ([['Universos', $statistics['total'], '🌌'], ['Activos', $statistics['active'], '●'], ['Borradores', $statistics['draft'], '◆'], ['Competidores', $statistics['entities'], '✦'], ['Torneos', $statistics['tournaments'], '🏆']] as [$label, $value, $icon])
-            <article class="rounded-2xl border border-slate-200 bg-white p-5">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                            {{ $label }}
-                        </p>
-
-                        <p class="mt-2 text-3xl font-black text-slate-900">
-                            {{ number_format($value) }}
-                        </p>
-                    </div>
-
-                    <div
-                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
-                        {{ $icon }}
-                    </div>
-                </div>
-            </article>
-        @endforeach
-
-    </section>
-
-    {{-- RECIENTES --}}
-
-    <section class="mt-8 rounded-3xl border border-slate-200 bg-white p-6">
-
-        <div class="flex items-start justify-between gap-4">
-            <div>
-                <p class="text-xs font-black uppercase tracking-[0.18em] text-indigo-600">
-                    Actividad
-                </p>
-
-                <h3 class="mt-2 text-2xl font-black text-slate-900">
-                    🌌 Universos recientes
-                </h3>
-            </div>
-
-            <a href="{{ route('universes.index') }}" class="text-xs font-black text-indigo-600">
-                Ver todos →
-            </a>
-        </div>
-
-        <p class="mt-3 text-sm leading-6 text-slate-500">
-            Cada Universo reúne competidores, temporadas y torneos.
-            Entra a uno para trabajar dentro de él.
-        </p>
-
-        <div class="mt-6 grid gap-3 sm:grid-cols-2">
-
-            @forelse ($recentUniverses as $recentUniverse)
-                <a href="{{ route('universes.show', $recentUniverse) }}"
-                    class="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4 transition hover:bg-indigo-50">
-
-                    <div class="min-w-0">
-                        <p class="truncate text-sm font-black text-slate-800">
-                            {{ $recentUniverse->name }}
-                        </p>
-
-                        <p class="mt-1 font-mono text-[9px] text-slate-400">
-                            {{ $recentUniverse->code }}
-                            ·
-                            {{ $recentUniverse->entities_count }} competidores
-                            ·
-                            {{ $recentUniverse->universe_tournaments_count }} torneos
-                        </p>
-                    </div>
-
-                    <span class="text-indigo-600">→</span>
-                </a>
-
-            @empty
-
-                <div
-                    class="col-span-full rounded-2xl border border-dashed border-slate-200 p-8 text-center">
-
-                    <div class="text-3xl">
-                        🌌
-                    </div>
-
-                    <p class="mt-3 text-sm font-black text-slate-700">
-                        Todavía no tienes Universos.
+                <div class="min-w-0 flex-1">
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-violet-400/70">
+                        OmniMerge · Universos
                     </p>
 
-                    <a href="{{ route('universes.create') }}"
-                        class="mt-4 inline-flex rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white">
-                        + Crear tu primer Universo
+                    <h1 class="mt-1 text-2xl font-black tracking-tight text-white">
+                        @if ($statistics['universos'] === 0)
+                            Todavía no tienes ningún mundo
+                        @elseif ($statistics['en_juego'] > 0)
+                            Hay {{ $statistics['en_juego'] }}
+                            {{ $statistics['en_juego'] === 1 ? 'competición' : 'competiciones' }} en juego
+                        @elseif ($urgentes > 0)
+                            {{ $urgentes === 1 ? 'Un mundo te está esperando' : $urgentes . ' cosas te están esperando' }}
+                        @else
+                            Tus mundos están al día
+                        @endif
+                    </h1>
+
+                    <p class="mt-0.5 max-w-2xl text-[11px] leading-relaxed text-slate-400">
+                        @if ($statistics['universos'] === 0)
+                            Un universo es un mundo con su propia gente, su propio calendario y su
+                            propia clasificación.
+                        @else
+                            {{ $statistics['habitantes'] }} competidores repartidos en
+                            {{ $statistics['universos'] }}
+                            {{ $statistics['universos'] === 1 ? 'mundo' : 'mundos' }}, que han
+                            disputado {{ number_format($statistics['partidas'], 0, ',', '.') }}
+                            enfrentamientos.
+                        @endif
+                    </p>
+                </div>
+
+                <div class="flex shrink-0 flex-wrap gap-1.5">
+                    <a href="{{ route('universes.index') }}"
+                        class="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-[11px] font-black text-slate-300 transition hover:border-violet-500 hover:text-violet-300">
+                        <x-omni-icon name="cuadricula" size="h-3.5 w-3.5" />
+                        Mis mundos
                     </a>
+
+                    @can('create', App\Models\Universe::class)
+                        <a href="{{ route('universes.create') }}"
+                            class="flex items-center gap-1.5 rounded-xl bg-violet-500 px-3 py-2 text-[11px] font-black text-white transition hover:bg-violet-400">
+                            <x-omni-icon name="mas" size="h-3.5 w-3.5" />
+                            Crear un mundo
+                        </a>
+                    @endcan
                 </div>
-            @endforelse
+            </div>
+        </section>
 
-        </div>
-    </section>
 
-    {{-- ROADMAP --}}
+        @if ($statistics['universos'] === 0)
 
-    <section class="mt-8 rounded-3xl border border-slate-200 bg-white p-6">
+            @include('universes.partials.centro.sin-mundos')
 
-        <p class="text-xs font-black uppercase tracking-[0.18em] text-indigo-600">
-            Arquitectura
-        </p>
+        @else
 
-        <h3 class="mt-2 text-xl font-black text-slate-900">
-            Qué contiene un Universo
-        </h3>
+            {{-- ===================================================== --}}
+            {{-- LAS CIFRAS DE TODO --}}
+            {{-- ===================================================== --}}
 
-        <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-500">
-            El Universo no copia nada: da contexto. Las entidades siguen en tu
-            Biblioteca y las plantillas siguen en tu Biblioteca de Torneos.
-        </p>
+            <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+                @php
+                    $cifras = [
+                        ['Mundos', $statistics['universos'], '#a78bfa', $statistics['activos'] . ' en marcha'],
+                        ['Habitantes', $statistics['habitantes'], '#22d3ee', 'en todos ellos'],
+                        ['Temporadas', $statistics['temporadas'], '#60a5fa', 'de calendario'],
+                        ['Torneos', $statistics['torneos'], '#818cf8', 'definidos'],
+                        ['Competiciones', $statistics['competiciones'], '#34d399', $statistics['terminadas'] . ' terminadas'],
+                        ['En juego', $statistics['en_juego'], '#fb7185', 'ahora mismo'],
+                        ['Enfrentamientos', $statistics['partidas'], '#fbbf24', 'jugados en total'],
+                        ['Te esperan', $atencion->count(), '#f472b6', $urgentes . ' frenan el juego'],
+                    ];
+                @endphp
 
-        <div class="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                @foreach ($cifras as [$etiqueta, $valor, $tono, $pie])
+                    <div class="rounded-xl border border-slate-800 bg-slate-900/50 px-2.5 py-2">
+                        <span class="block font-mono text-xl font-black leading-none"
+                            style="color: {{ $valor > 0 ? $tono : '#475569' }}">
+                            {{ number_format($valor, 0, ',', '.') }}
+                        </span>
+                        <span class="mt-1 block text-[9px] font-black uppercase tracking-wider text-slate-500">
+                            {{ $etiqueta }}
+                        </span>
+                        <span class="block truncate text-[9px] text-slate-600">{{ $pie }}</span>
+                    </div>
+                @endforeach
+            </section>
 
-            @foreach ([['✦', 'Competidores', 'Entidades de tu Biblioteca con contexto dentro de este Universo.', true], ['◷', 'Temporadas', 'El tiempo propio del Universo.', true], ['🏆', 'Torneos', 'Plantillas adoptadas, con nombre y contexto propios.', true], ['📊', 'Resultados y rankings', 'Cuando las competiciones puedan jugarse de verdad.', false]] as [$icon, $title, $text, $done])
-                <article
-                    class="{{ $done ? 'border-indigo-200 bg-indigo-50/60' : 'border-slate-200 bg-slate-50' }}
-                    rounded-2xl border p-4">
 
-                    <span class="text-xl">{{ $icon }}</span>
+            {{-- ===================================================== --}}
+            {{-- LO QUE ESPERA POR TI, EN TODOS LOS MUNDOS --}}
+            {{-- ===================================================== --}}
 
-                    <p class="mt-3 text-sm font-black text-slate-800">
-                        {{ $title }}
-                    </p>
+            @include('universes.partials.centro.atencion')
 
-                    <p class="mt-1 text-xs text-slate-500">
-                        {{ $text }}
-                    </p>
 
-                    <span
-                        class="{{ $done ? 'text-emerald-600' : 'text-slate-400' }}
-                        mt-3 inline-flex text-[9px] font-black uppercase">
+            {{-- ===================================================== --}}
+            {{-- EN JUEGO AHORA --}}
+            {{-- ===================================================== --}}
 
-                        {{ $done ? 'Disponible' : 'Planificado' }}
-                    </span>
-                </article>
-            @endforeach
-        </div>
+            @include('universes.partials.centro.en-juego')
 
-    </section>
+
+            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
+
+                <div class="min-w-0 space-y-3">
+
+                    @include('universes.partials.centro.pulso')
+
+                    @include('universes.partials.centro.actividad')
+                </div>
+
+                <div class="min-w-0 space-y-3">
+
+                    @include('universes.partials.centro.seguir')
+
+                    @include('universes.partials.centro.mandan')
+
+                    @include('universes.partials.centro.campeones')
+                </div>
+            </div>
+        @endif
+    </div>
 
 </x-universe-layout>

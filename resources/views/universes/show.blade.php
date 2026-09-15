@@ -1,415 +1,245 @@
-<x-universe-layout :universe="$universe">
+@php
+    /*
+     * El Resumen del Universo.
+     *
+     * La pantalla que ata el resto: que se esta jugando, quien manda, que toca
+     * y que espera por ti. Lo ultimo es lo que no habia, y es lo que convierte
+     * un resumen en un puesto de mando: el universo ya sabia que una
+     * competicion estaba bloqueada o que una edicion termino sin repartir sus
+     * premios, y eso no llegaba nunca aqui.
+     *
+     * Ver docs/md/70-Universos-Resumen.md
+     */
 
-    <x-slot name="header">
-        {{ $universe->name }}
-    </x-slot>
+    $tonoEstadoUniverso = [
+        'ACTIVE' => ['#34d399', 'En marcha'],
+        'DRAFT' => ['#60a5fa', 'Borrador'],
+        'ARCHIVED' => ['#64748b', 'Archivado'],
+    ];
 
+    [$tonoUniverso, $textoUniverso] =
+        $tonoEstadoUniverso[$universe->status] ?? ['#94a3b8', $universe->status];
 
-    {{-- ============================================ --}}
-    {{-- CABECERA DEL MUNDO --}}
-    {{-- ============================================ --}}
+    $tonoTipoActividad = [
+        'SEASON_STARTED' => ['#a78bfa', 'Temporadas'],
+        'COMPETITION_STARTED' => ['#34d399', 'Empiezan'],
+        'COMPETITION_COMPLETED' => ['#22d3ee', 'Terminan'],
+        'CHAMPION_CROWNED' => ['#fbbf24', 'Campeones'],
+        'ENTITIES_IMPORTED' => ['#fb7185', 'Llegan competidores'],
+    ];
 
-    <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+    $puedeEditar = auth()->user()?->can('update', $universe) ?? false;
 
-        <div class="grid lg:grid-cols-[300px_1fr]">
+    $meses = [1 => 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+@endphp
 
-            <div class="min-h-[220px] bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950">
+<x-universe-layout :universe="$universe" surface="dark">
 
-                @if ($universe->image_url)
-                    <img src="{{ $universe->image_url }}" alt="{{ $universe->name }}"
-                        class="h-full min-h-[220px] w-full object-cover">
-                @else
-                    <div class="flex h-full min-h-[220px] items-center justify-center text-7xl">🌌</div>
-                @endif
+    <x-slot name="header">{{ $universe->name }}</x-slot>
 
-            </div>
+    <div x-data="resumenDelUniverso()" class="space-y-3">
 
+        {{-- ===================================================== --}}
+        {{-- LA PORTADA DEL MUNDO --}}
+        {{-- ===================================================== --}}
 
-            <div class="p-7">
+        <section class="relative overflow-hidden rounded-2xl border bg-slate-900/50"
+            style="border-color: {{ $tonoUniverso }}44">
 
-                <div class="flex flex-wrap items-center gap-2">
-
-                    <span class="rounded-full bg-slate-100 px-3 py-1 font-mono text-[9px] font-black text-slate-500">
-                        {{ $universe->code }}
-                    </span>
-
-                    <span
-                        class="rounded-full px-3 py-1 text-[9px] font-black uppercase
-                            {{ $universe->status === 'ACTIVE'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : ($universe->status === 'DRAFT'
-                                    ? 'bg-violet-100 text-violet-700'
-                                    : 'bg-slate-200 text-slate-600') }}">
-                        {{ $universe->status_label }}
-                    </span>
-
-                    @if ($activeSeason)
-                        <a href="{{ route('universes.seasons.show', [$universe, $activeSeason]) }}"
-                            class="rounded-full bg-violet-600 px-3 py-1 text-[9px] font-black uppercase text-white">
-                            ◷ Temporada {{ $activeSeason->number }} en curso
-                        </a>
-                    @else
-                        <span class="rounded-full bg-amber-100 px-3 py-1 text-[9px] font-black uppercase text-amber-700">
-                            Sin temporada activa
+            {{-- El mosaico de caras detrás: el mundo es su gente --}}
+            @if ($mosaico->isNotEmpty())
+                <div class="pointer-events-none absolute inset-0 grid grid-cols-6 opacity-[0.16] sm:grid-cols-9 lg:grid-cols-[repeat(18,minmax(0,1fr))]">
+                    @foreach ($mosaico as $cara)
+                        <span class="block aspect-square overflow-hidden">
+                            <img src="{{ $cara->image_url }}" alt="" loading="lazy" class="h-full w-full object-cover">
                         </span>
-                    @endif
-
-                    @if ($statistics['competitions_running'] > 0)
-                        <span class="rounded-full bg-emerald-100 px-3 py-1 text-[9px] font-black uppercase text-emerald-700">
-                            ⚔ {{ $statistics['competitions_running'] }} en juego
-                        </span>
-                    @endif
-
-                </div>
-
-
-                <h2 class="mt-4 text-3xl font-black tracking-tight text-slate-900">
-                    {{ $universe->name }}
-                </h2>
-
-                <p class="mt-3 max-w-3xl whitespace-pre-line text-sm leading-7 text-slate-500">
-                    {{ $universe->description ?: 'Este Universo todavía no tiene descripción.' }}
-                </p>
-
-
-                @can('update', $universe)
-                    <div class="mt-6 flex flex-wrap gap-2">
-
-                        <a href="{{ route('universes.entities.create', $universe) }}"
-                            class="rounded-xl bg-violet-600 px-4 py-2.5 text-xs font-black text-white shadow-lg shadow-violet-600/20">
-                            + Añadir entidades
-                        </a>
-
-                        <a href="{{ route('universes.tournaments.create', $universe) }}"
-                            class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700">
-                            + Añadir torneo
-                        </a>
-
-                        <a href="{{ route('universes.seasons.create', $universe) }}"
-                            class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700">
-                            + Nueva temporada
-                        </a>
-
-                    </div>
-                @endcan
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-    {{-- CIFRAS --}}
-
-    <section class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-
-        @foreach ([
-        ['Entidades', $statistics['entities'], '✦', route('universes.entities.index', $universe)],
-        ['Temporadas', $statistics['seasons'], '◷', route('universes.seasons.index', $universe)],
-        ['Torneos', $statistics['tournaments'], '🏆', route('universes.tournaments.index', $universe)],
-        ['Competiciones', $statistics['competitions'], '⚔', route('universes.competitions.index', $universe)],
-    ] as [$label, $value, $icon, $url])
-            <a href="{{ $url }}"
-                class="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-violet-300 hover:shadow-lg hover:shadow-violet-950/5">
-
-                <div class="flex items-center justify-between gap-2">
-
-                    <div class="min-w-0">
-                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">{{ $label }}</p>
-                        <p class="mt-1.5 text-3xl font-black text-slate-900">{{ $value }}</p>
-                    </div>
-
-                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 transition group-hover:bg-violet-600 group-hover:text-white">
-                        {{ $icon }}
-                    </span>
-
-                </div>
-
-            </a>
-        @endforeach
-
-    </section>
-
-
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-
-        <div class="space-y-6">
-
-            {{-- ============================================ --}}
-            {{-- EN JUEGO AHORA --}}
-            {{-- ============================================ --}}
-
-            @if ($liveCompetitions->isNotEmpty())
-                <section class="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50/60 to-white p-6">
-
-                    <div class="flex items-end justify-between gap-4">
-                        <div>
-                            <p class="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Ahora mismo</p>
-                            <h3 class="mt-2 text-2xl font-black text-slate-900">⚔ En juego</h3>
-                        </div>
-
-                        <a href="{{ route('universes.competitions.index', $universe) }}"
-                            class="text-xs font-black text-emerald-700">Ver todas →</a>
-                    </div>
-
-                    <div class="mt-5 grid gap-3 sm:grid-cols-2">
-
-                        @foreach ($liveCompetitions as $competition)
-                            <a href="{{ route('universes.competitions.show', [$universe, $competition]) }}"
-                                class="group rounded-2xl bg-white p-4 shadow-sm transition hover:shadow-md">
-
-                                <p class="truncate text-sm font-black text-slate-900">{{ $competition->name }}</p>
-
-                                <p class="mt-1 truncate text-[10px] text-slate-400">
-                                    {{ $competition->universeTournament?->name }}
-                                </p>
-
-                                <div class="mt-3 flex items-center justify-between">
-                                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700">
-                                        {{ $competition->status_label }}
-                                    </span>
-
-                                    <span class="text-[10px] font-bold text-slate-400">
-                                        {{ $competition->participant_count }} participantes
-                                    </span>
-                                </div>
-
-                            </a>
-                        @endforeach
-
-                    </div>
-
-                </section>
-            @endif
-
-
-            {{-- ============================================ --}}
-            {{-- CLASIFICACIÓN --}}
-            {{-- ============================================ --}}
-
-            <section class="rounded-3xl border border-slate-200 bg-white p-6">
-
-                <div class="flex items-end justify-between gap-4">
-                    <div>
-                        <p class="text-xs font-black uppercase tracking-[0.18em] text-violet-600">Quién manda</p>
-                        <h3 class="mt-2 text-2xl font-black text-slate-900">📊 Clasificación</h3>
-                    </div>
-
-                    <a href="{{ route('universes.ranking', $universe) }}"
-                        class="text-xs font-black text-violet-600">Ver completa →</a>
-                </div>
-
-
-                @if ($ranking->isEmpty())
-                    <p class="mt-5 rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-400">
-                        Todavía no se ha jugado nada. La clasificación aparecerá cuando termine la primera competición.
-                    </p>
-                @else
-                    <div class="mt-5 space-y-2">
-
-                        @foreach ($ranking as $row)
-                            <a href="{{ route('universes.entities.show', [$universe, $row->entity]) }}"
-                                class="group flex items-center gap-3 rounded-2xl {{ $row->position === 1 ? 'bg-violet-50' : 'bg-slate-50' }} p-3 transition hover:bg-violet-100">
-
-                                <span
-                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black
-                                        {{ $row->position === 1 ? 'bg-violet-600 text-white' : 'bg-white text-slate-500' }}">
-                                    {{ $row->position }}
-                                </span>
-
-                                <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-violet-100 text-violet-500">
-                                    @if ($row->entity->image_url)
-                                        <img src="{{ $row->entity->image_url }}" alt="{{ $row->entity->display_label }}"
-                                            class="h-full w-full object-cover">
-                                    @else
-                                        ✦
-                                    @endif
-                                </div>
-
-                                <div class="min-w-0 flex-1">
-                                    <p class="truncate text-sm font-black text-slate-900">{{ $row->entity->display_label }}</p>
-                                    <p class="mt-0.5 text-[10px] text-slate-400">
-                                        {{ $row->tournaments }} torneos · {{ $row->titles }} títulos
-                                    </p>
-                                </div>
-
-                                <span class="shrink-0 text-right">
-                                    <span class="block text-sm font-black text-slate-900 tabular-nums">{{ $row->points }}</span>
-                                    <span class="block text-[9px] font-bold uppercase text-slate-400">pts</span>
-                                </span>
-
-                            </a>
-                        @endforeach
-
-                    </div>
-                @endif
-
-            </section>
-
-
-            {{-- ============================================ --}}
-            {{-- ÚLTIMOS CAMPEONES --}}
-            {{-- ============================================ --}}
-
-            @if ($recentChampions->isNotEmpty())
-                <section class="rounded-3xl border border-slate-200 bg-white p-6">
-
-                    <p class="text-xs font-black uppercase tracking-[0.18em] text-violet-600">Palmarés</p>
-                    <h3 class="mt-2 text-2xl font-black text-slate-900">🏆 Últimos campeones</h3>
-
-                    <div class="mt-5 grid gap-3 sm:grid-cols-2">
-
-                        @foreach ($recentChampions as $champion)
-                            <div class="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
-
-                                <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-violet-100 text-xl text-violet-500 ring-2 ring-violet-500/20">
-                                    @if ($champion->universeEntity?->image_url)
-                                        <img src="{{ $champion->universeEntity->image_url }}"
-                                            alt="{{ $champion->name }}" class="h-full w-full object-cover">
-                                    @else
-                                        ✦
-                                    @endif
-                                </div>
-
-                                <div class="min-w-0">
-                                    <p class="truncate text-sm font-black text-slate-900">{{ $champion->name }}</p>
-                                    <p class="mt-0.5 truncate text-[10px] text-slate-400">
-                                        {{ $champion->tournamentInstance?->name }}
-                                        @if ($champion->tournamentInstance?->season)
-                                            · T{{ $champion->tournamentInstance->season->number }}
-                                        @endif
-                                    </p>
-                                </div>
-
-                            </div>
-                        @endforeach
-
-                    </div>
-
-                </section>
-            @endif
-
-        </div>
-
-
-        {{-- ============================================ --}}
-        {{-- LATERAL --}}
-        {{-- ============================================ --}}
-
-        <div class="space-y-6">
-
-            {{-- PRÓXIMOS TORNEOS --}}
-
-            <section class="rounded-3xl border border-slate-200 bg-white p-6">
-
-                <p class="text-xs font-black uppercase tracking-[0.18em] text-violet-600">Calendario</p>
-                <h3 class="mt-2 text-xl font-black text-slate-900">Toca jugar</h3>
-
-                @if (!$activeSeason)
-                    <p class="mt-4 rounded-2xl border border-dashed border-amber-300 bg-amber-50/60 p-4 text-xs text-amber-800">
-                        Activa una temporada para saber qué torneos tocan.
-                    </p>
-                @elseif ($upcoming->isEmpty())
-                    <p class="mt-4 rounded-2xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
-                        Nada pendiente en la Temporada {{ $activeSeason->number }}.
-                    </p>
-                @else
-                    <div class="mt-4 space-y-2">
-
-                        @foreach ($upcoming as $tournament)
-                            <a href="{{ route('universes.tournaments.show', [$universe, $tournament]) }}"
-                                class="group flex items-center gap-3 rounded-2xl bg-slate-50 p-3 transition hover:bg-violet-50">
-
-                                <span class="text-lg">🏆</span>
-
-                                <div class="min-w-0 flex-1">
-                                    <p class="truncate text-xs font-black text-slate-800">{{ $tournament->name }}</p>
-                                    <p class="mt-0.5 truncate text-[10px] text-slate-400">
-                                        {{ $tournament->recurrence_label }}
-                                    </p>
-                                </div>
-
-                                <span class="text-violet-500 transition group-hover:translate-x-0.5">→</span>
-
-                            </a>
-                        @endforeach
-
-                    </div>
-                @endif
-
-            </section>
-
-
-            {{-- ACTIVIDAD --}}
-
-            <section class="rounded-3xl border border-slate-200 bg-white p-6">
-
-                <p class="text-xs font-black uppercase tracking-[0.18em] text-violet-600">Crónica</p>
-                <h3 class="mt-2 text-xl font-black text-slate-900">Qué ha pasado</h3>
-
-                @if ($activity->isEmpty())
-                    <p class="mt-4 rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
-                        Aquí aparecerá lo que vaya ocurriendo en el Universo.
-                    </p>
-                @else
-                    <div class="mt-4 space-y-1">
-
-                        @foreach ($activity as $item)
-                            <div class="flex items-start gap-3 rounded-xl px-2 py-2.5 transition hover:bg-slate-50">
-
-                                <span class="mt-0.5 shrink-0 text-sm">{{ $item->icon ?: '·' }}</span>
-
-                                <div class="min-w-0 flex-1">
-                                    <p class="text-xs leading-5 text-slate-700">{{ $item->message }}</p>
-                                    <p class="mt-0.5 text-[10px] text-slate-400">
-                                        {{ $item->occurred_at?->diffForHumans() }}
-                                    </p>
-                                </div>
-
-                            </div>
-                        @endforeach
-
-                    </div>
-                @endif
-
-            </section>
-
-
-            {{-- ACCESOS --}}
-
-            <section class="rounded-3xl border border-slate-200 bg-white p-6">
-
-                <p class="text-xs font-black uppercase tracking-[0.18em] text-violet-600">Explorar</p>
-
-                <div class="mt-4 space-y-2">
-
-                    @foreach ([
-        ['🧭', 'Explorar el Universo', 'Por tipo y por atributo', route('universes.explorer', $universe)],
-        ['📊', 'Clasificación', 'Quién va ganando', route('universes.ranking', $universe)],
-        ['◷', 'Historial', 'Todo lo jugado', route('universes.history', $universe)],
-    ] as [$icon, $title, $subtitle, $url])
-                        <a href="{{ $url }}"
-                            class="group flex items-center gap-3 rounded-2xl bg-slate-50 p-3 transition hover:bg-violet-50">
-
-                            <span class="text-lg">{{ $icon }}</span>
-
-                            <div class="min-w-0 flex-1">
-                                <p class="truncate text-xs font-black text-slate-800">{{ $title }}</p>
-                                <p class="mt-0.5 truncate text-[10px] text-slate-400">{{ $subtitle }}</p>
-                            </div>
-
-                            <span class="text-violet-500 transition group-hover:translate-x-0.5">→</span>
-
-                        </a>
                     @endforeach
-
                 </div>
 
-            </section>
+                <div class="pointer-events-none absolute inset-0"
+                    style="background: linear-gradient(105deg, #020617 22%, #020617dd 52%, #020617aa 100%)"></div>
+            @endif
 
+            <div class="relative flex flex-wrap items-center gap-4 p-4">
+
+                {{-- La cara del universo --}}
+                <span class="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border bg-slate-950"
+                    style="border-color: {{ $tonoUniverso }}55">
+                    @if ($universe->image_url)
+                        <img src="{{ $universe->image_url }}" alt="" class="h-full w-full object-cover">
+                    @else
+                        <span class="flex h-full w-full items-center justify-center text-slate-700">
+                            <x-omni-icon name="globo" size="h-8 w-8" />
+                        </span>
+                    @endif
+                </span>
+
+                <div class="min-w-0 flex-1">
+
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="rounded-lg px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                            style="color: {{ $tonoUniverso }}; background-color: {{ $tonoUniverso }}1f">
+                            {{ $textoUniverso }}
+                        </span>
+
+                        <span class="font-mono text-[10px] text-slate-600">{{ $universe->code }}</span>
+
+                        @if ($activeSeason)
+                            <a href="{{ route('universes.seasons.show', [$universe, $activeSeason]) }}"
+                                class="rounded-lg bg-violet-500/15 px-2 py-0.5 text-[10px] font-black text-violet-300 transition hover:bg-violet-500 hover:text-white">
+                                Temporada {{ $activeSeason->number }} · {{ $activeSeason->name }}
+                            </a>
+                        @else
+                            <span class="rounded-lg bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-300">
+                                Sin temporada en marcha
+                            </span>
+                        @endif
+
+                        @if ($statistics['competitions_running'] > 0)
+                            <a href="{{ route('universes.competitions.index', $universe) }}"
+                                class="flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-300 transition hover:bg-emerald-500 hover:text-white">
+                                <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"></span>
+                                {{ $statistics['competitions_running'] }} en juego
+                            </a>
+                        @endif
+                    </div>
+
+                    <h1 class="mt-1.5 text-2xl font-black leading-tight tracking-tight text-white">
+                        {{ $universe->name }}
+                    </h1>
+
+                    @if ($universe->description)
+                        <p class="mt-1 line-clamp-2 max-w-2xl text-[11px] leading-relaxed text-slate-400">
+                            {{ $universe->description }}
+                        </p>
+                    @endif
+                </div>
+
+                <div class="flex shrink-0 flex-wrap items-center gap-1.5">
+                    <a href="{{ route('universes.explorer', $universe) }}"
+                        class="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-[11px] font-black text-slate-300 transition hover:border-violet-500 hover:text-violet-300">
+                        <x-omni-icon name="globo" size="h-3.5 w-3.5" />
+                        Ver el mapa
+                    </a>
+
+                    @if ($puedeEditar)
+                        <a href="{{ route('universes.edit', $universe) }}"
+                            class="rounded-xl border border-slate-800 bg-slate-950/70 p-2 text-slate-500 transition hover:border-violet-500 hover:text-violet-300"
+                            title="Ajustes del universo">
+                            <x-omni-icon name="engranaje" size="h-4 w-4" />
+                        </a>
+                    @endif
+                </div>
+            </div>
+        </section>
+
+
+        @if (session('success'))
+            <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-[12px] font-bold text-emerald-200">
+                {{ session('success') }}
+            </div>
+        @endif
+
+
+        {{-- ===================================================== --}}
+        {{-- LO QUE ESPERA POR TI --}}
+        {{-- ===================================================== --}}
+
+        @include('universes.partials.resumen.atencion')
+
+
+        {{-- ===================================================== --}}
+        {{-- EL PULSO --}}
+        {{-- ===================================================== --}}
+
+        <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+
+            @php
+                $cifras = [
+                    ['Competidores', $statistics['entities'], '#a78bfa', route('universes.entities.index', $universe), $statistics['have_competed'] . ' han competido'],
+                    ['Temporadas', $statistics['seasons'], '#60a5fa', route('universes.seasons.index', $universe), $activeSeason ? 'la ' . $activeSeason->number . ' en curso' : 'ninguna en curso'],
+                    ['Torneos', $statistics['tournaments'], '#22d3ee', route('universes.tournaments.index', $universe), 'definidos en este mundo'],
+                    ['Competiciones', $statistics['competitions'], '#34d399', route('universes.competitions.index', $universe), $statistics['competitions_done'] . ' terminadas'],
+                    ['En juego', $statistics['competitions_running'], '#fb7185', route('universes.competitions.index', $universe), 'ahora mismo'],
+                    ['Trofeos dados', $statistics['trophy_awards'], '#fbbf24', route('universes.trophies.index', $universe), $statistics['trophies'] . ' en la vitrina'],
+                ];
+            @endphp
+
+            @foreach ($cifras as [$etiqueta, $valor, $tono, $destino, $pie])
+                <a href="{{ $destino }}"
+                    class="group rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2 transition hover:-translate-y-0.5"
+                    style="--t: {{ $tono }}"
+                    onmouseover="this.style.borderColor='{{ $tono }}66'"
+                    onmouseout="this.style.borderColor=''">
+
+                    <span class="block font-mono text-2xl font-black leading-none"
+                        style="color: {{ $valor > 0 ? $tono : '#475569' }}">{{ $valor }}</span>
+
+                    <span class="mt-1 block text-[9px] font-black uppercase tracking-wider text-slate-500">
+                        {{ $etiqueta }}
+                    </span>
+
+                    <span class="block truncate text-[9px] text-slate-600">{{ $pie }}</span>
+                </a>
+            @endforeach
+        </section>
+
+
+        {{-- ===================================================== --}}
+        {{-- LO QUE SE ESTÁ JUGANDO --}}
+        {{-- ===================================================== --}}
+
+        @include('universes.partials.resumen.en-juego')
+
+
+        <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
+
+            <div class="min-w-0 space-y-3">
+
+                {{-- ---------- LA TEMPORADA ---------- --}}
+
+                @include('universes.partials.resumen.temporada')
+
+                {{-- ---------- LA LÍNEA DEL TIEMPO ---------- --}}
+
+                @include('universes.partials.resumen.linea')
+
+                {{-- ---------- QUÉ HA PASADO ---------- --}}
+
+                @include('universes.partials.resumen.actividad')
+            </div>
+
+
+            <div class="min-w-0 space-y-3">
+
+                {{-- ---------- QUIÉN MANDA ---------- --}}
+
+                @include('universes.partials.resumen.ranking')
+
+                {{-- ---------- LOS ÚLTIMOS EN GANAR ---------- --}}
+
+                @include('universes.partials.resumen.campeones')
+
+                {{-- ---------- CON QUÉ SE JUEGA ---------- --}}
+
+                @include('universes.partials.resumen.juegos')
+            </div>
         </div>
-
     </div>
+
+
+    <script>
+        function resumenDelUniverso() {
+
+            return {
+
+                /* El filtro del historial: por tipo, sin recargar */
+                tipoActividad: '',
+
+                /* Qué tarjeta de premios tiene la confirmación abierta */
+                confirmando: null,
+            };
+        }
+    </script>
 
 </x-universe-layout>

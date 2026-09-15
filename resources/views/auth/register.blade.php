@@ -1,453 +1,188 @@
+@php
+    /*
+     * Crear una cuenta.
+     *
+     * Tres cosas cambian además del oscuro:
+     *
+     *   · El usuario enseña la dirección que va a generar —/perfil/tu-usuario—
+     *     y se comprueba mientras se escribe con la misma regla que valida el
+     *     servidor (3 caracteres, letras, números, guiones). Y se avisa de que se
+     *     guarda en minúsculas, porque el controlador lo hace.
+     *
+     *   · La contraseña dice su único requisito real —al menos 8 caracteres,
+     *     Password::defaults() sin configurar— y si la repetición coincide.
+     *
+     *   · La nota de privacidad era verdad a medias: decía «tu biblioteca
+     *     comenzará siendo privada». Lo es —entidades, colecciones y atributos
+     *     nacen PRIVATE—, pero el perfil nace PUBLIC. Ahora se dicen las dos.
+     */
+@endphp
+
 <x-guest-layout>
 
+    <x-slot name="titulo">Crear cuenta</x-slot>
+
     <div x-data="{
-        showPassword: false,
-        showConfirmation: false
+        usuario: @js(old('username', '')),
+        clave: '',
+        repetida: '',
+
+        get usuarioValido() {
+            return this.usuario.length >= 3
+                && this.usuario.length <= 50
+                && /^[\p{L}\p{M}\p{N}_-]+$/u.test(this.usuario);
+        },
+
+        get claveValida() {
+            return this.clave.length >= 8;
+        },
+
+        get coinciden() {
+            return this.repetida !== '' && this.repetida === this.clave;
+        },
     }">
 
-        {{-- ENCABEZADO --}}
         <div>
+            <p class="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-400/80">Únete</p>
 
-            <p
-                class="
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-[0.18em]
-                    text-indigo-600
-                ">
-                Únete a OmniMerge
+            <h1 class="mt-2 text-3xl font-black tracking-tight text-white">Crea tu cuenta</h1>
+
+            <p class="mt-2 text-[14px] leading-relaxed text-slate-400">
+                Gratis. En un minuto estás creando tu primera entidad.
             </p>
-
-            <h1
-                class="
-                    mt-3
-                    text-3xl
-                    font-black
-                    tracking-tight
-                    text-slate-950
-                ">
-                Crea tu cuenta
-            </h1>
-
-            <p
-                class="
-                    mt-3
-                    text-sm
-                    leading-6
-                    text-slate-500
-                ">
-                Empieza a construir tu biblioteca de entidades,
-                atributos y colecciones.
-            </p>
-
         </div>
 
 
-        <form method="POST" action="{{ route('register') }}" class="mt-8">
+        <form method="POST" action="{{ route('register') }}" class="mt-6 space-y-4">
             @csrf
 
+            @include('auth.partials.campo', [
+                'nombre' => 'name',
+                'etiqueta' => 'Tu nombre',
+                'icono' => 'usuario',
+                'valor' => old('name'),
+                'autocomplete' => 'name',
+                'placeholder' => 'Cómo quieres que te vean',
+                'autofocus' => true,
+            ])
 
-            {{-- NOMBRE COMPLETO --}}
+
+            {{-- El usuario, con la dirección que genera --}}
             <div>
+                @include('auth.partials.campo', [
+                    'nombre' => 'username',
+                    'etiqueta' => 'Nombre de usuario',
+                    'prefijo' => '@',
+                    'valor' => old('username'),
+                    'autocomplete' => 'username',
+                    'placeholder' => 'tu-usuario',
+                    'extra' => 'x-model="usuario"',
+                ])
 
-                <label for="name"
-                    class="
-                        block
-                        text-sm
-                        font-bold
-                        text-slate-700
-                    ">
-                    Nombre completo
-                </label>
+                @unless ($errors->has('username'))
+                    <p class="mt-1.5 text-[11px] leading-4">
+                        <span x-show="usuario === ''" class="text-slate-600">
+                            Letras, números, guiones o guiones bajos. Será tu dirección.
+                        </span>
 
-                <input id="name" type="text" name="name" value="{{ old('name') }}" required autofocus
-                    autocomplete="name" placeholder="Tu nombre"
-                    class="
-                        mt-2
-                        w-full
-                        rounded-xl
-                        border-slate-300
-                        bg-slate-50
-                        px-4
-                        py-3.5
-                        text-sm
-                        text-slate-900
-                        placeholder:text-slate-400
-                        focus:border-indigo-500
-                        focus:bg-white
-                        focus:ring-indigo-500
-                    ">
+                        <span x-show="usuario !== '' && usuarioValido" x-cloak class="text-emerald-300/80">
+                            Tu perfil será
+                            <span class="font-mono font-bold text-emerald-200">/perfil/<span x-text="usuario.toLowerCase()"></span></span>
+                        </span>
 
-                @error('name')
-                    <p
-                        class="
-                            mt-2
-                            text-sm
-                            font-semibold
-                            text-red-600
-                        ">
-                        {{ $message }}
+                        <span x-show="usuario !== '' && ! usuarioValido" x-cloak class="text-amber-300/80">
+                            <span x-show="usuario.length < 3">Al menos 3 caracteres.</span>
+                            <span x-show="usuario.length >= 3">Solo letras, números, guiones y guiones bajos.</span>
+                        </span>
                     </p>
-                @enderror
+                @endunless
             </div>
 
 
-            {{-- USERNAME --}}
-            <div class="mt-5">
+            @include('auth.partials.campo', [
+                'nombre' => 'email',
+                'etiqueta' => 'Correo',
+                'tipo' => 'email',
+                'icono' => 'correo',
+                'valor' => old('email'),
+                'autocomplete' => 'email',
+                'placeholder' => 'tu@correo.com',
+                'ayuda' => 'No se enseña a nadie. Sirve para entrar y recuperar la cuenta.',
+            ])
 
-                <label for="username"
-                    class="
-                        block
-                        text-sm
-                        font-bold
-                        text-slate-700
-                    ">
-                    Nombre de usuario
-                </label>
 
-                <div class="relative mt-2">
+            {{-- La contraseña, con su único requisito real --}}
+            <div>
+                @include('auth.partials.clave', [
+                    'nombre' => 'password',
+                    'etiqueta' => 'Contraseña',
+                    'autocomplete' => 'new-password',
+                    'placeholder' => 'Al menos 8 caracteres',
+                    'extra' => 'x-model="clave"',
+                ])
 
-                    <div
-                        class="
-                            pointer-events-none
-                            absolute
-                            inset-y-0
-                            left-0
-                            flex
-                            items-center
-                            pl-4
-                            font-bold
-                            text-slate-400
-                        ">
-                        @
-                    </div>
+                @unless ($errors->has('password'))
+                    <p class="mt-1.5 flex items-center gap-1.5 text-[11px]"
+                        :class="clave === '' ? 'text-slate-600' : (claveValida ? 'text-emerald-300/80' : 'text-amber-300/80')">
+                        <span class="h-1.5 w-1.5 rounded-full"
+                            :class="clave === '' ? 'bg-slate-700' : (claveValida ? 'bg-emerald-400' : 'bg-amber-400')"></span>
+                        <span x-text="clave === '' || claveValida
+                            ? 'Al menos 8 caracteres.'
+                            : `Te faltan ${8 - clave.length} caracteres.`"></span>
+                    </p>
+                @endunless
+            </div>
 
-                    <input id="username" type="text" name="username" value="{{ old('username') }}" required
-                        autocomplete="username" placeholder="grverlearner"
-                        class="
-                            w-full
-                            rounded-xl
-                            border-slate-300
-                            bg-slate-50
-                            py-3.5
-                            pl-9
-                            pr-4
-                            text-sm
-                            text-slate-900
-                            placeholder:text-slate-400
-                            focus:border-indigo-500
-                            focus:bg-white
-                            focus:ring-indigo-500
-                        ">
-                </div>
+            <div>
+                @include('auth.partials.clave', [
+                    'nombre' => 'password_confirmation',
+                    'etiqueta' => 'Repítela',
+                    'autocomplete' => 'new-password',
+                    'placeholder' => 'La misma otra vez',
+                    'extra' => 'x-model="repetida"',
+                ])
 
-                <p
-                    class="
-                        mt-2
-                        text-xs
-                        text-slate-400
-                    ">
-                    Usa letras, números, guiones o guiones bajos.
+                <p x-show="repetida !== ''" x-cloak class="mt-1.5 flex items-center gap-1.5 text-[11px]"
+                    :class="coinciden ? 'text-emerald-300/80' : 'text-amber-300/80'">
+                    <span class="h-1.5 w-1.5 rounded-full" :class="coinciden ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                    <span x-text="coinciden ? 'Coinciden.' : 'Todavía no coinciden.'"></span>
                 </p>
-
-                @error('username')
-                    <p
-                        class="
-                            mt-2
-                            text-sm
-                            font-semibold
-                            text-red-600
-                        ">
-                        {{ $message }}
-                    </p>
-                @enderror
             </div>
 
 
-            {{-- EMAIL --}}
-            <div class="mt-5">
+            {{-- Qué empieza siendo visible, dicho entero --}}
+            <div class="rounded-xl border border-indigo-500/25 bg-indigo-500/5 p-3">
+                <div class="flex gap-2.5">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-300">
+                        <x-omni-icon name="candado" size="h-4 w-4" />
+                    </span>
 
-                <label for="email"
-                    class="
-                        block
-                        text-sm
-                        font-bold
-                        text-slate-700
-                    ">
-                    Correo electrónico
-                </label>
-
-                <input id="email" type="email" name="email" value="{{ old('email') }}" required
-                    autocomplete="email" placeholder="tu@email.com"
-                    class="
-                        mt-2
-                        w-full
-                        rounded-xl
-                        border-slate-300
-                        bg-slate-50
-                        px-4
-                        py-3.5
-                        text-sm
-                        text-slate-900
-                        placeholder:text-slate-400
-                        focus:border-indigo-500
-                        focus:bg-white
-                        focus:ring-indigo-500
-                    ">
-
-                @error('email')
-                    <p
-                        class="
-                            mt-2
-                            text-sm
-                            font-semibold
-                            text-red-600
-                        ">
-                        {{ $message }}
-                    </p>
-                @enderror
-            </div>
-
-
-            {{-- PASSWORD --}}
-            <div class="mt-5">
-
-                <label for="password"
-                    class="
-                        block
-                        text-sm
-                        font-bold
-                        text-slate-700
-                    ">
-                    Contraseña
-                </label>
-
-
-                <div class="relative mt-2">
-
-                    <input id="password" :type="showPassword ? 'text' : 'password'" name="password" required
-                        autocomplete="new-password" placeholder="Crea una contraseña segura"
-                        class="
-                            w-full
-                            rounded-xl
-                            border-slate-300
-                            bg-slate-50
-                            px-4
-                            py-3.5
-                            pr-12
-                            text-sm
-                            text-slate-900
-                            placeholder:text-slate-400
-                            focus:border-indigo-500
-                            focus:bg-white
-                            focus:ring-indigo-500
-                        ">
-
-                    <button type="button" @click="showPassword = !showPassword"
-                        class="
-                            absolute
-                            inset-y-0
-                            right-0
-                            px-4
-                            text-xs
-                            font-bold
-                            text-slate-400
-                            hover:text-indigo-600
-                        ">
-                        <span x-text="showPassword ? 'Ocultar' : 'Ver'"></span>
-                    </button>
-
-                </div>
-
-                @error('password')
-                    <p
-                        class="
-                            mt-2
-                            text-sm
-                            font-semibold
-                            text-red-600
-                        ">
-                        {{ $message }}
-                    </p>
-                @enderror
-            </div>
-
-
-            {{-- CONFIRMAR PASSWORD --}}
-            <div class="mt-5">
-
-                <label for="password_confirmation"
-                    class="
-                        block
-                        text-sm
-                        font-bold
-                        text-slate-700
-                    ">
-                    Confirmar contraseña
-                </label>
-
-
-                <div class="relative mt-2">
-
-                    <input id="password_confirmation" :type="showConfirmation ? 'text' : 'password'"
-                        name="password_confirmation" required autocomplete="new-password"
-                        placeholder="Repite la contraseña"
-                        class="
-                            w-full
-                            rounded-xl
-                            border-slate-300
-                            bg-slate-50
-                            px-4
-                            py-3.5
-                            pr-12
-                            text-sm
-                            text-slate-900
-                            placeholder:text-slate-400
-                            focus:border-indigo-500
-                            focus:bg-white
-                            focus:ring-indigo-500
-                        ">
-
-                    <button type="button" @click="showConfirmation = !showConfirmation"
-                        class="
-                            absolute
-                            inset-y-0
-                            right-0
-                            px-4
-                            text-xs
-                            font-bold
-                            text-slate-400
-                            hover:text-indigo-600
-                        ">
-                        <span
-                            x-text="
-                                showConfirmation
-                                    ? 'Ocultar'
-                                    : 'Ver'
-                            "></span>
-                    </button>
-
-                </div>
-
-                @error('password_confirmation')
-                    <p
-                        class="
-                            mt-2
-                            text-sm
-                            font-semibold
-                            text-red-600
-                        ">
-                        {{ $message }}
-                    </p>
-                @enderror
-            </div>
-
-
-            {{-- INFORMACIÓN --}}
-            <div
-                class="
-                    mt-6
-                    rounded-xl
-                    border
-                    border-indigo-100
-                    bg-indigo-50
-                    p-4
-                ">
-                <div class="
-                        flex
-                        gap-3
-                    ">
-                    <div
-                        class="
-                            flex
-                            h-8
-                            w-8
-                            shrink-0
-                            items-center
-                            justify-center
-                            rounded-lg
-                            bg-indigo-100
-                            text-sm
-                            text-indigo-600
-                        ">
-                        ✓
-                    </div>
-
-                    <p
-                        class="
-                            text-xs
-                            leading-5
-                            text-indigo-800
-                        ">
-                        Tu biblioteca comenzará siendo privada.
-                        Tú decides posteriormente qué contenido quieres
-                        publicar en la comunidad.
+                    <p class="text-[12px] leading-5 text-slate-400">
+                        <strong class="text-slate-200">Todo lo que crees empieza privado</strong>: nadie ve
+                        una entidad, colección o atributo hasta que tú la publicas.
+                        <span class="text-slate-500">Tu página de perfil sí es visible desde el
+                            principio, aunque vacía; puedes cerrarla cuando quieras en Mi perfil.</span>
                     </p>
                 </div>
             </div>
 
 
-            {{-- SUBMIT --}}
             <button type="submit"
-                class="
-                    mt-7
-                    flex
-                    w-full
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-xl
-                    bg-indigo-600
-                    px-5
-                    py-3.5
-                    text-sm
-                    font-black
-                    text-white
-                    shadow-lg
-                    shadow-indigo-600/20
-                    transition
-                    hover:-translate-y-0.5
-                    hover:bg-indigo-700
-                    focus:outline-none
-                    focus:ring-2
-                    focus:ring-indigo-500
-                    focus:ring-offset-2
-                ">
+                class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3.5 text-[14px] font-black text-white shadow-lg shadow-indigo-500/20 transition hover:-translate-y-0.5 hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-900">
                 Crear mi cuenta
-
-                <span>→</span>
+                <x-omni-icon name="flecha-derecha" size="h-4 w-4" />
             </button>
-
-
-            {{-- LOGIN --}}
-            <div
-                class="
-                    mt-8
-                    border-t
-                    border-slate-200
-                    pt-6
-                    text-center
-                ">
-                <p class="
-                        text-sm
-                        text-slate-500
-                    ">
-                    ¿Ya tienes una cuenta?
-
-                    <a href="{{ route('login') }}"
-                        class="
-                            ml-1
-                            font-black
-                            text-indigo-600
-                            hover:text-indigo-800
-                        ">
-                        Iniciar sesión
-                    </a>
-                </p>
-            </div>
-
         </form>
+
+
+        <div class="mt-6 border-t border-white/10 pt-5 text-center">
+            <p class="text-[13px] text-slate-500">
+                ¿Ya tienes una?
+                <a href="{{ route('login') }}" class="ml-1 font-black text-indigo-400 transition hover:text-indigo-200">
+                    Entrar
+                </a>
+            </p>
+        </div>
     </div>
 
 </x-guest-layout>

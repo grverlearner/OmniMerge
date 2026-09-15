@@ -482,7 +482,7 @@
                                     </p>
                                 </div>
 
-                                <a href="{{ route('community.creators.show', $user->username) }}"
+                                <a href="{{ route('profiles.show', $user->username) }}"
                                     class="shrink-0 rounded-xl border border-fuchsia-500/30 px-2.5 py-2 text-[10px] font-black text-slate-400 transition hover:text-white">
                                     Tu perfil →
                                 </a>

@@ -5,6 +5,7 @@ use App\Http\Controllers\Hub\HubController;
 
 use App\Http\Controllers\Entities\EntityController;
 use App\Http\Controllers\EntityTypes\EntityTypeController;
+use App\Http\Controllers\Profiles\ProfileShowController;
 use App\Http\Controllers\ProfileController;
 
 use App\Http\Controllers\Attributes\AttributeController;
@@ -3123,6 +3124,27 @@ Route::middleware('auth')->group(function () {
         'entities',
         EntityController::class
     );
+
+    /*
+    |--------------------------------------------------------------------------
+    | El perfil de una persona
+    |--------------------------------------------------------------------------
+    |
+    | El perfil ENTERO: quien es y todo lo que ha soltado, de la Biblioteca y
+    | de los Torneos a la vez. Los dos perfiles especializados que ya habia
+    | -community.creators.show y tournaments.community.creator- siguen siendo
+    | mejores para bucear en uno de los dos lados, y se enlazan desde aqui.
+    |
+    | Va por username, como los otros perfiles, para que la direccion se pueda
+    | leer y compartir.
+    |
+    | Ver docs/md/76-Perfil.md
+    */
+    Route::get(
+        '/perfil/{user:username}',
+        ProfileShowController::class
+    )->name('profiles.show');
+
 
     Route::get('/profile', [
         ProfileController::class,

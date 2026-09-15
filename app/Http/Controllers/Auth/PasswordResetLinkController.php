@@ -38,8 +38,28 @@ class PasswordResetLinkController extends Controller
         );
 
         return $status == Password::RESET_LINK_SENT
-                    ? back()->with('status', __($status))
+                    ? back()->with('status', $this->mensaje($status))
                     : back()->withInput($request->only('email'))
-                        ->withErrors(['email' => __($status)]);
+                        ->withErrors(['email' => $this->mensaje($status)]);
+    }
+
+    /*
+     * Los mensajes del broker de contraseñas, en español.
+     *
+     * Salían con __($status) y, sin carpeta lang y con la app en «en», el
+     * usuario leía los textos de fábrica de Laravel en inglés. El resto del
+     * proyecto escribe sus mensajes en español directamente en el código
+     * (RegisteredUserController, LoginRequest), y aquí se hace igual.
+     */
+    private function mensaje(string $status): string
+    {
+        return match ($status) {
+            Password::RESET_LINK_SENT => 'Te hemos mandado un enlace para elegir una contraseña nueva.',
+            Password::PASSWORD_RESET => 'Contraseña cambiada. Ya puedes entrar con la nueva.',
+            Password::INVALID_USER => 'No hay ninguna cuenta con ese correo.',
+            Password::INVALID_TOKEN => 'El enlace ya no sirve: caducó o ya se usó. Pide otro.',
+            Password::RESET_THROTTLED => 'Espera un momento antes de volver a pedirlo.',
+            default => __($status),
+        };
     }
 }

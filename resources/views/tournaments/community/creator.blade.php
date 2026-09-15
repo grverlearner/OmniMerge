@@ -98,6 +98,15 @@
                         Explorar todo lo suyo con filtros
                     </a>
 
+                    {{--
+                        Esta pantalla son sus plantillas. El perfil entero es
+                        quien contesta «quien es este».
+                    --}}
+                    <a href="{{ route('profiles.show', $creator->username) }}"
+                        class="rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2.5 text-[11px] font-black text-violet-300 transition hover:bg-violet-500 hover:text-white">
+                        Su perfil completo
+                    </a>
+
                     {{-- Su biblioteca de entidades vive en la otra comunidad --}}
                     <a href="{{ route('community.creators.show', $creator) }}"
                         class="rounded-xl border border-slate-800 px-4 py-2.5 text-[11px] font-black text-slate-400 transition hover:border-slate-600 hover:text-slate-200">

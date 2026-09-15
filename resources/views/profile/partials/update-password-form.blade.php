@@ -1,210 +1,72 @@
-<section
-    class="
-        rounded-3xl
-        border
-        border-white/10
-        bg-white
-        p-6
-        shadow-xl
-        shadow-black/10
-    ">
+@php
+    /*
+     * La contraseña. Nada que inventar aqui: los tres campos de siempre, en
+     * oscuro y con los errores en su sitio.
+     */
+@endphp
 
-    <header>
+<section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
 
-        <p
-            class="
-                text-xs
-                font-black
-                uppercase
-                tracking-wider
-                text-violet-600
-            ">
-            Seguridad
-        </p>
+    <header class="flex flex-wrap items-center gap-2 border-b border-slate-800 px-4 py-2.5">
 
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-slate-300">
+            <x-omni-icon name="engranaje" size="h-4 w-4" />
+        </span>
 
-        <h2
-            class="
-                mt-2
-                text-xl
-                font-black
-                text-slate-950
-            ">
-            Cambiar contraseña
-        </h2>
-
-
-        <p
-            class="
-                mt-2
-                text-sm
-                leading-6
-                text-slate-500
-            ">
-            Utiliza una contraseña larga y diferente
-            a las que uses en otros servicios.
-        </p>
-
+        <div class="min-w-0 flex-1">
+            <h2 class="text-[13px] font-black text-white">Contraseña</h2>
+            <p class="text-[10px] text-slate-500">
+                Usa una larga y que no repitas en otro sitio.
+            </p>
+        </div>
     </header>
 
+    @if (session('status') === 'password-updated')
+        <p class="border-b border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold text-emerald-200">
+            Contraseña cambiada.
+        </p>
+    @endif
 
-    <form method="POST" action="{{ route('password.update') }}" class="
-            mt-6
-            space-y-5
-        ">
+    <form method="POST" action="{{ route('password.update') }}" class="p-4">
 
         @csrf
         @method('PUT')
 
+        <div class="grid gap-3 sm:grid-cols-3">
 
-        <div>
-
-            <label for="update_password_current_password"
-                class="
-                    block
-                    text-sm
-                    font-bold
-                    text-slate-700
-                ">
-                Contraseña actual
+            <label class="block">
+                <span class="text-[9px] font-black uppercase tracking-wider text-slate-600">
+                    La de ahora
+                </span>
+                <input type="password" name="current_password" autocomplete="current-password"
+                    class="mt-1 w-full rounded-xl border-slate-800 bg-slate-950 text-[12px] text-slate-200 focus:border-indigo-500 focus:ring-indigo-500">
+                <x-input-error :messages="$errors->updatePassword->get('current_password')" class="mt-1" />
             </label>
 
-
-            <input id="update_password_current_password" name="current_password" type="password"
-                autocomplete="current-password"
-                class="
-                    mt-2
-                    w-full
-                    rounded-xl
-                    border-slate-300
-                    bg-slate-50
-                    px-4
-                    py-3
-                    text-sm
-                    text-slate-900
-                    placeholder:text-slate-400
-                    focus:text-slate-900
-                    focus:border-violet-500
-                    focus:ring-violet-500
-                ">
-
-
-            <x-input-error :messages="$errors->updatePassword->get('current_password')" class="mt-2" />
-
-        </div>
-
-
-        <div>
-
-            <label for="update_password_password"
-                class="
-                    block
-                    text-sm
-                    font-bold
-                    text-slate-700
-                ">
-                Nueva contraseña
+            <label class="block">
+                <span class="text-[9px] font-black uppercase tracking-wider text-slate-600">
+                    La nueva
+                </span>
+                <input type="password" name="password" autocomplete="new-password"
+                    class="mt-1 w-full rounded-xl border-slate-800 bg-slate-950 text-[12px] text-slate-200 focus:border-indigo-500 focus:ring-indigo-500">
+                <x-input-error :messages="$errors->updatePassword->get('password')" class="mt-1" />
             </label>
 
-
-            <input id="update_password_password" name="password" type="password" autocomplete="new-password"
-                class="
-                    mt-2
-                    w-full
-                    rounded-xl
-                    border-slate-300
-                    bg-slate-50
-                    px-4
-                    py-3
-                    text-sm
-                    text-slate-900
-                    placeholder:text-slate-400
-                    focus:text-slate-900
-                    focus:border-violet-500
-                    focus:ring-violet-500
-                ">
-
-
-            <x-input-error :messages="$errors->updatePassword->get('password')" class="mt-2" />
-
-        </div>
-
-
-        <div>
-
-            <label for="update_password_password_confirmation"
-                class="
-                    block
-                    text-sm
-                    font-bold
-                    text-slate-700
-                ">
-                Confirmar contraseña
+            <label class="block">
+                <span class="text-[9px] font-black uppercase tracking-wider text-slate-600">
+                    Otra vez la nueva
+                </span>
+                <input type="password" name="password_confirmation" autocomplete="new-password"
+                    class="mt-1 w-full rounded-xl border-slate-800 bg-slate-950 text-[12px] text-slate-200 focus:border-indigo-500 focus:ring-indigo-500">
+                <x-input-error :messages="$errors->updatePassword->get('password_confirmation')" class="mt-1" />
             </label>
-
-
-            <input id="update_password_password_confirmation" name="password_confirmation" type="password"
-                autocomplete="new-password"
-                class="
-                    mt-2
-                    w-full
-                    rounded-xl
-                    border-slate-300
-                    bg-slate-50
-                    px-4
-                    py-3
-                    text-sm
-                    text-slate-900
-                    placeholder:text-slate-400
-                    focus:text-slate-900
-                    focus:border-violet-500
-                    focus:ring-violet-500
-                ">
-
-
-            <x-input-error :messages="$errors->updatePassword->get('password_confirmation')" class="mt-2" />
-
         </div>
 
-
-        <div class="
-                flex
-                items-center
-                gap-4
-            ">
-
+        <div class="mt-3 flex justify-end">
             <button type="submit"
-                class="
-                    rounded-xl
-                    bg-slate-900
-                    px-5
-                    py-3
-                    text-sm
-                    font-black
-                    text-white
-                    transition
-                    hover:bg-slate-800
-                ">
-                Actualizar contraseña
+                class="rounded-xl border border-slate-700 px-4 py-2.5 text-[12px] font-black text-slate-300 transition hover:border-indigo-500 hover:text-indigo-300">
+                Cambiar la contraseña
             </button>
-
-
-            @if (session('status') === 'password-updated')
-                <p x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(
-                    () => show = false,
-                    3000
-                )"
-                    class="
-                        text-xs
-                        font-bold
-                        text-emerald-600
-                    ">
-                    ✓ Actualizada
-                </p>
-            @endif
-
         </div>
-
     </form>
-
 </section>

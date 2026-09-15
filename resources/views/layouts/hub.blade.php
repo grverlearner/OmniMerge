@@ -194,6 +194,41 @@
                         Biblioteca
                     </a>
 
+                    {{--
+                        Universos y Torneos son modulos enteros y no estaban en
+                        la navegacion: se llegaba a ellos solo por las tarjetas
+                        del Centro.
+                    --}}
+                    <a href="{{ route('universes.dashboard') }}"
+                        class="
+                        rounded-xl
+                        px-4
+                        py-2.5
+                        text-sm
+                        font-semibold
+                        text-slate-400
+                        transition
+                        hover:bg-white/5
+                        hover:text-white
+                    ">
+                        Universos
+                    </a>
+
+                    <a href="{{ route('tournaments.dashboard') }}"
+                        class="
+                        rounded-xl
+                        px-4
+                        py-2.5
+                        text-sm
+                        font-semibold
+                        text-slate-400
+                        transition
+                        hover:bg-white/5
+                        hover:text-white
+                    ">
+                        Torneos
+                    </a>
+
                     <a href="{{ route('community.index') }}"
                         class="
                         rounded-xl
@@ -344,7 +379,7 @@
                             hover:bg-white/5
                             hover:text-white
                         ">
-                            <span>👤</span>
+                            <x-omni-icon name="usuario" size="h-4 w-4" />
 
                             Perfil y cuenta
                         </a>
@@ -452,7 +487,7 @@
                         font-bold
                         text-indigo-300
                     ">
-                        🏠 Centro OmniMerge
+                        <span class="inline-flex items-center gap-2"><x-omni-icon name="casa" size="h-4 w-4" /> Centro OmniMerge</span>
                     </a>
 
                     <a href="{{ route('dashboard') }}"
@@ -466,7 +501,37 @@
                         text-slate-300
                         hover:bg-white/5
                     ">
-                        📚 Biblioteca
+                        <span class="inline-flex items-center gap-2"><x-omni-icon name="libro" size="h-4 w-4" /> Biblioteca</span>
+                    </a>
+
+                    <a href="{{ route('universes.dashboard') }}"
+                        class="
+                        block
+                        rounded-xl
+                        px-4
+                        py-3
+                        text-sm
+                        font-semibold
+                        text-slate-300
+                        transition
+                        hover:bg-white/5
+                    ">
+                        Universos
+                    </a>
+
+                    <a href="{{ route('tournaments.dashboard') }}"
+                        class="
+                        block
+                        rounded-xl
+                        px-4
+                        py-3
+                        text-sm
+                        font-semibold
+                        text-slate-300
+                        transition
+                        hover:bg-white/5
+                    ">
+                        Torneos
                     </a>
 
                     <a href="{{ route('community.index') }}"
@@ -480,7 +545,7 @@
                         text-slate-300
                         hover:bg-white/5
                     ">
-                        🌐 Comunidad
+                        <span class="inline-flex items-center gap-2"><x-omni-icon name="orbita" size="h-4 w-4" /> Comunidad</span>
                     </a>
 
                     <a href="{{ route('profile.edit') }}"
@@ -494,7 +559,7 @@
                         text-slate-300
                         hover:bg-white/5
                     ">
-                        👤 Perfil y cuenta
+                        <span class="inline-flex items-center gap-2"><x-omni-icon name="usuario" size="h-4 w-4" /> Perfil y cuenta</span>
                     </a>
 
                     <a href="{{ route('home') }}"

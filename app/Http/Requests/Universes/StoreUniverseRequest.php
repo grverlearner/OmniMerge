@@ -84,6 +84,39 @@ class StoreUniverseRequest extends FormRequest
                     'ARCHIVED',
                 ]),
             ],
+
+
+            /*
+            |------------------------------------------------------------------
+            | Lo que se puede dejar montado de una vez
+            |------------------------------------------------------------------
+            |
+            | Todo opcional. Un universo sigue creandose solo con su nombre; lo
+            | que hay aqui evita el recorrido de cuatro pantallas que hacia
+            | falta despues para que el mundo funcionase.
+            */
+
+            /* El calendario */
+            'seasons_count' => ['nullable', 'integer', 'min:0', 'max:24'],
+            'seasons_pattern' => ['nullable', 'string', 'max:120'],
+            'seasons_starts_at' => ['nullable', 'date'],
+            'seasons_duration' => ['nullable', 'integer', 'min:0', 'max:120'],
+            'seasons_duration_unit' => ['nullable', Rule::in(['days', 'weeks', 'months', 'years'])],
+            'seasons_first_status' => ['nullable', Rule::in(['PLANNED', 'ACTIVE'])],
+
+            /* Que premia este mundo */
+            'points_champion' => ['nullable', 'integer', 'min:0', 'max:1000'],
+            'points_win' => ['nullable', 'integer', 'min:0', 'max:1000'],
+            'points_draw' => ['nullable', 'integer', 'min:0', 'max:1000'],
+            'points_loss' => ['nullable', 'integer', 'min:0', 'max:1000'],
+            'points_participation' => ['nullable', 'integer', 'min:0', 'max:1000'],
+
+            /* Con que se juega */
+            'game_key' => ['nullable', 'string', 'max:60'],
+
+            /* Quienes lo habitan */
+            'entity_ids' => ['nullable', 'array', 'max:500'],
+            'entity_ids.*' => ['integer'],
         ];
     }
 

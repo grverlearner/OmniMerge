@@ -1,287 +1,227 @@
-<x-universe-layout :universe="$universe">
+@php
+    /*
+     * Editar un universo.
+     *
+     * Comparte la seccion de identidad con crear -misma pieza, una sola
+     * implementacion- y no ofrece lo que solo tiene sentido al nacer: las
+     * temporadas, los puntos, el juego y los habitantes ya tienen su propio
+     * panel dentro del universo, y duplicarlos aqui seria una segunda forma de
+     * hacer lo mismo.
+     *
+     * Lo que si vive aqui es lo que solo se puede hacer con un mundo que ya
+     * existe: archivarlo y borrarlo.
+     */
+@endphp
 
-    <x-slot name="header">
-        Configuración
-    </x-slot>
+<x-universe-layout :universe="$universe" surface="dark">
 
+    <x-slot name="header">Ajustes de {{ $universe->name }}</x-slot>
 
-    <div class="
-            mx-auto
-            max-w-5xl
-        ">
+    <div class="mx-auto max-w-4xl space-y-3">
 
-        <div class="
-                mb-7
-            ">
+        {{-- ===================================================== --}}
+        {{-- CABECERA --}}
+        {{-- ===================================================== --}}
+
+        <header class="flex flex-wrap items-end gap-4">
+
+            <div class="min-w-0 flex-1">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
+                    {{ $universe->name }} · Ajustes
+                </p>
+
+                <h1 class="mt-1 text-xl font-black tracking-tight text-white">
+                    Cambiar quién es este mundo
+                </h1>
+
+                <p class="mt-0.5 max-w-2xl text-[11px] leading-relaxed text-slate-500">
+                    Su calendario, lo que premia, con qué se juega y quién lo habita tienen su
+                    propio panel dentro del universo.
+                </p>
+            </div>
 
             <a href="{{ route('universes.show', $universe) }}"
-                class="
-                    text-xs
-                    font-black
-                    text-slate-400
-                    hover:text-violet-600
-                ">
-                ← Volver al Universo
+                class="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-[11px] font-black text-slate-400 transition hover:border-slate-700 hover:text-slate-200">
+                <x-omni-icon name="flecha-izquierda" size="h-3.5 w-3.5" />
+                Volver al resumen
             </a>
+        </header>
 
 
-            <p
-                class="
-                    mt-5
-                    text-xs
-                    font-black
-                    uppercase
-                    tracking-wider
-                    text-violet-600
-                ">
-                {{ $universe->code }}
-            </p>
+        @if ($errors->any())
+            <div class="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-[12px] font-bold text-rose-200">
+                <ul class="space-y-0.5">
+                    @foreach ($errors->all() as $error)
+                        <li>· {{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        @if (session('success'))
+            <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-[12px] font-bold text-emerald-200">
+                {{ session('success') }}
+            </div>
+        @endif
 
 
-            <h2
-                class="
-                    mt-2
-                    text-3xl
-                    font-black
-                    text-slate-900
-                ">
-                Editar {{ $universe->name }}
-            </h2>
+        {{-- ===================================================== --}}
+        {{-- IDENTIDAD --}}
+        {{-- ===================================================== --}}
 
-        </div>
+        <form method="POST" action="{{ route('universes.update', $universe) }}"
+            enctype="multipart/form-data"
+            x-data="{
+                nombre: @js(old('name', $universe->name)),
+                descripcion: @js(old('description', $universe->description ?? '')),
+                estado: @js(old('status', $universe->status)),
+                portada: @js($universe->image_url),
+                quitarPortada: false,
 
+                cargarPortada(evento) {
+                    const fichero = evento.target.files[0];
+                    if (! fichero) return;
+                    this.portada = URL.createObjectURL(fichero);
+                    this.quitarPortada = false;
+                },
 
-        <form method="POST"
-            action="{{ route('universes.update', $universe) }}"
-            enctype="multipart/form-data">
+                limpiarPortada() {
+                    this.portada = null;
+                    this.quitarPortada = true;
+                },
+            }"
+            class="space-y-3">
 
             @csrf
-
             @method('PUT')
-
 
             @include('universes.partials.universe-form')
 
+            <div class="flex flex-wrap justify-end gap-2">
+                <a href="{{ route('universes.show', $universe) }}"
+                    class="rounded-xl border border-slate-800 px-4 py-2.5 text-[12px] font-black text-slate-400 transition hover:text-slate-200">
+                    Cancelar
+                </a>
+
+                <button type="submit"
+                    class="rounded-xl bg-violet-500 px-5 py-2.5 text-[12px] font-black text-white transition hover:bg-violet-400">
+                    Guardar los cambios
+                </button>
+            </div>
         </form>
 
 
+        {{-- ===================================================== --}}
         {{-- ARCHIVAR --}}
+        {{-- ===================================================== --}}
 
         @can('update', $universe)
             @if ($universe->status !== 'ARCHIVED')
-                <section
-                    class="
-                        mt-6
-                        flex
-                        flex-col
-                        justify-between
-                        gap-4
-                        rounded-3xl
-                        border
-                        border-slate-200
-                        bg-white
-                        p-6
-                        sm:flex-row
-                        sm:items-center
-                    ">
+                <section class="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/50 px-4 py-3">
 
-                    <div>
-                        <p
-                            class="
-                                text-sm
-                                font-black
-                                text-slate-800
-                            ">
-                            Archivar Universo
-                        </p>
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-400">
+                        <x-omni-icon name="capas" size="h-4 w-4" />
+                    </span>
 
-
-                        <p
-                            class="
-                                mt-1
-                                text-xs
-                                text-slate-500
-                            ">
-                            Deja de aparecer entre los Universos activos, pero
-                            conserva todo su contenido.
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[12px] font-black text-slate-200">Archivar este mundo</p>
+                        <p class="text-[10px] leading-3 text-slate-500">
+                            Deja de pedir tu atención y se va al fondo de la estantería.
+                            <strong class="text-slate-400">No se borra nada</strong>: sigue
+                            entero y puedes sacarlo cuando quieras.
                         </p>
                     </div>
 
-
-                    <form method="POST" action="{{ route('universes.archive', $universe) }}">
-
+                    <form method="POST" action="{{ route('universes.archive', $universe) }}" class="shrink-0">
                         @csrf
-
                         @method('PATCH')
 
-
                         <button type="submit"
-                            class="
-                                rounded-xl
-                                border
-                                border-slate-200
-                                bg-white
-                                px-4
-                                py-2.5
-                                text-xs
-                                font-black
-                                text-slate-500
-                            ">
+                            class="rounded-xl border border-slate-700 px-3 py-2 text-[11px] font-black text-slate-400 transition hover:border-slate-500 hover:text-slate-200">
                             Archivar
                         </button>
-
                     </form>
-
                 </section>
             @endif
         @endcan
 
 
-        {{-- DANGER ZONE --}}
+        {{-- ===================================================== --}}
+        {{-- BORRAR --}}
+        {{-- ===================================================== --}}
 
         @can('delete', $universe)
-            <section x-data="{
-                deleting: false
-            }"
-                class="
-                    mt-6
-                    rounded-3xl
-                    border
-                    border-red-200
-                    bg-red-50
-                    p-6
-                ">
+            <section x-data="{ confirmando: false }"
+                class="overflow-hidden rounded-2xl border border-rose-500/25 bg-rose-500/5">
 
-                <div
-                    class="
-                        flex
-                        flex-col
-                        justify-between
-                        gap-4
-                        sm:flex-row
-                        sm:items-center
-                    ">
+                <div class="flex flex-wrap items-center gap-3 px-4 py-3">
 
-                    <div>
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-300">
+                        <x-omni-icon name="cerrar" size="h-4 w-4" />
+                    </span>
 
-                        <p
-                            class="
-                                text-sm
-                                font-black
-                                text-red-800
-                            ">
-                            Eliminar Universo
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[12px] font-black text-white">Borrar este mundo</p>
+
+                        {{--
+                            Se dice exactamente qué se pierde, con sus números.
+                            «Esta acción no se puede deshacer» no informa de
+                            nada; «se van 22 competidores y 17 competiciones» sí.
+                        --}}
+                        @php
+                            $seVan = [
+                                [$universe->entities()->count(), 'competidor', 'competidores'],
+                                [$universe->seasons()->count(), 'temporada', 'temporadas'],
+                                [$universe->universeTournaments()->count(), 'torneo', 'torneos'],
+                                [$universe->tournamentInstances()->count(), 'competición', 'competiciones'],
+                            ];
+                        @endphp
+
+                        <p class="text-[10px] leading-3 text-rose-200/70">
+                            Se van con él
+                            @foreach ($seVan as $indice => [$cuantos, $singular, $plural])
+                                <strong class="text-rose-200">{{ $cuantos }}</strong>
+                                {{ $cuantos === 1 ? $singular : $plural }}@if ($indice === count($seVan) - 2)
+                                    y
+                                @elseif ($indice < count($seVan) - 1),
+                                @endif
+                            @endforeach
+                            con toda su historia. No se puede deshacer.
                         </p>
-
-
-                        <p
-                            class="
-                                mt-1
-                                text-xs
-                                text-red-600
-                            ">
-                            Se aplicará Soft Delete. Sus competidores y temporadas
-                            dejarán de estar accesibles, pero las entidades de tu
-                            Biblioteca y las plantillas de torneo permanecen intactas.
-                        </p>
-
                     </div>
 
-
-                    <button type="button" @click="
-                            deleting = true
-                        "
-                        class="
-                            shrink-0
-                            rounded-xl
-                            bg-red-600
-                            px-4
-                            py-2.5
-                            text-xs
-                            font-black
-                            text-white
-                        ">
-                        Eliminar
+                    <button type="button" @click="confirmando = true" x-show="! confirmando"
+                        class="shrink-0 rounded-xl border border-rose-500/40 px-3 py-2 text-[11px] font-black text-rose-300 transition hover:bg-rose-500 hover:text-white">
+                        Borrar
                     </button>
-
                 </div>
 
+                <div x-show="confirmando" x-cloak x-collapse
+                    class="border-t border-rose-500/20 bg-rose-500/5 px-4 py-3">
 
-                <div x-show="
-                        deleting
-                    " x-transition
-                    class="
-                        mt-5
-                        rounded-2xl
-                        border
-                        border-red-200
-                        bg-white
-                        p-5
-                    "
-                    style="
-                        display: none;
-                    ">
-
-                    <p class="
-                            font-black
-                            text-slate-900
-                        ">
-                        ¿Eliminar “{{ $universe->name }}”?
+                    <p class="text-[11px] font-bold text-rose-100">
+                        Esto borra «{{ $universe->name }}» y todo lo que hay dentro. ¿Seguro?
                     </p>
 
-
-                    <div class="
-                            mt-4
-                            flex
-                            gap-3
-                        ">
-
-                        <button type="button" @click="
-                                deleting = false
-                            "
-                            class="
-                                rounded-xl
-                                border
-                                border-slate-200
-                                px-4
-                                py-2.5
-                                text-xs
-                                font-black
-                                text-slate-600
-                            ">
-                            Cancelar
-                        </button>
-
-
+                    <div class="mt-2 flex flex-wrap gap-2">
                         <form method="POST" action="{{ route('universes.destroy', $universe) }}">
-
                             @csrf
-
                             @method('DELETE')
 
-
                             <button type="submit"
-                                class="
-                                    rounded-xl
-                                    bg-red-600
-                                    px-4
-                                    py-2.5
-                                    text-xs
-                                    font-black
-                                    text-white
-                                ">
-                                Sí, eliminar
+                                class="rounded-xl bg-rose-500 px-4 py-2 text-[11px] font-black text-white transition hover:bg-rose-400">
+                                Sí, borrarlo para siempre
                             </button>
-
                         </form>
 
+                        <button type="button" @click="confirmando = false"
+                            class="rounded-xl px-3 py-2 text-[11px] font-black text-slate-400 transition hover:text-slate-200">
+                            No, dejarlo
+                        </button>
                     </div>
-
                 </div>
-
             </section>
         @endcan
-
     </div>
 
 </x-universe-layout>

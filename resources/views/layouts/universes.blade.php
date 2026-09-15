@@ -46,9 +46,9 @@
                 En oscuro la pagina ocupa mas y respira menos: lo que se
                 ensena ahi quiere ancho, no una columna de lectura.
             --}}
-            <main class="{{ $dark ? 'px-3 py-4 sm:px-4 lg:px-6' : 'px-4 py-6 sm:px-6 lg:px-8' }}">
+            <main class="{{ ($bleed ?? false) ? 'px-2 py-2 sm:px-3' : ($dark ? 'px-3 py-4 sm:px-4 lg:px-6' : 'px-4 py-6 sm:px-6 lg:px-8') }}">
 
-                <div class="mx-auto {{ $dark ? 'max-w-[1500px]' : 'max-w-7xl' }}">
+                <div class="mx-auto {{ ($bleed ?? false) ? 'max-w-none' : ($dark ? 'max-w-[1500px]' : 'max-w-7xl') }}">
 
                     <x-alert />
 
