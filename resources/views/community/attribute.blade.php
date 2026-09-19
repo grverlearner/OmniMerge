@@ -39,6 +39,8 @@
                     {{ $attribute->name }}
                 </h2>
 
+                <x-content-badges type="attribute" :id="$attribute->id" wrap="mt-3 flex flex-wrap gap-1.5" />
+
                 <div
                     class="
                     mt-3

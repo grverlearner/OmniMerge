@@ -11,11 +11,11 @@
      */
 @endphp
 
-<section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
+<section class="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50">
 
     <div class="border-b border-slate-800 px-4 py-3">
-        <h2 class="text-[15px] font-black text-white">Cómo funciona OmniMerge</h2>
-        <p class="mt-0.5 max-w-2xl text-[11px] leading-relaxed text-slate-500">
+        <h2 class="text-lg font-black text-white">Cómo funciona OmniMerge</h2>
+        <p class="mt-0.5 max-w-2xl text-xs leading-relaxed text-slate-400">
             Creas cosas, las describes, las metes en un mundo y las haces competir. Cada paso
             se puede hacer por separado y ninguno es obligatorio para empezar el siguiente.
         </p>
@@ -87,7 +87,7 @@
                     <x-omni-icon :name="$icono" size="h-4 w-4" />
                 </span>
 
-                <span class="mt-2 block text-[12px] font-black leading-tight text-white">{{ $titulo }}</span>
+                <span class="mt-2 block text-sm font-black leading-tight text-white">{{ $titulo }}</span>
                 <span class="mt-0.5 block text-[10px] leading-3 text-slate-500">{{ $ayuda }}</span>
             </a>
         @endforeach

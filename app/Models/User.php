@@ -36,6 +36,23 @@ class User extends Authenticatable
         'role',
         'status',
         'last_login_at',
+
+        // Administración
+        'banned_at',
+        'banned_until',
+        'ban_reason',
+        'banned_by',
+        'creator_badge',
+        'creator_badge_note',
+    ];
+
+    /*
+     * Las insignias que un admin puede dar a un creador. Son solo una
+     * etiqueta pública: no cambian lo que puede hacer.
+     */
+    public const CREATOR_BADGES = [
+        'VERIFIED' => ['label' => 'Creador verificado', 'short' => 'Verificado', 'icon' => 'check', 'tone' => '#38bdf8'],
+        'TRUSTED' => ['label' => 'Creador confiable', 'short' => 'Confiable', 'icon' => 'medalla', 'tone' => '#34d399'],
     ];
 
 
@@ -50,6 +67,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'banned_at' => 'datetime',
+            'banned_until' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -70,6 +89,72 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === 'ADMIN';
+    }
+
+
+    /*
+     * Bloqueada ahora mismo: con bloqueo puesto y, si tenía fecha de fin,
+     * todavía sin llegar a ella. Un bloqueo caducado deja de contar solo,
+     * sin que nadie tenga que quitarlo.
+     */
+    public function isBanned(): bool
+    {
+        return $this->banned_at !== null
+            && ($this->banned_until === null || $this->banned_until->isFuture());
+    }
+
+
+    /*
+     * Un bloqueo con fecha de fin se levanta solo al llegar esa fecha. Se
+     * comprueba al entrar y en cada petición, así que nadie tiene que
+     * acordarse de quitarlo.
+     */
+    public function liftExpiredBan(): bool
+    {
+        if ($this->banned_at === null || $this->banned_until === null || $this->banned_until->isFuture()) {
+            return false;
+        }
+
+        $this->forceFill([
+            'status' => 'ACTIVE',
+            'banned_at' => null,
+            'banned_until' => null,
+            'ban_reason' => null,
+            'banned_by' => null,
+        ])->save();
+
+        return true;
+    }
+
+
+    /* Lo que se le dice a quien intenta entrar con la cuenta bloqueada */
+    public function banMessage(): string
+    {
+        $texto = 'Esta cuenta está bloqueada';
+
+        $texto .= $this->banned_until
+            ? ' hasta el ' . $this->banned_until->translatedFormat('j \d\e F \d\e Y, H:i') . '.'
+            : '.';
+
+        if ($this->ban_reason) {
+            $texto .= ' Motivo: ' . $this->ban_reason;
+        }
+
+        return $texto;
+    }
+
+
+    public function getCreatorBadgeMetaAttribute(): ?array
+    {
+        return $this->creator_badge
+            ? (self::CREATOR_BADGES[$this->creator_badge] ?? null)
+            : null;
+    }
+
+
+    public function bannedByUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(self::class, 'banned_by')->withTrashed();
     }
 
 

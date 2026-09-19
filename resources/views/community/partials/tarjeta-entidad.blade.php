@@ -45,6 +45,7 @@
         @endif
 
         <span class="absolute inset-x-0 bottom-0 p-2">
+            <x-content-badges type="entity" :id="$entidad->id" size="xs" wrap="mb-1 flex flex-wrap gap-1" />
             <span class="block truncate text-[13px] font-black text-white">{{ $entidad->name }}</span>
         </span>
     </a>

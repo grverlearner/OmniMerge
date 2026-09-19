@@ -75,17 +75,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>OmniMerge — Crea entidades, dales un mundo y hazlas competir</title>
+    <title>{{ $sitio->name() }} — {{ $sitio->get('tagline') ?: 'Crea entidades, dales un mundo y hazlas competir' }}</title>
 
     <meta name="description"
         content="Crea entidades de cualquier cosa, descríbelas con tus propios atributos, organízalas en mundos con su calendario y hazlas competir en torneos que tú diseñas.">
 
-    <link rel="icon" type="image/png" href="{{ asset('images/joganboruto.jpg') }}">
+    <x-site-head />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
 <body class="min-h-screen bg-slate-950 text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+
+    <x-site-announcement />
+
 
     {{-- El fondo: tres luces quietas, nada que distraiga --}}
     <div class="pointer-events-none fixed inset-0 overflow-hidden">

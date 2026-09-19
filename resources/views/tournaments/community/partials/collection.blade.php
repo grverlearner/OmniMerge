@@ -88,6 +88,8 @@
                     {{ $pieza->name }}
                 </a>
 
+                <x-content-badges :type="$esTorneo ? 'tournament_template' : 'phase_template'" :id="$pieza->id" size="xs" wrap="mt-1 flex flex-wrap gap-1" />
+
                 {{-- De quién es. En una comunidad, esto no es un detalle --}}
                 <a href="{{ route('tournaments.community.index', ['creator' => $pieza->user_id]) }}"
                     class="mt-1 flex items-center gap-2 text-[11px] text-slate-500 transition hover:text-violet-300">
@@ -336,10 +338,13 @@
                     <span class="rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider {{ $tono['fondo'] }} {{ $tono['texto'] }}">
                         {{ $esTorneo ? 'torneo' : 'fase' }}
                     </span>
+
+                    <x-content-badges :type="$esTorneo ? 'tournament_template' : 'phase_template'" :id="$pieza->id" size="xs" />
                 </div>
 
                 <p class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px]">
                     <span class="text-slate-500">{{ $pieza->user?->name }}</span>
+                    <x-creator-badge :user="$pieza->user" size="xs" />
                     <span class="text-slate-800">·</span>
                     <span class="font-bold {{ $tono['texto'] }}">
                         {{ $esTorneo ? $pieza->category_label ?? 'Torneo' : $pieza->type_label }}

@@ -85,6 +85,8 @@
                         {{ $template->name }}
                     </h1>
 
+                    <x-content-badges type="tournament_template" :id="$template->id" wrap="mt-3 flex flex-wrap gap-1.5" />
+
                     @if ($template->summary)
                         <p class="mt-1 text-[13px] text-slate-400">{{ $template->summary }}</p>
                     @endif

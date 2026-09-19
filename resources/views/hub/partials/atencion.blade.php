@@ -1,103 +1,55 @@
 @php
     /*
-     * Lo que espera por ti, en toda la cuenta.
-     *
-     * Junta lo de los universos con la salud de la Biblioteca y los torneos sin
-     * estrenar, y cada punto dice de que modulo viene. Mismos criterios que los
-     * paneles de dentro: si la puerta de entrada dijese una cosa y el panel
-     * otra, uno de los dos mentiria.
+     * Lo que espera por ti, en toda la cuenta. Cada aviso lleva a donde se
+     * resuelve (ver HubController); aquí solo se ordena y se pinta. Lo
+     * urgente va primero y más grande.
      */
-
-    $tonosModulo = [
-        'Biblioteca' => '#818cf8',
-        'Universos' => '#a78bfa',
-        'Torneos' => '#fbbf24',
-        'Comunidad' => '#34d399',
-    ];
+    $iconos = ['Universos' => 'orbita', 'Biblioteca' => 'libro', 'Torneos' => 'trofeo'];
 @endphp
 
-@if ($atencion->isEmpty())
-
-    <section class="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/5 px-4 py-3">
-
-        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300">
-            <x-omni-icon name="chispa" size="h-4 w-4" />
-        </span>
-
-        <div class="min-w-0 flex-1">
-            <p class="text-[13px] font-black text-white">No hay nada a medias</p>
-            <p class="text-[10px] text-emerald-200/60">
-                Ni competiciones paradas, ni mundos vacíos, ni entidades sin imagen, ni
-                catálogos sin valores, ni torneos sin estrenar.
-            </p>
-        </div>
-    </section>
-
-@else
-
-    <section class="overflow-hidden rounded-2xl border bg-slate-900/50"
-        style="border-color: {{ $urgentes > 0 ? '#fb718544' : '#33415580' }}">
-
-        <header class="flex flex-wrap items-center gap-2 border-b border-slate-800 px-4 py-2.5">
-
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                style="background-color: {{ $urgentes > 0 ? '#fb718526' : '#33415566' }};
-                       color: {{ $urgentes > 0 ? '#fb7185' : '#94a3b8' }}">
-                <x-omni-icon name="chispa" size="h-4 w-4" />
-            </span>
-
-            <div class="min-w-0 flex-1">
-                <h2 class="text-[13px] font-black text-white">Lo que espera por ti</h2>
-                <p class="text-[10px] text-slate-500">
-                    {{ $atencion->count() }} {{ $atencion->count() === 1 ? 'cosa' : 'cosas' }} a
-                    medias en tu cuenta.
-                    @if ($urgentes > 0)
-                        <strong class="text-rose-300">{{ $urgentes }}</strong>
-                        {{ $urgentes === 1 ? 'frena' : 'frenan' }} lo que se está jugando.
-                    @endif
-                </p>
+@if ($atencion->isNotEmpty())
+    <section x-data="{ todos: false }">
+        <div class="mb-3 flex items-end justify-between gap-3">
+            <div>
+                <h2 class="flex items-center gap-2 text-lg font-black text-white">
+                    <x-omni-icon name="aviso" size="h-5 w-5" class="text-amber-300" /> Te está esperando
+                </h2>
+                <p class="text-xs text-slate-500">Cada aviso te lleva justo a donde se arregla.</p>
             </div>
-        </header>
+            @if ($atencion->count() > 4)
+                <button type="button" @click="todos = ! todos" class="text-xs font-black text-slate-400 hover:text-white"
+                    x-text="todos ? 'Ver menos' : 'Ver los {{ $atencion->count() }}'"></button>
+            @endif
+        </div>
 
-        <div class="divide-y divide-slate-800/70">
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            @foreach ($atencion as $i => $aviso)
+                <a href="{{ $aviso['url'] }}" @if ($i >= 4) x-show="todos" x-cloak @endif
+                    class="group relative overflow-hidden rounded-2xl border bg-slate-900/60 p-4 transition hover:-translate-y-0.5 hover:bg-slate-900"
+                    style="border-color: {{ $aviso['tono'] }}{{ $aviso['urgente'] ? '99' : '40' }};">
 
-            @foreach ($atencion as $punto)
-                @php $tonoM = $tonosModulo[$punto['donde']] ?? '#94a3b8'; @endphp
+                    <span class="absolute inset-y-0 left-0 w-1" style="background-color: {{ $aviso['tono'] }}"></span>
 
-                <div class="flex flex-wrap items-center gap-3 px-4 py-2.5 transition hover:bg-slate-950/40">
-
-                    <span class="h-8 w-1 shrink-0 rounded-full" style="background-color: {{ $punto['tono'] }}"></span>
-
-                    {{-- De qué módulo viene --}}
-                    <span class="w-[86px] shrink-0 rounded-lg px-2 py-0.5 text-center text-[9px] font-black uppercase tracking-wider"
-                        style="color: {{ $tonoM }}; background-color: {{ $tonoM }}1a">
-                        {{ $punto['donde'] }}
-                    </span>
-
-                    @if ($punto['cuantos'] > 0)
-                        <span class="w-7 shrink-0 text-center font-mono text-[15px] font-black"
-                            style="color: {{ $punto['tono'] }}">{{ $punto['cuantos'] }}</span>
-                    @endif
-
-                    <div class="min-w-0 flex-1">
-                        <p class="text-[12px] font-black leading-tight text-slate-100">{{ $punto['titulo'] }}</p>
-                        <p class="text-[10px] leading-3 text-slate-500">{{ $punto['texto'] }}</p>
+                    <div class="flex items-start justify-between gap-3">
+                        <span class="flex h-10 w-10 items-center justify-center rounded-xl" style="color: {{ $aviso['tono'] }}; background-color: {{ $aviso['tono'] }}1c;">
+                            <x-omni-icon :name="$iconos[$aviso['donde']] ?? 'aviso'" size="h-5 w-5" />
+                        </span>
+                        <span class="text-3xl font-black leading-none" style="color: {{ $aviso['tono'] }}">{{ $aviso['cuantos'] }}</span>
                     </div>
 
-                    @if ($punto['urgente'])
-                        <span class="shrink-0 rounded-lg bg-rose-500/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-rose-300">
-                            frena el juego
-                        </span>
-                    @endif
+                    <p class="mt-3 text-sm font-black leading-snug text-white">{{ $aviso['titulo'] }}</p>
+                    <p class="mt-1 text-xs leading-relaxed text-slate-400">{{ $aviso['texto'] }}</p>
 
-                    <a href="{{ $punto['url'] }}"
-                        class="shrink-0 rounded-xl border px-2.5 py-1.5 text-[11px] font-black transition"
-                        style="border-color: {{ $punto['tono'] }}55; color: {{ $punto['tono'] }}"
-                        onmouseover="this.style.backgroundColor='{{ $punto['tono'] }}22'"
-                        onmouseout="this.style.backgroundColor=''">
-                        Ir a resolverlo
-                    </a>
-                </div>
+                    <p class="mt-3 flex items-center justify-between text-[11px] font-black">
+                        <span class="rounded-full bg-white/5 px-2 py-0.5 text-slate-400">{{ $aviso['donde'] }}</span>
+                        @if ($aviso['urgente'])
+                            <span class="rounded-full bg-rose-500/15 px-2 py-0.5 text-rose-300">Urgente</span>
+                        @endif
+                        <span class="flex items-center gap-1 text-slate-500 transition group-hover:text-white">
+                            Resolver <x-omni-icon name="flecha-derecha" size="h-3.5 w-3.5" />
+                        </span>
+                    </p>
+                </a>
             @endforeach
         </div>
     </section>

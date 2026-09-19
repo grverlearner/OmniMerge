@@ -38,6 +38,7 @@
                 </span>
 
                 <h1 class="mt-3 text-[17px] font-black text-white">{{ $creador->name }}</h1>
+                <x-creator-badge :user="$creador" class="mt-1" />
 
                 <p class="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-slate-500">
                     Este perfil es privado. Lo que esta persona haya creado no se muestra aquí

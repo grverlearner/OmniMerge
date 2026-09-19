@@ -43,9 +43,9 @@
             <div class="mt-7 flex flex-wrap items-center justify-center gap-2.5">
                 @auth
                     <a href="{{ route('hub') }}"
-                        class="flex items-center gap-2 rounded-xl bg-indigo-500 px-6 py-3.5 text-[14px] font-black text-white transition hover:bg-indigo-400">
+                        class="flex items-center gap-2 rounded-xl omni-accent-bg px-6 py-3.5 text-[14px] font-black text-white transition">
                         <x-omni-icon name="casa" size="h-4 w-4" />
-                        Abrir OmniMerge
+                        Abrir {{ $sitio->name() }}
                     </a>
 
                     <a href="{{ route('universes.dashboard') }}"

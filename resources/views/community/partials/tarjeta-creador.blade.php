@@ -35,6 +35,7 @@
         <span class="min-w-0 flex-1">
             <span class="block truncate text-[13px] font-black text-white">{{ $creador->name }}</span>
             <span class="block truncate text-[10px] font-bold text-violet-400">{{ '@' . $nombre }}</span>
+            <x-creator-badge :user="$creador" size="xs" class="mt-0.5" />
         </span>
 
         <span class="shrink-0 text-right">

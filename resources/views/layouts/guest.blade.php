@@ -31,11 +31,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="theme-color" content="#020617">
 
-    <title>{{ isset($titulo) ? $titulo . ' · ' : '' }}OmniMerge</title>
+    <title>{{ isset($titulo) ? $titulo . ' · ' : '' }}{{ $sitio->name() }}</title>
 
-    <link rel="icon" type="image/png" href="{{ asset('images/joganboruto.jpg') }}">
+    <x-site-head />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -47,6 +46,9 @@
 </head>
 
 <body class="min-h-screen bg-slate-950 text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+
+    <x-site-announcement />
+
 
     {{-- Las mismas luces quietas que el inicio público --}}
     <div class="pointer-events-none fixed inset-0 overflow-hidden">
@@ -65,11 +67,11 @@
 
             <a href="{{ route('home') }}" class="flex items-center gap-2.5 self-start">
                 <span class="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600">
-                    <img src="{{ asset('images/joganboruto.jpg') }}" alt="" class="h-full w-full object-cover">
+                    <img src="{{ $sitio->logoUrl() ?? $sitio->faviconUrl() }}" alt="" class="h-full w-full object-cover">
                 </span>
 
                 <span class="leading-none">
-                    <span class="block text-[16px] font-black tracking-tight text-white">OmniMerge</span>
+                    <span class="block text-[16px] font-black tracking-tight text-white">{{ $sitio->name() }}</span>
                     <span class="block text-[8px] font-black uppercase tracking-[0.2em] text-indigo-400/70">
                         Create · Connect · Evolve
                     </span>
@@ -126,7 +128,7 @@
 
 
             <div class="flex items-center justify-between text-[12px] text-slate-600">
-                <span class="font-mono">© {{ date('Y') }} OmniMerge</span>
+                <span class="font-mono">© {{ date('Y') }} {{ $sitio->name() }}</span>
 
                 <a href="{{ route('home') }}"
                     class="flex items-center gap-1.5 font-semibold text-slate-500 transition hover:text-white">
@@ -147,9 +149,9 @@
             <div class="mb-8 flex w-full max-w-md items-center justify-between lg:hidden">
                 <a href="{{ route('home') }}" class="flex items-center gap-2.5">
                     <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600">
-                        <img src="{{ asset('images/joganboruto.jpg') }}" alt="" class="h-full w-full object-cover">
+                        <img src="{{ $sitio->logoUrl() ?? $sitio->faviconUrl() }}" alt="" class="h-full w-full object-cover">
                     </span>
-                    <span class="text-[15px] font-black tracking-tight text-white">OmniMerge</span>
+                    <span class="text-[15px] font-black tracking-tight text-white">{{ $sitio->name() }}</span>
                 </a>
 
                 <a href="{{ route('home') }}"

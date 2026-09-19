@@ -132,6 +132,7 @@
                 <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2">
                         <h1 class="truncate text-2xl font-black tracking-tight text-white">{{ $user->name }}</h1>
+                        <x-creator-badge :user="$user" class="mt-1" />
 
                         @if ($isOwner)
                             <span class="rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-violet-300">

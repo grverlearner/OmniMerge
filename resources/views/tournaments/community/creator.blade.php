@@ -43,6 +43,7 @@
                     <div class="min-w-0 flex-1">
 
                         <h1 class="text-2xl font-black tracking-tight text-white">{{ $creator->name }}</h1>
+                        <x-creator-badge :user="$creator" class="mt-1" />
 
                         <p class="text-[12px] text-slate-500">{{ '@' . $creator->username }}</p>
 

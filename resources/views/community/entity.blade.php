@@ -39,6 +39,8 @@
                     {{ $entity->public_display_name }}
                 </h2>
 
+                <x-content-badges type="entity" :id="$entity->id" wrap="mt-3 flex flex-wrap gap-1.5" />
+
                 <p class="
         mt-2
         text-sm

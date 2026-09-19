@@ -65,6 +65,8 @@
                 {{ $creador->name }}
             </h1>
 
+            <x-creator-badge :user="$creador" class="mt-1" />
+
             @if ($creador->headline)
                 <p class="mt-0.5 text-[12px] font-bold text-slate-300">{{ $creador->headline }}</p>
             @endif

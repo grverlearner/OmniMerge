@@ -99,6 +99,11 @@ Route::middleware('auth')->group(function () {
     )->name('hub');
 
     Route::get(
+        '/hub/search',
+        [HubController::class, 'search']
+    )->name('hub.search');
+
+    Route::get(
         '/dashboard/search',
         [
             DashboardController::class,
@@ -3556,5 +3561,57 @@ Route::middleware('auth')->group(function () {
             )->name('catalogs.clone');
         });
 });
+
+/*
+|--------------------------------------------------------------------------
+| ADMINISTRACIÓN
+|--------------------------------------------------------------------------
+|
+| El espacio del administrador: todas las cuentas, todo el contenido, lo
+| más visto, el registro de acciones y la configuración del sitio. Quien
+| no es admin recibe un 404: ni siquiera se le dice que esto existe.
+|
+*/
+
+Route::middleware(['auth', 'admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/', \App\Http\Controllers\Admin\AdminDashboardController::class)->name('dashboard');
+
+        Route::get('/popular', [\App\Http\Controllers\Admin\AdminInsightController::class, 'popular'])->name('popular');
+        Route::get('/audit', [\App\Http\Controllers\Admin\AdminInsightController::class, 'audit'])->name('audit');
+
+        Route::controller(\App\Http\Controllers\Admin\AdminUserController::class)
+            ->prefix('users')->name('users.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/bulk', 'bulk')->name('bulk');
+                Route::get('/{user}', 'show')->whereNumber('user')->name('show');
+                Route::post('/{user}/ban', 'ban')->whereNumber('user')->name('ban');
+                Route::post('/{user}/unban', 'unban')->whereNumber('user')->name('unban');
+                Route::post('/{user}/role', 'role')->whereNumber('user')->name('role');
+                Route::post('/{user}/badge', 'badge')->whereNumber('user')->name('badge');
+                Route::post('/{user}/sessions', 'sessions')->whereNumber('user')->name('sessions');
+                Route::delete('/{user}', 'destroy')->whereNumber('user')->name('destroy');
+                Route::post('/{user}/restore', 'restore')->whereNumber('user')->name('restore');
+            });
+
+        Route::controller(\App\Http\Controllers\Admin\AdminContentController::class)
+            ->prefix('content/{type}')->name('content.')
+            ->where(['type' => implode('|', array_keys(\App\Services\Admin\ContentRegistry::TYPES))])
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/bulk', 'bulk')->name('bulk');
+                Route::get('/{id}', 'show')->whereNumber('id')->name('show');
+                Route::post('/{id}/flag', 'flag')->whereNumber('id')->name('flag');
+                Route::post('/{id}/visibility', 'visibility')->whereNumber('id')->name('visibility');
+                Route::delete('/{id}', 'destroy')->whereNumber('id')->name('destroy');
+                Route::post('/{id}/restore', 'restore')->whereNumber('id')->name('restore');
+            });
+
+        Route::get('/settings', [\App\Http\Controllers\Admin\AdminSettingsController::class, 'edit'])->name('settings.edit');
+        Route::put('/settings', [\App\Http\Controllers\Admin\AdminSettingsController::class, 'update'])->name('settings.update');
+    });
 
 require __DIR__ . '/auth.php';

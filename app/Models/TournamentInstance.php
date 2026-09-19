@@ -135,6 +135,23 @@ class TournamentInstance extends Model
         );
     }
 
+    /*
+     * Su dueño es el del universo en que se juega. Existe para que el
+     * espacio de administración trate una competición como cualquier otro
+     * contenido: quién la hizo, y sus demás cosas.
+     */
+    public function user(): \Illuminate\Database\Eloquent\Relations\HasOneThrough
+    {
+        return $this->hasOneThrough(
+            User::class,
+            Universe::class,
+            'id',
+            'id',
+            'universe_id',
+            'user_id'
+        );
+    }
+
     public function universeTournament(): BelongsTo
     {
         return $this->belongsTo(

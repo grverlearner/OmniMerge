@@ -33,6 +33,8 @@
 
             <span class="truncate font-black text-slate-400">{{ '@' . $nombreAutor }}</span>
         </a>
+
+        <x-creator-badge :user="$autor" size="xs" />
     @endif
 
     @if ($nombreOrigen && $nombreOrigen !== $nombreAutor)

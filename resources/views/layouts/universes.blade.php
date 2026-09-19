@@ -9,10 +9,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="icon" type="image/png" href="{{ asset('images/joganboruto.jpg') }}">
+    <x-site-head />
 
     <title>
-        {{ isset($header) ? $header . ' | ' : '' }}OmniMerge
+        {{ isset($header) ? $header . ' | ' : '' }}{{ $sitio->name() }}
     </title>
 
 
@@ -55,6 +55,9 @@
             <main class="{{ ($bleed ?? false) ? 'px-2 py-2 sm:px-3' : ($dark ? 'px-3 py-4 sm:px-4 lg:px-6' : 'px-4 py-6 sm:px-6 lg:px-8') }}">
 
                 <div class="mx-auto {{ ($bleed ?? false) ? 'max-w-none' : ($dark ? 'max-w-[1500px]' : 'max-w-7xl') }}">
+
+                    <x-site-announcement class="mb-4 overflow-hidden rounded-xl border" />
+
 
                     <x-alert :dark="$dark" :contenido="$slot" />
 

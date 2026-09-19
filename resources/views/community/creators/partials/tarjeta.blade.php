@@ -54,6 +54,8 @@
 
         <p class="truncate font-mono text-[10px] text-slate-500">&#64;{{ $creador->username }}</p>
 
+        <x-creator-badge :user="$creador" class="mt-1" />
+
         @if ($creador->headline)
             <p class="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-400">{{ $creador->headline }}</p>
         @endif

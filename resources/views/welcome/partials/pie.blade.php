@@ -11,11 +11,11 @@
         <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2.5">
 
             <span class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600">
-                <img src="{{ asset('images/joganboruto.jpg') }}" alt="" class="h-full w-full object-cover">
+                <img src="{{ $sitio->logoUrl() ?? $sitio->faviconUrl() }}" alt="" class="h-full w-full object-cover">
             </span>
 
             <span class="leading-none">
-                <span class="block text-[13px] font-black tracking-tight text-white">OmniMerge</span>
+                <span class="block text-[13px] font-black tracking-tight text-white">{{ $sitio->name() }}</span>
                 <span class="block text-[8px] font-black uppercase tracking-[0.2em] text-slate-600">
                     Create · Connect · Evolve
                 </span>
@@ -34,7 +34,7 @@
         <span class="flex-1"></span>
 
         <span class="font-mono text-[11px] text-slate-600">
-            © {{ date('Y') }} OmniMerge
+            © {{ date('Y') }} {{ $sitio->name() }}
         </span>
     </div>
 </footer>

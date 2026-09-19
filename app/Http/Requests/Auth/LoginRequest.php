@@ -57,6 +57,19 @@ class LoginRequest extends FormRequest
 
         $user = Auth::user();
 
+        /* Un bloqueo temporal que ya venció se levanta aquí mismo */
+        if ($user instanceof User) {
+            $user->liftExpiredBan();
+        }
+
+        if ($user instanceof User && $user->isBanned()) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => $user->banMessage(),
+            ]);
+        }
+
         if (! $user instanceof User || ! $user->isActive()) {
             Auth::logout();
 

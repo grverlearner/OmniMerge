@@ -11,6 +11,11 @@ use App\Models\TournamentInstance;
 use App\Models\TournamentTemplate;
 use App\Models\Universe;
 use App\Models\UniverseEntity;
+use App\Services\Admin\ContentFlags;
+use App\Services\Tournaments\Runtime\CompetitorFaces;
+use App\Support\Site\CommunityModeration;
+use App\Support\Site\SiteSettings;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -264,9 +269,12 @@ class HubController extends Controller
                 'entities',
                 'tournamentInstances as vivas_count' => fn($q) =>
                 $q->whereIn('status', ['RUNNING', 'PAUSED']),
+                'tournamentInstances as jugadas_count' => fn($q) =>
+                $q->where('status', 'COMPLETED'),
+                'seasons',
             ])
-            ->latest()
-            ->limit(4)
+            ->latest('updated_at')
+            ->limit(5)
             ->get();
 
         $carasTorneos =
@@ -331,7 +339,7 @@ class HubController extends Controller
                 fn($u) => route('universes.show', $u)
             ))
             ->sortByDesc('cuando')
-            ->take(12)
+            ->take(18)
             ->values();
 
 
@@ -339,8 +347,98 @@ class HubController extends Controller
             $user->entities()
             ->whereNotNull('image')
             ->inRandomOrder()
-            ->limit(24)
+            ->limit(36)
             ->get(['id', 'image']);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Lo que se está jugando, y quién ganó lo último
+        |--------------------------------------------------------------------------
+        |
+        | Una competición en marcha es lo más vivo de la cuenta: se enseña con
+        | su portada (o la de su mundo), cuánto lleva jugado y un botón para
+        | seguir. Las terminadas, con la cara de su campeón.
+        */
+
+        $enJuego =
+            TournamentInstance::query()
+            ->whereIn('universe_id', $mundos)
+            ->whereIn('status', ['RUNNING', 'PAUSED', 'DRAFT'])
+            ->with('universe:id,name,image,slug')
+            ->withCount([
+                'matches',
+                'matches as jugados_count' => fn($q) => $q->where('status', 'COMPLETED'),
+            ])
+            ->orderByRaw("FIELD(runtime_status, 'BLOCKED', 'AWAITING_DECISION') DESC")
+            ->orderByRaw("FIELD(status, 'RUNNING', 'PAUSED', 'DRAFT')")
+            ->latest('updated_at')
+            ->limit(6)
+            ->get();
+
+        $campeones =
+            TournamentInstance::query()
+            ->whereIn('universe_id', $mundos)
+            ->where('status', 'COMPLETED')
+            ->with('universe:id,name,image,slug')
+            ->latest('completed_at')
+            ->limit(4)
+            ->get()
+            ->map(function (TournamentInstance $instancia) {
+                $campeon = $instancia->participants()->where('placement', 1)->first();
+
+                return [
+                    'instancia' => $instancia,
+                    'nombre' => $campeon?->name,
+                    'cara' => $campeon
+                        ? CompetitorFaces::byRuntimeKey($instancia->id, $campeon->runtime_key)
+                        : null,
+                    'victorias' => $campeon?->wins,
+                ];
+            });
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Lo que se mira en la comunidad
+        |--------------------------------------------------------------------------
+        |
+        | Lo público de otras personas que más visitas tiene, sin lo que un
+        | admin ha ocultado ni lo de cuentas bloqueadas. Si la comunidad está
+        | cerrada, no se enseña.
+        */
+
+        $tendencias = collect();
+
+        if (app(SiteSettings::class)->get('community_open')) {
+            $flags = app(ContentFlags::class);
+
+            foreach (['entity' => Entity::class, 'collection' => CollectionModel::class] as $tipo => $clase) {
+                $tendencias = $tendencias->concat(
+                    $clase::query()
+                        ->where('user_id', '!=', $user->id)
+                        ->where('visibility', 'PUBLIC')
+                        ->whereNotNull('image')
+                        ->whereIn('user_id', CommunityModeration::cuentasVisibles())
+                        ->whereNotIn('id', $flags->hiddenIds($tipo))
+                        ->with('user')
+                        ->orderByDesc('views_count')
+                        ->limit(6)
+                        ->get()
+                        ->map(fn($cosa) => [
+                            'tipo' => $tipo,
+                            'etiqueta' => $tipo === 'entity' ? 'Entidad' : 'Colección',
+                            'modelo' => $cosa,
+                            'url' => $tipo === 'entity'
+                                ? route('community.entities.show', $cosa)
+                                : route('community.collections.show', $cosa),
+                        ])
+                );
+            }
+
+            /* Filas completas de cuatro: ocho si hay, si no cuatro */
+            $tendencias = $tendencias->sortByDesc(fn($t) => $t['modelo']->views_count)->values();
+            $tendencias = $tendencias->take($tendencias->count() >= 8 ? 8 : 4);
+        }
 
         return view(
             'hub.index',
@@ -352,9 +450,63 @@ class HubController extends Controller
                 'carasTorneos',
                 'carasComunidad',
                 'reciente',
-                'mosaico'
+                'mosaico',
+                'enJuego',
+                'campeones',
+                'tendencias'
             )
         );
+    }
+
+
+    /*
+     * El buscador del Centro: todo lo tuyo, de los cuatro modulos, en una
+     * sola caja. El de la Biblioteca solo buscaba en la Biblioteca; aqui se
+     * encuentra tambien un mundo, un torneo o una competicion por su nombre.
+     */
+    public function search(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $q = trim((string) $request->input('q'));
+
+        if (mb_strlen($q) < 2) {
+            return response()->json(['results' => []]);
+        }
+
+        $like = fn($query) => $query->where(fn($w) => $w
+            ->where('name', 'like', "%{$q}%")
+            ->orWhere('code', 'like', "%{$q}%"));
+
+        $mundos = $user->universes()->pluck('id');
+
+        $grupos = [
+            ['Entidad', '#818cf8', 'libro', $like($user->entities()->with('entityType'))->limit(6)->get(),
+                fn($e) => route('entities.show', $e), fn($e) => $e->entityType?->name ?? 'Sin tipo'],
+            ['Colección', '#34d399', 'capas', $like($user->collections())->limit(4)->get(),
+                fn($c) => route('collections.show', $c), fn($c) => $c->code],
+            ['Atributo', '#22d3ee', 'controles', $like($user->attributes())->limit(4)->get(),
+                fn($a) => route('attributes.show', $a), fn($a) => $a->code],
+            ['Universo', '#a78bfa', 'orbita', $like($user->universes())->limit(4)->get(),
+                fn($u) => route('universes.show', $u), fn($u) => $u->code],
+            ['Torneo', '#fbbf24', 'trofeo', $like($user->tournamentTemplates())->limit(4)->get(),
+                fn($t) => route('tournaments.templates.show', $t), fn($t) => $t->code],
+            ['Fase', '#f472b6', 'grafo', $like($user->phaseTemplates())->limit(4)->get(),
+                fn($p) => route('tournaments.phase-templates.show', $p), fn($p) => $p->code],
+            ['Competición', '#10b981', 'espadas', $like(TournamentInstance::query()->whereIn('universe_id', $mundos)->with('universe'))->limit(4)->get(),
+                fn($c) => route('universes.competitions.show', [$c->universe_id, $c]), fn($c) => ($c->universe?->name ?? '') . ' · ' . $c->status_label],
+        ];
+
+        $resultados = collect($grupos)->flatMap(fn($g) => $g[3]->map(fn($cosa) => [
+            'kind' => $g[0],
+            'tone' => $g[1],
+            'icon' => $g[2],
+            'title' => $cosa->name,
+            'subtitle' => $g[5]($cosa),
+            'image' => $cosa->image_url ?? ($cosa instanceof TournamentInstance ? $cosa->universe?->image_url : null),
+            'url' => $g[4]($cosa),
+        ]));
+
+        return response()->json(['results' => $resultados->values()]);
     }
 
 

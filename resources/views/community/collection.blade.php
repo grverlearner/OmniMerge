@@ -41,6 +41,8 @@
                     {{ $collection->name }}
                 </h2>
 
+                <x-content-badges type="collection" :id="$collection->id" wrap="mt-3 flex flex-wrap gap-1.5" />
+
                 <p class="mt-1 text-sm text-white/75">
                     {{ $collection->code }}
                 </p>

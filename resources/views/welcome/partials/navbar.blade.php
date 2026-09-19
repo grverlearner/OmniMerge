@@ -20,13 +20,13 @@
         <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2.5">
 
             <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600">
-                <img src="{{ asset('images/joganboruto.jpg') }}" alt="" class="h-full w-full object-cover">
+                <img src="{{ $sitio->logoUrl() ?? $sitio->faviconUrl() }}" alt="" class="h-full w-full object-cover">
             </span>
 
             <span class="leading-none">
-                <span class="block text-[15px] font-black tracking-tight text-white">OmniMerge</span>
-                <span class="block text-[8px] font-black uppercase tracking-[0.2em] text-indigo-400/70">
-                    Create · Connect · Evolve
+                <span class="block text-[15px] font-black tracking-tight text-white">{{ $sitio->name() }}</span>
+                <span class="omni-accent-text block text-[8px] font-black uppercase tracking-[0.2em]">
+                    {{ $sitio->get('tagline') }}
                 </span>
             </span>
         </a>
@@ -48,9 +48,9 @@
         <div class="hidden items-center gap-2 sm:flex">
             @auth
                 <a href="{{ route('hub') }}"
-                    class="flex items-center gap-1.5 rounded-xl bg-indigo-500 px-4 py-2 text-[13px] font-black text-white transition hover:bg-indigo-400">
+                    class="flex items-center gap-1.5 rounded-xl omni-accent-bg px-4 py-2 text-[13px] font-black text-white transition">
                     <x-omni-icon name="casa" size="h-4 w-4" />
-                    Ir a OmniMerge
+                    Ir a {{ $sitio->name() }}
                 </a>
             @else
                 <a href="{{ route('login') }}"
@@ -90,8 +90,8 @@
             <div class="pt-2">
                 @auth
                     <a href="{{ route('hub') }}"
-                        class="block rounded-xl bg-indigo-500 px-4 py-3 text-center text-sm font-black text-white">
-                        Ir a OmniMerge
+                        class="block rounded-xl omni-accent-bg px-4 py-3 text-center text-sm font-black text-white">
+                        Ir a {{ $sitio->name() }}
                     </a>
                 @else
                     <a href="{{ route('register') }}"

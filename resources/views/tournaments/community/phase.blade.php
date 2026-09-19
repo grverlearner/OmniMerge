@@ -70,6 +70,8 @@
 
                     <h1 class="mt-2 text-2xl font-black tracking-tight text-white">{{ $phase->name }}</h1>
 
+                    <x-content-badges type="phase_template" :id="$phase->id" wrap="mt-3 flex flex-wrap gap-1.5" />
+
                     @if ($phase->summary)
                         <p class="mt-1 text-[13px] text-slate-400">{{ $phase->summary }}</p>
                     @endif
