@@ -22,7 +22,7 @@
 
     <div class="flex items-center gap-2 border-b border-slate-800 bg-cyan-500/10 px-4 py-2">
         <span class="font-mono text-[9px] text-slate-600">05</span>
-        <span class="text-[11px]">⧉</span>
+        <x-omni-icon name="capas" size="h-3.5 w-3.5" />
         <h2 class="text-[11px] font-black uppercase tracking-wider text-cyan-300">Fase por fase</h2>
         <span class="ml-auto text-[10px] text-slate-600">Lo que cambia dentro del recorrido</span>
     </div>
@@ -294,7 +294,7 @@
                             <div class="rounded-xl border border-violet-500/25 bg-violet-500/5 p-2">
 
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <span class="text-[11px]">🏆</span>
+                                    <x-omni-icon name="trofeo" size="h-3.5 w-3.5" />
 
                                     <p class="text-[9px] font-black uppercase tracking-wider text-violet-300">
                                         Qué se lleva quien gane esta fase

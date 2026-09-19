@@ -29,6 +29,7 @@
 
     <div x-data="temporadasDelUniverso({
         siguienteNumero: {{ ($seasons->max('number') ?? 0) + 1 }},
+        hayTorneos: @js($torneos->isNotEmpty()),
     })" class="space-y-4">
 
         {{-- ===================================================== --}}
@@ -266,9 +267,18 @@
             </p>
 
             @if ($torneos->isEmpty())
-                <p class="rounded-2xl border border-dashed border-slate-800 py-10 text-center text-[11px] leading-relaxed text-slate-600">
-                    Este universo no tiene torneos, así que no hay nada que repartir entre temporadas.
-                </p>
+                <div class="rounded-2xl border border-dashed border-slate-800 py-10 text-center">
+                    <p class="text-[11px] leading-relaxed text-slate-600">
+                        Este universo no tiene torneos, así que no hay nada que repartir entre temporadas.
+                    </p>
+
+                    @if ($seasons->isNotEmpty())
+                        <button type="button" @click="vista = 'grid'"
+                            class="mt-3 rounded-xl border border-violet-500/40 px-3 py-1.5 text-[11px] font-black text-violet-300 transition hover:bg-violet-500/10">
+                            Ver las {{ $seasons->total() }} temporadas y ponerlas en curso
+                        </button>
+                    @endif
+                </div>
             @else
                 @foreach ($calendario as $fila)
                     <div class="flex flex-wrap items-center gap-3 rounded-2xl border p-3 {{ $fila['existe'] ? 'border-slate-800 bg-slate-900/50' : 'border-dashed border-slate-800/60 bg-slate-900/20' }}">
@@ -654,14 +664,20 @@
 
             return {
 
-                vista: 'calendar',
+                /*
+                 * Sin torneos el calendario no tiene nada que enseñar, y
+                 * abrir en él escondía las temporadas justo cuando el aviso
+                 * de arriba pide activar una.
+                 */
+                vista: config.hayTorneos ? 'calendar' : 'grid',
                 tamano: 6,
                 abrirLote: false,
 
                 init() {
                     try {
                         const g = JSON.parse(localStorage.getItem('omnimerge.seasons.view') ?? '{}');
-                        if (['calendar', 'timeline', 'grid', 'gallery', 'list', 'table'].includes(g.vista)) {
+                        if (['calendar', 'timeline', 'grid', 'gallery', 'list', 'table'].includes(g.vista)
+                            && ! (g.vista === 'calendar' && ! config.hayTorneos)) {
                             this.vista = g.vista;
                         }
                         if (g.tamano >= 4 && g.tamano <= 9) this.tamano = g.tamano;

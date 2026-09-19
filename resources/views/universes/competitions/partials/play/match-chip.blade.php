@@ -60,6 +60,10 @@
             'entity' => $caras[$p['key']]
                 ?? $porClave->get($p['key'])?->universeEntity,
 
+            /* La cara congelada para esta competicion manda sobre la ficha */
+            'image' => $porClave->get($p['key'])?->face_url
+                ?? ($caras[$p['key']] ?? $porClave->get($p['key'])?->universeEntity)?->image_url,
+
             /*
              * El marcador solo existe por pareja. Con más de dos se calla
              * en vez de atribuirle a un tercero un número que no es suyo.
@@ -122,8 +126,8 @@
                 {{-- Retrato --}}
                 <div class="relative aspect-square overflow-hidden bg-slate-800">
 
-                    @if ($side['entity']?->image_url)
-                        <img src="{{ $side['entity']->image_url }}" alt="{{ $side['name'] }}"
+                    @if ($side['image'])
+                        <img src="{{ $side['image'] }}" alt="{{ $side['name'] }}"
                             @class([
                                 'h-full w-full object-cover transition duration-300 group-hover:scale-105',
                                 'opacity-40 grayscale' => $isDone && !$isWinner,

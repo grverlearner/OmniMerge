@@ -97,7 +97,7 @@
                     </div>
 
                     <form method="POST" action="{{ route('collections.destroy', $collection) }}"
-                        onsubmit="return confirm('Se elimina la colección «{{ $collection->name }}». Las entidades no se tocan. ¿Seguro?')">
+                        data-omni-confirm data-confirm-variant="danger" data-confirm-title="Eliminar la colección" data-confirm-message="Las entidades que contiene no se tocan." data-confirm-subject="{{ $collection->name }}" data-confirm-action="Sí, eliminarla">
                         @csrf
                         @method('DELETE')
 

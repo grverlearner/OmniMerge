@@ -172,7 +172,8 @@
                         <div class="mt-1 space-y-0.5">
                             <template x-for="(cambio, campo) in diff.identity" :key="'id' + campo">
                                 <p class="text-[10px]">
-                                    <span class="text-slate-600" x-text="campo"></span>
+                                    <span class="text-slate-600"
+                                        x-text="({ name: 'Nombre', entity_type_name: 'Tipo', image: 'Imagen' })[campo] ?? campo"></span>
                                     <span class="ml-1 text-slate-500 line-through" x-text="cambio.from ?? '—'"></span>
                                     <span class="mx-1 text-slate-700">→</span>
                                     <span class="text-slate-300" x-text="cambio.to ?? '—'"></span>

@@ -94,6 +94,18 @@
     ];
 
     $llaveTamano = 'omnimerge.arena.' . $competition->id . '.bracket-size';
+
+    /*
+     * Si la fase vuelve a sembrar en cada ronda, el cuadro NO es fijo: al
+     * acabar una ronda el motor empareja al mejor sembrado que queda con
+     * el peor. Pintar «ganadores de cuartos 1 y 2» y colocar ya a los
+     * clasificados en ese hueco anunciaba un cruce que despues no ocurria.
+     */
+    $reempareja = (bool) data_get(
+        $payload ?? [],
+        'state.nodes.' . $block['phase']->node_id . '.runtime.reseed_each_round',
+        false
+    );
 @endphp
 
 <div x-data="{
@@ -189,6 +201,13 @@
 
     <div class="flex items-center justify-end gap-2 px-5 pt-4">
 
+        @if ($reempareja)
+            <p class="mr-auto text-[10px] leading-relaxed text-slate-500">
+                Esta fase <span class="font-black text-violet-300">vuelve a sembrar</span> en cada ronda:
+                al acabar una, el mejor sembrado que sigue vivo se cruza con el peor.
+            </p>
+        @endif
+
         <span class="text-[9px] font-black uppercase tracking-wider text-slate-600">Tamaño</span>
 
         <div class="flex items-center gap-1 rounded-xl bg-slate-900 p-1">
@@ -271,11 +290,11 @@
 
                                 /* A dónde va el ganador de este hueco */
                                 $destination = $nextName
-                                    ? $nextName . ' · ' . (int) ceil($slot / 2)
+                                    ? $nextName . ($reempareja ? '' : ' · ' . (int) ceil($slot / 2))
                                     : null;
 
                                 /* De dónde vendrá su ocupante */
-                                $feeders = $columnIndex > 0
+                                $feeders = $columnIndex > 0 && ! $reempareja
                                     ? [$slot * 2 - 1, $slot * 2]
                                     : null;
 
@@ -318,6 +337,9 @@
                                             'entity' => $winnerIsA
                                                 ? $feederMatch->participantAEntity
                                                 : $feederMatch->participantBEntity,
+                                            'image' => $winnerIsA
+                                                ? $feederMatch->participant_a_face_url
+                                                : $feederMatch->participant_b_face_url,
                                             'from' => $feeder,
                                         ];
                                     }
@@ -352,8 +374,8 @@
                                                 @if ($who)
                                                     <div class="relative aspect-square overflow-hidden rounded-lg bg-slate-800 ring-1 ring-violet-500/40">
 
-                                                        @if ($who['entity']?->image_url)
-                                                            <img src="{{ $who['entity']->image_url }}"
+                                                        @if ($who['image'])
+                                                            <img src="{{ $who['image'] }}"
                                                                 alt="{{ $who['name'] }}" class="h-full w-full object-cover">
                                                         @else
                                                             <div class="flex h-full w-full items-center justify-center text-sm opacity-30">✦</div>
@@ -386,6 +408,8 @@
                                             <span class="text-violet-400">Clasificado</span> · falta el otro lado
                                         @elseif ($feeders)
                                             Ganadores de {{ $previousName }} · {{ $feeders[0] }} y {{ $feeders[1] }}
+                                        @elseif ($reempareja && $columnIndex > 0)
+                                            Por siembra, al acabar {{ $previousName }}
                                         @else
                                             Sin asignar
                                         @endif

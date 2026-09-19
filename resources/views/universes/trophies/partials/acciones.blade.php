@@ -25,7 +25,7 @@
     @else
         <form method="POST" action="{{ route('universes.trophies.destroy', [$universe, $trofeo]) }}"
             class="ml-auto"
-            onsubmit="return confirm({{ Js::from('Se elimina «' . $trofeo->name . '». ¿Seguro?') }})">
+            data-omni-confirm data-confirm-variant="danger" data-confirm-title="Eliminar el trofeo" data-confirm-message="Se elimina de este universo." data-confirm-subject="{{ $trofeo->name }}" data-confirm-detail="No se puede deshacer." data-confirm-action="Sí, eliminarlo">
             @csrf
             @method('DELETE')
 

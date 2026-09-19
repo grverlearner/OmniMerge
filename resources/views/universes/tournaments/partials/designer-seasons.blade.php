@@ -36,7 +36,7 @@
 
     <div class="flex items-center gap-2 border-b border-slate-800 bg-cyan-500/10 px-4 py-2">
         <span class="font-mono text-[9px] text-slate-600">04</span>
-        <span class="text-[11px]">↻</span>
+        <x-omni-icon name="calendario" size="h-3.5 w-3.5" />
         <h2 class="text-[11px] font-black uppercase tracking-wider text-cyan-300">Temporadas</h2>
         <span class="ml-auto text-[10px] text-slate-600">Cada cuánto aparece</span>
     </div>

@@ -73,7 +73,7 @@
         <button type="button" @click="open = !open"
             class="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-amber-400 transition hover:text-amber-300">
             <span x-text="open ? '▾' : '▸'"></span>
-            🏅 Ranking
+            <x-omni-icon name="medalla" size="h-3.5 w-3.5" /> Ranking
         </button>
 
         {{-- Las dos preguntas --}}
@@ -136,8 +136,8 @@
 
                     <div class="relative aspect-square overflow-hidden bg-slate-950">
 
-                        @if ($entidad?->image_url)
-                            <img src="{{ $entidad->image_url }}" alt="{{ $fila->name }}" loading="lazy"
+                        @if ($fila->face_url ?? $entidad?->image_url)
+                            <img src="{{ $fila->face_url ?? $entidad?->image_url }}" alt="{{ $fila->name }}" loading="lazy"
                                 class="h-full w-full object-cover">
                         @else
                             <div class="flex h-full w-full items-center justify-center text-2xl opacity-25">✦</div>

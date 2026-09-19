@@ -73,9 +73,19 @@
                     </div>
                 </div>
 
-                {{-- Su puerta, cuando se reparte a mano --}}
-                <div x-show="isIn(fichaC.id) && starts.length > 1 && effDoors.mode === 'MANUAL'">
-                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-500">Entra por</p>
+                {{--
+                    Su puerta. En manual es la unica forma de repartir; en
+                    automatico o por reglas sirve para fijarle la plaza: entra
+                    primero por ahi y el reparto rellena el resto. Es lo que
+                    permite asegurar que alguien juega cuando hay mas
+                    candidatos que plazas.
+                --}}
+                <div x-show="isIn(fichaC.id) && starts.length">
+                    <p class="text-[9px] font-black uppercase tracking-wider text-slate-500"
+                        x-text="effDoors.mode === 'MANUAL' ? 'Entra por' : (starts.length > 1 ? 'Fijarle la puerta' : 'Asegurarle la plaza')"></p>
+                    <p x-show="effDoors.mode !== 'MANUAL'" class="mt-0.5 text-[10px] leading-relaxed text-slate-600">
+                        Entra primero por la que elijas y el reparto rellena las plazas que quedan.
+                    </p>
                     <div class="mt-1 flex flex-wrap gap-1">
                         <template x-for="s in starts" :key="'fs' + s.id">
                             <button type="button" @click="assignTo(fichaC.id, s.id)"
@@ -83,7 +93,8 @@
                                 :style="calc.doorOf[fichaC.id] === s.id ? `border-color: ${doorColor(s.id)}; background-color: ${doorColor(s.id)}33; color: #f8fafc` : 'border-color: #1e293b; color: #94a3b8'"
                                 x-text="doorShort(s.id) + ' · ' + s.name"></button>
                         </template>
-                        <button type="button" @click="assignTo(fichaC.id, null)" class="rounded-lg border border-slate-800 px-2 py-1 text-[11px] font-black text-slate-500 hover:text-white">Ninguna</button>
+                        <button type="button" @click="assignTo(fichaC.id, null)" class="rounded-lg border border-slate-800 px-2 py-1 text-[11px] font-black text-slate-500 hover:text-white"
+                            x-text="effDoors.mode === 'MANUAL' ? 'Ninguna' : 'La que toque'"></button>
                     </div>
                 </div>
 

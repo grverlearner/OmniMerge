@@ -826,7 +826,7 @@
                     @endcan
 
                     <form method="POST" action="{{ route('attribute-options.destroy', $attributeOption) }}"
-                        onsubmit="return confirm('Se elimina «{{ $attributeOption->name }}». ¿Seguro?')">
+                        data-omni-confirm data-confirm-variant="danger" data-confirm-title="Eliminar la opción" data-confirm-message="Se elimina del catálogo y deja de poder elegirse." data-confirm-subject="{{ $attributeOption->name }}" data-confirm-detail="No se puede deshacer." data-confirm-action="Sí, eliminarla">
                         @csrf
                         @method('DELETE')
 

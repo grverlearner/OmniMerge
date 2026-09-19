@@ -17,13 +17,13 @@
     $editando = $competition !== null;
 
     $bloques = [
-        'identity' => ['n' => '01', 'label' => 'Esta edición',   'icon' => '◈', 'text' => 'text-slate-300',  'soft' => 'bg-slate-500/10',  'border' => 'border-slate-500/30'],
-        'shape'    => ['n' => '02', 'label' => 'La forma',       'icon' => '⑂', 'text' => 'text-sky-300',    'soft' => 'bg-sky-500/10',    'border' => 'border-sky-500/30'],
-        'game'     => ['n' => '03', 'label' => 'El juego',       'icon' => '🎲', 'text' => 'text-emerald-300','soft' => 'bg-emerald-500/10','border' => 'border-emerald-500/30'],
-        'battle'   => ['n' => '04', 'label' => 'La batalla',     'icon' => '⚔', 'text' => 'text-amber-300',  'soft' => 'bg-amber-500/10',  'border' => 'border-amber-500/30'],
-        'phases'   => ['n' => '05', 'label' => 'Fase por fase',  'icon' => '⧉', 'text' => 'text-cyan-300',   'soft' => 'bg-cyan-500/10',   'border' => 'border-cyan-500/30'],
-        'doors'    => ['n' => '06', 'label' => 'Quién entra',    'icon' => '⇥', 'text' => 'text-rose-300',   'soft' => 'bg-rose-500/10',   'border' => 'border-rose-500/30'],
-        'prizes'   => ['n' => '07', 'label' => 'Trofeos y premios', 'icon' => '🏆', 'text' => 'text-violet-300','soft' => 'bg-violet-500/10','border' => 'border-violet-500/30'],
+        'identity' => ['n' => '01', 'label' => 'Esta edición',   'icon' => 'chispa', 'text' => 'text-slate-300',  'soft' => 'bg-slate-500/10',  'border' => 'border-slate-500/30'],
+        'shape'    => ['n' => '02', 'label' => 'La forma',       'icon' => 'grafo', 'text' => 'text-sky-300',    'soft' => 'bg-sky-500/10',    'border' => 'border-sky-500/30'],
+        'game'     => ['n' => '03', 'label' => 'El juego',       'icon' => 'dado', 'text' => 'text-emerald-300','soft' => 'bg-emerald-500/10','border' => 'border-emerald-500/30'],
+        'battle'   => ['n' => '04', 'label' => 'La batalla',     'icon' => 'espadas', 'text' => 'text-amber-300',  'soft' => 'bg-amber-500/10',  'border' => 'border-amber-500/30'],
+        'phases'   => ['n' => '05', 'label' => 'Fase por fase',  'icon' => 'capas', 'text' => 'text-cyan-300',   'soft' => 'bg-cyan-500/10',   'border' => 'border-cyan-500/30'],
+        'doors'    => ['n' => '06', 'label' => 'Quién entra',    'icon' => 'puerta', 'text' => 'text-rose-300',   'soft' => 'bg-rose-500/10',   'border' => 'border-rose-500/30'],
+        'prizes'   => ['n' => '07', 'label' => 'Trofeos y premios', 'icon' => 'trofeo', 'text' => 'text-violet-300','soft' => 'bg-violet-500/10','border' => 'border-violet-500/30'],
     ];
 @endphp
 
@@ -62,7 +62,7 @@
 
                 <div class="flex items-center gap-1.5">
                     <span class="font-mono text-[9px] text-slate-600">{{ $b['n'] }}</span>
-                    <span class="text-[11px]">{{ $b['icon'] }}</span>
+                    <x-omni-icon :name="$b['icon']" size="h-3.5 w-3.5" />
                 </div>
 
                 <p class="mt-0.5 truncate text-[10px] font-black"

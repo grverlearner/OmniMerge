@@ -18,6 +18,8 @@ class TournamentGraphValidationService
     ): array {
         $template->load([
             'graphNodes.phaseTemplate.exits',
+            'graphNodes.phaseTemplate.groupStageAdvancementRules',
+            'graphNodes.phaseTemplate.swissAdvancementRules',
             'graphNodes.entryPorts.incomingConnections',
 
             'graphStarts.outgoingConnections',
@@ -316,6 +318,67 @@ class TournamentGraphValidationService
                             $node->name
                             .
                             '” no está conectada.',
+                    ];
+                }
+
+
+                /*
+                 * En grupos y en suizo la salida no elige por su cuenta:
+                 * quien la llena es el criterio de avance que la señala.
+                 *
+                 * Sin ningún criterio, la puerta existe, se ve conectada y
+                 * aun así no sale nadie por ella. Eso no se nota al
+                 * configurar; se nota con la fase entera jugada, el torneo
+                 * detenido y la gente sin destino. Aquí se avisa antes.
+                 */
+                $advancementRules =
+                    match (
+                        $node
+                        ->phaseTemplate
+                        ?->phase_type
+                    ) {
+                        'GROUP_STAGE' =>
+                        $node
+                            ->phaseTemplate
+                            ->groupStageAdvancementRules,
+
+                        'SWISS' =>
+                        $node
+                            ->phaseTemplate
+                            ->swissAdvancementRules,
+
+                        default =>
+                        null,
+                    };
+
+                if (
+                    $advancementRules !== null
+                    &&
+                    $advancementRules
+                        ->where(
+                            'status',
+                            'ACTIVE'
+                        )
+                        ->where(
+                            'phase_exit_id',
+                            $exit->id
+                        )
+                        ->isEmpty()
+                ) {
+                    $warnings[] = [
+                        'code' =>
+                        'EXIT_WITHOUT_ENGINE_RULES',
+
+                        'message' =>
+                        'Ningún criterio de avance lleva a la salida “'
+                            .
+                            $exit->name
+                            .
+                            '” de “'
+                            .
+                            $node->name
+                            .
+                            '”, así que no saldrá nadie por ella.',
                     ];
                 }
             }

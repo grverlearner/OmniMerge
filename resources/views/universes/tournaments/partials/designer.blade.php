@@ -25,12 +25,12 @@
 
     /* Los bloques, con su color. Literales: Tailwind lee el código fuente */
     $blocks = [
-        'identity' => ['n' => '01', 'label' => 'Identidad', 'icon' => '◈', 'dot' => 'bg-slate-400', 'text' => 'text-slate-300', 'soft' => 'bg-slate-500/10', 'border' => 'border-slate-500/30'],
-        'game'     => ['n' => '02', 'label' => 'El juego', 'icon' => '🎲', 'dot' => 'bg-emerald-400', 'text' => 'text-emerald-300', 'soft' => 'bg-emerald-500/10', 'border' => 'border-emerald-500/30'],
-        'battle'   => ['n' => '03', 'label' => 'La batalla', 'icon' => '⚔', 'dot' => 'bg-amber-400', 'text' => 'text-amber-300', 'soft' => 'bg-amber-500/10', 'border' => 'border-amber-500/30'],
-        'seasons'  => ['n' => '04', 'label' => 'Temporadas', 'icon' => '↻', 'dot' => 'bg-cyan-400', 'text' => 'text-cyan-300', 'soft' => 'bg-cyan-500/10', 'border' => 'border-cyan-500/30'],
-        'prizes'   => ['n' => '05', 'label' => 'Trofeo y premios', 'icon' => '🏆', 'dot' => 'bg-violet-400', 'text' => 'text-violet-300', 'soft' => 'bg-violet-500/10', 'border' => 'border-violet-500/30'],
-        'who'      => ['n' => '06', 'label' => 'Quién compite', 'icon' => '⚑', 'dot' => 'bg-rose-400', 'text' => 'text-rose-300', 'soft' => 'bg-rose-500/10', 'border' => 'border-rose-500/30'],
+        'identity' => ['n' => '01', 'label' => 'Identidad', 'icon' => 'chispa', 'dot' => 'bg-slate-400', 'text' => 'text-slate-300', 'soft' => 'bg-slate-500/10', 'border' => 'border-slate-500/30'],
+        'game'     => ['n' => '02', 'label' => 'El juego', 'icon' => 'dado', 'dot' => 'bg-emerald-400', 'text' => 'text-emerald-300', 'soft' => 'bg-emerald-500/10', 'border' => 'border-emerald-500/30'],
+        'battle'   => ['n' => '03', 'label' => 'La batalla', 'icon' => 'espadas', 'dot' => 'bg-amber-400', 'text' => 'text-amber-300', 'soft' => 'bg-amber-500/10', 'border' => 'border-amber-500/30'],
+        'seasons'  => ['n' => '04', 'label' => 'Temporadas', 'icon' => 'calendario', 'dot' => 'bg-cyan-400', 'text' => 'text-cyan-300', 'soft' => 'bg-cyan-500/10', 'border' => 'border-cyan-500/30'],
+        'prizes'   => ['n' => '05', 'label' => 'Trofeo y premios', 'icon' => 'trofeo', 'dot' => 'bg-violet-400', 'text' => 'text-violet-300', 'soft' => 'bg-violet-500/10', 'border' => 'border-violet-500/30'],
+        'who'      => ['n' => '06', 'label' => 'Quién compite', 'icon' => 'usuario', 'dot' => 'bg-rose-400', 'text' => 'text-rose-300', 'soft' => 'bg-rose-500/10', 'border' => 'border-rose-500/30'],
     ];
 @endphp
 
@@ -79,7 +79,7 @@
 
                 <div class="flex items-center gap-1.5">
                     <span class="font-mono text-[9px] text-slate-600">{{ $b['n'] }}</span>
-                    <span class="text-[11px]">{{ $b['icon'] }}</span>
+                    <x-omni-icon :name="$b['icon']" size="h-3.5 w-3.5" />
                 </div>
 
                 <p class="mt-0.5 truncate text-[10px] font-black"

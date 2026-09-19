@@ -40,7 +40,7 @@
 
                 <div class="mx-auto {{ $ancho ? 'max-w-none' : ($dark ? 'max-w-[1600px]' : 'max-w-7xl') }}">
 
-                    <x-alert />
+                    <x-alert :dark="$dark" :contenido="$slot" />
 
                     {{ $slot }}
                 </div>

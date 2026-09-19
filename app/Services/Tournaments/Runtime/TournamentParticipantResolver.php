@@ -93,8 +93,14 @@ class TournamentParticipantResolver
             'entity_type_name' =>
             $universeEntity->entity_type_name,
 
+            /*
+             * Quien es: su nombre en el universo (o su alias). La version
+             * decide la CARA y viaja aparte en entity_version_name; usar su
+             * nombre aqui hacia que «Naruto Uzumaki» jugase como «Naruto
+             * nino» y que las fichas repitieran la version dos veces.
+             */
             'name' =>
-            $cara['name'],
+            $universeEntity->display_label,
 
             'image_url' =>
             $cara['image_url'],

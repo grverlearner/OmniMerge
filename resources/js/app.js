@@ -77,6 +77,27 @@ window.OmniConfirm = {
         false,
 
 
+    /*
+     * Un aviso con un solo boton: lo que antes era alert().
+     *
+     * El alert() del navegador es una caja gris que congela la pagina y
+     * no se parece a nada de OmniMerge. Esto usa el mismo modal que las
+     * confirmaciones, sin «Cancelar», y devuelve una Promise que se
+     * resuelve al cerrarlo.
+     */
+    notice(message, options = {}) {
+
+        return this.request({
+            title: 'Atención',
+            variant: 'warning',
+            actionLabel: 'Entendido',
+            ...options,
+            message,
+            notice: true,
+        });
+    },
+
+
     approve(form) {
 
         approvedConfirmForms.add(
@@ -383,6 +404,10 @@ document.addEventListener(
                 restoreFocusTo:
                     null,
 
+                /* Solo aviso: un boton, sin «Cancelar» */
+                notice:
+                    false,
+
 
                 init() {
 
@@ -545,6 +570,9 @@ document.addEventListener(
                             ||
                             'Cancelar';
 
+                        this.notice =
+                            options.notice === true;
+
                         this.variant =
                             allowedVariants.includes(
                                 options.variant
@@ -587,6 +615,9 @@ document.addEventListener(
                         return;
                     }
 
+
+                    this.notice =
+                        false;
 
                     const form =
                         event.detail
@@ -1021,6 +1052,123 @@ document.addEventListener(
 | utilizará automáticamente OmniConfirm.
 |
 */
+
+/*
+|--------------------------------------------------------------------------
+| Cambios sin guardar
+|--------------------------------------------------------------------------
+|
+| Cada pantalla que edita algo avisaba al salir con el dialogo nativo del
+| navegador («¿Salir del sitio? Es posible que los cambios no se guarden»),
+| cada una con su propio beforeunload.
+|
+| Ahora se registran aqui con OmniUnsaved.watch(() => hayCambios) y:
+|
+|   - salir por un enlace de la aplicacion abre el modal de OmniMerge,
+|     que dice lo que pasa y deja elegir
+|   - cerrar la pestana o recargar sigue usando el aviso del navegador:
+|     ahi ningun navegador deja pintar un modal propio
+|
+*/
+
+const unsavedWatchers =
+    new Set();
+
+let leavingApproved =
+    false;
+
+window.OmniUnsaved = {
+
+    watch(isDirty) {
+
+        const watcher = { isDirty };
+
+        unsavedWatchers.add(watcher);
+
+        return () => unsavedWatchers.delete(watcher);
+    },
+
+    dirty() {
+
+        return [...unsavedWatchers].some((watcher) => {
+            try {
+                return Boolean(watcher.isDirty());
+            } catch (e) {
+                return false;
+            }
+        });
+    },
+
+    /* Para salir a proposito sin volver a preguntar */
+    allowLeaving() {
+
+        leavingApproved = true;
+    },
+};
+
+window.addEventListener('beforeunload', (event) => {
+
+    if (leavingApproved || !window.OmniUnsaved.dirty()) {
+        return;
+    }
+
+    event.preventDefault();
+    event.returnValue = '';
+});
+
+document.addEventListener('click', async (event) => {
+
+    if (
+        event.defaultPrevented
+        || event.button !== 0
+        || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+    ) {
+        return;
+    }
+
+    const link = event.target?.closest?.('a[href]');
+
+    if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) {
+        return;
+    }
+
+    const destino = new URL(link.href, window.location.href);
+
+    if (destino.origin !== window.location.origin) {
+        return;
+    }
+
+    /* Un ancla dentro de la misma pagina no es salir */
+    if (
+        destino.pathname === window.location.pathname
+        && destino.search === window.location.search
+        && destino.hash
+    ) {
+        return;
+    }
+
+    if (!window.OmniUnsaved.dirty()) {
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const salir = await window.OmniConfirm.request({
+        title: 'Tienes cambios sin guardar',
+        message: 'Si sales ahora, lo que has cambiado en esta pantalla se pierde.',
+        detail: 'Quédate y pulsa Guardar si quieres conservarlo.',
+        actionLabel: 'Salir sin guardar',
+        cancelLabel: 'Seguir editando',
+        variant: 'warning',
+    });
+
+    if (salir) {
+        leavingApproved = true;
+        window.location.assign(destino.href);
+    }
+}, true);
+
 
 document.addEventListener(
     'submit',

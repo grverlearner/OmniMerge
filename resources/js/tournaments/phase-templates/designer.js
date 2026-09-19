@@ -96,19 +96,9 @@ export default function phaseTemplateDesigner(
                 }
             );
 
-            window.addEventListener(
-                'beforeunload',
-                (event) => {
-                    if (
-                        !this.dirty
-                        || this.submitting
-                    ) {
-                        return;
-                    }
-
-                    event.preventDefault();
-                    event.returnValue = '';
-                }
+            /* Salir con cambios: el modal de OmniMerge (ver OmniUnsaved en app.js) */
+            window.OmniUnsaved?.watch(
+                () => this.dirty && !this.submitting
             );
         },
 

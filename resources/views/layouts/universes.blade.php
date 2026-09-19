@@ -56,7 +56,7 @@
 
                 <div class="mx-auto {{ ($bleed ?? false) ? 'max-w-none' : ($dark ? 'max-w-[1500px]' : 'max-w-7xl') }}">
 
-                    <x-alert />
+                    <x-alert :dark="$dark" :contenido="$slot" />
 
 
                     {{ $slot }}

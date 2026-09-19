@@ -230,4 +230,132 @@ class SwissPairingCalculatorTest extends TestCase
             );
         }
     }
+
+    /*
+     * Los identificadores no son siempre números: el Competition Lab
+     * reparte claves como «LAB-S078-P0001» y un competidor de un universo
+     * llega como «UC-000123».
+     *
+     * Cuando el calculador los convertía a entero, los ocho valían 0 y la
+     * ronda salía con emparejamientos «0 contra 0». El Runtime solo juega
+     * un encuentro que tenga sus dos lados puestos, así que no encontraba
+     * ninguno jugable y dejaba la fase —y con ella el torneo entero—
+     * bloqueada sin una sola batalla.
+     */
+    public function test_text_identifiers_survive_the_pairing(): void
+    {
+        $participants =
+            $this->sampleParticipants(8);
+
+        foreach (
+            $participants
+            as
+            $index =>
+            &$participant
+        ) {
+            $participant['id'] =
+                'LAB-S078-P000'
+                .
+                ($index + 1);
+        }
+
+        unset($participant);
+
+        $calculator =
+            new SwissPairingCalculator();
+
+        $result =
+            $calculator->generateRound(
+                $participants,
+                $this->settings(),
+                1
+            );
+
+        $this->assertTrue(
+            $result['valid']
+        );
+
+        $this->assertCount(
+            4,
+            $result['pairings']
+        );
+
+        foreach (
+            $result['pairings']
+            as
+            $pairing
+        ) {
+            $this->assertStringStartsWith(
+                'LAB-S078-P',
+                $pairing['participant_a']['id']
+            );
+
+            $this->assertStringStartsWith(
+                'LAB-S078-P',
+                $pairing['participant_b']['id']
+            );
+        }
+    }
+
+    /*
+     * Y las revanchas se siguen reconociendo con esas mismas claves: la
+     * comparación es estricta, así que el identificador y la lista de
+     * rivales ya jugados tienen que conservar el mismo tipo.
+     */
+    public function test_strict_policy_also_recognises_text_identifiers(): void
+    {
+        $participants =
+            $this->sampleParticipants(4);
+
+        foreach (
+            $participants
+            as
+            $index =>
+            &$participant
+        ) {
+            $participant['id'] =
+                'UC-00000'
+                .
+                ($index + 1);
+
+            $participant['standing_score'] =
+                1;
+        }
+
+        unset($participant);
+
+        /*
+         * UC-000001 ya jugó con UC-000002.
+         * UC-000003 ya jugó con UC-000004.
+         */
+        $participants[0]['opponents'] = ['UC-000002'];
+        $participants[1]['opponents'] = ['UC-000001'];
+
+        $participants[2]['opponents'] = ['UC-000004'];
+        $participants[3]['opponents'] = ['UC-000003'];
+
+        $calculator =
+            new SwissPairingCalculator();
+
+        $result =
+            $calculator->generateRound(
+                $participants,
+                $this->settings(),
+                2
+            );
+
+        $this->assertTrue(
+            $result['valid']
+        );
+
+        foreach (
+            $result['pairings']
+            as
+            $pairing
+        ) {
+            $this->assertFalse(
+                $pairing['is_rematch']
+            );
+        }
+    }
 }

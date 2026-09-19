@@ -417,7 +417,7 @@
 
                                                 <form method="POST"
                                                     action="{{ route('versions.catalog-links.destroy', [$version, $enlace]) }}"
-                                                    onsubmit="return confirm('Se quita esta regla. ¿Seguro?')">
+                                                    data-omni-confirm data-confirm-variant="danger" data-confirm-title="Quitar la regla" data-confirm-message="La versión deja de activarse por esta regla." data-confirm-action="Sí, quitarla">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit"
@@ -511,7 +511,7 @@
 
                                 @can('update', $version)
                                     <form method="POST" action="{{ route('versions.catalog-links.destroy', [$version, $enlace]) }}"
-                                        onsubmit="return confirm('Se quita esta relación. ¿Seguro?')">
+                                        data-omni-confirm data-confirm-variant="danger" data-confirm-title="Quitar la relación" data-confirm-message="Se deshace esta relación." data-confirm-action="Sí, quitarla">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="text-[10px] font-black opacity-50 transition hover:opacity-100">✕</button>
@@ -1012,7 +1012,7 @@
                     </div>
 
                     <form method="POST" action="{{ route('versions.destroy', $version) }}"
-                        onsubmit="return confirm('Se elimina la definición «{{ $version->name }}». ¿Seguro?')">
+                        data-omni-confirm data-confirm-variant="danger" data-confirm-title="Eliminar la definición" data-confirm-message="Se borra esta definición de versión." data-confirm-subject="{{ $version->name }}" data-confirm-detail="No se puede deshacer." data-confirm-action="Sí, eliminarla">
                         @csrf
                         @method('DELETE')
 

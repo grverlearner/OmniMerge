@@ -63,6 +63,32 @@ class UniverseRankingService
                 'tournament_instances.universe_id',
                 $universe->id
             )
+            /*
+             * Solo lo que de verdad se jugo.
+             *
+             * La union no miraba el borrado suave, asi que una edicion
+             * eliminada seguia dando puntos; y un borrador —o una edicion
+             * cancelada antes de su primera batalla— daba el punto de
+             * «presentarse» a quien nunca llego a competir. Una cancelada
+             * que si llego a jugar conserva lo jugado, como promete la
+             * pantalla al cancelarla.
+             */
+            ->whereNull('tournament_instances.deleted_at')
+            ->where('tournament_instances.status', '!=', 'DRAFT')
+            ->where(
+                fn ($query) => $query
+                    ->where('tournament_instances.status', '!=', 'CANCELLED')
+                    ->orWhereExists(
+                        fn ($jugadas) => $jugadas
+                            ->selectRaw('1')
+                            ->from('tournament_instance_matches')
+                            ->whereColumn(
+                                'tournament_instance_matches.tournament_instance_id',
+                                'tournament_instances.id'
+                            )
+                            ->where('tournament_instance_matches.status', 'COMPLETED')
+                    )
+            )
             ->when(
                 $seasonId,
 

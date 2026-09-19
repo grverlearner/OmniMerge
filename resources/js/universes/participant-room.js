@@ -77,6 +77,8 @@ function normalizeStarts(starts) {
         code: s.code ?? null,
         description: s.description ?? null,
         capacity: s.capacity ? Number(s.capacity) : null,
+        /* A que fases lleva y cuantos piden: lo que permite avisar en el acto */
+        feeds: Array.isArray(s.feeds) ? s.feeds : [],
     }));
 }
 
@@ -132,6 +134,9 @@ export default function participantRoom(sala) {
         customized: false,
         notice: '',
 
+        /* El ensayo del diseño en pantalla: se juega en memoria en el servidor */
+        rehearsal: { loading: false, ok: null, problem: null, forJson: null },
+
         saved: '',
         submitting: false,
         serverMismatch: false,
@@ -175,12 +180,8 @@ export default function participantRoom(sala) {
 
             this.checkServer();
 
-            window.addEventListener('beforeunload', (e) => {
-                if (this.dirty && !this.submitting) {
-                    e.preventDefault();
-                    e.returnValue = '';
-                }
-            });
+            /* Salir con cambios: el modal de OmniMerge (ver OmniUnsaved en app.js) */
+            window.OmniUnsaved?.watch(() => this.dirty && !this.submitting);
         },
 
         /*
@@ -597,9 +598,63 @@ export default function participantRoom(sala) {
             return h >>> 0;
         },
 
+        /*
+         * Lo fijado a mano entra primero en su puerta, en cualquier modo; el
+         * reparto de siempre rellena las plazas libres. Espejo exacto de
+         * CompetitionStartRouting::withPins().
+         */
         planFor(pool) {
             const doors = this.effDoors;
             const starts = this.starts.map((s) => [s.id, s.capacity ?? null]);
+
+            if (doors.mode === 'MANUAL') return this.planBase(pool, doors, starts);
+
+            const enPool = new Set(pool.map((c) => c.id));
+            const vistos = {};
+            const fijados = {};
+            const sobran = [];
+            const libres = [];
+            let hay = false;
+
+            starts.forEach(([p, cap]) => {
+                let lista = (doors.manual?.[p] ?? []).map(Number).filter((id) => enPool.has(id) && !vistos[id]);
+
+                if (cap != null && lista.length > cap) {
+                    sobran.push(...lista.slice(cap));
+                    lista = lista.slice(0, cap);
+                }
+
+                lista.forEach((id) => { vistos[id] = true; });
+                if (lista.length) hay = true;
+
+                fijados[p] = lista;
+                libres.push([p, cap == null ? null : cap - lista.length]);
+            });
+
+            if (!hay) return this.planBase(pool, doors, starts);
+
+            const base = this.planBase(pool.filter((c) => !vistos[c.id]), { ...doors, manual: {} }, libres);
+            const r = { assignments: {}, leftovers: [...sobran], overflow: {} };
+
+            starts.forEach(([p], i) => {
+                const auto = base.assignments[p] ?? [];
+                const libre = libres[i][1];
+                const sitio = libre == null ? auto.length : Math.max(0, libre);
+
+                r.assignments[p] = [...fijados[p], ...auto.slice(0, sitio)];
+
+                const fuera = [...auto.slice(sitio), ...(base.overflow[p] ?? [])];
+                if (fuera.length) r.overflow[p] = fuera;
+
+                r.leftovers.push(...auto.slice(sitio));
+            });
+
+            r.leftovers = [...new Set([...r.leftovers, ...(base.leftovers ?? [])])];
+
+            return r;
+        },
+
+        planBase(pool, doors, starts) {
             const ids = pool.map((c) => c.id);
             const porId = Object.fromEntries(pool.map((c) => [c.id, c]));
 
@@ -960,6 +1015,96 @@ export default function participantRoom(sala) {
             return Object.values(this.calc.plan.assignments).reduce((s, ids) => s + ids.length, 0);
         },
 
+        /*
+         * Cuantos le llegan a cada fase de entrada con el reparto de ahora.
+         *
+         * Cada puerta lleva a una o varias fases: a todas, «toma N» o un
+         * porcentaje, en su orden. Y cada fase pide un minimo y un maximo.
+         * Sin esto la sala decia «caben 10» con 9 dentro y nadie se enteraba
+         * de que la fase no iba a arrancar hasta crear la edicion.
+         */
+        get phaseNeeds() {
+            const nodos = {};
+
+            this.starts.forEach((s) => {
+                const total = this.doorCount(s.id);
+                let quedan = total;
+
+                (s.feeds ?? []).forEach((f) => {
+                    let toma;
+
+                    if (f.mode === 'TAKE_N') toma = Math.min(Number(f.value ?? 0), quedan);
+                    else if (f.mode === 'PERCENTAGE') toma = Math.min(Math.floor((total * Number(f.value ?? 0)) / 100), quedan);
+                    else toma = quedan;
+
+                    quedan -= toma;
+
+                    const n = (nodos[f.node_id] ??= { node_id: f.node_id, name: f.node_name, min: f.min, max: f.max, llegan: 0, puertas: [] });
+
+                    n.llegan += toma;
+
+                    if (!n.puertas.includes(s.id)) n.puertas.push(s.id);
+                });
+            });
+
+            return Object.values(nodos).map((n) => ({
+                ...n,
+                falta: n.min != null && n.llegan < n.min ? n.min - n.llegan : 0,
+                sobra: n.max != null && n.llegan > n.max ? n.llegan - n.max : 0,
+            }));
+        },
+
+        get phaseProblems() {
+            return this.phaseNeeds.filter((n) => n.falta || n.sobra);
+        },
+
+        phaseProblemText(n) {
+            const pide = n.min != null && n.min === n.max ? `exactamente ${n.min}` : (n.falta ? `al menos ${n.min}` : `como mucho ${n.max}`);
+
+            return `A «${n.name}» le llegarían ${n.llegan} y pide ${pide}: así no puede arrancar.`;
+        },
+
+        /*
+         * Ensaya el diseño que hay en pantalla sin guardarlo. El resultado
+         * vale para ESE diseño: en cuanto se toca algo, deja de mostrarse.
+         */
+        async rehearse() {
+            const json = this.designJson;
+
+            this.rehearsal = { loading: true, ok: null, problem: null, forJson: json };
+
+            try {
+                const r = await fetch(`${this.tournament.room_url}/rehearse`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content ?? '',
+                    },
+                    body: JSON.stringify({
+                        design: json,
+                        context: this.isEdition ? 'EDITION' : 'TOURNAMENT',
+                        template_id: this.templateId,
+                    }),
+                });
+
+                const j = await r.json();
+
+                this.rehearsal = { loading: false, ok: Boolean(j.ok), problem: j.problem ?? null, forJson: json };
+            } catch (e) {
+                this.rehearsal = { loading: false, ok: false, problem: 'No se pudo hacer el ensayo. Vuelve a intentarlo.', forJson: json };
+            }
+        },
+
+        get rehearsalCurrent() {
+            return this.rehearsal.forJson === this.designJson;
+        },
+
+        /* La puerta alimenta una fase que no va a poder arrancar */
+        doorBlocksPhase(startId) {
+            return this.phaseProblems.some((n) => n.puertas.includes(Number(startId)));
+        },
+
         get unplaced() {
             return this.roster.filter((c) => this.isIn(c.id) && !this.calc.doorOf[c.id]);
         },
@@ -1238,6 +1383,7 @@ export default function participantRoom(sala) {
             if (!s?.capacity) return { text: `${n} entran · sin límite`, tone: '#94a3b8' };
             if (this.doorOverflow(startId)) return { text: `llena · sobran ${this.doorOverflow(startId)}`, tone: '#fbbf24' };
             if (n === s.capacity) return { text: 'completa', tone: '#34d399' };
+            if (this.doorBlocksPhase(startId)) return { text: `faltan ${s.capacity - n} · la fase no arranca`, tone: '#f43f5e' };
             return { text: `faltan ${s.capacity - n}`, tone: n ? '#38bdf8' : '#f43f5e' };
         },
 

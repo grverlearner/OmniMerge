@@ -185,11 +185,19 @@ class UniverseEntityImporter
             'code' =>
             UniverseEntity::formatCode($sequence),
 
+            /*
+             * El nombre y la descripcion son los de la entidad. La version
+             * base solo pone la cara: es lo que dice la Biblioteca
+             * (Entity::getBaseDisplayImageUrlAttribute) y lo que el usuario
+             * ve al elegirla. Copiar el nombre de la version convertia a
+             * «Naruto Uzumaki» en «Naruto Shippuden Basico», que es la
+             * etiqueta de una version y no el nombre de nadie.
+             */
             'name' =>
-            $version?->name ?: $entity->name,
+            $entity->name,
 
             'description' =>
-            $version?->description ?: $entity->description,
+            $entity->description ?: $version?->description,
 
             /*
              * Se copia la RUTA de la imagen, no el archivo: el disco es

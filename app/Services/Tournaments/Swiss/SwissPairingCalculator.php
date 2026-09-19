@@ -1229,13 +1229,20 @@ class SwissPairingCalculator
         $inputOrder++;
 
         return [
+            /*
+             * El identificador viaja tal cual, sin convertirlo a número.
+             *
+             * No siempre lo es: el Competition Lab reparte claves como
+             * «LAB-S078-P0001» y un competidor de un universo llega como
+             * «UC-000123». Forzarlas a entero las convertía todas en 0, así
+             * que la ronda salía con emparejamientos «0 contra 0» y el
+             * Runtime, que solo juega un encuentro con sus dos lados
+             * puestos, dejaba la fase entera bloqueada.
+             */
             'id' =>
-            (int)
-            (
-                $participant['id']
+            $participant['id']
                 ??
-                $inputOrder
-            ),
+                $inputOrder,
 
             'seed' =>
             (int)
@@ -1311,14 +1318,17 @@ class SwissPairingCalculator
                 0
             ),
 
+            /*
+             * Los rivales ya jugados se guardan con el mismo tipo que el
+             * identificador: havePlayed() los compara en modo estricto, de
+             * modo que mezclar textos con enteros haría que no se
+             * reconociera ninguna revancha.
+             */
             'opponents' =>
             array_values(
-                array_map(
-                    'intval',
-                    $participant['opponents']
-                        ??
-                        []
-                )
+                $participant['opponents']
+                    ??
+                    []
             ),
 
             'bye_count' =>

@@ -96,6 +96,50 @@
 
             </nav>
 
+            {{--
+                Pantalla completa de verdad: oculta tambien el navegador.
+                La arena ya ocupa la ventana, pero la ventana no es la
+                pantalla; para mirar un cuadro de 16 hace falta todo el
+                sitio. Esc sale, y el boton se entera por fullscreenchange.
+            --}}
+            <div x-data="{
+                    completa: !! document.fullscreenElement,
+                    aviso: '',
+
+                    /*
+                     * Algunos navegadores —o una ventana incrustada— niegan
+                     * la pantalla completa. Antes el boton no hacia nada y
+                     * parecia roto; ahora dice por que y que hacer.
+                     */
+                    async alternar() {
+                        try {
+                            if (this.completa) {
+                                await document.exitFullscreen();
+                            } else {
+                                await document.documentElement.requestFullscreen();
+                            }
+                        } catch (e) {
+                            this.aviso = 'Este navegador no deja abrir la pantalla completa desde aquí. Prueba con F11.';
+                            setTimeout(() => this.aviso = '', 5000);
+                        }
+                    },
+                }"
+                x-init="document.addEventListener('fullscreenchange', () => completa = !! document.fullscreenElement)"
+                class="relative shrink-0">
+                <p x-show="aviso" x-cloak x-text="aviso"
+                    class="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-amber-500/40 bg-slate-950 px-3 py-2 text-[11px] font-bold text-amber-200 shadow-xl"></p>
+                <button type="button"
+                    x-show="document.fullscreenEnabled"
+                    @click="alternar()"
+                    :title="completa ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa'"
+                    :aria-pressed="completa"
+                    class="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-2.5 py-2 text-[11px] font-black text-slate-400 transition hover:border-violet-500/50 hover:text-violet-300">
+                    <span x-show="! completa"><x-omni-icon name="expandir" size="h-4 w-4" /></span>
+                    <span x-show="completa" x-cloak><x-omni-icon name="contraer" size="h-4 w-4" /></span>
+                    <span class="hidden lg:inline" x-text="completa ? 'Salir' : 'Pantalla completa'"></span>
+                </button>
+            </div>
+
             <template x-if="loading">
                 <span class="shrink-0 text-[11px] font-black text-violet-400">···</span>
             </template>

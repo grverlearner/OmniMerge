@@ -2,11 +2,8 @@
     /*
      * Ficha de participante — componente único.
      *
-     * Se usa en el selector, en el workspace y en el inspector del Lab,
-     * para que un participante se vea igual en todas partes.
-     *
-     * Degrada con elegancia: si no hay Entidad detrás (participantes
-     * sintéticos del Competition Lab) muestra solo el nombre.
+     * Se usa en el podio de la competición, y degrada con elegancia: si no
+     * hay Entidad detrás muestra solo el nombre.
      *
      * Parámetros:
      *   $name            string
@@ -23,7 +20,7 @@
     $maxAttributes = $maxAttributes ?? 3;
     $attributes = $attributes ?? [];
 
-    $avatar = $size === 'sm' ? 'h-9 w-9 text-base' : 'h-12 w-12 text-xl';
+    $avatar = $size === 'sm' ? 'h-9 w-9' : 'h-12 w-12';
     $title = $size === 'sm' ? 'text-[12px]' : 'text-sm';
 
     /* Los destacados de la Biblioteca mandan sobre el resto. */
@@ -37,24 +34,12 @@
 <div class="flex min-w-0 items-center gap-3">
 
     <div
-        class="
-            {{ $avatar }}
-
-            flex
-            shrink-0
-            items-center
-            justify-center
-            overflow-hidden
-            rounded-xl
-            bg-violet-100
-            text-violet-500
-        ">
+        class="{{ $avatar }} flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-800 bg-slate-900 text-violet-300">
 
         @if (!empty($imageUrl))
-            <img src="{{ $imageUrl }}" alt="{{ $name }}"
-                class="h-full w-full object-cover">
+            <img src="{{ $imageUrl }}" alt="{{ $name }}" class="h-full w-full object-cover">
         @else
-            ✦
+            <x-omni-icon name="usuario" :size="$size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'" />
         @endif
 
     </div>
@@ -65,31 +50,12 @@
         <div class="flex items-center gap-1.5">
 
             @if (!empty($seed))
-                <span
-                    class="
-                        shrink-0
-                        rounded
-                        bg-slate-100
-                        px-1.5
-                        py-0.5
-                        font-mono
-                        text-[9px]
-                        font-black
-                        text-slate-500
-                    ">
+                <span class="shrink-0 rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[9px] font-black text-slate-500">
                     #{{ $seed }}
                 </span>
             @endif
 
-
-            <p
-                class="
-                    {{ $title }}
-
-                    truncate
-                    font-black
-                    text-slate-900
-                ">
+            <p class="{{ $title }} truncate font-black text-white">
                 {{ $name }}
             </p>
 
@@ -97,13 +63,7 @@
 
 
         @if (!empty($typeName) || !empty($versionName))
-            <p
-                class="
-                    mt-0.5
-                    truncate
-                    text-[10px]
-                    text-slate-400
-                ">
+            <p class="mt-0.5 truncate text-[10px] text-slate-600">
                 {{ $typeName }}
 
                 @if (!empty($typeName) && !empty($versionName))
@@ -111,9 +71,7 @@
                 @endif
 
                 @if (!empty($versionName))
-                    <span class="text-violet-500">
-                        {{ $versionName }}
-                    </span>
+                    <span class="text-violet-400">{{ $versionName }}</span>
                 @endif
             </p>
         @endif
@@ -124,21 +82,11 @@
 
                 @foreach ($shown as $attribute)
                     <span
-                        class="
-                            {{ ($attribute['featured'] ?? false)
-                                ? 'bg-violet-100 text-violet-700'
-                                : 'bg-slate-100 text-slate-600' }}
-
-                            rounded
-                            px-1.5
-                            py-0.5
-                            text-[9px]
-                            font-bold
-                        ">
+                        class="{{ ($attribute['featured'] ?? false)
+                            ? 'bg-violet-500/15 text-violet-300'
+                            : 'bg-slate-900 text-slate-500' }} rounded px-1.5 py-0.5 text-[9px] font-bold">
                         {{ $attribute['name'] }}
-                        <span class="font-black">
-                            {{ $attribute['display'] }}
-                        </span>
+                        <span class="font-black">{{ $attribute['display'] }}</span>
                     </span>
                 @endforeach
 

@@ -171,6 +171,16 @@ class ParticipantRoomBuilder
 
     private function starts(int $templateId): array
     {
+        /*
+         * A que fases lleva cada puerta, y cuantos piden esas fases.
+         *
+         * «Caben 10» dice cuantos entran por la puerta, no cuantos necesita
+         * la fase para arrancar. Con esto la sala puede avisar en el acto
+         * de que a «TVT 1» le llegarian 9 y pide exactamente 10, en vez de
+         * que se descubra al crear la edicion.
+         */
+        $alimenta = $this->startFeeds($templateId);
+
         return TournamentStart::query()
             ->where('tournament_template_id', $templateId)
             ->where('status', 'ACTIVE')
@@ -182,6 +192,8 @@ class ParticipantRoomBuilder
                 'code' => $s->code,
                 'description' => $s->description,
                 'capacity' => $s->expected_participants ? (int) $s->expected_participants : null,
+
+                'feeds' => $alimenta[$s->id] ?? [],
             ])
             ->values()
             ->all();
@@ -214,5 +226,44 @@ class ParticipantRoomBuilder
             ->all();
 
         return $reparto === [] ? null : $participantes->fromAssignments($reparto);
+    }
+
+    /*
+     * A que fases lleva cada puerta de una plantilla, y cuantos piden.
+     *
+     * «Caben 10» dice cuantos entran por la puerta, no cuantos necesita la
+     * fase para arrancar. Con esto la sala avisa en el acto de que a «TVT 1»
+     * le llegarian 9 y pide exactamente 10.
+     */
+    public function startFeeds(int $templateId): array
+    {
+        return \App\Models\TournamentPhaseConnection::query()
+            ->with('targetEntryPort.node.phaseTemplate')
+            ->where('tournament_template_id', $templateId)
+            ->whereNotNull('source_start_id')
+            ->where('status', 'ACTIVE')
+            ->orderBy('priority')
+            ->orderBy('sequence_number')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn ($c) => $c->targetEntryPort?->node)
+            ->groupBy('source_start_id')
+            ->map(fn ($grupo) => $grupo
+                ->map(function ($c) {
+                    $nodo = $c->targetEntryPort->node;
+                    $fase = $nodo->phaseTemplate;
+
+                    return [
+                        'node_id' => (int) $nodo->id,
+                        'node_name' => $nodo->name,
+                        'mode' => $c->allocation_mode ?: 'ALL',
+                        'value' => $c->allocation_value !== null ? (float) $c->allocation_value : null,
+                        'min' => $fase?->min_participants ? (int) $fase->min_participants : null,
+                        'max' => $fase?->max_participants ? (int) $fase->max_participants : null,
+                    ];
+                })
+                ->values()
+                ->all())
+            ->all();
     }
 }

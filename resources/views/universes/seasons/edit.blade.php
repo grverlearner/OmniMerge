@@ -100,7 +100,9 @@
 
                     <form method="POST"
                         action="{{ route('universes.seasons.destroy', [$universe, $season]) }}"
-                        onsubmit="return confirm({{ Js::from('Se elimina «' . $season->name . '». ¿Seguro?') }}) ">
+                        data-omni-confirm data-confirm-variant="danger" data-confirm-title="Eliminar la temporada"
+                        data-confirm-message="Se elimina de este universo." data-confirm-subject="{{ $season->name }}"
+                        data-confirm-detail="No se puede deshacer." data-confirm-action="Sí, eliminarla">
                         @csrf
                         @method('DELETE')
 

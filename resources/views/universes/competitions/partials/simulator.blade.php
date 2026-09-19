@@ -14,22 +14,24 @@
     <template x-if="!state?.encounter && state?.status === 'RUNNING'">
 
         <div
-            class="flex flex-col items-center gap-4 rounded-[30px] border-2 border-dashed border-slate-300 bg-white p-8 text-center sm:flex-row sm:justify-between sm:text-left">
+            class="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-violet-500/40 bg-violet-500/5 p-5 text-center sm:flex-row sm:justify-between sm:text-left">
 
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
 
-                <div class="text-4xl" x-text="state?.game?.icon ?? '🎲'"></div>
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300">
+                    <x-omni-icon name="dado" size="h-5 w-5" />
+                </span>
 
                 <div>
-                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-violet-600">
+                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300/70">
                         Simulación a mano
                     </p>
 
-                    <h3 class="mt-1 text-lg font-black text-slate-900">
+                    <h3 class="mt-0.5 text-[15px] font-black text-white">
                         Juega el siguiente enfrentamiento tú
                     </h3>
 
-                    <p class="mt-1 max-w-lg text-xs leading-relaxed text-slate-500">
+                    <p class="mt-1 max-w-lg text-[11px] leading-relaxed text-slate-500">
                         Genera el resultado de cada competidor por separado y ve
                         quién gana, en vez de dejar que el motor lo resuelva solo.
                     </p>
@@ -38,7 +40,8 @@
             </div>
 
             <button type="button" @click="execute('PREPARE_ENCOUNTER')" :disabled="loading"
-                class="shrink-0 rounded-xl bg-slate-950 px-5 py-3 text-xs font-black text-white transition hover:bg-slate-800 disabled:opacity-40">
+                class="flex shrink-0 items-center gap-1.5 rounded-xl bg-violet-500 px-4 py-2.5 text-[11px] font-black text-white transition hover:bg-violet-400 disabled:opacity-40">
+                <x-omni-icon name="reproducir" size="h-3.5 w-3.5" />
                 Preparar enfrentamiento
             </button>
 

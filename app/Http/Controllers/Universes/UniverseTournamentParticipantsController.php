@@ -53,6 +53,93 @@ class UniverseTournamentParticipantsController extends Controller
     }
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | ¿Se puede jugar con este diseño?
+    |--------------------------------------------------------------------------
+    |
+    | La sala avisa en el acto cuando a una fase de entrada le llegan menos
+    | de los que pide. Lo que pasa MAS ADELANTE —la liguilla solo manda ocho
+    | a una fase de grupos que pide dieciseis— solo se sabe jugando.
+    |
+    | Aqui se juega: con el diseño que hay en pantalla, sin guardarlo, se
+    | monta una edicion provisional, se ensaya con el mismo motor
+    | (EditionRehearsal) y se deshace todo. No queda nada escrito.
+    |
+    */
+
+    public function rehearse(
+        Request $request,
+        Universe $universe,
+        UniverseTournament $universeTournament
+    ): \Illuminate\Http\JsonResponse {
+
+        $this->authorize('update', $universe);
+
+        abort_unless((int) $universeTournament->universe_id === (int) $universe->id, 404);
+
+        $diseno = json_decode((string) $request->input('design', '{}'), true);
+        $diseno = is_array($diseno) ? $diseno : [];
+
+        /* En la sala del torneo el diseño es el propio torneo, sobre todo el universo */
+        if ($request->input('context') !== 'EDITION') {
+            $diseno['source'] = 'CUSTOM';
+            $diseno['scope'] = 'UNIVERSE';
+        }
+
+        $templateId = (int) ($request->input('template_id') ?: $universeTournament->tournament_template_id);
+
+        $participantes = app(\App\Services\Universes\EditionParticipants::class);
+
+        $db = \Illuminate\Support\Facades\DB::connection();
+        $db->beginTransaction();
+
+        try {
+            $assignments = array_filter(
+                $participantes->resolve($universe, $universeTournament, $diseno, $templateId)['assignments'],
+                fn ($ids) => $ids !== []
+            );
+
+            if ($assignments === []) {
+                return response()->json([
+                    'ok' => false,
+                    'problem' => 'Con este diseño no entra nadie, o nadie cabe en las puertas.',
+                ]);
+            }
+
+            $instance = app(\App\Services\Tournaments\Runtime\TournamentInstanceService::class)->create(
+                $universe,
+                $universeTournament,
+                [
+                    'name' => 'Ensayo',
+                    'tournament_template_id' => $templateId,
+                    'series_format' => $universeTournament->series_format ?: 'BEST_OF',
+                    'best_of' => $universeTournament->best_of ?: 1,
+                    'fixed_games' => $universeTournament->fixed_games ?: 1,
+                    'game_key' => $universeTournament->game_key,
+                ],
+                $assignments
+            );
+
+            $problema = app(\App\Services\Tournaments\Runtime\EditionRehearsal::class)
+                ->problem($instance->fresh());
+
+            return response()->json([
+                'ok' => $problema === null,
+                'problem' => $problema,
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok' => false,
+                'problem' => collect($e->errors())->flatten()->first() ?: 'No se pudo preparar el ensayo.',
+            ]);
+        } finally {
+            $db->rollBack();
+        }
+    }
+
+
     public function update(
         Request $request,
         Universe $universe,

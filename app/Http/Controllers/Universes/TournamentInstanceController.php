@@ -750,40 +750,76 @@ class TournamentInstanceController extends Controller
                 ]);
         }
 
-        $instance =
-            $this->service
-            ->create(
-                $universe,
-                $universeTournament,
-                [...$request->validated(), ...$extra],
-                $assignments
-            );
-
         /*
-         * El resto de la configuracion, DESPUES de crear.
+         * Crear, configurar y ENSAYAR, todo o nada.
          *
-         * No es un detalle de orden: la excepcion de una fase se guarda en
-         * su fila, y esas filas no existen hasta que el proyector dibuja
-         * el grafo de esta edicion.
+         * La edicion congela a sus competidores al nacer. Antes se dejaba
+         * crear aunque con ellos alguna fase no pudiera jugarse, y el fallo
+         * aparecia al pulsar «jugar», con la edicion ya cerrada. Ahora se
+         * juega entera en memoria (EditionRehearsal) y, si no puede
+         * terminar, no se crea: se vuelve al formulario diciendo por que.
          */
-        $this->configuration->apply(
-            $instance,
-            $universeTournament,
-            $request->validated(),
-            $request->phasesPayload(),
-            $request->rewardsPayload(),
-            $startRules,
-            $request->file('image')
-        );
+        try {
+            $instance = \Illuminate\Support\Facades\DB::transaction(function () use (
+                $universe, $universeTournament, $request, $extra, $assignments, $startRules, $diseno
+            ) {
+                $instance =
+                    $this->service
+                    ->create(
+                        $universe,
+                        $universeTournament,
+                        [...$request->validated(), ...$extra],
+                        $assignments
+                    );
 
-        if ($copied = (int) $request->input('copied_from_instance_id')) {
-            $instance->update(['copied_from_instance_id' => $copied]);
-        }
+                /*
+                 * El resto de la configuracion, DESPUES de crear.
+                 *
+                 * No es un detalle de orden: la excepcion de una fase se guarda en
+                 * su fila, y esas filas no existen hasta que el proyector dibuja
+                 * el grafo de esta edicion.
+                 */
+                $this->configuration->apply(
+                    $instance,
+                    $universeTournament,
+                    $request->validated(),
+                    $request->phasesPayload(),
+                    $request->rewardsPayload(),
+                    $startRules,
+                    $request->file('image')
+                );
 
-        if ($diseno !== null) {
-            $instance->update([
-                'participant_design' => app(\App\Services\Universes\EditionParticipants::class)->normalize($diseno),
-            ]);
+                if ($copied = (int) $request->input('copied_from_instance_id')) {
+                    $instance->update(['copied_from_instance_id' => $copied]);
+                }
+
+                if ($diseno !== null) {
+                    $instance->update([
+                        'participant_design' => app(\App\Services\Universes\EditionParticipants::class)->normalize($diseno),
+                    ]);
+                }
+
+                $problema = app(\App\Services\Tournaments\Runtime\EditionRehearsal::class)
+                    ->problem($instance->fresh());
+
+                if ($problema !== null) {
+
+                    /* El cartel ya se subio al disco; la transaccion no lo deshace */
+                    if ($cartel = $instance->fresh()->image) {
+                        \Illuminate\Support\Facades\Storage::disk('public')->delete($cartel);
+                    }
+
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'assignments' => $problema,
+                    ]);
+                }
+
+                return $instance;
+            });
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()
+                ->withInput()
+                ->withErrors($e->errors());
         }
 
         return redirect()
@@ -938,6 +974,15 @@ class TournamentInstanceController extends Controller
             $this->history
             ->standings($competition);
 
+        /*
+         * Con que juego se resuelven sus batallas. La ficha lo enseña
+         * como una insignia mas: saber si esto se juega a los dados o a
+         * otra cosa es parte de saber que competicion es.
+         */
+        $game =
+            app(\App\Services\Games\GameRegistry::class)
+            ->definition($competition->game_key);
+
         return view(
             'universes.competitions.show',
             compact(
@@ -948,7 +993,8 @@ class TournamentInstanceController extends Controller
                 'events',
                 'history',
                 'phaseBlocks',
-                'finalStandings'
+                'finalStandings',
+                'game'
             )
         );
     }
@@ -1338,9 +1384,15 @@ class TournamentInstanceController extends Controller
                 ->orderBy('id')
                 ->get()
                 ->map(
-                    function ($match) use ($championKey, $phaseNames) {
+                    function ($match) use ($championKey, $phaseNames, $participants) {
 
                         $isA = $match->participant_a_key === $championKey;
+
+                        /* El rival, con la cara con la que jugo esta competicion */
+                        $rival = $participants->firstWhere(
+                            'runtime_key',
+                            $isA ? $match->participant_b_key : $match->participant_a_key
+                        );
 
                         return [
                             'match' => $match,
@@ -1353,6 +1405,7 @@ class TournamentInstanceController extends Controller
                             'rival_entity' => $isA
                                 ? $match->participantBEntity
                                 : $match->participantAEntity,
+                            'rival_image' => $rival?->face_url,
                             'score' => $match->series
                                 ? ($isA ? $match->series_score : array_reverse($match->series_score))
                                 : null,

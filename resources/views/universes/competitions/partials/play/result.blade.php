@@ -96,8 +96,8 @@
                     <p class="text-[11px] font-black uppercase tracking-[0.35em] text-amber-400">Campeón</p>
 
                     <div class="mx-auto mt-6 h-56 w-56 overflow-hidden rounded-[32px] border-4 border-amber-400/70 bg-slate-800 shadow-2xl shadow-amber-900/50 xl:h-64 xl:w-64">
-                        @if ($championEntity?->image_url)
-                            <img src="{{ $championEntity->image_url }}" alt="{{ $champion->name }}"
+                        @if ($champion->face_url ?? $championEntity?->image_url)
+                            <img src="{{ $champion->face_url ?? $championEntity?->image_url }}" alt="{{ $champion->name }}"
                                 class="h-full w-full object-cover">
                         @else
                             <div class="flex h-full w-full items-center justify-center text-6xl opacity-30">✦</div>
@@ -205,8 +205,8 @@
                                 <span class="shrink-0 text-[10px] font-bold text-slate-600">contra</span>
 
                                 <div class="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-slate-800">
-                                    @if ($step['rival_entity']?->image_url)
-                                        <img src="{{ $step['rival_entity']->image_url }}" alt=""
+                                    @if ($step['rival_image'] ?? $step['rival_entity']?->image_url)
+                                        <img src="{{ $step['rival_image'] ?? $step['rival_entity']?->image_url }}" alt=""
                                             class="h-full w-full object-cover">
                                     @endif
                                 </div>

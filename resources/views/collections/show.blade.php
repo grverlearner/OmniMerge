@@ -558,7 +558,7 @@
 
                                 @can('update', $collection)
                                     <form method="POST" :action="e.quitar" class="mt-1"
-                                        onsubmit="return confirm('Se saca de esta colección. La entidad no se borra. ¿Seguro?')">
+                                        data-omni-confirm data-confirm-variant="warning" data-confirm-title="Sacar de la colección" data-confirm-message="La entidad no se borra: solo deja de estar en esta colección." data-confirm-action="Sí, sacarla">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit"
@@ -603,7 +603,7 @@
 
                             @can('update', $collection)
                                 <form method="POST" :action="e.quitar" class="shrink-0"
-                                    onsubmit="return confirm('Se saca de esta colección. La entidad no se borra. ¿Seguro?')">
+                                    data-omni-confirm data-confirm-variant="warning" data-confirm-title="Sacar de la colección" data-confirm-message="La entidad no se borra: solo deja de estar en esta colección." data-confirm-action="Sí, sacarla">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" title="Sacarla de esta colección"
@@ -661,7 +661,7 @@
                                     <td class="px-3 py-2 text-right">
                                         @can('update', $collection)
                                             <form method="POST" :action="e.quitar"
-                                                onsubmit="return confirm('Se saca de esta colección. La entidad no se borra. ¿Seguro?')">
+                                                data-omni-confirm data-confirm-variant="warning" data-confirm-title="Sacar de la colección" data-confirm-message="La entidad no se borra: solo deja de estar en esta colección." data-confirm-action="Sí, sacarla">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit"

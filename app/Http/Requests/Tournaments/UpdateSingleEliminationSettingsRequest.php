@@ -449,6 +449,54 @@ class UpdateSingleEliminationSettingsRequest extends FormRequest
                         );
                     }
 
+                    /*
+                    |----------------------------------------------------------
+                    | El modo básico es un duelo: entran 2 y pasa 1
+                    |----------------------------------------------------------
+                    |
+                    | La relación K → Q solo se comprobaba en el modo avanzado,
+                    | y esta rama sale antes de llegar alli. Asi se podia
+                    | guardar «entran 2, pasan 2»: un encuentro del que no sale
+                    | nadie eliminado, con el que el cuadro no puede avanzar.
+                    |
+                    | Solo se comprueba lo que el formulario haya enviado: si no
+                    | manda nada, el contrato por defecto ya es 2 → 1.
+                    */
+
+                    $contrato = array_filter(
+                        [
+                            'entrants_per_match' =>
+                            $this->input('entrants_per_match'),
+
+                            'qualifiers_per_match' =>
+                            $this->input('qualifiers_per_match'),
+
+                            'encounter_profile' =>
+                            $this->input('encounter_profile'),
+                        ],
+                        fn ($valor) => $valor !== null && $valor !== ''
+                    );
+
+                    if (
+                        $contrato !== []
+                        &&
+                        (
+                            (int) ($contrato['entrants_per_match'] ?? 2) !== 2
+                            ||
+                            (int) ($contrato['qualifiers_per_match'] ?? 1) !== 1
+                            ||
+                            ($contrato['encounter_profile'] ?? 'DUEL') !== 'DUEL'
+                        )
+                    ) {
+                        $validator
+                            ->errors()
+                            ->add(
+                                'encounter_profile',
+                                'En modo básico cada encuentro es un duelo: entran 2 y pasa 1. '
+                                    . 'Cambia a modo avanzado para otras combinaciones.'
+                            );
+                    }
+
                     return;
                 }
 

@@ -137,6 +137,20 @@ class TournamentHistoryService
             ->with('universeEntity')
             ->get()
             ->sortBy([
+                /*
+                 * El puesto que quedo registrado manda sobre todo lo demas.
+                 *
+                 * Sin esto, la clasificacion final se reconstruia a base de
+                 * puntos y victorias, y en un cuadro de eliminacion —donde
+                 * nadie suma puntos— el desempate por victorias colocaba de
+                 * subcampeon a quien habia quedado decimoquinto. Mientras la
+                 * competicion sigue viva no hay puesto todavia, y entonces
+                 * valen los criterios de abajo, como antes.
+                 */
+                fn($a, $b) =>
+                ($a->placement ?? PHP_INT_MAX)
+                    <=> ($b->placement ?? PHP_INT_MAX),
+
                 fn($a, $b) =>
                 ($a->outcome === 'CHAMPION' ? 0 : 1)
                     <=> ($b->outcome === 'CHAMPION' ? 0 : 1),

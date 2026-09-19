@@ -74,6 +74,9 @@ class CompetitionTemplateBrief
 
         $levels = $this->levels($template, $nodes);
 
+        /* A que fases lleva cada puerta: la sala de la edicion avisa con esto */
+        $alimenta = app(ParticipantRoomBuilder::class)->startFeeds((int) $template->id);
+
         return [
             'id' => $template->id,
             'name' => $template->name,
@@ -99,6 +102,7 @@ class CompetitionTemplateBrief
                         ? (int) $s->expected_participants
                         : null,
                     'source_type' => $s->source_type,
+                    'feeds' => $alimenta[$s->id] ?? [],
                 ])
                 ->all(),
 

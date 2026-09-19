@@ -636,7 +636,7 @@
                                 </form>
 
                                 <form method="POST" :action="editor.borrar" class="flex-1"
-                                    onsubmit="return confirm('Se borra la imagen para siempre. ¿Seguro?')">
+                                    data-omni-confirm data-confirm-variant="danger" data-confirm-title="Borrar la imagen" data-confirm-message="Se borra para siempre." data-confirm-detail="No se puede deshacer." data-confirm-action="Sí, borrarla">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit"

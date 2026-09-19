@@ -245,12 +245,8 @@
 
                     document.querySelectorAll('[data-seccion]').forEach((el) => observador.observe(el));
 
-                    window.addEventListener('beforeunload', (e) => {
-                        if (this.sucio && ! this.enviando) {
-                            e.preventDefault();
-                            e.returnValue = '';
-                        }
-                    });
+                    /* Salir con cambios: el modal de OmniMerge (ver OmniUnsaved en app.js) */
+                    window.OmniUnsaved?.watch(() => this.sucio && ! this.enviando);
                 },
 
                 get huella() {

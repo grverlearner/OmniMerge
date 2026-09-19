@@ -834,7 +834,7 @@
                                     </button>
 
                                     <form method="POST" action="{{ route('attributes.structure.rules.destroy', $regla) }}"
-                                        onsubmit="return confirm('Se elimina esta regla. El atributo «{{ $objetivo?->name }}» volverá a comportarse según las demás reglas que le queden. ¿Seguro?')"
+                                        data-omni-confirm data-confirm-variant="danger" data-confirm-title="Eliminar la regla" data-confirm-message="El atributo volverá a comportarse según las demás reglas que le queden." data-confirm-subject="{{ $objetivo?->name }}" data-confirm-action="Sí, eliminarla"
                                         class="shrink-0">
                                         @csrf
                                         @method('DELETE')
@@ -1051,7 +1051,7 @@
 
                                             <form method="POST"
                                                 action="{{ route('attributes.structure.options.destroy', $relacion) }}"
-                                                onsubmit="return confirm('Se quita esta dependencia. ¿Seguro?')"
+                                                data-omni-confirm data-confirm-variant="danger" data-confirm-title="Quitar la dependencia" data-confirm-message="Las dos opciones dejan de depender una de la otra." data-confirm-action="Sí, quitarla"
                                                 class="shrink-0">
                                                 @csrf
                                                 @method('DELETE')

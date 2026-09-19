@@ -172,7 +172,7 @@
             existingNames: @js($existingEntityNames),
 
             createUrl: @js(route('entities.bulk.create'))
-        }), { rowView: 'table' })" x-init="init()" @submit="prepareSubmit()" class="space-y-4">
+        }), { rowView: 'table' })" x-init="init()" @submit="prepareSubmit($event)" class="space-y-4">
 
         @csrf
 
@@ -1119,7 +1119,7 @@
 
                     if (!attribute) {
 
-                        alert(
+                        window.OmniConfirm.notice(
                             'Selecciona un atributo.'
                         );
 
@@ -1132,7 +1132,7 @@
                         0
                     ) {
 
-                        alert(
+                        window.OmniConfirm.notice(
                             'Selecciona al menos una fila.'
                         );
 
@@ -1187,7 +1187,7 @@
 
                     if (!source) {
 
-                        alert(
+                        window.OmniConfirm.notice(
                             'No existe ningún valor para copiar.'
                         );
 
@@ -2482,7 +2482,7 @@
                         event.preventDefault();
 
 
-                        alert(
+                        window.OmniConfirm.notice(
                             'Debes ingresar al menos una Entidad con nombre.'
                         );
 

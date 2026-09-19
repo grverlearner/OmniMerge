@@ -56,8 +56,9 @@
 
                 <div class="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900">
 
-                    @if ($entity?->image_url)
-                        <img src="{{ $entity->image_url }}" alt="{{ $participant->name }}"
+                    {{-- La cara con la que juega ESTA competicion, no la de su ficha --}}
+                    @if ($participant->face_url ?? $entity?->image_url)
+                        <img src="{{ $participant->face_url ?? $entity?->image_url }}" alt="{{ $participant->name }}"
                             class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
                     @else
                         <div class="flex h-full w-full items-center justify-center text-5xl opacity-30">✦</div>

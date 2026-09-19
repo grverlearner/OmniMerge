@@ -285,11 +285,18 @@ class UniverseTournamentController extends Controller
             $universe
         );
 
+        /*
+         * Solo formas que se pueden jugar: una plantilla archivada o sin
+         * ninguna fase dibujada deja una edicion que no arranca, y
+         * ofrecerla era invitar al usuario a descubrirlo al pulsar jugar.
+         */
         $templates =
             TournamentTemplate::query()
             ->ownedBy(
                 $request->user()
             )
+            ->where('status', '!=', 'ARCHIVED')
+            ->has('graphNodes')
             ->withCount('graphNodes')
             ->orderBy('name')
             ->get();
@@ -503,9 +510,23 @@ class UniverseTournamentController extends Controller
          * cambiar de forma entre temporadas, y esa es la eleccion por
          * defecto que heredaran las ediciones futuras.
          */
+        /*
+         * Las mismas que al crear, mas la que el torneo ya tenga puesta
+         * aunque despues se archivase: quitarla del selector la borraria
+         * sin avisar al guardar.
+         */
         $templates =
             TournamentTemplate::query()
             ->ownedBy($universe->user)
+            ->where(function ($query) use ($universeTournament) {
+                $query
+                    ->where(function ($jugables) {
+                        $jugables
+                            ->where('status', '!=', 'ARCHIVED')
+                            ->has('graphNodes');
+                    })
+                    ->orWhere('id', $universeTournament->tournament_template_id);
+            })
             ->withCount('graphNodes')
             ->orderBy('name')
             ->get();

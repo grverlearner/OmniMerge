@@ -28,9 +28,11 @@ class CompetitionLabService
     public function compatibility(
         TournamentTemplate $template
     ): array {
-        $template->loadMissing(
-            'graphNodes.phaseTemplate'
-        );
+        $template->loadMissing([
+            'graphNodes.phaseTemplate',
+            'graphNodes.phaseTemplate.singleEliminationSetting',
+            'graphNodes.phaseTemplate.singleEliminationRounds',
+        ]);
 
         $errors = [];
 
@@ -66,6 +68,43 @@ class CompetitionLabService
                     . '” usa '
                     . $phase->type_label
                     . ', un tipo que todavía no tiene motor de ejecución.',
+                ];
+            }
+
+            /*
+             * Una fase de eliminación en modo avanzado se juega por su
+             * estructura interna, así que sin ella generada no hay nada
+             * que ejecutar.
+             *
+             * Esto ya se comprobaba, pero dentro del motor y en plena
+             * partida: el Lab dejaba preparar los participantes, dejaba
+             * arrancar el recorrido y solo entonces se detenía. Se dice
+             * aquí, que es la puerta, y así el aviso llega antes de
+             * montar nada.
+             */
+            $singleElimination =
+                $phase->singleEliminationSetting;
+
+            if (
+                $singleElimination
+                &&
+                $singleElimination->configuration_mode === 'ADVANCED'
+                &&
+                $phase
+                    ->singleEliminationRounds
+                    ->where('status', 'ACTIVE')
+                    ->isEmpty()
+            ) {
+                $errors[] = [
+                    'code' => 'LAB_STRUCTURE_NOT_GENERATED',
+                    'message' =>
+                    'El nodo “'
+                    . $node->name
+                    . '” usa la fase “'
+                    . $phase->name
+                    . '” en modo avanzado y todavía no tiene su estructura '
+                    . 'interna generada, así que no puede jugarse. Génerala '
+                    . 'en la fase y vuelve a intentarlo.',
                 ];
             }
         }

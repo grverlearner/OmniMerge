@@ -241,7 +241,7 @@ class UniverseEntitySync
                 ->values()
                 ->all(),
 
-            'summary' => $this->resumen($diff, count($conservados)),
+            'summary' => $this->resumen($diff, count($conservados), $withIdentity),
         ];
     }
 
@@ -459,9 +459,31 @@ class UniverseEntitySync
         ];
     }
 
-    private function resumen(array $diff, int $conservados): string
+    private function resumen(array $diff, int $conservados, bool $conIdentidad = false): string
     {
         $partes = [];
+
+        /*
+         * Lo que se trajo de su identidad, si se pidio. Antes no contaba:
+         * renombrar al competidor terminaba con «no habia nada nuevo que
+         * traer», y el usuario veia el nombre nuevo desmintiendo el aviso.
+         */
+        $identidad = $conIdentidad ? (array) ($diff['identity'] ?? []) : [];
+
+        $etiquetas = [
+            'name' => 'el nombre',
+            'entity_type_name' => 'el tipo',
+            'image' => 'la imagen',
+        ];
+
+        $traido = array_values(array_filter(array_map(
+            fn ($campo) => $etiquetas[$campo] ?? null,
+            array_keys($identidad)
+        )));
+
+        if ($traido !== []) {
+            $partes[] = implode(' y ', $traido);
+        }
 
         $a = $diff['attributes'];
 

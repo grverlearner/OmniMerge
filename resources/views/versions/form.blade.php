@@ -1146,7 +1146,7 @@
                         )
                     ) {
 
-                        alert(
+                        window.OmniConfirm.notice(
                             'Selecciona una imagen JPG, PNG o WEBP.'
                         );
 
@@ -1177,7 +1177,7 @@
                         maxSize
                     ) {
 
-                        alert(
+                        window.OmniConfirm.notice(
                             'La imagen no puede superar los 2 MB.'
                         );
 

@@ -139,4 +139,12 @@ class StoreGroupStageTiebreakerRequest extends FormRequest
             ],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'criterion.unique' =>
+            'Ese criterio ya forma parte de la cadena de desempate.',
+        ];
+    }
 }

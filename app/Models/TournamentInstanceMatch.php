@@ -92,6 +92,29 @@ class TournamentInstanceMatch extends Model
         );
     }
 
+    /*
+     * La cara con la que jugo cada lado en ESTA competicion: la version
+     * congelada al empezar, no la imagen actual de su ficha. Se leen todos
+     * los participantes de la edicion de una vez (CompetitorFaces).
+     */
+    public function getParticipantAFaceUrlAttribute(): ?string
+    {
+        return \App\Services\Tournaments\Runtime\CompetitorFaces::byRuntimeKey(
+            (int) $this->tournament_instance_id,
+            $this->participant_a_key,
+            $this->participantAEntity
+        );
+    }
+
+    public function getParticipantBFaceUrlAttribute(): ?string
+    {
+        return \App\Services\Tournaments\Runtime\CompetitorFaces::byRuntimeKey(
+            (int) $this->tournament_instance_id,
+            $this->participant_b_key,
+            $this->participantBEntity
+        );
+    }
+
     public function winnerEntity(): BelongsTo
     {
         return $this->belongsTo(

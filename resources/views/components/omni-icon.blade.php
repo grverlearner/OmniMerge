@@ -150,6 +150,28 @@
             '<path d="M6.3 7.3C3.9 8.9 2.5 12 2.5 12S6 18.5 12 18.5a9 9 0 0 0 4.4-1.1"/>' .
             '<path d="M10 10a2.8 2.8 0 0 0 4 4"/><path d="m3 3 18 18"/>',
 
+        /* ---------------------------------------------- competicion */
+
+        'expandir' => '<path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>',
+
+        'contraer' => '<path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/>',
+
+        'reproducir' => '<path d="M7.5 4.8v14.4L19 12 7.5 4.8Z"/>',
+
+        'pausa' => '<path d="M9 4.5v15"/><path d="M15 4.5v15"/>',
+
+        'detener' => '<rect x="5.5" y="5.5" width="13" height="13" rx="2.5"/>',
+
+        'copiar' => '<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/>' .
+            '<path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/>',
+
+        'lapiz' => '<path d="m14.5 5.5 4 4"/><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4Z"/>',
+
+        'papelera' => '<path d="M4 7h16"/>' .
+            '<path d="M9.5 7V5.5A1.5 1.5 0 0 1 11 4h2a1.5 1.5 0 0 1 1.5 1.5V7"/>' .
+            '<path d="m6.5 7 .8 12.1A2 2 0 0 0 9.3 21h5.4a2 2 0 0 0 2-1.9L17.5 7"/>' .
+            '<path d="M10.5 11v6"/><path d="M13.5 11v6"/>',
+
         default => '<circle cx="12" cy="12" r="3.5"/>',
     };
 @endphp

@@ -12,6 +12,8 @@
 
 <section class="min-w-0 space-y-2">
 
+    @include('universes.tournaments.partials.sala.jugable')
+
     {{-- ============ LA BARRA ============ --}}
 
     <div class="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/60 p-2">

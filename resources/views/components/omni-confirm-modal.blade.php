@@ -133,7 +133,7 @@
             <div class="px-5 py-4">
 
                 <p id="omni-confirm-message"
-                    class="text-sm leading-relaxed text-slate-300"
+                    class="whitespace-pre-line text-sm leading-relaxed text-slate-300"
                     x-text="message"></p>
 
 
@@ -203,7 +203,7 @@
 
             <div class="flex flex-col-reverse gap-2 border-t border-slate-800 bg-slate-950/40 px-5 py-4 sm:flex-row sm:justify-end">
 
-                <button type="button" @click="close()" :disabled="submitting"
+                <button type="button" x-show="! notice" @click="close()" :disabled="submitting"
                     class="rounded-xl border border-slate-700 px-5 py-2.5 text-xs font-black text-slate-300 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                     x-text="cancelLabel"></button>
 

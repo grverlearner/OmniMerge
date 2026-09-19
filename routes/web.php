@@ -467,6 +467,19 @@ Route::middleware('auth')->group(function () {
                                             ]
                                         )->name('participants.update');
 
+                                        /*
+                                         * Ensayar el diseño que hay en
+                                         * pantalla, sin guardarlo: se juega
+                                         * en memoria y se deshace.
+                                         */
+                                        Route::post(
+                                            '/{universeTournament}/participants/rehearse',
+                                            [
+                                                UniverseTournamentParticipantsController::class,
+                                                'rehearse',
+                                            ]
+                                        )->name('participants.rehearse');
+
                                         Route::put(
                                             '/{universeTournament}',
                                             [

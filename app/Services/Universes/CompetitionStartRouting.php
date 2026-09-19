@@ -178,6 +178,21 @@ class CompetitionStartRouting
             return ['assignments' => [], 'leftovers' => $pool->keys()->map(fn ($id) => (int) $id)->all(), 'overflow' => []];
         }
 
+        /*
+         * Lo fijado a mano manda tambien fuera del modo manual.
+         *
+         * La ficha de cada competidor deja elegir «entra por esta puerta»
+         * en cualquier modo, pero solo el modo manual lo leia: en
+         * automatico o por reglas el boton se guardaba y no hacia nada.
+         */
+        if ($doors['mode'] !== 'MANUAL') {
+            $conFijados = $this->withPins($pool, $doors, $starts);
+
+            if ($conFijados !== null) {
+                return $conFijados;
+            }
+        }
+
         /* Una sola puerta: todos por ella, hasta donde quepan */
         if (count($starts) === 1) {
             $doors['mode'] = $doors['mode'] === 'MANUAL' ? 'MANUAL' : 'AUTO';
@@ -259,6 +274,78 @@ class CompetitionStartRouting
                 ->all(),
             'overflow' => $overflow,
         ];
+    }
+
+    /*
+     * Los fijados a mano entran primero en su puerta; el reparto de siempre
+     * rellena solo las plazas que dejan libres. Si nadie esta fijado,
+     * devuelve null y el reparto sigue como siempre.
+     */
+    private function withPins(Collection $pool, array $doors, array $starts): ?array
+    {
+        $vistos = [];
+        $fijados = [];
+        $sobran = [];
+        $libres = [];
+
+        foreach ($starts as $startId => $capacidad) {
+
+            $ids = array_values(array_filter(
+                array_map('intval', (array) ($doors['manual'][$startId] ?? [])),
+                fn ($id) => $pool->has($id) && ! isset($vistos[$id])
+            ));
+
+            if ($capacidad !== null && count($ids) > $capacidad) {
+                array_push($sobran, ...array_slice($ids, $capacidad));
+                $ids = array_slice($ids, 0, $capacidad);
+            }
+
+            foreach ($ids as $id) {
+                $vistos[$id] = true;
+            }
+
+            $fijados[$startId] = $ids;
+            $libres[$startId] = $capacidad === null ? null : $capacidad - count($ids);
+        }
+
+        if ($vistos === []) {
+            return null;
+        }
+
+        $sinFijar = $doors;
+        $sinFijar['manual'] = [];
+
+        $base = $this->planWithin(
+            $pool->reject(fn ($entity, $id) => isset($vistos[(int) $id])),
+            $sinFijar,
+            $libres
+        );
+
+        $reparto = ['assignments' => [], 'leftovers' => $sobran, 'overflow' => []];
+
+        foreach ($starts as $startId => $capacidad) {
+
+            $auto = $base['assignments'][$startId] ?? [];
+
+            /* Una puerta llena por los fijados no admite a nadie mas */
+            $sitio = $libres[$startId] === null ? count($auto) : max(0, $libres[$startId]);
+
+            $reparto['assignments'][$startId] = [...$fijados[$startId], ...array_slice($auto, 0, $sitio)];
+
+            $fuera = [...array_slice($auto, $sitio), ...($base['overflow'][$startId] ?? [])];
+
+            if ($fuera !== []) {
+                $reparto['overflow'][$startId] = $fuera;
+            }
+
+            array_push($reparto['leftovers'], ...array_slice($auto, $sitio));
+        }
+
+        $reparto['leftovers'] = array_values(array_unique(
+            [...$reparto['leftovers'], ...($base['leftovers'] ?? [])]
+        ));
+
+        return $reparto;
     }
 
     private function manual(Collection $pool, array $manual, array $starts, array $capacidades): array

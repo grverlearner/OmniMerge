@@ -132,7 +132,7 @@
                     </div>
 
                     <form method="POST" action="{{ route('attributes.destroy', $attribute) }}"
-                        onsubmit="return confirm('Se elimina el atributo «{{ $attribute->name }}» y todos sus valores. ¿Seguro?')">
+                        data-omni-confirm data-confirm-variant="danger" data-confirm-title="Eliminar el atributo" data-confirm-message="Se borran también todos sus valores." data-confirm-subject="{{ $attribute->name }}" data-confirm-detail="No se puede deshacer." data-confirm-action="Sí, eliminarlo">
                         @csrf
                         @method('DELETE')
 

@@ -1495,7 +1495,7 @@
                     entry
                 ) {
                     if (!this.pendingSource) {
-                        alert(
+                        window.OmniConfirm.notice(
                             'Primero selecciona un Start o una PhaseExit.'
                         );
 
@@ -1509,7 +1509,7 @@
                         this.pendingSource.node_id ===
                         node.id
                     ) {
-                        alert(
+                        window.OmniConfirm.notice(
                             'Un Node no puede conectarse consigo mismo.'
                         );
 
@@ -1538,7 +1538,7 @@
                     terminal
                 ) {
                     if (!this.pendingSource) {
-                        alert(
+                        window.OmniConfirm.notice(
                             'Primero selecciona un Start o una PhaseExit.'
                         );
 
@@ -1706,7 +1706,7 @@
                         .name
                         .trim()
                     ) {
-                        alert(
+                        window.OmniConfirm.notice(
                             'Escribe un nombre para la entrada.'
                         );
 
@@ -2066,7 +2066,7 @@
                                 '\n'
                             );
 
-                        alert(
+                        window.OmniConfirm.notice(
                             messages
                         );
 
@@ -2074,7 +2074,7 @@
                     }
 
 
-                    alert(
+                    window.OmniConfirm.notice(
                         error.message ??
                         'Ocurrió un error.'
                     );

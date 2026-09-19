@@ -12,37 +12,28 @@
 
 
 @if ($groups->isEmpty())
-    <p class="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-400">
+    <p class="rounded-xl border border-dashed border-slate-800 p-8 text-center text-[11px] text-slate-600">
         Esta fase no llegó a formar grupos.
     </p>
 @else
 
-    <div class="grid gap-4 xl:grid-cols-2">
+    <div class="grid gap-3 xl:grid-cols-2">
 
         @foreach ($groups as $label => $rows)
-            <section
-                class="
-                    rounded-2xl
-                    border
-                    border-slate-200
-                    bg-white
-                    p-4
-                ">
+            <section class="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
 
-                <div
-                    class="
-                        mb-3
-                        flex
-                        items-center
-                        justify-between
-                    ">
+                <div class="mb-2 flex items-center gap-2">
 
-                    <p class="text-sm font-black text-slate-900">
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
+                        <x-omni-icon name="cuadricula" size="h-3.5 w-3.5" />
+                    </span>
+
+                    <p class="min-w-0 flex-1 truncate text-[13px] font-black text-white">
                         {{ $label ?: 'Grupo único' }}
                     </p>
 
-                    <span class="text-[9px] font-bold uppercase text-slate-400">
-                        {{ $rows->count() }} competidores
+                    <span class="shrink-0 font-mono text-[10px] font-black text-slate-600">
+                        {{ $rows->count() }}
                     </span>
 
                 </div>
@@ -59,9 +50,9 @@
                 @endphp
 
                 @if ($groupMatches->isNotEmpty())
-                    <div class="mt-4 space-y-2">
+                    <div class="mt-3 space-y-1.5">
 
-                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                        <p class="text-[9px] font-black uppercase tracking-wider text-slate-600">
                             Enfrentamientos
                         </p>
 
